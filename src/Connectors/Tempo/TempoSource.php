@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Connectors\Tempo;
 use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\TracesSource;
+use Cbox\TelemetryUi\Queries\Results\MatchedSpan;
 use Cbox\TelemetryUi\Queries\Results\Span;
 use Cbox\TelemetryUi\Queries\Results\SpanKind;
 use Cbox\TelemetryUi\Queries\Results\Trace;
@@ -51,6 +52,7 @@ final readonly class TempoSource implements TracesSource
                 rootTraceName: (string) ($trace['rootTraceName'] ?? ''),
                 startedAt: (new DateTimeImmutable('@'.intdiv($startNano, 1_000_000_000))),
                 durationMs: (float) ($trace['durationMs'] ?? 0),
+                matchedSpans: $this->parseMatchedSpans($trace),
             );
         }
 
@@ -119,12 +121,52 @@ final readonly class TempoSource implements TracesSource
     }
 
     /**
+     * Spans matched by the TraceQL expression, from spanSets (v2) or the
+     * legacy singular spanSet.
+     *
+     * @param  array<array-key, mixed>  $trace
+     * @return list<MatchedSpan>
+     */
+    private function parseMatchedSpans(array $trace): array
+    {
+        $sets = is_array($trace['spanSets'] ?? null) ? $trace['spanSets'] : [];
+
+        if ($sets === [] && is_array($trace['spanSet'] ?? null)) {
+            $sets = [$trace['spanSet']];
+        }
+
+        $matched = [];
+
+        foreach ($sets as $set) {
+            if (! is_array($set) || ! is_array($set['spans'] ?? null)) {
+                continue;
+            }
+
+            foreach ($set['spans'] as $span) {
+                if (! is_array($span)) {
+                    continue;
+                }
+
+                $matched[] = new MatchedSpan(
+                    spanId: (string) ($span['spanID'] ?? $span['spanId'] ?? ''),
+                    name: (string) ($span['name'] ?? ''),
+                    startNano: (int) ($span['startTimeUnixNano'] ?? 0),
+                    durationMs: ((int) ($span['durationNanos'] ?? 0)) / 1_000_000,
+                    attributes: OtlpAttributes::parse(is_array($span['attributes'] ?? null) ? $span['attributes'] : []),
+                );
+            }
+        }
+
+        return $matched;
+    }
+
+    /**
      * @param  array<array-key, mixed>  $batch
      */
     private function serviceName(array $batch): string
     {
         $resource = is_array($batch['resource'] ?? null) ? $batch['resource'] : [];
-        $attributes = $this->parseAttributes(is_array($resource['attributes'] ?? null) ? $resource['attributes'] : []);
+        $attributes = OtlpAttributes::parse(is_array($resource['attributes'] ?? null) ? $resource['attributes'] : []);
 
         $service = $attributes['service.name'] ?? '';
 
@@ -181,70 +223,8 @@ final readonly class TempoSource implements TracesSource
             kind: SpanKind::fromOtlp(is_int($kind) || is_string($kind) ? $kind : null),
             startNano: (int) ($span['startTimeUnixNano'] ?? 0),
             endNano: (int) ($span['endTimeUnixNano'] ?? 0),
-            attributes: $this->parseAttributes(is_array($span['attributes'] ?? null) ? $span['attributes'] : []),
+            attributes: OtlpAttributes::parse(is_array($span['attributes'] ?? null) ? $span['attributes'] : []),
             hasError: $statusCode === 'STATUS_CODE_ERROR' || $statusCode === 2,
         );
-    }
-
-    /**
-     * Flatten an OTLP-JSON attribute list ([{key, value: {stringValue: ...}}]).
-     *
-     * @param  array<array-key, mixed>  $attributes
-     * @return array<string, mixed>
-     */
-    private function parseAttributes(array $attributes): array
-    {
-        $parsed = [];
-
-        foreach ($attributes as $attribute) {
-            if (! is_array($attribute) || ! isset($attribute['key']) || ! is_string($attribute['key'])) {
-                continue;
-            }
-
-            $parsed[$attribute['key']] = $this->parseAnyValue(
-                is_array($attribute['value'] ?? null) ? $attribute['value'] : [],
-            );
-        }
-
-        return $parsed;
-    }
-
-    /**
-     * @param  array<array-key, mixed>  $value
-     */
-    private function parseAnyValue(array $value): mixed
-    {
-        if (array_key_exists('stringValue', $value)) {
-            return (string) $value['stringValue'];
-        }
-
-        if (array_key_exists('intValue', $value)) {
-            return (int) $value['intValue'];
-        }
-
-        if (array_key_exists('doubleValue', $value)) {
-            return (float) $value['doubleValue'];
-        }
-
-        if (array_key_exists('boolValue', $value)) {
-            return (bool) $value['boolValue'];
-        }
-
-        if (is_array($value['arrayValue'] ?? null)) {
-            $values = is_array($value['arrayValue']['values'] ?? null) ? $value['arrayValue']['values'] : [];
-
-            return array_map(
-                fn (mixed $item): mixed => $this->parseAnyValue(is_array($item) ? $item : []),
-                $values,
-            );
-        }
-
-        if (is_array($value['kvlistValue'] ?? null)) {
-            $entries = is_array($value['kvlistValue']['values'] ?? null) ? $value['kvlistValue']['values'] : [];
-
-            return $this->parseAttributes($entries);
-        }
-
-        return null;
     }
 }

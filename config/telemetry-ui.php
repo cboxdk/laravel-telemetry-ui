@@ -1,7 +1,10 @@
 <?php
 
 declare(strict_types=1);
-use Cbox\TelemetryUi\Cards\Builtin\RequestsOverview;
+use Cbox\TelemetryUi\Cards\Builtin\ExceptionsOverview;
+use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
+use Cbox\TelemetryUi\Cards\Builtin\RequestDuration;
+use Cbox\TelemetryUi\Cards\Builtin\RequestsActivity;
 
 return [
 
@@ -123,7 +126,10 @@ return [
     */
 
     'cards' => [
-        RequestsOverview::class,
+        RequestsActivity::class,
+        RequestDuration::class,
+        ExceptionsOverview::class,
+        JobsOverview::class,
     ],
 
 ];

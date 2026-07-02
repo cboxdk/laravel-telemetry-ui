@@ -56,4 +56,27 @@ enum Period: string
 
         return [$end->modify('-'.$this->seconds().' seconds'), $end];
     }
+
+    /**
+     * The rate()/increase() window that keeps charts smooth for this range.
+     */
+    public function rateWindow(): string
+    {
+        return match ($this) {
+            self::FifteenMinutes => '1m',
+            self::OneHour => '5m',
+            self::OneDay => '15m',
+            self::SevenDays => '1h',
+            self::FourteenDays => '2h',
+            self::ThirtyDays => '4h',
+        };
+    }
+
+    /**
+     * The whole period as a PromQL duration, for period-total increase().
+     */
+    public function promDuration(): string
+    {
+        return $this->seconds().'s';
+    }
 }

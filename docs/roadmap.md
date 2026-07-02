@@ -12,30 +12,34 @@ weight: 99
   Prometheus, Mimir (tenanted), Tempo and Loki, lazy `ConnectionManager`
   with `extend()`.
 - Schema autodetection: pages with `detectMetric` patterns; built-in
-  Statamic page (static cache card) lights up when statamic-telemetry
-  metrics exist.
+  Statamic page lights up when statamic-telemetry metrics exist.
 - Card/page registry, Livewire base `Card`, gate + routes, ECharts bundle,
-  period selector, first built-in card (Requests overview).
+  period selector.
 - Tooling parity with `cboxdk/laravel-telemetry`: Pest 4, PHPStan level 8,
   Pint, arch tests.
 
-## Phase 2 — core screens
+## Phase 2 + 3 — full information architecture (done)
 
-- Dashboard (activity, duration, exceptions, jobs — the Nightwatch landing).
-- Requests: route table (status classes, avg, p95) → trace drill-down.
-- Traces: TraceQL search + waterfall (request detail timeline).
-- Service/environment switcher; short-TTL query cache.
+- Dashboard: requests (status-class stacked bars), duration (avg/p95),
+  exceptions, jobs.
+- Service/environment switcher in the sidebar, scoping PromQL, TraceQL and
+  LogQL on every card.
+- Requests (route table → trace drill-down), Jobs (outcomes, queue lag,
+  per-job table), Commands, Scheduled Tasks, Exceptions (chart + by-class
+  table + error-trace link), Queries (slowest query spans via TraceQL
+  spanSets), Cache (ops + hit ratio), Outgoing (per-host table), Mail &
+  Notifications, Users (sampled from `enduser.*` traces), Logs (Loki viewer
+  with search + trace-id links), System (memory/CPU/filesystem/network).
+- Traces: TraceQL search (raw query or quick filters, deep-linked from all
+  drill-downs) + server-rendered waterfall with span attribute expansion.
+- Dev environment: ../laravel-telemetry-demo (LGTM stack in one container
+  with query APIs exposed).
 
-## Phase 3 — full IA
+## Later polish
 
-- Jobs (incl. queue lag + dispatch origin), Exceptions/Issues grouping,
-  Queries, Scheduled Tasks, Commands, Cache, Outgoing, Mail/Notifications,
-  Users (`enduser.*`), Logs (Loki, trace-correlated), System.
-- Full Statamic page: Stache warm/clear, Glide per preset, forms, content
-  changes, gauges; trace filters on `statamic.site`/`statamic.collection`.
-- Per-service detection scoping once the service switcher exists (today
-  detection is fleet-wide).
-- Dev environment: docker-compose with Tempo + Loki + Prometheus + a demo app.
+- Per-service detection scoping (today detection is fleet-wide).
+- Short-TTL query cache for busy dashboards; auto-refresh polling.
+- Exceptions grouping with first/last-seen (needs app-side state).
 
 ## Phase 4 — actions & intelligence (out of scope for now)
 

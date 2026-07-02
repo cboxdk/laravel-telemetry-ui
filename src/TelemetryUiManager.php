@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi;
 
-use Cbox\TelemetryUi\Cards\Builtin\StaticCacheOverview;
+use Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Illuminate\Contracts\Config\Repository as Config;
@@ -28,14 +28,40 @@ final class TelemetryUiManager
      */
     private array $pages = [
         'dashboard' => ['label' => 'Dashboard', 'group' => null, 'icon' => null, 'detect' => null],
+        'traces' => ['label' => 'Traces', 'group' => null, 'icon' => null, 'detect' => null],
+        'requests' => ['label' => 'Requests', 'group' => 'Activity', 'icon' => null, 'detect' => null],
+        'jobs' => ['label' => 'Jobs', 'group' => 'Activity', 'icon' => null, 'detect' => null],
+        'commands' => ['label' => 'Commands', 'group' => 'Activity', 'icon' => null, 'detect' => 'commands_.*'],
+        'schedule' => ['label' => 'Scheduled Tasks', 'group' => 'Activity', 'icon' => null, 'detect' => null],
+        'exceptions' => ['label' => 'Exceptions', 'group' => 'Activity', 'icon' => null, 'detect' => null],
+        'queries' => ['label' => 'Queries', 'group' => 'Activity', 'icon' => null, 'detect' => null],
+        'cache' => ['label' => 'Cache', 'group' => 'Activity', 'icon' => null, 'detect' => 'cache_operations.*'],
+        'outgoing' => ['label' => 'Outgoing Requests', 'group' => 'Activity', 'icon' => null, 'detect' => null],
+        'mail' => ['label' => 'Mail & Notifications', 'group' => 'Activity', 'icon' => null, 'detect' => null],
         'statamic' => ['label' => 'Statamic', 'group' => 'Activity', 'icon' => null, 'detect' => 'statamic_.*'],
+        'users' => ['label' => 'Users', 'group' => 'Monitoring', 'icon' => null, 'detect' => null],
+        'logs' => ['label' => 'Logs', 'group' => 'Monitoring', 'icon' => null, 'detect' => null],
+        'system' => ['label' => 'System', 'group' => 'Monitoring', 'icon' => null, 'detect' => 'system_.*'],
     ];
 
     /**
      * @var array<string, list<class-string<Card>>>
      */
     private array $cards = [
-        'statamic' => [StaticCacheOverview::class],
+        'traces' => [Builtin\TraceSearch::class],
+        'requests' => [Builtin\RequestsActivity::class, Builtin\RequestDuration::class, Builtin\RoutesTable::class],
+        'jobs' => [Builtin\JobsOverview::class, Builtin\QueueLag::class, Builtin\JobsTable::class],
+        'commands' => [Builtin\CommandsOverview::class, Builtin\CommandsTable::class],
+        'schedule' => [Builtin\ScheduleOverview::class, Builtin\ScheduleTable::class],
+        'exceptions' => [Builtin\ExceptionsOverview::class, Builtin\ExceptionsTable::class],
+        'queries' => [Builtin\SlowQueries::class],
+        'cache' => [Builtin\CacheOperations::class],
+        'outgoing' => [Builtin\OutgoingActivity::class, Builtin\OutgoingTable::class],
+        'mail' => [Builtin\MailOverview::class, Builtin\NotificationsOverview::class],
+        'statamic' => [Builtin\StaticCacheOverview::class],
+        'users' => [Builtin\ActiveUsers::class],
+        'logs' => [Builtin\LogViewer::class],
+        'system' => [Builtin\SystemMemory::class, Builtin\SystemCpu::class, Builtin\SystemFilesystem::class, Builtin\SystemNetwork::class],
     ];
 
     public function __construct(private readonly Config $config) {}

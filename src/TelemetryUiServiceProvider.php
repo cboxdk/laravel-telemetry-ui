@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Http\Middleware\Authorize;
+use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Gate;
@@ -36,6 +37,11 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             $app->make(ConnectionManager::class),
             $app->make('cache'),
             (int) $app->make('config')->get('telemetry-ui.detection.ttl', 300),
+        ));
+
+        $this->app->singleton(Fleet::class, static fn (Application $app): Fleet => new Fleet(
+            $app->make(ConnectionManager::class),
+            $app->make('cache'),
         ));
     }
 

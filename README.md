@@ -6,8 +6,14 @@ agent, no vendor cloud. The presentation counterpart to
 [`cboxdk/laravel-telemetry`](https://github.com/cboxdk/laravel-telemetry),
 schema-aware of every metric and span attribute it emits.
 
-- **Laravel-shaped screens**: Requests, Jobs, Queries, Exceptions, Users —
-  cross-linked from metric aggregate to individual trace waterfall.
+- **Laravel-shaped screens**: Dashboard, Requests, Jobs, Commands, Scheduled
+  Tasks, Exceptions, Queries, Cache, Outgoing, Mail & Notifications, Users,
+  Logs, System and full trace search + waterfall — cross-linked from metric
+  aggregate to individual trace.
+- **Fleet-aware**: a service/environment switcher scopes every screen; one
+  installation covers every app reporting to the same backends.
+- **Autodetecting**: optional schema families (e.g. cboxdk/statamic-telemetry)
+  light up their own pages when their metrics exist.
 - **Extensible via Livewire cards**: your packages add pages with PHP +
   Blade and any PromQL/TraceQL/LogQL — no JS build.
 - **Inert when idle**: boot registers class-string maps only; disable with

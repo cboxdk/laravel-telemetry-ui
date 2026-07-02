@@ -2,30 +2,60 @@ import * as echarts from 'echarts';
 
 const palette = ['#34d399', '#fbbf24', '#f87171', '#60a5fa', '#c084fc', '#f472b6', '#2dd4bf', '#a3e635'];
 
-const baseOption = (unit) => ({
-    backgroundColor: 'transparent',
-    animation: false,
-    grid: { left: 8, right: 8, top: 12, bottom: 4, containLabel: true },
-    tooltip: {
-        trigger: 'axis',
-        backgroundColor: '#18181b',
-        borderColor: '#27272a',
-        textStyle: { color: '#e4e4e7', fontSize: 12, fontFamily: 'ui-monospace, monospace' },
-        valueFormatter: (value) => value == null ? '—' : `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}${unit ? ' ' + unit : ''}`,
-    },
-    xAxis: {
-        type: 'time',
-        axisLine: { lineStyle: { color: '#27272a' } },
-        axisLabel: { color: '#71717a', fontSize: 10, fontFamily: 'ui-monospace, monospace' },
-        splitLine: { show: false },
-    },
-    yAxis: {
-        type: 'value',
-        axisLabel: { color: '#71717a', fontSize: 10, fontFamily: 'ui-monospace, monospace' },
-        splitLine: { lineStyle: { color: '#1c1c1f' } },
-    },
-    legend: { show: false },
-});
+const humanBytes = (value) => {
+    const abs = Math.abs(value);
+    if (abs >= 1073741824) return (value / 1073741824).toFixed(1) + ' GB';
+    if (abs >= 1048576) return (value / 1048576).toFixed(1) + ' MB';
+    if (abs >= 1024) return (value / 1024).toFixed(1) + ' KB';
+    return value.toFixed(0) + ' B';
+};
+
+const humanMs = (value) => {
+    const abs = Math.abs(value);
+    if (abs >= 60000) return (value / 60000).toFixed(1) + 'min';
+    if (abs >= 1000) return (value / 1000).toFixed(2) + 's';
+    return value.toFixed(abs >= 10 ? 0 : 1) + 'ms';
+};
+
+const formatterFor = (unit) => {
+    if (unit === 'bytes') return humanBytes;
+    if (unit === 'ms') return humanMs;
+    return (value) => `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}${unit ? ' ' + unit : ''}`;
+};
+
+const baseOption = (unit) => {
+    const format = formatterFor(unit);
+
+    return {
+        backgroundColor: 'transparent',
+        animation: false,
+        grid: { left: 8, right: 8, top: 12, bottom: 4, containLabel: true },
+        tooltip: {
+            trigger: 'axis',
+            backgroundColor: '#18181b',
+            borderColor: '#27272a',
+            textStyle: { color: '#e4e4e7', fontSize: 12, fontFamily: 'ui-monospace, monospace' },
+            valueFormatter: (value) => value == null ? '—' : format(Number(value)),
+        },
+        xAxis: {
+            type: 'time',
+            axisLine: { lineStyle: { color: '#27272a' } },
+            axisLabel: { color: '#71717a', fontSize: 10, fontFamily: 'ui-monospace, monospace' },
+            splitLine: { show: false },
+        },
+        yAxis: {
+            type: 'value',
+            axisLabel: {
+                color: '#71717a',
+                fontSize: 10,
+                fontFamily: 'ui-monospace, monospace',
+                formatter: (unit === 'bytes' || unit === 'ms') ? ((value) => format(Number(value))) : undefined,
+            },
+            splitLine: { lineStyle: { color: '#1c1c1f' } },
+        },
+        legend: { show: false },
+    };
+};
 
 function register() {
     window.Alpine.data('telemetryUiChart', (series, type = 'line', unit = null) => ({
@@ -40,12 +70,13 @@ function register() {
                 color: palette,
                 series: series.map((entry) => ({
                     name: entry.name,
-                    type,
+                    type: type === 'area' ? 'line' : type,
                     data: entry.data,
+                    color: entry.color || undefined,
                     showSymbol: false,
                     smooth: false,
                     lineStyle: { width: 1.5 },
-                    barMaxWidth: 6,
+                    barMaxWidth: 8,
                     stack: type === 'bar' ? 'total' : undefined,
                     areaStyle: type === 'area' ? { opacity: 0.15 } : undefined,
                 })),
