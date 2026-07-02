@@ -1,0 +1,217 @@
+/* Telemetry UI — dark, dense, monospace-accented (hand-written, no build step) */
+
+:root {
+    --tui-bg: #09090b;
+    --tui-surface: #101012;
+    --tui-surface-2: #161618;
+    --tui-border: #232326;
+    --tui-text: #e4e4e7;
+    --tui-text-dim: #a1a1aa;
+    --tui-text-faint: #71717a;
+    --tui-accent: #34d399;
+    --tui-warn: #fbbf24;
+    --tui-danger: #f87171;
+    --tui-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --tui-sans: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--tui-bg);
+    color: var(--tui-text);
+    font-family: var(--tui-sans);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.tui-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar */
+
+.tui-sidebar {
+    width: 216px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--tui-border);
+    padding: 16px 12px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+}
+
+.tui-brand {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 8px 16px;
+}
+
+.tui-brand-name {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.tui-brand-env {
+    font-family: var(--tui-mono);
+    font-size: 11px;
+    color: var(--tui-text-faint);
+    text-transform: lowercase;
+}
+
+.tui-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.tui-nav-group {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--tui-text-faint);
+    padding: 14px 8px 4px;
+}
+
+.tui-nav-item {
+    display: block;
+    padding: 6px 8px;
+    border-radius: 6px;
+    color: var(--tui-text-dim);
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.tui-nav-item:hover {
+    background: var(--tui-surface-2);
+    color: var(--tui-text);
+}
+
+.tui-nav-item.is-active {
+    background: var(--tui-surface-2);
+    color: var(--tui-accent);
+}
+
+/* Main */
+
+.tui-main {
+    flex: 1;
+    min-width: 0;
+    padding: 24px 28px 48px;
+}
+
+.tui-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.tui-header h1 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+
+/* Period selector */
+
+.tui-periods {
+    display: inline-flex;
+    gap: 2px;
+    background: var(--tui-surface);
+    border: 1px solid var(--tui-border);
+    border-radius: 8px;
+    padding: 2px;
+}
+
+.tui-period {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--tui-text-faint);
+    font-family: var(--tui-mono);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.tui-period:hover { color: var(--tui-text); }
+
+.tui-period.is-active {
+    background: #1d4ed8;
+    color: #fff;
+}
+
+/* Card grid */
+
+.tui-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+@media (max-width: 960px) {
+    .tui-grid { grid-template-columns: 1fr; }
+}
+
+.tui-card {
+    background: var(--tui-surface);
+    border: 1px solid var(--tui-border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.tui-span-2 { grid-column: span 2; }
+
+@media (max-width: 960px) {
+    .tui-span-2 { grid-column: span 1; }
+}
+
+.tui-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--tui-border);
+}
+
+.tui-card-header h2 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--tui-text-dim);
+}
+
+.tui-card-body {
+    padding: 12px 16px 16px;
+}
+
+.tui-chart { width: 100%; }
+
+/* States */
+
+.tui-empty, .tui-error {
+    font-family: var(--tui-mono);
+    font-size: 12px;
+    color: var(--tui-text-faint);
+    padding: 24px 8px;
+    text-align: center;
+}
+
+.tui-error { color: var(--tui-danger); }
+
+code {
+    font-family: var(--tui-mono);
+    font-size: 12px;
+    background: var(--tui-surface-2);
+    border-radius: 4px;
+    padding: 1px 4px;
+}
