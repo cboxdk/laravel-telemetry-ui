@@ -25,7 +25,7 @@ final class RequestsActivity extends Card
         $byClass = static fn (string $inner): string => 'sum by (class) (label_replace('.$inner.', "class", "${1}xx", "http_response_status_code", "([0-9]).."))';
 
         try {
-            $totals = $this->metrics()->query($byClass('increase('.$count.'['.$this->period()->promDuration().'])'));
+            $totals = $this->metrics()->query($byClass('increase('.$count.'['.$this->promDuration().'])'));
             $range = $this->metrics()->queryRange($byClass('rate('.$count.'['.$this->rateWindow().'])').' * 60', $start, $end);
         } catch (SourceException $exception) {
             return $this->chartCard('Requests', error: $exception->getMessage());

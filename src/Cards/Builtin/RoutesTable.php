@@ -20,7 +20,7 @@ final class RoutesTable extends Card
 
     public function render(): View
     {
-        $p = $this->period()->promDuration();
+        $p = $this->promDuration();
 
         $count = $this->metric('http_server_request_duration_milliseconds_count');
         $sum = $this->metric('http_server_request_duration_milliseconds_sum');

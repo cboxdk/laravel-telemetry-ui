@@ -76,13 +76,20 @@ final readonly class TempoSource implements TracesSource
         }
 
         $spans = [];
+        $services = [];
 
         foreach ($batches as $batch) {
             if (! is_array($batch)) {
                 continue;
             }
 
-            $serviceName = $this->serviceName($batch);
+            $resource = $this->resourceAttributes($batch);
+
+            $serviceName = is_scalar($resource['service.name'] ?? null) ? (string) $resource['service.name'] : '';
+
+            if ($serviceName !== '') {
+                $services[$serviceName] = array_merge($services[$serviceName] ?? [], $resource);
+            }
 
             foreach ($this->scopeSpans($batch) as $span) {
                 $spans[] = $this->parseSpan($span, $serviceName);
@@ -91,7 +98,7 @@ final readonly class TempoSource implements TracesSource
 
         usort($spans, static fn (Span $a, Span $b): int => $a->startNano <=> $b->startNano);
 
-        return new Trace($traceId, $spans);
+        return new Trace($traceId, $spans, $services);
     }
 
     public function tagValues(string $tag, ?string $traceql = null): array
@@ -162,15 +169,13 @@ final readonly class TempoSource implements TracesSource
 
     /**
      * @param  array<array-key, mixed>  $batch
+     * @return array<string, mixed>
      */
-    private function serviceName(array $batch): string
+    private function resourceAttributes(array $batch): array
     {
         $resource = is_array($batch['resource'] ?? null) ? $batch['resource'] : [];
-        $attributes = OtlpAttributes::parse(is_array($resource['attributes'] ?? null) ? $resource['attributes'] : []);
 
-        $service = $attributes['service.name'] ?? '';
-
-        return is_scalar($service) ? (string) $service : '';
+        return OtlpAttributes::parse(is_array($resource['attributes'] ?? null) ? $resource['attributes'] : []);
     }
 
     /**

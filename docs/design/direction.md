@@ -16,16 +16,31 @@ full Grafana stack lets us.
 
 1. **No agent, no cloud, no sampling you don't control.** Data comes from the
    Tempo/Loki/Mimir you already run; retention and cost are your policy.
-2. **Real distributed traces.** Nightwatch shows one app's request timeline;
-   Tempo traces cross service boundaries (`Http::withTraceparent()`, queue
-   propagation), so the waterfall spans checkout → billing → worker.
+2. **The full infra chain.** Nightwatch shows one app's request timeline; here
+   the trace carries the whole path — edge proxy (Traefik/nginx/HAProxy),
+   eBPF-instrumented infra (Grafana Beyla) and the app — because
+   laravel-telemetry continues the incoming `traceparent`. The waterfall
+   renders a "request chain" of the server spans and colours/badges each
+   service by kind (proxy / beyla / app). The **Service graph** card (Tempo
+   metrics-generator) shows who-calls-whom with rate/errors/p95.
 3. **Extensible in-process.** Every screen is a Livewire card; your packages
    (queue autoscale, custom spans, domain metrics) add pages without JS.
 4. **Multi-service by default.** `service_name` is a label on everything, so
-   one dashboard installation covers the whole fleet with a service switcher,
-   not one dashboard per app.
-5. **Actions, not just charts** (roadmap): create Linear/GitHub tickets from
+   one dashboard installation covers the whole fleet with a service +
+   environment switcher, not one dashboard per app.
+5. **Slice by anything.** The Users page facets traffic by user, guard, type
+   or client IP — or any custom span attribute (`team.id`, `statamic.site`,
+   …) your app adds. Sampled from traces, so unbounded dimensions stay out of
+   metric labels.
+6. **Actions, not just charts** (roadmap): create Linear/GitHub tickets from
    an exception group, AI-assisted "explain this trace".
+
+## Time controls
+
+A global period selector (15M–30D), a **custom absolute range** picker, and
+**drag-to-zoom** on any chart (ECharts toolbox → sets `?from`/`?to` for the
+whole dashboard). An **auto-refresh** control (off / 10 / 30 / 60s) re-renders
+every card in place via a broadcast Livewire event, without a full page load.
 
 ## Information architecture
 
@@ -44,6 +59,20 @@ Sidebar (page slugs in parentheses; groups render as section headers):
   forms, content changes; spans filterable on `statamic.site`,
   `statamic.collection`, …). Other emitter packages can register detected
   pages the same way.
+
+## Infra chain expectations
+
+To see proxies and Beyla in the waterfall the trace must be *one* trace:
+- **Reverse proxies** (Traefik, nginx via OpenTelemetry module, HAProxy,
+  Envoy) inject/propagate W3C `traceparent`; laravel-telemetry continues it
+  (`traces.continue_incoming`, on by default), so proxy server-spans become
+  the ancestors of the Laravel root span.
+- **Grafana Beyla** (eBPF) is classified via `telemetry.sdk.name`/
+  `telemetry.distro.name` on the resource and badged `beyla`.
+- **Service graph** needs Tempo's metrics-generator `service-graphs`
+  processor remote-writing to your metrics backend.
+Service kind (proxy / beyla / app) is inferred from resource attributes first,
+then the service name (`traefik`, `nginx`, `haproxy`, `envoy`, `caddy`, …).
 
 Global chrome: service/environment switcher (top of sidebar, driven by
 `label_values(service_name)` + `deployment_environment_name`), period
@@ -67,7 +96,8 @@ All names below are the stable schema emitted by `cboxdk/laravel-telemetry`.
 | Cache | `cache_operations_total` by operation/store (hit ratio) |
 | Outgoing | `http_client_request_duration_milliseconds` by `server_address`, `http_client_connection_failures_total` |
 | Mail / Notifications | `mail_sent_total`, `notifications_sent_total` by channel |
-| Users | TraceQL aggregations on `.enduser.id` (most active, most errors); per-guard via `.enduser.guard` |
+| Users | TraceQL facets on `.enduser.id`/`.enduser.guard`/`.enduser.type`/`.client.address` or any custom attribute; traces + sampled error counts per value |
+| Traces | TraceQL search + waterfall with request-chain header (proxy→app), collapsible span subtrees, per-service colours; Service graph from `traces_service_graph_*` |
 | Logs | Loki `{service_name="X"}` streams from the `telemetry` log channel, trace-id links back to Tempo |
 | System | `system_memory_*`, `system_cpu_*`, `system_filesystem_*`, `worker_memory_*` |
 

@@ -20,7 +20,7 @@ final class CacheOperations extends Card
         [$start, $end] = $this->range();
 
         $metric = $this->metric('cache_operations_total');
-        $p = $this->period()->promDuration();
+        $p = $this->promDuration();
 
         try {
             $totals = $this->metrics()->query('sum by (operation) (increase('.$metric.'['.$p.']))');

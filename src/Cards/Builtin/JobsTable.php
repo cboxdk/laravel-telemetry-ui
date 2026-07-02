@@ -19,7 +19,7 @@ final class JobsTable extends Card
 
     public function render(): View
     {
-        $p = $this->period()->promDuration();
+        $p = $this->promDuration();
 
         $rows = [];
 

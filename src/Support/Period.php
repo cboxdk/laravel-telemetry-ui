@@ -62,13 +62,21 @@ enum Period: string
      */
     public function rateWindow(): string
     {
-        return match ($this) {
-            self::FifteenMinutes => '1m',
-            self::OneHour => '5m',
-            self::OneDay => '15m',
-            self::SevenDays => '1h',
-            self::FourteenDays => '2h',
-            self::ThirtyDays => '4h',
+        return self::windowFor($this->seconds());
+    }
+
+    /**
+     * The rate window for an arbitrary range length (custom from/to ranges).
+     */
+    public static function windowFor(int $seconds): string
+    {
+        return match (true) {
+            $seconds <= 900 => '1m',
+            $seconds <= 3_600 => '5m',
+            $seconds <= 86_400 => '15m',
+            $seconds <= 7 * 86_400 => '1h',
+            $seconds <= 14 * 86_400 => '2h',
+            default => '4h',
         };
     }
 

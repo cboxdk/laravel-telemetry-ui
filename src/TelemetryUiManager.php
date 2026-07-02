@@ -48,7 +48,7 @@ final class TelemetryUiManager
      * @var array<string, list<class-string<Card>>>
      */
     private array $cards = [
-        'traces' => [Builtin\TraceSearch::class],
+        'traces' => [Builtin\TraceSearch::class, Builtin\ServiceGraph::class],
         'requests' => [Builtin\RequestsActivity::class, Builtin\RequestDuration::class, Builtin\RoutesTable::class],
         'jobs' => [Builtin\JobsOverview::class, Builtin\QueueLag::class, Builtin\JobsTable::class],
         'commands' => [Builtin\CommandsOverview::class, Builtin\CommandsTable::class],
@@ -59,7 +59,7 @@ final class TelemetryUiManager
         'outgoing' => [Builtin\OutgoingActivity::class, Builtin\OutgoingTable::class],
         'mail' => [Builtin\MailOverview::class, Builtin\NotificationsOverview::class],
         'statamic' => [Builtin\StaticCacheOverview::class],
-        'users' => [Builtin\ActiveUsers::class],
+        'users' => [Builtin\TrafficByFacet::class],
         'logs' => [Builtin\LogViewer::class],
         'system' => [Builtin\SystemMemory::class, Builtin\SystemCpu::class, Builtin\SystemFilesystem::class, Builtin\SystemNetwork::class],
     ];

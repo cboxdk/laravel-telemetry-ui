@@ -18,7 +18,7 @@ final class RequestDuration extends Card
     {
         [$start, $end] = $this->range();
 
-        $p = $this->period()->promDuration();
+        $p = $this->promDuration();
         $w = $this->rateWindow();
 
         $sum = $this->metric('http_server_request_duration_milliseconds_sum');

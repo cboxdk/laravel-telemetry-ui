@@ -8,11 +8,27 @@ final readonly class Trace
 {
     /**
      * @param  list<Span>  $spans  ordered by start time
+     * @param  array<string, array<string, mixed>>  $services  resource attributes per service name
      */
     public function __construct(
         public string $traceId,
         public array $spans,
+        public array $services = [],
     ) {}
+
+    /**
+     * The request chain through the infrastructure: every server span
+     * (edge proxy → reverse proxy → app …) in start order.
+     *
+     * @return list<Span>
+     */
+    public function serverChain(): array
+    {
+        return array_values(array_filter(
+            $this->spans,
+            static fn (Span $span): bool => $span->kind === SpanKind::Server,
+        ));
+    }
 
     public function root(): ?Span
     {

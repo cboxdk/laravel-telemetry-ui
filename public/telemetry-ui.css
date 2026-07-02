@@ -154,6 +154,71 @@ html, body {
     letter-spacing: -0.02em;
 }
 
+/* Header controls: refresh, custom range, period presets */
+
+.tui-header-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tui-refresh select {
+    appearance: none;
+    background: var(--tui-surface);
+    border: 1px solid var(--tui-border);
+    border-radius: 8px;
+    color: var(--tui-text-faint);
+    font-family: var(--tui-mono);
+    font-size: 11px;
+    padding: 5px 8px;
+    cursor: pointer;
+}
+
+.tui-refresh select:hover { color: var(--tui-text); }
+
+.tui-range { position: relative; }
+
+.tui-btn.is-range-active {
+    color: #fff;
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+}
+
+.tui-range-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: var(--tui-surface);
+    border: 1px solid var(--tui-border);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+.tui-range-panel label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--tui-text-faint);
+}
+
+.tui-range-panel input {
+    background: var(--tui-surface-2);
+    border: 1px solid var(--tui-border);
+    border-radius: 6px;
+    color: var(--tui-text);
+    font-family: var(--tui-mono);
+    font-size: 12px;
+    padding: 4px 8px;
+    color-scheme: dark;
+}
+
 /* Period selector */
 
 .tui-periods {
@@ -408,6 +473,72 @@ html, body {
     flex-wrap: wrap;
     gap: 20px;
     padding-bottom: 14px;
+}
+
+/* Request chain (edge → proxy → app) */
+
+.tui-chain {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 0 16px;
+}
+
+.tui-chain-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--tui-text-faint);
+    margin-right: 4px;
+}
+
+.tui-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--tui-mono);
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--tui-border);
+    background: var(--tui-surface-2);
+}
+
+.tui-chip em {
+    font-style: normal;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.75;
+}
+
+.tui-chip b {
+    font-weight: 500;
+    color: var(--tui-text-dim);
+}
+
+.tui-chain-arrow { color: var(--tui-text-faint); }
+
+.tui-wf-caret {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--tui-text-faint);
+    font-size: 10px;
+    width: 14px;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.tui-wf-caret:hover { color: var(--tui-text); }
+.tui-wf-caret.is-leaf { display: inline-block; }
+
+.tui-wf-collapsed-count {
+    font-size: 10px;
+    color: var(--tui-text-faint);
+    flex-shrink: 0;
 }
 
 .tui-waterfall {

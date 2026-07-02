@@ -22,7 +22,7 @@ abstract class BreakdownTable extends Card
     public function render(): View
     {
         $spec = $this->spec();
-        $p = $this->period()->promDuration();
+        $p = $this->promDuration();
         $key = $spec['keyLabel'];
 
         $rows = [];

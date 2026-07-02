@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Queries\Results\Span;
 use Cbox\TelemetryUi\Queries\Results\Trace;
 use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\SchemaDetector;
+use Cbox\TelemetryUi\Support\ServiceIdentity;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Contracts\View\View;
 
@@ -42,14 +43,17 @@ final class TraceController
             'trace' => $trace,
             'error' => $error,
             'rows' => $trace !== null ? $this->waterfall($trace) : [],
+            'chain' => $trace !== null ? $this->chain($trace) : [],
+            'identities' => $trace !== null ? $this->identities($trace) : [],
         ]);
     }
 
     /**
      * Flatten the span tree depth-first into waterfall rows with layout
-     * offsets relative to the trace's own time window.
+     * offsets relative to the trace's own time window, plus the data the
+     * view needs for collapsible nesting (ancestor ids, child counts).
      *
-     * @return list<array{span: Span, depth: int, offsetPct: float, widthPct: float}>
+     * @return list<array{span: Span, depth: int, offsetPct: float, widthPct: float, ancestors: list<string>, children: int}>
      */
     private function waterfall(Trace $trace): array
     {
@@ -82,23 +86,73 @@ final class TraceController
 
         $rows = [];
 
-        $walk = function (Span $span, int $depth) use (&$walk, &$rows, $children, $traceStart, $window): void {
+        // Depth-first preorder via an explicit stack: children are pushed
+        // in reverse so they pop in original (start-time) order.
+        /** @var list<array{Span, int, list<string>}> $stack */
+        $stack = [];
+
+        foreach (array_reverse($roots) as $root) {
+            $stack[] = [$root, 0, []];
+        }
+
+        while ($stack !== []) {
+            [$span, $depth, $ancestors] = array_pop($stack);
+
             $rows[] = [
                 'span' => $span,
                 'depth' => $depth,
-                'offsetPct' => (($span->startNano - $traceStart) / $window) * 100,
-                'widthPct' => max(0.35, (($span->endNano - $span->startNano) / $window) * 100),
+                'offsetPct' => (float) ((($span->startNano - $traceStart) / $window) * 100),
+                'widthPct' => (float) max(0.35, (($span->endNano - $span->startNano) / $window) * 100),
+                'ancestors' => $ancestors,
+                'children' => count($children[$span->spanId] ?? []),
             ];
 
-            foreach ($children[$span->spanId] ?? [] as $child) {
-                $walk($child, $depth + 1);
+            foreach (array_reverse($children[$span->spanId] ?? []) as $child) {
+                $stack[] = [$child, $depth + 1, [...$ancestors, $span->spanId]];
             }
-        };
-
-        foreach ($roots as $root) {
-            $walk($root, 0);
         }
 
         return $rows;
+    }
+
+    /**
+     * The request chain through the infrastructure (server spans in start
+     * order): edge proxy → reverse proxy → app → downstream app.
+     *
+     * @return list<array{span: Span, kind: string, color: string}>
+     */
+    private function chain(Trace $trace): array
+    {
+        return array_map(fn (Span $span): array => [
+            'span' => $span,
+            'kind' => ServiceIdentity::kind($span->serviceName, $trace->services[$span->serviceName] ?? []),
+            'color' => ServiceIdentity::color($span->serviceName),
+        ], $trace->serverChain());
+    }
+
+    /**
+     * Color + classification per service in the trace, for badges.
+     *
+     * @return array<string, array{color: string, kind: string, label: string|null}>
+     */
+    private function identities(Trace $trace): array
+    {
+        $identities = [];
+
+        foreach ($trace->spans as $span) {
+            if ($span->serviceName === '' || isset($identities[$span->serviceName])) {
+                continue;
+            }
+
+            $kind = ServiceIdentity::kind($span->serviceName, $trace->services[$span->serviceName] ?? []);
+
+            $identities[$span->serviceName] = [
+                'color' => ServiceIdentity::color($span->serviceName),
+                'kind' => $kind,
+                'label' => ServiceIdentity::kindLabel($kind),
+            ];
+        }
+
+        return $identities;
     }
 }

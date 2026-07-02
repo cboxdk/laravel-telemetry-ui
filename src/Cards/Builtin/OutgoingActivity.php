@@ -20,7 +20,7 @@ final class OutgoingActivity extends Card
 
         $count = $this->metric('http_client_request_duration_milliseconds_count');
         $failures = $this->metric('http_client_connection_failures_total');
-        $p = $this->period()->promDuration();
+        $p = $this->promDuration();
 
         try {
             $total = $this->total('sum(increase('.$count.'['.$p.']))');

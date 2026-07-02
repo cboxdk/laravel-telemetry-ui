@@ -18,7 +18,7 @@ final class CommandsOverview extends Card
     {
         [$start, $end] = $this->range();
 
-        $p = $this->period()->promDuration();
+        $p = $this->promDuration();
         $w = $this->rateWindow();
 
         $series = [];

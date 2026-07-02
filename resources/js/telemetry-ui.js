@@ -54,10 +54,73 @@ const baseOption = (unit) => {
             splitLine: { lineStyle: { color: '#1c1c1f' } },
         },
         legend: { show: false },
+        toolbox: {
+            right: 4,
+            top: 0,
+            itemSize: 12,
+            iconStyle: { borderColor: '#71717a' },
+            emphasis: { iconStyle: { borderColor: '#e4e4e7' } },
+            feature: {
+                dataZoom: { yAxisIndex: 'none', title: { zoom: 'Zoom to range', back: 'Reset' } },
+            },
+        },
     };
 };
 
+// Navigate to an absolute range (unix ms) — used by the range picker and
+// chart zoom so the whole dashboard realigns, not just one chart.
+window.telemetryUiSetRange = (fromMs, toMs) => {
+    const url = new URL(window.location);
+    url.searchParams.set('from', String(Math.floor(fromMs / 1000)));
+    url.searchParams.set('to', String(Math.floor(toMs / 1000)));
+    window.location = url;
+};
+
 function register() {
+    window.Alpine.data('telemetryUiRefresh', () => ({
+        value: sessionStorage.getItem('telemetry-ui:refresh') || '0',
+        timer: null,
+
+        init() {
+            this.apply(false);
+        },
+
+        apply(persist = true) {
+            if (persist) sessionStorage.setItem('telemetry-ui:refresh', this.value);
+            if (this.timer) clearInterval(this.timer);
+            const seconds = parseInt(this.value, 10);
+            if (seconds > 0) {
+                this.timer = setInterval(() => window.Livewire?.dispatch('telemetry-ui:refresh'), seconds * 1000);
+            }
+        },
+
+        destroy() {
+            if (this.timer) clearInterval(this.timer);
+        },
+    }));
+
+    window.Alpine.data('telemetryUiRange', () => ({
+        open: false,
+        from: '',
+        to: '',
+
+        init() {
+            const params = new URLSearchParams(window.location.search);
+            const toLocal = (unix) => {
+                const date = new Date(parseInt(unix, 10) * 1000);
+                date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+                return date.toISOString().slice(0, 16);
+            };
+            if (params.get('from')) this.from = toLocal(params.get('from'));
+            if (params.get('to')) this.to = toLocal(params.get('to'));
+        },
+
+        apply() {
+            if (!this.from || !this.to) return;
+            window.telemetryUiSetRange(new Date(this.from).getTime(), new Date(this.to).getTime());
+        },
+    }));
+
     window.Alpine.data('telemetryUiChart', (series, type = 'line', unit = null) => ({
         chart: null,
         resizeHandler: null,
@@ -84,6 +147,15 @@ function register() {
 
             this.resizeHandler = () => this.chart?.resize();
             window.addEventListener('resize', this.resizeHandler);
+
+            // Toolbox zoom-select realigns the whole dashboard to the
+            // selected window (min 30s so misclicks don't navigate).
+            this.chart.on('datazoom', () => {
+                const zoom = this.chart.getOption().dataZoom?.[0];
+                if (zoom && zoom.startValue != null && zoom.endValue != null && zoom.endValue - zoom.startValue > 30000) {
+                    window.telemetryUiSetRange(zoom.startValue, zoom.endValue);
+                }
+            });
         },
 
         destroy() {

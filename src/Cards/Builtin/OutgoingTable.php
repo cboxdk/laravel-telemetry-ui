@@ -15,7 +15,7 @@ final class OutgoingTable extends Card
 {
     public function render(): View
     {
-        $p = $this->period()->promDuration();
+        $p = $this->promDuration();
 
         $count = $this->metric('http_client_request_duration_milliseconds_count');
         $sum = $this->metric('http_client_request_duration_milliseconds_sum');

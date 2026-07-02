@@ -30,6 +30,16 @@ abstract class Card extends Component
     #[Url(as: 'period')]
     public string $period = '1h';
 
+    /**
+     * Custom absolute range (unix seconds); overrides the preset period
+     * when both ends are present. Set by the range picker and chart zoom.
+     */
+    #[Url(as: 'from')]
+    public string $from = '';
+
+    #[Url(as: 'to')]
+    public string $to = '';
+
     #[Url(as: 'service')]
     public string $service = '';
 
@@ -40,7 +50,15 @@ abstract class Card extends Component
     public function updatePeriod(string $period): void
     {
         $this->period = Period::tryFrom($period) !== null ? $period : Period::default()->value;
+        $this->from = '';
+        $this->to = '';
     }
+
+    /**
+     * Auto-refresh tick from the header control; re-renders the card.
+     */
+    #[On('telemetry-ui:refresh')]
+    public function pollRefresh(): void {}
 
     protected function period(): Period
     {
@@ -52,12 +70,36 @@ abstract class Card extends Component
      */
     protected function range(): array
     {
+        if (ctype_digit($this->from) && ctype_digit($this->to)) {
+            $from = new DateTimeImmutable('@'.$this->from);
+            $to = new DateTimeImmutable('@'.$this->to);
+
+            if ($from < $to) {
+                return [$from, $to];
+            }
+        }
+
         return $this->period()->range();
+    }
+
+    protected function rangeSeconds(): int
+    {
+        [$start, $end] = $this->range();
+
+        return max(1, $end->getTimestamp() - $start->getTimestamp());
+    }
+
+    /**
+     * The whole active range as a PromQL duration, for period totals.
+     */
+    protected function promDuration(): string
+    {
+        return $this->rangeSeconds().'s';
     }
 
     protected function rateWindow(): string
     {
-        return $this->period()->rateWindow();
+        return Period::windowFor($this->rangeSeconds());
     }
 
     protected function metrics(?string $connection = null): MetricsSource
