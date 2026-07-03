@@ -3,8 +3,19 @@
         <div class="tui-drawer-overlay" wire:click="close"></div>
         <aside class="tui-drawer" x-on:keydown.escape.window="$wire.close()">
             <header class="tui-drawer-header">
+                @if ($depth > 1)
+                    <button type="button" class="tui-drawer-back" wire:click="back" title="Back">←</button>
+                @endif
                 <div class="tui-drawer-title">
-                    <span class="tui-drawer-eyebrow">{{ $mode === 'issue' ? 'Issue' : 'Trace' }}</span>
+                    @if ($depth > 1)
+                        <div class="tui-drawer-crumbs">
+                            @foreach ($crumbs as $crumb)
+                                <span class="tui-drawer-crumb {{ $loop->last ? 'is-current' : '' }}">{{ $crumb['type'] === 'issue' ? '⧉' : '⇄' }} {{ $crumb['label'] }}</span>@if (! $loop->last)<span class="tui-drawer-crumb-sep">›</span>@endif
+                            @endforeach
+                        </div>
+                    @else
+                        <span class="tui-drawer-eyebrow">{{ $mode === 'issue' ? 'Issue' : 'Trace' }}</span>
+                    @endif
                     <h2>
                         @if ($mode === 'issue')
                             {{ $issue?->title ?? ($error ? 'Error' : 'Loading…') }}

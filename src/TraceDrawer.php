@@ -14,53 +14,111 @@ use Livewire\Component;
 
 /**
  * A single, layout-level slide-in drawer that shows detail — a trace
- * waterfall or an issue — from the right without leaving the current page.
- * Links dispatch `telemetry-ui:open-trace` / `telemetry-ui:open-issue`; the
- * id mirrors to the URL (?trace= / ?issue=) so the view is shareable and the
- * browser back button closes it.
+ * waterfall or an issue — from the right without leaving the page.
+ *
+ * It is a *stack*: opening a trace from inside an issue (or vice versa)
+ * pushes onto the drawer and a back button pops it, so you can dig deeper
+ * and return without losing the context you came from. The top of the stack
+ * mirrors to the URL (?trace= / ?issue=) so the current view is shareable and
+ * the browser back button closes it.
  */
 final class TraceDrawer extends Component
 {
+    /**
+     * @var list<array{type: string, id: string}>
+     */
+    public array $stack = [];
+
     #[Url(as: 'trace', except: '')]
     public string $traceId = '';
 
     #[Url(as: 'issue', except: '')]
     public string $issueId = '';
 
+    public function mount(): void
+    {
+        // Deep link: ?trace= / ?issue= seeds the stack on first load.
+        if ($this->traceId !== '') {
+            $this->stack = [['type' => 'trace', 'id' => $this->traceId]];
+        } elseif ($this->issueId !== '') {
+            $this->stack = [['type' => 'issue', 'id' => $this->issueId]];
+        }
+    }
+
     #[On('telemetry-ui:open-trace')]
     public function openTrace(string $traceId): void
     {
-        $this->traceId = $traceId;
-        $this->issueId = '';
+        $this->push('trace', $traceId);
     }
 
     #[On('telemetry-ui:open-issue')]
     public function openIssue(string $issueId): void
     {
-        $this->issueId = $issueId;
-        $this->traceId = '';
+        $this->push('issue', $issueId);
+    }
+
+    public function back(): void
+    {
+        array_pop($this->stack);
+        $this->syncUrl();
     }
 
     public function close(): void
     {
-        $this->traceId = '';
-        $this->issueId = '';
+        $this->stack = [];
+        $this->syncUrl();
+    }
+
+    private function push(string $type, string $id): void
+    {
+        $top = end($this->stack) ?: null;
+
+        // Don't stack the same thing twice in a row.
+        if (! ($top !== null && $top['type'] === $type && $top['id'] === $id)) {
+            $this->stack[] = ['type' => $type, 'id' => $id];
+        }
+
+        $this->syncUrl();
+    }
+
+    private function syncUrl(): void
+    {
+        $top = end($this->stack) ?: null;
+
+        $this->traceId = $top !== null && $top['type'] === 'trace' ? $top['id'] : '';
+        $this->issueId = $top !== null && $top['type'] === 'issue' ? $top['id'] : '';
     }
 
     public function render(): View
     {
-        return $this->issueId !== '' ? $this->renderIssue() : $this->renderTrace();
+        $top = end($this->stack) ?: null;
+
+        return $top !== null && $top['type'] === 'issue'
+            ? $this->renderIssue($top['id'])
+            : $this->renderTrace($top['type'] ?? null, $top['id'] ?? '');
     }
 
-    private function renderTrace(): View
+    /**
+     * @return array<int, array{type: string, id: string, label: string}>
+     */
+    private function crumbs(): array
     {
-        $open = $this->traceId !== '';
+        return array_map(static fn (array $entry): array => [
+            'type' => $entry['type'],
+            'id' => $entry['id'],
+            'label' => ($entry['type'] === 'issue' ? $entry['id'] : substr($entry['id'], 0, 8).'…'),
+        ], $this->stack);
+    }
+
+    private function renderTrace(?string $type, string $traceId): View
+    {
+        $open = $type !== null && $traceId !== '';
         $trace = null;
         $error = null;
 
         if ($open) {
             try {
-                $trace = app(ConnectionManager::class)->traces()->trace($this->traceId);
+                $trace = app(ConnectionManager::class)->traces()->trace($traceId);
             } catch (SourceException $exception) {
                 $error = $exception->getMessage();
             }
@@ -72,23 +130,25 @@ final class TraceDrawer extends Component
         return view($view, [
             'mode' => 'trace',
             'open' => $open,
-            'key' => $this->traceId,
+            'depth' => count($this->stack),
+            'crumbs' => $this->crumbs(),
+            'key' => $traceId,
             'trace' => $trace,
             'error' => $error,
             'rows' => $trace !== null ? TraceView::waterfall($trace) : [],
             'chain' => $trace !== null ? TraceView::chain($trace) : [],
             'identities' => $trace !== null ? TraceView::identities($trace) : [],
-            'fullUrl' => $open ? route('telemetry-ui.trace', ['traceId' => $this->traceId]) : null,
+            'fullUrl' => $open ? route('telemetry-ui.trace', ['traceId' => $traceId]) : null,
         ]);
     }
 
-    private function renderIssue(): View
+    private function renderIssue(string $issueId): View
     {
         $issue = null;
         $error = null;
 
         try {
-            $issue = app(ConnectionManager::class)->issues()->issue($this->issueId);
+            $issue = app(ConnectionManager::class)->issues()->issue($issueId);
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
         }
@@ -99,7 +159,9 @@ final class TraceDrawer extends Component
         return view($view, [
             'mode' => 'issue',
             'open' => true,
-            'key' => $this->issueId,
+            'depth' => count($this->stack),
+            'crumbs' => $this->crumbs(),
+            'key' => $issueId,
             'issue' => $issue,
             'error' => $error,
             'fullUrl' => $issue?->url,

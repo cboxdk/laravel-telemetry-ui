@@ -37,11 +37,13 @@ full Grafana stack lets us.
 
 ## Navigation & detail
 
-- **Slide-in trace drawer** — clicking any trace link (search results, slow
-  queries, logs, deploys) slides the full waterfall in from the right without
-  leaving the list; the id mirrors to `?trace=` so the view is shareable and
-  browser-back closes it. cmd/ctrl-click still opens the full page in a new
-  tab.
+- **Stacked slide-in drawers** — clicking any trace or issue link slides its
+  detail in from the right without leaving the list. Dig deeper — open a trace
+  from inside an issue, or a referenced trace from a trace — and it *stacks*: a
+  back button and breadcrumb trail return you to where you came from with the
+  context intact. The top of the stack mirrors to `?trace=`/`?issue=` so the
+  current view is shareable and browser-back closes it. cmd/ctrl-click still
+  opens the full page in a new tab.
 - **Command palette** — ⌘K / Ctrl+K (or `/`) fuzzy-jumps to any page, service
   or environment; paste a 32-hex trace id to open its waterfall.
 - **Copy link** — shares the exact current view (filters, range, scope) with
