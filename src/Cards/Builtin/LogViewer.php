@@ -11,28 +11,43 @@ use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
 
 /**
- * Live log viewer over Loki, with text search and trace-id linkification.
+ * Log viewer over Loki. Every line is correlated with its trace: the
+ * OTLP log bridge stamps trace_id/span_id into the stream metadata, so a
+ * line can link straight to its request waterfall.
  */
 final class LogViewer extends Card
 {
     #[Url(as: 'log_search')]
     public string $search = '';
 
+    #[Url(as: 'log_level')]
+    public string $level = '';
+
+    /** @var list<string> */
+    public array $levels = ['error', 'warning', 'info', 'debug'];
+
     public function render(): View
     {
         [$start, $end] = $this->range();
 
-        $entries = [];
+        $rows = [];
         $error = null;
 
         try {
             $logql = $this->logSelector();
+
+            if ($this->level !== '') {
+                // Loki keeps the severity as either `level` or `detected_level`.
+                $logql .= ' | level=~"(?i)'.$this->levelPattern().'" or detected_level=~"(?i)'.$this->levelPattern().'"';
+            }
 
             if ($this->search !== '') {
                 $logql .= ' |= "'.addcslashes($this->search, '"\\').'"';
             }
 
             $entries = $this->logs()->query($logql, $start, $end, limit: 200);
+
+            $rows = array_map(fn (LogEntry $entry): array => $this->row($entry), array_reverse($entries));
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
         }
@@ -40,30 +55,49 @@ final class LogViewer extends Card
         /** @var view-string $view */
         $view = 'telemetry-ui::cards.log-viewer';
 
-        return view($view, [
-            'entries' => array_reverse($entries),
-            'error' => $error,
-        ]);
+        return view($view, ['rows' => $rows, 'error' => $error]);
     }
 
     /**
-     * Severity bucket for a log line, for coloring: the level/detected_level
-     * stream label when present, otherwise a light heuristic on the line.
+     * @return array{time: string, tone: string, level: string, service: string, message: string, traceId: string|null, traceUrl: string|null, meta: array<string, string>}
      */
-    public function level(LogEntry $entry): string
+    private function row(LogEntry $entry): array
     {
-        $level = strtolower($entry->labels['level'] ?? $entry->labels['detected_level'] ?? '');
+        $traceId = $entry->labels['trace_id'] ?? null;
+        $traceId = is_string($traceId) && $traceId !== '' ? $traceId : null;
 
-        if ($level === '') {
-            $line = strtolower(substr($entry->line, 0, 200));
+        // Structured metadata worth surfacing; the rest is boilerplate.
+        $hidden = ['service_name', 'trace_id', 'level', 'detected_level', 'severity_number', 'scope_name'];
+        $meta = [];
 
-            $level = match (true) {
-                str_contains($line, 'error') || str_contains($line, 'exception') || str_contains($line, 'critical') => 'error',
-                str_contains($line, 'warn') => 'warning',
-                str_contains($line, 'debug') => 'debug',
-                default => 'info',
-            };
+        foreach ($entry->labels as $key => $value) {
+            if (! in_array($key, $hidden, true)) {
+                $meta[$key] = $value;
+            }
         }
+
+        return [
+            'time' => $entry->timestamp()->format('H:i:s.v'),
+            'tone' => $this->tone($entry),
+            'level' => strtoupper($entry->labels['level'] ?? $entry->labels['detected_level'] ?? $this->inferLevel($entry->line)),
+            'service' => $entry->labels['service_name'] ?? '',
+            'message' => $entry->line,
+            'traceId' => $traceId,
+            'traceUrl' => $traceId !== null ? route('telemetry-ui.trace', [
+                'traceId' => $traceId,
+                'period' => $this->period,
+                'from' => $this->from,
+                'to' => $this->to,
+                'service' => $this->service,
+                'env' => $this->environment,
+            ]) : null,
+            'meta' => $meta,
+        ];
+    }
+
+    private function tone(LogEntry $entry): string
+    {
+        $level = strtolower($entry->labels['level'] ?? $entry->labels['detected_level'] ?? $this->inferLevel($entry->line));
 
         return match (true) {
             in_array($level, ['error', 'critical', 'alert', 'emergency', 'fatal'], true) => 'danger',
@@ -73,18 +107,25 @@ final class LogViewer extends Card
         };
     }
 
-    /**
-     * Link 32-hex trace ids in a log line to the trace page. Returns HTML;
-     * everything except the injected anchors is escaped.
-     */
-    public function linkify(string $line): string
+    private function inferLevel(string $line): string
     {
-        $escaped = e($line);
+        $line = strtolower(substr($line, 0, 200));
 
-        return (string) preg_replace_callback(
-            '/\b([0-9a-f]{32})\b/',
-            static fn (array $matches): string => '<a href="'.route('telemetry-ui.trace', ['traceId' => $matches[1]]).'">'.$matches[1].'</a>',
-            $escaped,
-        );
+        return match (true) {
+            str_contains($line, 'error') || str_contains($line, 'exception') || str_contains($line, 'critical') => 'error',
+            str_contains($line, 'warn') => 'warning',
+            str_contains($line, 'debug') => 'debug',
+            default => 'info',
+        };
+    }
+
+    private function levelPattern(): string
+    {
+        return match ($this->level) {
+            'error' => 'error|critical|alert|emergency|fatal',
+            'warning' => 'warn|warning',
+            'debug' => 'debug|trace',
+            default => preg_quote($this->level, '/'),
+        };
     }
 }

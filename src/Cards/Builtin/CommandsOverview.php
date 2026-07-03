@@ -46,6 +46,7 @@ final class CommandsOverview extends Card
 
         return $this->chartCard(
             title: 'Commands',
+            subtitle: 'Artisan command runs per minute (completed vs failed)',
             series: $series,
             stats: $stats,
             type: 'bar',

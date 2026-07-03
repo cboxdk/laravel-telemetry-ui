@@ -12,6 +12,18 @@
         </select>
     </div>
 
+    {{-- Reset zoom: only shown while a custom (zoomed/absolute) range is active --}}
+    @if ($hasCustomRange)
+        <button type="button" class="tui-btn tui-reset-zoom" title="Reset zoom"
+            x-data
+            x-on:click="
+                const url = new URL(window.location);
+                url.searchParams.delete('from');
+                url.searchParams.delete('to');
+                window.location = url;
+            ">↺ Reset</button>
+    @endif
+
     {{-- Custom absolute range --}}
     <div class="tui-range" x-data="telemetryUiRange()">
         <button type="button" class="tui-btn {{ $hasCustomRange ? 'is-range-active' : '' }}" x-on:click="open = !open">

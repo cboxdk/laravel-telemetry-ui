@@ -47,6 +47,7 @@ final class ScheduleOverview extends Card
 
         return $this->chartCard(
             title: 'Scheduled tasks',
+            subtitle: 'Scheduler task runs per minute by outcome (processed, skipped, failed)',
             series: $series,
             stats: $stats,
             type: 'bar',

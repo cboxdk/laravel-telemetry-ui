@@ -1,4 +1,4 @@
-<x-telemetry-ui::card title="Traffic by" span="2">
+<x-telemetry-ui::card title="Traffic by" subtitle="Requests grouped by a span attribute (user, guard, IP or custom), sampled from traces" span="2">
     <div class="tui-toolbar">
         <label class="tui-scope-field" style="padding: 0; flex-direction: row; align-items: center; gap: 8px;">
             <span>Facet</span>

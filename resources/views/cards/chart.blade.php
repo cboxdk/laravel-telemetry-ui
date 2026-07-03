@@ -1,4 +1,4 @@
-<x-telemetry-ui::card :title="$title" :span="$span">
+<x-telemetry-ui::card :title="$title" :subtitle="$subtitle ?? null" :span="$span">
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @else

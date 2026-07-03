@@ -39,6 +39,7 @@ final class RequestsActivity extends Card
 
         return $this->chartCard(
             title: 'Requests',
+            subtitle: 'Incoming HTTP requests per minute, split by response status class',
             series: $this->bucketedSeries($range),
             stats: [
                 $this->stat('Requests', Format::count(array_sum($classTotals))),

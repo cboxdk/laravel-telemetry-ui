@@ -54,6 +54,7 @@ final class CacheOperations extends Card
 
         return $this->chartCard(
             title: 'Cache operations',
+            subtitle: 'Cache hits, misses and writes per minute, with the overall hit ratio',
             series: $series,
             stats: [
                 $this->stat('Hit ratio', $lookups > 0 ? Format::percent($hits / $lookups) : '—', 'ok'),

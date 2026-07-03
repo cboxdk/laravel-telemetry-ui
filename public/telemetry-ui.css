@@ -184,6 +184,13 @@ html, body {
     border-color: #1d4ed8;
 }
 
+.tui-reset-zoom {
+    color: var(--tui-warn);
+    border-color: rgba(251, 191, 36, 0.35);
+}
+
+.tui-reset-zoom:hover { background: rgba(251, 191, 36, 0.1); color: var(--tui-warn); }
+
 .tui-range-panel {
     position: absolute;
     right: 0;
@@ -247,6 +254,77 @@ html, body {
 .tui-period.is-active {
     background: #1d4ed8;
     color: #fff;
+}
+
+/* Card heading + subtitle */
+
+.tui-card-heading { min-width: 0; }
+
+.tui-card-subtitle {
+    margin: 3px 0 0;
+    font-size: 11px;
+    color: var(--tui-text-faint);
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* Filter builder */
+
+.tui-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    align-items: flex-end;
+    padding-bottom: 10px;
+}
+
+.tui-filter {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.tui-filter > span {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--tui-text-faint);
+}
+
+.tui-filter select,
+.tui-filter input {
+    background: var(--tui-surface-2);
+    border: 1px solid var(--tui-border);
+    border-radius: 6px;
+    color: var(--tui-text);
+    font-family: var(--tui-mono);
+    font-size: 12px;
+    padding: 5px 8px;
+    min-width: 130px;
+}
+
+.tui-filter select:focus,
+.tui-filter input:focus { outline: none; border-color: var(--tui-info); }
+
+.tui-advanced-toggle { align-self: flex-end; }
+
+.tui-advanced {
+    flex-basis: 100%;
+    display: flex;
+}
+
+.tui-query-preview {
+    font-family: var(--tui-mono);
+    font-size: 11px;
+    color: var(--tui-text-faint);
+    background: var(--tui-surface-2);
+    border: 1px solid var(--tui-border);
+    border-radius: 6px;
+    padding: 5px 9px;
+    margin-bottom: 12px;
+    overflow-x: auto;
+    white-space: nowrap;
 }
 
 /* Card grid */
@@ -471,9 +549,36 @@ html, body {
     padding-top: 2px;
 }
 
-.tui-log-msg { color: var(--tui-text-dim); }
+.tui-log-msg { color: var(--tui-text-dim); overflow: hidden; text-overflow: ellipsis; flex: 1; }
 
 .tui-log-line a { color: var(--tui-info); text-decoration: none; }
+
+.tui-log-line { cursor: pointer; align-items: baseline; }
+
+.tui-log-trace {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--tui-info);
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    border-radius: 4px;
+    padding: 0 5px;
+}
+
+.tui-log-trace:hover { background: rgba(96, 165, 250, 0.12); }
+
+.tui-log-meta {
+    margin: 2px 0 6px 76px;
+    padding: 8px 10px;
+    background: var(--tui-surface-2);
+    border: 1px solid var(--tui-border);
+    border-radius: 6px;
+    overflow-x: auto;
+}
+
+.tui-log-meta table { border-collapse: collapse; }
+.tui-log-meta td { padding: 1px 14px 1px 0; vertical-align: top; white-space: nowrap; }
+.tui-log-meta td:first-child { color: var(--tui-text-faint); }
+.tui-log-meta a { color: var(--tui-info); text-decoration: none; }
 
 /* Trace waterfall */
 

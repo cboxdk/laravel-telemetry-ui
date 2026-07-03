@@ -1,15 +1,35 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
-<x-telemetry-ui::card title="Trace search" span="2">
+<x-telemetry-ui::card title="Trace search" subtitle="Find requests, jobs and commands by status, route, name or duration" span="2">
+    <x-slot:actions>
+        <button type="button" class="tui-btn" wire:click="clearFilters">Clear</button>
+    </x-slot:actions>
+
     @if ($error !== null)
         <div class="tui-error">{{ $error }}</div>
     @endif
 
-    <div class="tui-toolbar">
-        <input type="text" class="tui-input tui-input-grow" placeholder='TraceQL, e.g. { span.http.route = "/orders" && duration > 500ms }'
-               wire:model.live.debounce.600ms="query" spellcheck="false">
-        <button type="button" class="tui-btn {{ $errorsOnly ? 'is-active' : '' }}" wire:click="$toggle('errorsOnly')">Errors only</button>
-        <label class="tui-scope-field" style="padding: 0; flex-direction: row; align-items: center; gap: 6px;">
+    <div class="tui-filters" x-data="{ advanced: @js($usingRaw) }">
+        <label class="tui-filter">
+            <span>Status</span>
+            <select wire:model.live="status">
+                <option value="">Any</option>
+                <option value="error">Errors</option>
+                <option value="ok">OK</option>
+            </select>
+        </label>
+
+        <label class="tui-filter">
+            <span>Route</span>
+            <input type="text" placeholder="/orders/{id}" wire:model.live.debounce.500ms="route" spellcheck="false">
+        </label>
+
+        <label class="tui-filter">
+            <span>Name contains</span>
+            <input type="text" placeholder="db.query, POST …" wire:model.live.debounce.500ms="nameContains" spellcheck="false">
+        </label>
+
+        <label class="tui-filter">
             <span>Min duration</span>
             <select wire:model.live="minDurationMs">
                 @foreach ($durations as $duration)
@@ -17,12 +37,21 @@
                 @endforeach
             </select>
         </label>
+
+        <button type="button" class="tui-btn tui-advanced-toggle" x-on:click="advanced = !advanced"
+                x-text="advanced ? 'Hide TraceQL' : 'Advanced (TraceQL)'"></button>
+
+        <div class="tui-advanced" x-show="advanced" x-cloak>
+            <input type="text" class="tui-input tui-input-grow"
+                   placeholder='{ span.http.route = "/orders" && duration > 500ms }'
+                   wire:model.live.debounce.700ms="query" spellcheck="false">
+        </div>
     </div>
 
-    <div class="tui-note" style="padding: 0 0 10px;">{{ $effectiveQuery }}</div>
+    <div class="tui-query-preview" title="The TraceQL sent to Tempo">{{ $effectiveQuery }}</div>
 
     @if ($results === [] && $error === null)
-        <div class="tui-empty">No traces match.</div>
+        <div class="tui-empty">No traces match these filters.</div>
     @elseif ($results !== [])
         <div class="tui-table-wrap">
             <table class="tui-table">

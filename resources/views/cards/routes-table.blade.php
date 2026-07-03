@@ -1,6 +1,6 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
-<x-telemetry-ui::card title="Routes" span="2">
+<x-telemetry-ui::card title="Routes" subtitle="Per-route request volume, status mix and latency — click a route for its traces" span="2">
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @else

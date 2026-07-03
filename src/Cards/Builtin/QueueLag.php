@@ -37,6 +37,7 @@ final class QueueLag extends Card
 
         return $this->chartCard(
             title: 'Queue lag (P95 wait)',
+            subtitle: 'Time a job waits in the queue before a worker starts it (dispatch → execution)',
             series: $this->toChartSeries($range, 'queue'),
             stats: [
                 $this->stat('P95 wait', is_nan($p95Now) ? '—' : Format::ms($p95Now), 'warn'),

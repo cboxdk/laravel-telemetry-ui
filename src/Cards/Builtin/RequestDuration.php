@@ -57,6 +57,7 @@ final class RequestDuration extends Card
 
         return $this->chartCard(
             title: 'Duration',
+            subtitle: 'Server-side request latency — average and 95th percentile',
             series: $series,
             stats: [
                 $this->stat('AVG', $totalCount > 0 ? Format::ms($totalTime / $totalCount) : '—', 'dim'),

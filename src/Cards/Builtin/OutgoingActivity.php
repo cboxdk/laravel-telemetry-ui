@@ -38,6 +38,7 @@ final class OutgoingActivity extends Card
 
         return $this->chartCard(
             title: 'Outgoing requests',
+            subtitle: 'HTTP calls your app makes to upstream services, per host per minute',
             series: $this->toChartSeries($range, 'server_address'),
             stats: [
                 $this->stat('Requests', Format::count($total)),

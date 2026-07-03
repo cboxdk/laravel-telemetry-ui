@@ -1,6 +1,6 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
-<x-telemetry-ui::card title="Service graph" span="2">
+<x-telemetry-ui::card title="Service graph" subtitle="Who-calls-whom across proxies, Beyla-instrumented infra and apps (from Tempo)" span="2">
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @elseif ($edges === [])

@@ -10,16 +10,23 @@ use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
 
 /**
- * TraceQL search: either a raw query (also deep-linked from other pages'
- * drill-downs via ?q=) or quick filters for the common cases.
+ * Trace search driven by friendly filters (status, route, name, duration)
+ * that compose TraceQL under the hood. A raw TraceQL box is available under
+ * "Advanced" for power users and for deep-links from other pages (?q=).
  */
 final class TraceSearch extends Card
 {
     #[Url(as: 'q')]
     public string $query = '';
 
-    #[Url(as: 'errors')]
-    public bool $errorsOnly = false;
+    #[Url(as: 'status')]
+    public string $status = '';
+
+    #[Url(as: 'route')]
+    public string $route = '';
+
+    #[Url(as: 'name')]
+    public string $nameContains = '';
 
     #[Url(as: 'min_duration')]
     public int $minDurationMs = 0;
@@ -49,11 +56,23 @@ final class TraceSearch extends Card
             'results' => $results,
             'error' => $error,
             'effectiveQuery' => $traceql,
+            'usingRaw' => $this->query !== '',
         ]);
     }
 
-    // Quick filters build a fresh query, replacing any raw/deep-linked one.
-    public function updatedErrorsOnly(): void
+    // Changing any friendly filter drops a raw/deep-linked query so the
+    // builder stays the source of truth.
+    public function updatedStatus(): void
+    {
+        $this->query = '';
+    }
+
+    public function updatedRoute(): void
+    {
+        $this->query = '';
+    }
+
+    public function updatedNameContains(): void
     {
         $this->query = '';
     }
@@ -63,11 +82,22 @@ final class TraceSearch extends Card
         $this->query = '';
     }
 
+    public function clearFilters(): void
+    {
+        $this->query = '';
+        $this->status = '';
+        $this->route = '';
+        $this->nameContains = '';
+        $this->minDurationMs = 0;
+    }
+
     public function traceUrl(string $traceId): string
     {
         return route('telemetry-ui.trace', array_filter([
             'traceId' => $traceId,
             'period' => $this->period,
+            'from' => $this->from,
+            'to' => $this->to,
             'service' => $this->service,
             'env' => $this->environment,
         ]));
@@ -77,8 +107,18 @@ final class TraceSearch extends Card
     {
         $conditions = [];
 
-        if ($this->errorsOnly) {
+        if ($this->status === 'error') {
             $conditions[] = 'status = error';
+        } elseif ($this->status === 'ok') {
+            $conditions[] = 'status != error';
+        }
+
+        if ($this->route !== '') {
+            $conditions[] = 'span.http.route = "'.addcslashes($this->route, '"\\').'"';
+        }
+
+        if ($this->nameContains !== '') {
+            $conditions[] = 'name =~ ".*'.addcslashes($this->nameContains, '"\\').'.*"';
         }
 
         if ($this->minDurationMs > 0) {

@@ -1,6 +1,6 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
-<x-telemetry-ui::card title="Jobs" span="2">
+<x-telemetry-ui::card title="Jobs" subtitle="Per-job outcomes and duration — click a job for its traces" span="2">
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @else

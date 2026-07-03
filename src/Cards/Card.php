@@ -292,6 +292,7 @@ abstract class Card extends Component
         ?string $note = null,
         int $height = 200,
         bool $annotate = true,
+        ?string $subtitle = null,
     ): View {
         [$start, $end] = $this->range();
 
@@ -300,6 +301,7 @@ abstract class Card extends Component
 
         return view($view, [
             'title' => $title,
+            'subtitle' => $subtitle,
             'series' => $series,
             'stats' => $stats,
             'type' => $type,

@@ -1,6 +1,6 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
-<x-telemetry-ui::card title="Slowest queries" span="2">
+<x-telemetry-ui::card title="Slowest queries" subtitle="Individual DB query spans sampled from traces — click to open the full trace" span="2">
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @else

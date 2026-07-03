@@ -54,15 +54,12 @@ const baseOption = (unit) => {
             splitLine: { lineStyle: { color: '#1c1c1f' } },
         },
         legend: { show: false },
+        // The toolbox registers the dataZoom brush; we hide its icons and
+        // keep the brush permanently active so plain drag-select zooms,
+        // like Grafana. Selecting a region navigates the whole dashboard.
         toolbox: {
-            right: 4,
-            top: 0,
-            itemSize: 12,
-            iconStyle: { borderColor: '#71717a' },
-            emphasis: { iconStyle: { borderColor: '#e4e4e7' } },
-            feature: {
-                dataZoom: { yAxisIndex: 'none', title: { zoom: 'Zoom to range', back: 'Reset' } },
-            },
+            show: false,
+            feature: { dataZoom: { yAxisIndex: 'none' } },
         },
     };
 };
@@ -180,12 +177,34 @@ function register() {
             this.resizeHandler = () => this.chart?.resize();
             window.addEventListener('resize', this.resizeHandler);
 
-            // Toolbox zoom-select realigns the whole dashboard to the
-            // selected window (min 30s so misclicks don't navigate).
-            this.chart.on('datazoom', () => {
-                const zoom = this.chart.getOption().dataZoom?.[0];
-                if (zoom && zoom.startValue != null && zoom.endValue != null && zoom.endValue - zoom.startValue > 30000) {
-                    window.telemetryUiSetRange(zoom.startValue, zoom.endValue);
+            // Keep the drag-select brush permanently armed so users can just
+            // drag across a region to zoom, no toolbox click needed.
+            this.chart.dispatchAction({
+                type: 'takeGlobalCursor',
+                key: 'dataZoomSelect',
+                dataZoomSelectActive: true,
+            });
+
+            // Selecting a region realigns the whole dashboard to that window
+            // (min 5s so a click or tiny drag doesn't navigate). A drag emits
+            // the selection in params.batch; fall back to percent-of-window.
+            this.chart.on('datazoom', (params) => {
+                const sel = (params && params.batch && params.batch[0]) || params || {};
+                let start = sel.startValue;
+                let end = sel.endValue;
+
+                if (start == null || end == null) {
+                    const axis = this.chart.getModel().getComponent('xAxis').axis;
+                    const [lo, hi] = axis.scale.getExtent();
+                    const span = hi - lo;
+                    if (sel.start != null && sel.end != null) {
+                        start = lo + (span * sel.start) / 100;
+                        end = lo + (span * sel.end) / 100;
+                    }
+                }
+
+                if (start != null && end != null && end - start > 5000) {
+                    window.telemetryUiSetRange(start, end);
                 }
             });
         },

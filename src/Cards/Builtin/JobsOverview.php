@@ -50,6 +50,7 @@ final class JobsOverview extends Card
 
         return $this->chartCard(
             title: 'Jobs',
+            subtitle: 'Queue job outcomes per minute: processed, released (retried), failed',
             series: $series,
             stats: $stats,
             type: 'bar',
