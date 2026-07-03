@@ -746,6 +746,32 @@ html, body {
 .tui-crumbs a { color: var(--tui-text-dim); text-decoration: none; }
 .tui-crumbs a:hover { color: var(--tui-info); }
 
+/* Lazy-load skeletons */
+
+.tui-skel {
+    background: linear-gradient(90deg, #161618 25%, #1f1f22 37%, #161618 63%);
+    background-size: 400% 100%;
+    border-radius: 5px;
+    animation: tui-shimmer 1.4s ease infinite;
+}
+
+@keyframes tui-shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: 0 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tui-skel { animation: none; }
+}
+
+.tui-skel-title { width: 120px; height: 12px; }
+.tui-skel-sub { width: 220px; height: 9px; margin-top: 7px; }
+
+.tui-skel-stats { display: flex; gap: 24px; padding: 2px 0 14px; }
+.tui-skel-stat { width: 54px; height: 30px; }
+
+.tui-skel-chart { width: 100%; height: 150px; opacity: 0.6; }
+
 /* States */
 
 .tui-empty, .tui-error {

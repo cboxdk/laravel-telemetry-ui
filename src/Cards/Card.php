@@ -57,6 +57,28 @@ abstract class Card extends Component
     }
 
     /**
+     * Skeleton shown while a lazy card resolves its (possibly slow) backend
+     * queries, so the page shell and sidebar appear instantly and each card
+     * streams in on its own.
+     */
+    public function placeholder(): View
+    {
+        /** @var view-string $view */
+        $view = 'telemetry-ui::cards.placeholder';
+
+        return view($view, ['span' => $this->placeholderSpan()]);
+    }
+
+    /**
+     * Grid span the skeleton should occupy — override on wide cards so the
+     * layout doesn't jump when the real card (often span 2) arrives.
+     */
+    protected function placeholderSpan(): int
+    {
+        return 1;
+    }
+
+    /**
      * Auto-refresh tick from the header control; re-renders the card.
      */
     #[On('telemetry-ui:refresh')]
