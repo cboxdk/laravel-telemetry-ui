@@ -331,6 +331,15 @@ html, body {
 .tui-tone-info { color: var(--tui-info); }
 .tui-tone-dim { color: var(--tui-text-dim); }
 
+.tui-annotation-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
 /* Tables */
 
 .tui-table-wrap { overflow-x: auto; }

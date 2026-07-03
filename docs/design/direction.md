@@ -54,11 +54,23 @@ Sidebar (page slugs in parentheses; groups render as section headers):
   (`cache`), Outgoing Requests (`outgoing`)
 - **Monitoring**: Users (`users`), Logs (`logs`), System (`system`)
 - Traces (`traces`) — TraceQL search + waterfall
-- **Autodetected**: Statamic (`statamic`) — appears only when `statamic_*`
-  metrics exist (cboxdk/statamic-telemetry: static cache, Stache, Glide,
-  forms, content changes; spans filterable on `statamic.site`,
-  `statamic.collection`, …). Other emitter packages can register detected
-  pages the same way.
+- **Autodetected group — Statamic** (cboxdk/statamic-telemetry): a sidebar
+  group whose subpages each detect their own metric family, so a site sees
+  only the sections it emits — Static Cache (`statamic_static_cache.*`),
+  Stache (`statamic_stache.*`), Glide (`statamic_glide.*`), Forms
+  (`statamic_forms.*`), Content (`statamic_content_changes.*`) and Inventory
+  (`statamic_(entries|assets|users)_count`, the opt-in gauges). Other emitter
+  packages can register detected pages/groups the same way.
+
+## Annotations
+
+Point-in-time markers are drawn as vertical lines across **every chart**, the
+way Grafana annotations map regressions to deploys. `php artisan
+telemetry:deploy` emits an `app.deployment` event into the logs backend; the
+UI reads it back (id + notes from the event's structured metadata) and the
+dashboard's Deploys card lists them with trace links. Markers are configurable
+in `telemetry-ui.annotations.markers` (event name → label/color), scope-aware,
+and cached so a page of charts costs one Loki query.
 
 ## Infra chain expectations
 

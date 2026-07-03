@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Cbox\TelemetryUi\Cards\Builtin\DeploysTimeline;
 use Cbox\TelemetryUi\Cards\Builtin\ExceptionsOverview;
 use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
 use Cbox\TelemetryUi\Cards\Builtin\RequestDuration;
@@ -74,6 +75,7 @@ it('registers cards from config and runtime, deduplicated and in order', functio
         RequestDuration::class,
         ExceptionsOverview::class,
         JobsOverview::class,
+        DeploysTimeline::class,
         DummyCard::class,
     ]);
 

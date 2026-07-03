@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use Cbox\TelemetryUi\Cards\Builtin\DeploysTimeline;
 use Cbox\TelemetryUi\Cards\Builtin\ExceptionsOverview;
 use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
 use Cbox\TelemetryUi\Cards\Builtin\RequestDuration;
@@ -115,6 +116,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Annotations
+    |--------------------------------------------------------------------------
+    |
+    | Point-in-time markers drawn as vertical lines on every chart, the way
+    | Grafana annotations map regressions to deploys. cboxdk/laravel-telemetry
+    | emits `app.deployment` events (via `php artisan telemetry:deploy`) into
+    | the logs backend; each marker below is matched there by its event name,
+    | reading id/notes from the event's structured metadata.
+    |
+    */
+
+    'annotations' => [
+        'enabled' => (bool) env('TELEMETRY_UI_ANNOTATIONS', true),
+        'ttl' => (int) env('TELEMETRY_UI_ANNOTATIONS_TTL', 30),
+        'markers' => [
+            'deploy' => [
+                'event' => 'app.deployment',
+                'label' => 'Deploy',
+                'color' => '#c084fc',
+                'id_label' => 'deployment_id',
+                'notes_label' => 'deployment_notes',
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Cards
     |--------------------------------------------------------------------------
     |
@@ -130,6 +158,7 @@ return [
         RequestDuration::class,
         ExceptionsOverview::class,
         JobsOverview::class,
+        DeploysTimeline::class,
     ],
 
 ];

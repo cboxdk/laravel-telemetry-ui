@@ -38,10 +38,19 @@ final class TelemetryUiManager
         'cache' => ['label' => 'Cache', 'group' => 'Activity', 'icon' => null, 'detect' => 'cache_operations.*'],
         'outgoing' => ['label' => 'Outgoing Requests', 'group' => 'Activity', 'icon' => null, 'detect' => null],
         'mail' => ['label' => 'Mail & Notifications', 'group' => 'Activity', 'icon' => null, 'detect' => null],
-        'statamic' => ['label' => 'Statamic', 'group' => 'Activity', 'icon' => null, 'detect' => 'statamic_.*'],
         'users' => ['label' => 'Users', 'group' => 'Monitoring', 'icon' => null, 'detect' => null],
         'logs' => ['label' => 'Logs', 'group' => 'Monitoring', 'icon' => null, 'detect' => null],
         'system' => ['label' => 'System', 'group' => 'Monitoring', 'icon' => null, 'detect' => 'system_.*'],
+
+        // The Statamic overlay (cboxdk/statamic-telemetry) gets its own
+        // sidebar group; each subpage detects its own metric family, so a
+        // site only sees the sections whose signals it actually emits.
+        'statamic-cache' => ['label' => 'Static Cache', 'group' => 'Statamic', 'icon' => null, 'detect' => 'statamic_static_cache.*'],
+        'statamic-stache' => ['label' => 'Stache', 'group' => 'Statamic', 'icon' => null, 'detect' => 'statamic_stache.*'],
+        'statamic-glide' => ['label' => 'Glide', 'group' => 'Statamic', 'icon' => null, 'detect' => 'statamic_glide.*'],
+        'statamic-forms' => ['label' => 'Forms', 'group' => 'Statamic', 'icon' => null, 'detect' => 'statamic_forms.*'],
+        'statamic-content' => ['label' => 'Content', 'group' => 'Statamic', 'icon' => null, 'detect' => 'statamic_content_changes.*'],
+        'statamic-inventory' => ['label' => 'Inventory', 'group' => 'Statamic', 'icon' => null, 'detect' => 'statamic_(entries|assets|users)_count'],
     ];
 
     /**
@@ -58,7 +67,12 @@ final class TelemetryUiManager
         'cache' => [Builtin\CacheOperations::class],
         'outgoing' => [Builtin\OutgoingActivity::class, Builtin\OutgoingTable::class],
         'mail' => [Builtin\MailOverview::class, Builtin\NotificationsOverview::class],
-        'statamic' => [Builtin\StaticCacheOverview::class],
+        'statamic-cache' => [Builtin\StaticCacheOverview::class],
+        'statamic-stache' => [Builtin\Statamic\StacheActivity::class],
+        'statamic-glide' => [Builtin\Statamic\GlideGenerations::class],
+        'statamic-forms' => [Builtin\Statamic\FormsSubmissions::class],
+        'statamic-content' => [Builtin\Statamic\ContentChanges::class],
+        'statamic-inventory' => [Builtin\Statamic\Inventory::class],
         'users' => [Builtin\TrafficByFacet::class],
         'logs' => [Builtin\LogViewer::class],
         'system' => [Builtin\SystemMemory::class, Builtin\SystemCpu::class, Builtin\SystemFilesystem::class, Builtin\SystemNetwork::class],

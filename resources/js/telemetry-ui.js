@@ -121,28 +121,60 @@ function register() {
         },
     }));
 
-    window.Alpine.data('telemetryUiChart', (series, type = 'line', unit = null) => ({
+    window.Alpine.data('telemetryUiChart', (series, type = 'line', unit = null, annotations = [], window_ = {}) => ({
         chart: null,
         resizeHandler: null,
 
         init() {
             this.chart = echarts.init(this.$el, null, { renderer: 'canvas' });
 
+            const base = baseOption(unit);
+            // Pin the time axis to the queried window so sparse data doesn't
+            // stretch the axis across unrelated days.
+            if (window_ && window_.min != null) base.xAxis.min = window_.min;
+            if (window_ && window_.max != null) base.xAxis.max = window_.max;
+
+            const mapped = series.map((entry) => ({
+                name: entry.name,
+                type: type === 'area' ? 'line' : type,
+                data: entry.data,
+                color: entry.color || undefined,
+                showSymbol: false,
+                smooth: false,
+                lineStyle: { width: 1.5 },
+                barMaxWidth: 8,
+                stack: type === 'bar' ? 'total' : undefined,
+                areaStyle: type === 'area' ? { opacity: 0.15 } : undefined,
+            }));
+
+            // Grafana-style annotations: vertical marker lines (deploys, …)
+            // attached to the first series so they share the time axis.
+            if (annotations.length && mapped.length) {
+                mapped[0].markLine = {
+                    silent: false,
+                    symbol: ['none', 'none'],
+                    label: {
+                        show: true,
+                        position: 'insideEndTop',
+                        color: '#a1a1aa',
+                        fontSize: 9,
+                        fontFamily: 'ui-monospace, monospace',
+                        formatter: (p) => p.data.markerLabel || '',
+                    },
+                    lineStyle: { type: 'dashed', width: 1 },
+                    data: annotations.map((a) => ({
+                        xAxis: a.xAxis,
+                        markerLabel: a.notes ? '⬤ ' + a.notes : '⬤',
+                        lineStyle: { color: a.color || '#c084fc' },
+                        tooltip: { show: true },
+                    })),
+                };
+            }
+
             this.chart.setOption({
-                ...baseOption(unit),
+                ...base,
                 color: palette,
-                series: series.map((entry) => ({
-                    name: entry.name,
-                    type: type === 'area' ? 'line' : type,
-                    data: entry.data,
-                    color: entry.color || undefined,
-                    showSymbol: false,
-                    smooth: false,
-                    lineStyle: { width: 1.5 },
-                    barMaxWidth: 8,
-                    stack: type === 'bar' ? 'total' : undefined,
-                    areaStyle: type === 'area' ? { opacity: 0.15 } : undefined,
-                })),
+                series: mapped,
             });
 
             this.resizeHandler = () => this.chart?.resize();

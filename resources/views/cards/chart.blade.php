@@ -9,7 +9,7 @@
         @if ($series === [])
             <div class="tui-empty">No data in this period.</div>
         @else
-            <x-telemetry-ui::chart :series="$series" :type="$type" :unit="$unit" :height="$height" />
+            <x-telemetry-ui::chart :series="$series" :type="$type" :unit="$unit" :height="$height" :annotations="$annotations" :min="$min" :max="$max" />
         @endif
 
         @if ($note)

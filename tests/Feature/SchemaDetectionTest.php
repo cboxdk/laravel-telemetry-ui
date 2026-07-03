@@ -28,21 +28,24 @@ it('shows the statamic page when statamic metrics exist', function (): void {
     Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
     fakeMetricCount(12);
 
-    $this->get('/telemetry-ui')->assertOk()->assertSee('Statamic');
-    $this->get('/telemetry-ui/statamic')->assertOk()->assertSee('Static cache');
+    // The Statamic group and its per-family subpages appear.
+    $this->get('/telemetry-ui')->assertOk()->assertSee('Statamic')->assertSee('Static Cache')->assertSee('Stache');
+    $this->get('/telemetry-ui/statamic-cache')->assertOk()->assertSee('Static cache');
+    $this->get('/telemetry-ui/statamic-glide')->assertOk()->assertSee('Glide');
 
     Http::assertSent(fn ($request): bool => str_contains(
         requestQuery($request)['query'] ?? '',
-        'count({__name__=~"statamic_.*"})',
+        'count({__name__=~"statamic_static_cache.*"})',
     ));
 });
 
-it('hides and 404s the statamic page when no statamic metrics exist', function (): void {
+it('hides and 404s the statamic subpages when no statamic metrics exist', function (): void {
     Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
     fakeMetricCount(0);
 
     $this->get('/telemetry-ui')->assertOk()->assertDontSee('Statamic');
-    $this->get('/telemetry-ui/statamic')->assertNotFound();
+    $this->get('/telemetry-ui/statamic-cache')->assertNotFound();
+    $this->get('/telemetry-ui/statamic-glide')->assertNotFound();
 });
 
 it('caches detection results', function (): void {

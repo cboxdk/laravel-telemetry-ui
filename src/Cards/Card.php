@@ -10,6 +10,8 @@ use Cbox\TelemetryUi\Contracts\MetricsSource;
 use Cbox\TelemetryUi\Contracts\TracesSource;
 use Cbox\TelemetryUi\Queries\Results\Sample;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
+use Cbox\TelemetryUi\Support\Annotation;
+use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Period;
 use DateTimeImmutable;
 use Illuminate\Contracts\View\View;
@@ -115,6 +117,38 @@ abstract class Card extends Component
     protected function logs(?string $connection = null): LogsSource
     {
         return app(ConnectionManager::class)->logs($connection);
+    }
+
+    /**
+     * Deploy (and other configured) markers within the active range and
+     * scope, for drawing as chart annotation lines. Shared across cards via
+     * the Annotations cache, so a page of charts costs one lookup.
+     *
+     * @return list<Annotation>
+     */
+    protected function annotations(): array
+    {
+        [$start, $end] = $this->range();
+
+        $matchers = array_filter([
+            'service_name' => $this->service,
+            'deployment_environment_name' => $this->environment,
+        ]);
+
+        return app(Annotations::class)->between($start, $end, $matchers);
+    }
+
+    /**
+     * Annotations shaped for the chart component's ECharts markLine.
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function annotationMarks(): array
+    {
+        return array_map(
+            static fn (Annotation $annotation): array => $annotation->toMarkLine(),
+            $this->annotations(),
+        );
     }
 
     /**
@@ -257,7 +291,10 @@ abstract class Card extends Component
         int $span = 1,
         ?string $note = null,
         int $height = 200,
+        bool $annotate = true,
     ): View {
+        [$start, $end] = $this->range();
+
         /** @var view-string $view */
         $view = 'telemetry-ui::cards.chart';
 
@@ -271,6 +308,9 @@ abstract class Card extends Component
             'span' => $span,
             'note' => $note,
             'height' => $height,
+            'annotations' => $annotate && $series !== [] ? $this->annotationMarks() : [],
+            'min' => $start->getTimestamp() * 1000,
+            'max' => $end->getTimestamp() * 1000,
         ]);
     }
 
