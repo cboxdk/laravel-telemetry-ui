@@ -287,6 +287,28 @@ abstract class Card extends Component
     }
 
     /**
+     * Run a range query and reduce each series to a flat list of values,
+     * keyed by a caller-built key over its labels — the per-row trend data
+     * behind table sparklines.
+     *
+     * @param  callable(array<string, string>): string  $key
+     * @return array<string, list<float>>
+     */
+    protected function trendByKey(string $promql, DateTimeImmutable $start, DateTimeImmutable $end, callable $key): array
+    {
+        $trends = [];
+
+        foreach ($this->metrics()->queryRange($promql, $start, $end) as $series) {
+            $trends[$key($series->labels)] = array_map(
+                static fn ($point): float => $point->value,
+                $series->points,
+            );
+        }
+
+        return $trends;
+    }
+
+    /**
      * A stats-row item for the generic chart card / <x-telemetry-ui::stats>.
      *
      * @return array{label: string, value: string, tone: string|null}

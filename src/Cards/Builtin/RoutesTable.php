@@ -20,6 +20,7 @@ final class RoutesTable extends Card
 
     public function render(): View
     {
+        [$start, $end] = $this->range();
         $p = $this->promDuration();
 
         $count = $this->metric('http_server_request_duration_milliseconds_count');
@@ -28,6 +29,7 @@ final class RoutesTable extends Card
 
         $rows = [];
         $error = null;
+        $trends = [];
 
         try {
             $counts = $this->metrics()->query(
@@ -41,6 +43,13 @@ final class RoutesTable extends Card
             $p95s = $this->metrics()->query(
                 'histogram_quantile(0.95, sum by (http_route, http_request_method, le) (rate('.$bucket.'['.$p.'])))',
             );
+
+            $trends = $this->trendByKey(
+                'sum by (http_route, http_request_method) (rate('.$count.'['.$this->rateWindow().'])) * 60',
+                $start,
+                $end,
+                fn (array $labels): string => ($labels['http_request_method'] ?? '?').' '.($labels['http_route'] ?? '?'),
+            );
         } catch (SourceException $exception) {
             return $this->view($rows, $exception->getMessage());
         }
@@ -53,6 +62,7 @@ final class RoutesTable extends Card
                 'route' => $sample->labels['http_route'] ?? '?',
                 'ok' => 0.0, '4xx' => 0.0, '5xx' => 0.0, 'total' => 0.0,
                 'time' => 0.0, 'p95' => null,
+                'spark' => $trends[$key] ?? [],
             ];
 
             $class = match ($sample->labels['class'] ?? '') {
@@ -108,7 +118,7 @@ final class RoutesTable extends Card
     }
 
     /**
-     * @param  list<array{method: string, route: string, ok: float, '4xx': float, '5xx': float, total: float, time: float, p95: float|null}>  $rows
+     * @param  list<array{method: string, route: string, ok: float, '4xx': float, '5xx': float, total: float, time: float, p95: float|null, spark?: list<float>}>  $rows
      */
     private function view(array $rows, ?string $error): View
     {

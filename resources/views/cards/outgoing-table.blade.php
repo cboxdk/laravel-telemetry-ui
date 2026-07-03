@@ -11,6 +11,7 @@
                 <thead>
                     <tr>
                         <th>Host</th>
+                        <th>Trend</th>
                         <th class="is-num">1/2/3XX</th>
                         <th class="is-num">4XX</th>
                         <th class="is-num">5XX</th>
@@ -24,6 +25,7 @@
                     @foreach ($rows as $row)
                         <tr>
                             <td class="is-primary">{{ $row['host'] }}</td>
+                            <td><x-telemetry-ui::sparkline :points="$row['spark'] ?? []" :color="$row['5xx'] > 0 || $row['failures'] > 0 ? '#f87171' : '#60a5fa'" /></td>
                             <td class="is-num">{{ Format::count($row['ok']) }}</td>
                             <td class="is-num {{ $row['4xx'] > 0 ? 'tui-tone-warn' : '' }}">{{ Format::count($row['4xx']) }}</td>
                             <td class="is-num {{ $row['5xx'] > 0 ? 'tui-tone-danger' : '' }}">{{ Format::count($row['5xx']) }}</td>

@@ -15,6 +15,7 @@ final class OutgoingTable extends Card
 {
     public function render(): View
     {
+        [$start, $end] = $this->range();
         $p = $this->promDuration();
 
         $count = $this->metric('http_client_request_duration_milliseconds_count');
@@ -24,12 +25,20 @@ final class OutgoingTable extends Card
 
         $rows = [];
         $error = null;
+        $trends = [];
 
         try {
+            $trends = $this->trendByKey(
+                'sum by (server_address) (rate('.$count.'['.$this->rateWindow().'])) * 60',
+                $start,
+                $end,
+                fn (array $labels): string => $labels['server_address'] ?? '?',
+            );
+
             foreach ($this->metrics()->query('sum by (server_address, class) (label_replace(increase('.$count.'['.$p.']), "class", "${1}xx", "http_response_status_code", "([0-9]).."))') as $sample) {
                 $host = $sample->labels['server_address'] ?? '?';
 
-                $rows[$host] ??= ['host' => $host, 'ok' => 0.0, '4xx' => 0.0, '5xx' => 0.0, 'total' => 0.0, 'failures' => 0.0, 'time' => 0.0, 'p95' => null];
+                $rows[$host] ??= ['host' => $host, 'ok' => 0.0, '4xx' => 0.0, '5xx' => 0.0, 'total' => 0.0, 'failures' => 0.0, 'time' => 0.0, 'p95' => null, 'spark' => $trends[$host] ?? []];
 
                 $class = match ($sample->labels['class'] ?? '') {
                     '4xx' => '4xx',

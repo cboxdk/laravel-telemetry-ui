@@ -19,11 +19,20 @@ final class JobsTable extends Card
 
     public function render(): View
     {
+        [$start, $end] = $this->range();
         $p = $this->promDuration();
 
         $rows = [];
+        $trends = [];
 
         try {
+            $trends = $this->trendByKey(
+                'sum by (job_name, queue) (rate('.$this->metric('queue_jobs_processed_total').'['.$this->rateWindow().'])) * 60',
+                $start,
+                $end,
+                fn (array $labels): string => ($labels['job_name'] ?? '?').'|'.($labels['queue'] ?? '?'),
+            );
+
             foreach (['processed', 'failed', 'released'] as $outcome) {
                 $samples = $this->metrics()->query(
                     'sum by (job_name, queue) (increase('.$this->metric('queue_jobs_'.$outcome.'_total').'['.$p.']))',
@@ -37,6 +46,7 @@ final class JobsTable extends Card
                         'queue' => $sample->labels['queue'] ?? '?',
                         'processed' => 0.0, 'failed' => 0.0, 'released' => 0.0,
                         'time' => 0.0, 'count' => 0.0, 'p95' => null,
+                        'spark' => $trends[$key] ?? [],
                     ];
 
                     $rows[$key][$outcome] += $sample->value;

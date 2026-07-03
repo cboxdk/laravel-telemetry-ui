@@ -460,6 +460,9 @@ html, body {
 
 .tui-row-link { cursor: pointer; }
 
+.tui-spark { display: block; opacity: 0.9; }
+.tui-spark-empty { color: var(--tui-text-faint); }
+
 /* Badges */
 
 .tui-badge {

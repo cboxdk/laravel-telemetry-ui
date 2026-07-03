@@ -17,6 +17,7 @@
                         <tr>
                             <th>Method</th>
                             <th>Route</th>
+                            <th>Trend</th>
                             <th class="is-num">1/2/3XX</th>
                             <th class="is-num">4XX</th>
                             <th class="is-num">5XX</th>
@@ -30,6 +31,7 @@
                             <tr>
                                 <td><span class="tui-badge {{ $row['method'] === 'GET' ? 'tui-badge-info' : 'tui-badge-ok' }}">{{ $row['method'] }}</span></td>
                                 <td class="is-primary"><a href="{{ $this->tracesUrl($row['route']) }}" title="View traces">{{ $row['route'] }}</a></td>
+                                <td><x-telemetry-ui::sparkline :points="$row['spark']" :color="$row['5xx'] > 0 ? '#f87171' : ($row['4xx'] > 0 ? '#fbbf24' : '#34d399')" /></td>
                                 <td class="is-num">{{ Format::count($row['ok']) }}</td>
                                 <td class="is-num {{ $row['4xx'] > 0 ? 'tui-tone-warn' : '' }}">{{ Format::count($row['4xx']) }}</td>
                                 <td class="is-num {{ $row['5xx'] > 0 ? 'tui-tone-danger' : '' }}">{{ Format::count($row['5xx']) }}</td>
