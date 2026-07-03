@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Connectors\Linear;
 
 use Cbox\TelemetryUi\Connectors\ApiClient;
+use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Contracts\CreatesIssues;
 use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Queries\Results\Issue;
 use DateTimeImmutable;
@@ -13,7 +15,7 @@ use Throwable;
 /**
  * Linear issues via its GraphQL API.
  */
-final readonly class LinearSource implements IssuesSource
+final readonly class LinearSource implements CreatesIssues, IssuesSource
 {
     private const QUERY = <<<'GRAPHQL'
     query($filter: IssueFilter, $first: Int!) {
@@ -28,9 +30,18 @@ final readonly class LinearSource implements IssuesSource
     }
     GRAPHQL;
 
+    private const CREATE = <<<'GRAPHQL'
+    mutation($input: IssueCreateInput!) {
+      issueCreate(input: $input) {
+        issue { identifier title url createdAt updatedAt state { name type } }
+      }
+    }
+    GRAPHQL;
+
     public function __construct(
         private ApiClient $client,
         private ?string $team = null,
+        private ?string $teamId = null,
     ) {}
 
     public function issues(string $state = 'open', ?string $search = null, int $limit = 50): array
@@ -92,6 +103,38 @@ final readonly class LinearSource implements IssuesSource
         }
 
         return $issues;
+    }
+
+    public function createIssue(string $title, string $body, array $labels = []): Issue
+    {
+        if ($this->teamId === null || $this->teamId === '') {
+            throw new SourceException('Linear needs a "team_id" (the team UUID) to create issues.');
+        }
+
+        $response = $this->client->post('/graphql', [
+            'query' => self::CREATE,
+            'variables' => ['input' => ['teamId' => $this->teamId, 'title' => $title, 'description' => $body]],
+        ]);
+
+        $node = $response['data']['issueCreate']['issue'] ?? null;
+
+        if (! is_array($node)) {
+            throw new SourceException('Linear did not return the created issue.');
+        }
+
+        return new Issue(
+            id: (string) ($node['identifier'] ?? ''),
+            title: (string) ($node['title'] ?? $title),
+            state: is_array($node['state'] ?? null) ? (string) ($node['state']['name'] ?? '') : '',
+            url: (string) ($node['url'] ?? ''),
+            author: null,
+            labels: $labels,
+            count: null,
+            assignee: null,
+            createdAt: $this->date($node['createdAt'] ?? null),
+            updatedAt: $this->date($node['updatedAt'] ?? null),
+            body: $body,
+        );
     }
 
     public function issue(string $id): ?Issue

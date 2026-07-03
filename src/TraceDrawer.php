@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Contracts\CreatesIssues;
 use Cbox\TelemetryUi\Support\TraceView;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
@@ -35,6 +36,18 @@ final class TraceDrawer extends Component
     #[Url(as: 'issue', except: '')]
     public string $issueId = '';
 
+    // Compose-ticket form state (transient, not URL-backed).
+    public bool $composing = false;
+
+    public string $draftTitle = '';
+
+    public string $draftBody = '';
+
+    /** @var list<string> */
+    public array $draftLabels = [];
+
+    public ?string $composeError = null;
+
     public function mount(): void
     {
         // Deep link: ?trace= / ?issue= seeds the stack on first load.
@@ -57,6 +70,58 @@ final class TraceDrawer extends Component
         $this->push('issue', $issueId);
     }
 
+    /**
+     * @param  list<string>  $labels
+     */
+    #[On('telemetry-ui:compose-ticket')]
+    public function composeTicket(string $title = '', string $body = '', array $labels = []): void
+    {
+        $this->draftTitle = $title;
+        $this->draftBody = $body;
+        $this->draftLabels = array_values(array_filter($labels, 'is_string'));
+        $this->composeError = null;
+        $this->composing = true;
+    }
+
+    public function submitTicket(): void
+    {
+        $this->composeError = null;
+
+        $title = trim($this->draftTitle);
+
+        if ($title === '') {
+            $this->composeError = 'A title is required.';
+
+            return;
+        }
+
+        $source = app(ConnectionManager::class)->issues();
+
+        if (! $source instanceof CreatesIssues) {
+            $this->composeError = 'The configured tracker cannot create issues.';
+
+            return;
+        }
+
+        try {
+            $issue = $source->createIssue($title, $this->draftBody, $this->draftLabels);
+        } catch (SourceException $exception) {
+            $this->composeError = $exception->getMessage();
+
+            return;
+        }
+
+        // Land on the freshly created ticket.
+        $this->composing = false;
+        $this->push('issue', $issue->id);
+    }
+
+    public function cancelCompose(): void
+    {
+        $this->composing = false;
+        $this->composeError = null;
+    }
+
     public function back(): void
     {
         array_pop($this->stack);
@@ -66,6 +131,7 @@ final class TraceDrawer extends Component
     public function close(): void
     {
         $this->stack = [];
+        $this->composing = false;
         $this->syncUrl();
     }
 
@@ -91,11 +157,32 @@ final class TraceDrawer extends Component
 
     public function render(): View
     {
+        if ($this->composing) {
+            return $this->renderCompose();
+        }
+
         $top = end($this->stack) ?: null;
 
         return $top !== null && $top['type'] === 'issue'
             ? $this->renderIssue($top['id'])
             : $this->renderTrace($top['type'] ?? null, $top['id'] ?? '');
+    }
+
+    private function renderCompose(): View
+    {
+        /** @var view-string $view */
+        $view = 'telemetry-ui::trace-drawer';
+
+        return view($view, [
+            'mode' => 'compose',
+            'open' => true,
+            'depth' => count($this->stack),
+            'crumbs' => $this->crumbs(),
+            'key' => 'compose',
+            'trackerLabel' => app(ConnectionManager::class)->hasIssues() ? app(ConnectionManager::class)->issues()->label() : '',
+            'composeError' => $this->composeError,
+            'fullUrl' => null,
+        ]);
     }
 
     /**

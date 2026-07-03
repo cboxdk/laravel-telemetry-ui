@@ -49,7 +49,31 @@ final class ExceptionsTable extends Card
             'error' => $error,
             'errorTracesUrl' => $this->errorTracesUrl(),
             'hasIssues' => app(ConnectionManager::class)->hasIssues(),
+            'canCreate' => app(ConnectionManager::class)->canCreateIssues(),
         ]);
+    }
+
+    /**
+     * A prefilled ticket draft for an exception spike — the "analysis" the
+     * compose form opens with.
+     *
+     * @return array{title: string, body: string, labels: list<string>}
+     */
+    public function ticketDraft(string $exception, float $count): array
+    {
+        $scope = trim(($this->service !== '' ? $this->service : 'all services')
+            .($this->environment !== '' ? ' · '.$this->environment : ''));
+
+        $body = "**{$exception}**\n\n"
+            .'`'.(int) round($count)."` occurrences in the last {$this->period()->label()} on {$scope}.\n\n"
+            ."[View error traces in the dashboard]({$this->errorTracesUrl()})\n\n"
+            .'_Filed from the telemetry dashboard._';
+
+        return [
+            'title' => class_basename(Str::before($exception, ':')).' — '.(int) round($count).' in '.$this->period()->label(),
+            'body' => $body,
+            'labels' => ['bug'],
+        ];
     }
 
     /**

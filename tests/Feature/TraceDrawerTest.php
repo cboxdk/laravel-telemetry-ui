@@ -94,6 +94,46 @@ it('surfaces a backend error inside the drawer', function (): void {
         ->assertSee('status 502');
 });
 
+it('composes and creates a ticket, then lands on the new issue', function (): void {
+    config()->set('telemetry-ui.connections.issues', [
+        'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_write',
+    ]);
+
+    Http::fake([
+        'api.github.com/repos/cboxdk/laravel-telemetry-ui/issues' => Http::response([
+            'number' => 100, 'title' => 'TimeoutException — 12', 'state' => 'open',
+            'html_url' => 'https://github.com/cboxdk/laravel-telemetry-ui/issues/100',
+            'body' => 'the analysis',
+        ], 201),
+        'api.github.com/repos/cboxdk/laravel-telemetry-ui/issues/100' => Http::response([
+            'number' => 100, 'title' => 'TimeoutException — 12', 'state' => 'open',
+            'html_url' => 'https://github.com/cboxdk/laravel-telemetry-ui/issues/100', 'body' => 'the analysis',
+        ]),
+    ]);
+
+    Livewire::test(TraceDrawer::class)
+        ->dispatch('telemetry-ui:compose-ticket', title: 'TimeoutException — 12', body: 'the analysis', labels: ['bug'])
+        ->assertSet('composing', true)
+        ->assertSee('Create ticket')
+        ->call('submitTicket')
+        ->assertSet('composing', false)
+        ->assertCount('stack', 1)
+        ->assertSet('issueId', '#100')
+        ->assertSee('TimeoutException — 12');
+});
+
+it('keeps the compose form open and shows an error when title is empty', function (): void {
+    config()->set('telemetry-ui.connections.issues', [
+        'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_write',
+    ]);
+
+    Livewire::test(TraceDrawer::class)
+        ->dispatch('telemetry-ui:compose-ticket', title: '', body: 'x', labels: [])
+        ->call('submitTicket')
+        ->assertSet('composing', true)
+        ->assertSee('title is required');
+});
+
 it('opens an issue in the drawer and clears any open trace', function (): void {
     config()->set('telemetry-ui.connections.issues', [
         'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_test',

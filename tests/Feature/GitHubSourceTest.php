@@ -98,3 +98,36 @@ it('requires an owner/name repo', function (): void {
 
     app(ConnectionManager::class)->issues();
 })->throws(InvalidArgumentException::class, 'owner/name');
+
+it('creates a github issue and reports the tracker can write', function (): void {
+    Http::fake([
+        'api.github.com/repos/cboxdk/laravel-telemetry-ui/issues' => Http::response([
+            'number' => 99,
+            'title' => 'RuntimeException — 540 in 1H',
+            'state' => 'open',
+            'html_url' => 'https://github.com/cboxdk/laravel-telemetry-ui/issues/99',
+            'labels' => [['name' => 'bug']],
+        ], 201),
+    ]);
+
+    config()->set('telemetry-ui.connections.issues', [
+        'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_write',
+    ]);
+
+    $manager = app(ConnectionManager::class);
+    expect($manager->canCreateIssues())->toBeTrue();
+
+    $issue = $manager->issues()->createIssue('RuntimeException — 540 in 1H', 'body here', ['bug']);
+
+    expect($issue->id)->toBe('#99')
+        ->and($issue->url)->toBe('https://github.com/cboxdk/laravel-telemetry-ui/issues/99');
+
+    Http::assertSent(function ($request): bool {
+        $body = $request->data();
+
+        return $request->method() === 'POST'
+            && str_ends_with($request->url(), '/repos/cboxdk/laravel-telemetry-ui/issues')
+            && $body['title'] === 'RuntimeException — 540 in 1H'
+            && $body['labels'] === ['bug'];
+    });
+});

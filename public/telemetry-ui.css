@@ -564,6 +564,44 @@ html, body {
 .tui-btn:hover { color: var(--tui-text); border-color: #3a3a3f; }
 .tui-btn.is-active { color: var(--tui-danger); border-color: rgba(248, 113, 113, 0.4); }
 
+.tui-btn-sm { padding: 3px 8px; font-size: 11px; }
+
+.tui-btn-primary {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    color: #fff;
+}
+
+.tui-btn-primary:hover { background: #1e40af; border-color: #1e40af; color: #fff; }
+.tui-btn-primary[disabled] { opacity: 0.6; cursor: default; }
+
+/* Compose ticket form */
+
+.tui-compose { display: flex; flex-direction: column; gap: 14px; }
+
+.tui-compose-field { display: flex; flex-direction: column; gap: 5px; }
+
+.tui-compose-field > span {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--tui-text-faint);
+}
+
+.tui-compose-field .tui-input { width: 100%; }
+
+.tui-compose-body {
+    font-family: var(--tui-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    resize: vertical;
+    min-height: 200px;
+}
+
+.tui-compose-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+.tui-drawer-sub { font-weight: 400; color: var(--tui-text-faint); font-size: 13px; }
+
 /* Log lines */
 
 .tui-logs {

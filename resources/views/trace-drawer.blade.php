@@ -14,10 +14,12 @@
                             @endforeach
                         </div>
                     @else
-                        <span class="tui-drawer-eyebrow">{{ $mode === 'issue' ? 'Issue' : 'Trace' }}</span>
+                        <span class="tui-drawer-eyebrow">{{ $mode === 'compose' ? 'New ticket' : ($mode === 'issue' ? 'Issue' : 'Trace') }}</span>
                     @endif
                     <h2>
-                        @if ($mode === 'issue')
+                        @if ($mode === 'compose')
+                            Create ticket @if ($trackerLabel !== '')<span class="tui-drawer-sub">· {{ $trackerLabel }}</span>@endif
+                        @elseif ($mode === 'issue')
                             {{ $issue?->title ?? ($error ? 'Error' : 'Loading…') }}
                         @else
                             {{ $trace?->root()?->name ?: ($error ? 'Error' : 'Loading…') }}
@@ -34,7 +36,9 @@
 
             <div class="tui-drawer-body" wire:key="drawer-{{ $mode }}-{{ $key }}">
                 @if ($open)
-                    @if ($mode === 'issue')
+                    @if ($mode === 'compose')
+                        @include('telemetry-ui::partials.compose-ticket', ['error' => $composeError])
+                    @elseif ($mode === 'issue')
                         @include('telemetry-ui::partials.issue-detail', ['issue' => $issue, 'error' => $error])
                     @else
                         @include('telemetry-ui::partials.trace-detail', ['trace' => $trace, 'rows' => $rows, 'chain' => $chain, 'identities' => $identities, 'error' => $error])

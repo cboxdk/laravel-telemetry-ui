@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Connectors\GitHub;
 
 use Cbox\TelemetryUi\Connectors\ApiClient;
+use Cbox\TelemetryUi\Contracts\CreatesIssues;
 use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Queries\Results\Issue;
 use DateTimeImmutable;
@@ -14,7 +15,7 @@ use Throwable;
  * GitHub issues + pull requests for a repo (the REST issues endpoint returns
  * both; PRs carry a `pull_request` key).
  */
-final readonly class GitHubSource implements IssuesSource
+final readonly class GitHubSource implements CreatesIssues, IssuesSource
 {
     public function __construct(
         private ApiClient $client,
@@ -80,6 +81,17 @@ final readonly class GitHubSource implements IssuesSource
             kind: isset($item['pull_request']) ? 'pr' : 'issue',
             body: is_string($item['body'] ?? null) && $item['body'] !== '' ? $item['body'] : null,
         );
+    }
+
+    public function createIssue(string $title, string $body, array $labels = []): Issue
+    {
+        $item = $this->client->post('/repos/'.$this->repo.'/issues', array_filter([
+            'title' => $title,
+            'body' => $body,
+            'labels' => $labels !== [] ? array_values($labels) : null,
+        ], static fn ($v): bool => $v !== null));
+
+        return $this->toIssue($item);
     }
 
     public function label(): string

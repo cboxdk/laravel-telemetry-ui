@@ -46,8 +46,10 @@ weight: 99
 - Issue trackers as a fourth signal (`IssuesSource`): GitHub (issues + PRs,
   verified live), Sentry (issue groups) and Linear (GraphQL), config-gated
   Issues page. Add your own via `ConnectionManager::extend()`.
-- Next: the action side — create a ticket from an exception group, post to
-  Slack — layered on top of the read side.
+- Actions: **create a ticket from an exception** — a `CreatesIssues` capability
+  (GitHub, Linear) with a compose form in the drawer prefilled from the
+  exception analysis; the drawer lands on the created ticket.
+- Next: post to Slack, AI-assisted triage on the analysis.
 
 ## Phase 5 — actions & intelligence (out of scope for now)
 

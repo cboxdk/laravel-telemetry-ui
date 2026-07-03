@@ -66,6 +66,28 @@ Config `driver => 'jira'` and the Issues page uses it. The action side —
 creating a ticket from an exception, posting to Slack — is a deliberate future
 layer on top of this read side.
 
+## Creating tickets from exceptions
+
+Trackers that can write (GitHub, Linear — not Sentry) implement the optional
+`Cbox\TelemetryUi\Contracts\CreatesIssues` capability. When one is configured,
+the Exceptions table shows a **+ ticket** action per class: it opens a compose
+form in the drawer, prefilled with the analysis (exception class, occurrence
+count, period, scope and a deep-link to the error traces). Edit and submit, and
+the drawer lands on the freshly created ticket — never leaving the dashboard.
+
+- **GitHub** needs a token with issue write (repo scope, or a fine-grained
+  token with Issues: read & write).
+- **Linear** needs the team's UUID to create:
+
+  ```php
+  'issues' => [
+      'driver' => 'linear',
+      'token' => env('TELEMETRY_UI_ISSUES_TOKEN'),
+      'team' => 'CBOX',                              // team key, for filtering
+      'team_id' => env('TELEMETRY_UI_LINEAR_TEAM_ID'),   // team UUID, for creating
+  ],
+  ```
+
 ## Relations
 
 Issues aren't a dead end — they cross-link with the telemetry:

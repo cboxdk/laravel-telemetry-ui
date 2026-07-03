@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Connectors\Prometheus\MimirSource;
 use Cbox\TelemetryUi\Connectors\Prometheus\PrometheusSource;
 use Cbox\TelemetryUi\Connectors\Sentry\SentrySource;
 use Cbox\TelemetryUi\Connectors\Tempo\TempoSource;
+use Cbox\TelemetryUi\Contracts\CreatesIssues;
 use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
@@ -65,6 +66,15 @@ final class ConnectionManager
         $config = $this->config->get('telemetry-ui.connections.'.($name ?? 'issues'));
 
         return is_array($config) && ($config['driver'] ?? null) !== null;
+    }
+
+    /**
+     * Whether the configured tracker can create issues (GitHub, Linear) —
+     * gates the "create ticket" affordances.
+     */
+    public function canCreateIssues(?string $name = null): bool
+    {
+        return $this->hasIssues($name) && $this->issues($name) instanceof CreatesIssues;
     }
 
     /**
@@ -161,8 +171,13 @@ final class ConnectionManager
         }
 
         $team = $config['team'] ?? null;
+        $teamId = $config['team_id'] ?? null;
 
-        return new LinearSource($this->client($config), is_string($team) ? $team : null);
+        return new LinearSource(
+            $this->client($config),
+            is_string($team) ? $team : null,
+            is_string($teamId) ? $teamId : null,
+        );
     }
 
     /**
