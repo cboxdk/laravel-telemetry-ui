@@ -75,14 +75,23 @@ window.telemetryUiSetRange = (fromMs, toMs) => {
 
 const isHex32 = (s) => /^[0-9a-f]{32}$/i.test(s.trim());
 
-// Trace links open the slide-in drawer on a plain click; cmd/ctrl/shift-click
-// (or the middle button) fall through to the full-page href in a new tab.
+// Trace/issue links open the slide-in drawer on a plain click; cmd/ctrl/
+// shift-click (or the middle button) fall through to the href in a new tab.
 document.addEventListener('click', (e) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-    const link = e.target.closest('.tui-trace-link');
-    if (!link || !link.dataset.traceId) return;
-    e.preventDefault();
-    window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: link.dataset.traceId });
+
+    const trace = e.target.closest('.tui-trace-link');
+    if (trace && trace.dataset.traceId) {
+        e.preventDefault();
+        window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: trace.dataset.traceId });
+        return;
+    }
+
+    const issue = e.target.closest('.tui-issue-link');
+    if (issue && issue.dataset.issueId) {
+        e.preventDefault();
+        window.Livewire?.dispatch('telemetry-ui:open-issue', { issueId: issue.dataset.issueId });
+    }
 });
 
 function register() {

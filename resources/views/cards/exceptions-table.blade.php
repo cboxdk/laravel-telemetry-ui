@@ -16,6 +16,7 @@
                     <tr>
                         <th>Exception</th>
                         <th class="is-num">Count</th>
+                        @if ($hasIssues)<th class="is-num">Tracker</th>@endif
                     </tr>
                 </thead>
                 <tbody>
@@ -23,6 +24,9 @@
                         <tr>
                             <td class="is-primary is-wide">{{ $row['exception'] }}</td>
                             <td class="is-num tui-tone-danger">{{ Format::count($row['count']) }}</td>
+                            @if ($hasIssues)
+                                <td class="is-num"><a href="{{ $this->issuesUrl($row['exception']) }}" title="Find matching issues">⧉ issues</a></td>
+                            @endif
                         </tr>
                     @endforeach
                 </tbody>

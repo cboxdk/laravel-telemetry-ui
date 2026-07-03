@@ -22,6 +22,12 @@ interface IssuesSource
     public function issues(string $state = 'open', ?string $search = null, int $limit = 50): array;
 
     /**
+     * Fetch a single issue by its id (with body) for the detail drawer, or
+     * null if it can't be resolved.
+     */
+    public function issue(string $id): ?Issue;
+
+    /**
      * A short human name for this tracker/project, for the UI header.
      */
     public function label(): string;

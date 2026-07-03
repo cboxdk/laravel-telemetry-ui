@@ -94,6 +94,17 @@ final readonly class LinearSource implements IssuesSource
         return $issues;
     }
 
+    public function issue(string $id): ?Issue
+    {
+        foreach ($this->issues('all', null, 100) as $issue) {
+            if ($issue->id === $id) {
+                return $issue;
+            }
+        }
+
+        return null;
+    }
+
     public function label(): string
     {
         return $this->team !== null && $this->team !== '' ? 'Linear · '.$this->team : 'Linear';

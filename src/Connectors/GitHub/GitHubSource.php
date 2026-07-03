@@ -38,28 +38,48 @@ final readonly class GitHubSource implements IssuesSource
                 continue;
             }
 
-            $title = (string) ($item['title'] ?? '');
-
-            if ($search !== null && $search !== '' && stripos($title, $search) === false) {
+            if ($search !== null && $search !== '' && stripos((string) ($item['title'] ?? ''), $search) === false) {
                 continue;
             }
 
-            $issues[] = new Issue(
-                id: '#'.$item['number'],
-                title: $title,
-                state: (string) ($item['state'] ?? 'open'),
-                url: (string) ($item['html_url'] ?? ''),
-                author: $this->nested($item, 'user', 'login'),
-                labels: $this->labels($item),
-                count: isset($item['comments']) ? (int) $item['comments'] : null,
-                assignee: $this->nested($item, 'assignee', 'login'),
-                createdAt: $this->date($item['created_at'] ?? null),
-                updatedAt: $this->date($item['updated_at'] ?? null),
-                kind: isset($item['pull_request']) ? 'pr' : 'issue',
-            );
+            $issues[] = $this->toIssue($item);
         }
 
         return $issues;
+    }
+
+    public function issue(string $id): ?Issue
+    {
+        $number = ltrim($id, '#');
+
+        if (! ctype_digit($number)) {
+            return null;
+        }
+
+        $item = $this->client->get('/repos/'.$this->repo.'/issues/'.$number);
+
+        return isset($item['number']) ? $this->toIssue($item) : null;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $item
+     */
+    private function toIssue(array $item): Issue
+    {
+        return new Issue(
+            id: '#'.($item['number'] ?? ''),
+            title: (string) ($item['title'] ?? ''),
+            state: (string) ($item['state'] ?? 'open'),
+            url: (string) ($item['html_url'] ?? ''),
+            author: $this->nested($item, 'user', 'login'),
+            labels: $this->labels($item),
+            count: isset($item['comments']) ? (int) $item['comments'] : null,
+            assignee: $this->nested($item, 'assignee', 'login'),
+            createdAt: $this->date($item['created_at'] ?? null),
+            updatedAt: $this->date($item['updated_at'] ?? null),
+            kind: isset($item['pull_request']) ? 'pr' : 'issue',
+            body: is_string($item['body'] ?? null) && $item['body'] !== '' ? $item['body'] : null,
+        );
     }
 
     public function label(): string

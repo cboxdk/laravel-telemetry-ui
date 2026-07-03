@@ -4,20 +4,30 @@
         <aside class="tui-drawer" x-on:keydown.escape.window="$wire.close()">
             <header class="tui-drawer-header">
                 <div class="tui-drawer-title">
-                    <span class="tui-drawer-eyebrow">Trace</span>
-                    <h2>{{ $trace?->root()?->name ?: ($error ? 'Error' : 'Loading…') }}</h2>
+                    <span class="tui-drawer-eyebrow">{{ $mode === 'issue' ? 'Issue' : 'Trace' }}</span>
+                    <h2>
+                        @if ($mode === 'issue')
+                            {{ $issue?->title ?? ($error ? 'Error' : 'Loading…') }}
+                        @else
+                            {{ $trace?->root()?->name ?: ($error ? 'Error' : 'Loading…') }}
+                        @endif
+                    </h2>
                 </div>
                 <div class="tui-drawer-actions">
                     @if ($fullUrl)
-                        <a class="tui-btn" href="{{ $fullUrl }}" title="Open full page">↗ Full page</a>
+                        <a class="tui-btn" href="{{ $fullUrl }}" @if ($mode === 'issue') target="_blank" rel="noopener" @endif title="{{ $mode === 'issue' ? 'Open on tracker' : 'Open full page' }}">↗ {{ $mode === 'issue' ? 'Open' : 'Full page' }}</a>
                     @endif
                     <button type="button" class="tui-btn" wire:click="close" title="Close">✕</button>
                 </div>
             </header>
 
-            <div class="tui-drawer-body" wire:key="drawer-{{ $traceId }}">
+            <div class="tui-drawer-body" wire:key="drawer-{{ $mode }}-{{ $key }}">
                 @if ($open)
-                    @include('telemetry-ui::partials.trace-detail', ['trace' => $trace, 'rows' => $rows, 'chain' => $chain, 'identities' => $identities, 'error' => $error])
+                    @if ($mode === 'issue')
+                        @include('telemetry-ui::partials.issue-detail', ['issue' => $issue, 'error' => $error])
+                    @else
+                        @include('telemetry-ui::partials.trace-detail', ['trace' => $trace, 'rows' => $rows, 'chain' => $chain, 'identities' => $identities, 'error' => $error])
+                    @endif
                 @endif
             </div>
         </aside>

@@ -56,3 +56,33 @@ it('surfaces a backend error inside the drawer', function (): void {
         ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab')
         ->assertSee('status 502');
 });
+
+it('opens an issue in the drawer and clears any open trace', function (): void {
+    config()->set('telemetry-ui.connections.issues', [
+        'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_test',
+    ]);
+
+    Http::fake([
+        'api.github.com/repos/cboxdk/laravel-telemetry-ui/issues/7' => Http::response([
+            'number' => 7,
+            'title' => 'Timeout on trace abc123abc123abc123abc123abc123ab',
+            'state' => 'open',
+            'html_url' => 'https://github.com/cboxdk/laravel-telemetry-ui/issues/7',
+            'user' => ['login' => 'octocat'],
+            'labels' => [['name' => 'bug']],
+            'comments' => 2,
+            'body' => 'Seen in production. trace abc123abc123abc123abc123abc123ab',
+            'updated_at' => '2026-07-03T12:00:00Z',
+        ]),
+    ]);
+
+    Livewire::test(TraceDrawer::class)
+        ->set('traceId', 'ffffffffffffffffffffffffffffffff')
+        ->dispatch('telemetry-ui:open-issue', issueId: '#7')
+        ->assertSet('issueId', '#7')
+        ->assertSet('traceId', '')
+        ->assertSee('Timeout on trace')
+        ->assertSee('Seen in production')
+        // The trace id in the body becomes a drawer link.
+        ->assertSeeHtml('data-trace-id="abc123abc123abc123abc123abc123ab"');
+});

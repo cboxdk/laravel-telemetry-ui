@@ -65,3 +65,17 @@ $this->callAfterResolving(ConnectionManager::class, function ($manager) {
 Config `driver => 'jira'` and the Issues page uses it. The action side —
 creating a ticket from an exception, posting to Slack — is a deliberate future
 layer on top of this read side.
+
+## Relations
+
+Issues aren't a dead end — they cross-link with the telemetry:
+
+- **Issue → trace.** Clicking an issue opens it in the slide-in drawer (title,
+  labels, author, full body) without leaving the list. Any 32-hex trace id in
+  the title/body becomes a link that opens the trace waterfall in the same
+  drawer.
+- **Exception → issue.** The Exceptions table shows a "⧉ issues" link per
+  class (when a tracker is configured) that jumps to the Issues page
+  pre-searched for that exception, so a spike lands on its ticket.
+- **Labels/tags.** Click a label on any issue to filter the list by it, or use
+  the label dropdown; the filter is URL-backed so the view is shareable.

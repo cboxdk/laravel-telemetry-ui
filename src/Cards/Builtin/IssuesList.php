@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Results\Issue;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
 
@@ -22,15 +23,19 @@ final class IssuesList extends Card
     #[Url(as: 'issue_search')]
     public string $search = '';
 
+    #[Url(as: 'issue_label')]
+    public string $label = '';
+
     public function render(): View
     {
         $issues = [];
+        $labels = [];
         $error = null;
         $label = '';
         $url = '';
 
         if (! app(ConnectionManager::class)->hasIssues()) {
-            $error = 'No issue tracker configured. Set TELEMETRY_UI_ISSUES_DRIVER (github, …) and its token.';
+            $error = 'No issue tracker configured. Set TELEMETRY_UI_ISSUES_DRIVER (github, sentry, linear) and its token.';
         } else {
             try {
                 $source = $this->issues();
@@ -38,6 +43,13 @@ final class IssuesList extends Card
                 $url = $source->url();
                 $state = in_array($this->state, ['open', 'closed', 'all'], true) ? $this->state : 'open';
                 $issues = $source->issues($state, $this->search !== '' ? $this->search : null, limit: 50);
+
+                // Distinct labels across the result set, for the filter.
+                $labels = collect($issues)->flatMap(fn (Issue $i): array => $i->labels)->unique()->sort()->values()->all();
+
+                if ($this->label !== '') {
+                    $issues = array_values(array_filter($issues, fn (Issue $i): bool => in_array($this->label, $i->labels, true)));
+                }
             } catch (SourceException $exception) {
                 $error = $exception->getMessage();
             }
@@ -48,9 +60,15 @@ final class IssuesList extends Card
 
         return view($view, [
             'issues' => $issues,
+            'labels' => $labels,
             'error' => $error,
-            'label' => $label,
+            'trackerLabel' => $label,
             'url' => $url,
         ]);
+    }
+
+    public function filterLabel(string $label): void
+    {
+        $this->label = $this->label === $label ? '' : $label;
     }
 }

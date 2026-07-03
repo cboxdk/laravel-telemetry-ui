@@ -26,7 +26,21 @@ final readonly class Issue
         public ?DateTimeImmutable $createdAt,
         public ?DateTimeImmutable $updatedAt,
         public string $kind = 'issue',
+        public ?string $body = null,
     ) {}
+
+    /**
+     * Any 32-hex trace ids mentioned in the title or body, so an issue can
+     * link straight to the trace it's about.
+     *
+     * @return list<string>
+     */
+    public function traceIds(): array
+    {
+        preg_match_all('/\b([0-9a-f]{32})\b/i', $this->title.' '.($this->body ?? ''), $matches);
+
+        return array_values(array_unique($matches[1]));
+    }
 
     public function isOpen(): bool
     {

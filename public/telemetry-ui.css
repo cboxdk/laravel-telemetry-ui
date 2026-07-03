@@ -483,6 +483,47 @@ html, body {
 .tui-badge-danger { color: var(--tui-danger); border-color: rgba(248, 113, 113, 0.25); }
 .tui-badge-info { color: var(--tui-info); border-color: rgba(96, 165, 250, 0.25); }
 
+.tui-badge-clickable {
+    cursor: pointer;
+    font-family: var(--tui-mono);
+    line-height: 1.4;
+}
+
+.tui-badge-clickable:hover { border-color: var(--tui-info); color: var(--tui-text); }
+.tui-badge-clickable.is-active { border-color: var(--tui-info); color: var(--tui-info); background: rgba(96, 165, 250, 0.12); }
+
+/* Issue detail (drawer) */
+
+.tui-issue-meta { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 14px; }
+
+.tui-issue-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    font-family: var(--tui-mono);
+    font-size: 12px;
+    color: var(--tui-text-dim);
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--tui-border);
+}
+
+.tui-issue-facts em { font-style: normal; color: var(--tui-text-faint); margin-right: 5px; }
+
+.tui-issue-relations { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 14px 0; }
+
+.tui-issue-body {
+    margin-top: 14px;
+    padding: 14px 16px;
+    background: var(--tui-surface);
+    border: 1px solid var(--tui-border);
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--tui-text-dim);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
 /* Toolbar (search inputs, filters inside cards) */
 
 .tui-toolbar {
