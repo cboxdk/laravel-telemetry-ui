@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Connectors;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -50,6 +51,47 @@ final readonly class ApiClient
             throw SourceException::requestFailed($url, $response->status(), $response->body());
         }
 
+        return $this->decode($response, $url);
+    }
+
+    /**
+     * POST a JSON body (e.g. a GraphQL query for Linear).
+     *
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     */
+    public function post(string $path, array $body = []): array
+    {
+        $url = rtrim($this->url, '/').$path;
+
+        $headers = $this->headers;
+
+        if ($this->tenant !== null) {
+            $headers['X-Scope-OrgID'] = $this->tenant;
+        }
+
+        try {
+            $response = Http::withHeaders($headers)
+                ->timeout($this->timeout)
+                ->acceptJson()
+                ->asJson()
+                ->post($url, $body);
+        } catch (ConnectionException $exception) {
+            throw SourceException::connectionFailed($url, $exception->getMessage());
+        }
+
+        if ($response->failed()) {
+            throw SourceException::requestFailed($url, $response->status(), $response->body());
+        }
+
+        return $this->decode($response, $url);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function decode(Response $response, string $url): array
+    {
         $decoded = $response->json();
 
         if (! is_array($decoded)) {

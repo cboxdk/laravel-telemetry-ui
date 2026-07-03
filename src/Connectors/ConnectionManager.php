@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Connectors;
 
 use Cbox\TelemetryUi\Connectors\GitHub\GitHubSource;
+use Cbox\TelemetryUi\Connectors\Linear\LinearSource;
 use Cbox\TelemetryUi\Connectors\Loki\LokiSource;
 use Cbox\TelemetryUi\Connectors\Prometheus\MimirSource;
 use Cbox\TelemetryUi\Connectors\Prometheus\PrometheusSource;
+use Cbox\TelemetryUi\Connectors\Sentry\SentrySource;
 use Cbox\TelemetryUi\Connectors\Tempo\TempoSource;
 use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Contracts\LogsSource;
@@ -120,8 +122,47 @@ final class ConnectionManager
             'tempo' => new TempoSource($this->client($config)),
             'loki' => new LokiSource($this->client($config)),
             'github' => $this->github($config),
+            'sentry' => $this->sentry($config),
+            'linear' => $this->linear($config),
             default => throw new InvalidArgumentException("Telemetry UI driver [{$driver}] is not supported."),
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    private function sentry(array $config): SentrySource
+    {
+        $org = $config['org'] ?? $config['organization'] ?? null;
+        $project = $config['project'] ?? null;
+
+        if (! is_string($org) || $org === '' || ! is_string($project) || $project === '') {
+            throw new InvalidArgumentException('Sentry issues connection needs "org" and "project".');
+        }
+
+        $base = is_string($config['url'] ?? null) && $config['url'] !== '' ? $config['url'] : 'https://sentry.io';
+        $config['url'] = $base;
+
+        return new SentrySource($this->client($config), $org, $project, $base);
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    private function linear(array $config): LinearSource
+    {
+        $config['url'] ??= 'https://api.linear.app';
+
+        // Linear authenticates with the raw API key (not a Bearer token).
+        $token = $config['token'] ?? null;
+        if (is_string($token) && $token !== '') {
+            $config['headers'] = array_merge(['Authorization' => $token], is_array($config['headers'] ?? null) ? $config['headers'] : []);
+            unset($config['token']);
+        }
+
+        $team = $config['team'] ?? null;
+
+        return new LinearSource($this->client($config), is_string($team) ? $team : null);
     }
 
     /**

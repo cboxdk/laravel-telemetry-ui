@@ -41,7 +41,15 @@ weight: 99
 - Short-TTL query cache for busy dashboards; auto-refresh polling.
 - Exceptions grouping with first/last-seen (needs app-side state).
 
-## Phase 4 — actions & intelligence (out of scope for now)
+## Phase 4 — integrations (in progress)
+
+- Issue trackers as a fourth signal (`IssuesSource`): GitHub (issues + PRs,
+  verified live), Sentry (issue groups) and Linear (GraphQL), config-gated
+  Issues page. Add your own via `ConnectionManager::extend()`.
+- Next: the action side — create a ticket from an exception group, post to
+  Slack — layered on top of the read side.
+
+## Phase 5 — actions & intelligence (out of scope for now)
 
 - `IssuesSource` contract: Sentry read, Linear/GitHub ticket creation from
   exception groups.
