@@ -1,0 +1,19 @@
+* text=auto eol=lf
+
+# Keep the dist tarball lean — none of this is needed at runtime.
+# NOTE: public/ (the committed ECharts bundle + CSS) is intentionally NOT
+# export-ignored; the dashboard serves it at runtime.
+/.github            export-ignore
+/docs               export-ignore
+/tests              export-ignore
+/.gitattributes     export-ignore
+/.gitignore         export-ignore
+/.editorconfig      export-ignore
+/phpunit.xml.dist   export-ignore
+/phpstan.neon.dist  export-ignore
+/pint.json          export-ignore
+/vite.config.js     export-ignore
+/package.json       export-ignore
+/package-lock.json  export-ignore
+/resources/js       export-ignore
+/CHANGELOG.md       export-ignore

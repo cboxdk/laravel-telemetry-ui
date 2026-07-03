@@ -29,13 +29,13 @@
     ],
     "require": {
         "php": "^8.3|^8.4|^8.5",
+        "guzzlehttp/guzzle": "^7.8",
         "illuminate/contracts": "^12.0|^13.0",
         "illuminate/http": "^12.0|^13.0",
         "illuminate/support": "^12.0|^13.0",
         "livewire/livewire": "^3.6"
     },
     "require-dev": {
-        "guzzlehttp/guzzle": "^7.8",
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.14",
         "nunomaduro/collision": "^8.8",
@@ -48,8 +48,7 @@
         "phpstan/phpstan-phpunit": "^2.0"
     },
     "suggest": {
-        "cboxdk/laravel-telemetry": "The emitting side: collector-free Prometheus metrics and OTLP traces this UI is schema-aware of.",
-        "guzzlehttp/guzzle": "Required to query Tempo, Loki and Prometheus/Mimir via the Laravel HTTP client."
+        "cboxdk/laravel-telemetry": "The emitting side: collector-free Prometheus metrics and OTLP traces this UI is schema-aware of."
     },
     "autoload": {
         "psr-4": {
