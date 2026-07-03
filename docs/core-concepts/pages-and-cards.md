@@ -21,7 +21,7 @@ Config-declared dashboard cards:
 ```php
 // config/telemetry-ui.php
 'cards' => [
-    RequestsOverview::class,
+    RequestsActivity::class,
 ],
 ```
 

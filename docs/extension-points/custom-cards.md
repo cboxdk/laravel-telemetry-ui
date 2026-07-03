@@ -25,6 +25,16 @@ public function boot(): void
 }
 ```
 
+That's all the wiring you need — **no routes to register.** The dashboard's
+catch-all route resolves any registered page slug to a generic page view that
+renders the page's cards, so `/telemetry-ui/autoscale` works the moment you
+`page('autoscale', …)`. Register the cards on that slug and they appear.
+
+`page()` also takes an optional `detectMetric:` name pattern: the page only
+shows when a matching metric exists in the backend — the same autodetection
+the built-in Statamic group uses. `group:` places it under a sidebar heading,
+`icon:` sets its glyph.
+
 ```php
 use Cbox\TelemetryUi\Cards\Card;
 

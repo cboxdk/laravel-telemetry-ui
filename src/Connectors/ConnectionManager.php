@@ -204,9 +204,14 @@ final class ConnectionManager
     }
 
     /**
+     * Build a fully-wired ApiClient from a connection config array — Bearer/
+     * basic auth, tenancy header, timeout, query cache and retries all applied.
+     * Public so custom drivers registered via {@see extend()} can reuse the
+     * same wiring instead of constructing ApiClient by hand.
+     *
      * @param  array<string, mixed>  $config
      */
-    private function client(array $config): ApiClient
+    public function client(array $config): ApiClient
     {
         $url = $config['url'] ?? null;
 

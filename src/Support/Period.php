@@ -58,14 +58,6 @@ enum Period: string
     }
 
     /**
-     * The rate()/increase() window that keeps charts smooth for this range.
-     */
-    public function rateWindow(): string
-    {
-        return self::windowFor($this->seconds());
-    }
-
-    /**
      * The rate window for an arbitrary range length (custom from/to ranges).
      */
     public static function windowFor(int $seconds): string

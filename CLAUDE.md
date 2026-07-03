@@ -27,8 +27,9 @@ docs/design/direction.md for the screen → query mapping.
 - `TelemetryUiManager` — page/card registry (class-strings only). Facade:
   `TelemetryUi`. Pages with a `detect` metric-name pattern are autodetected
   via `Support/SchemaDetector` (one cached `count({__name__=~"..."})` query,
-  fail-open); the built-in Statamic page detects `statamic_.*` from
-  ../statamic-telemetry.
+  fail-open); the built-in Statamic sidebar group (from ../statamic-telemetry)
+  has subpages that each detect their own `statamic_*` family
+  (`statamic_static_cache.*`, `statamic_stache.*`, `statamic_glide.*`, etc.).
 - Routes gated by `viewTelemetryUi` gate (local-only default); assets served
   from `public/` by AssetController, no publishing.
 

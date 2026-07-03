@@ -18,6 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Linear now surfaces GraphQL errors (auth/permission/query failures, which
   Linear returns as HTTP 200 with an `errors` array) as a `SourceException`
   instead of silently returning an empty issue list.
+- Prometheus/Mimir non-finite values: `NaN`/`+Inf`/`-Inf` (which Prometheus
+  serializes as strings) were cast to a misleading `0.0`. They are now dropped
+  so gauges/ratios show a gap instead of a false zero, and the `scalar`
+  result branch no longer risks a raw `TypeError` past the `SourceException`
+  boundary.
+- Fleet (sidebar service/environment) cache TTL is now config-wired
+  (`telemetry-ui.fleet.ttl` / `TELEMETRY_UI_FLEET_TTL`), matching the other
+  cache TTLs.
+
+### Changed
+
+- `ConnectionManager::client()` is now public so custom drivers registered via
+  `extend()` can reuse the configured `ApiClient` (auth, tenancy, cache,
+  retries) instead of building one by hand.
 
 ### Verified
 

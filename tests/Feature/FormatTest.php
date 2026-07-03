@@ -60,3 +60,33 @@ it('formats fleet scope helpers on cards', function (): void {
 
     expect($card->probe())->toBe(['up', 'status = error', '{service_name=~".+"}']);
 });
+
+it('escapes quotes and backslashes in scope values so they cannot break the query', function (): void {
+    $card = new class extends Card
+    {
+        public function render(): View
+        {
+            return view('telemetry-ui::cards.chart');
+        }
+
+        public function probe(): array
+        {
+            return [
+                $this->metric('up'),
+                $this->traceScope('status = error'),
+                $this->logSelector(),
+            ];
+        }
+    };
+
+    // A crafted ?service= value (literal: ev"il\back) must be escaped, not
+    // injected raw into PromQL/TraceQL/LogQL.
+    $card->service = 'ev"il\\back';
+    $card->environment = '';
+
+    [$metric, $trace, $log] = $card->probe();
+
+    expect($metric)->toContain('service_name="ev\\"il\\\\back"')
+        ->and($log)->toContain('service_name="ev\\"il\\\\back"')
+        ->and($trace)->toContain('resource.service.name = "ev\\"il\\\\back"');
+});

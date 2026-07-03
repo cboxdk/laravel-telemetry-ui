@@ -116,3 +116,65 @@ it('throws on http failures', function (): void {
 
     prometheus()->query('up');
 })->throws(SourceException::class, 'status 502');
+
+it('drops non-finite vector samples instead of rendering false zeros', function (): void {
+    // Prometheus serializes NaN/±Inf as strings; a blind (float) cast would
+    // turn them into a misleading 0.0.
+    Http::fake([
+        'prometheus.test:9090/api/v1/query*' => Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'vector', 'result' => [
+                ['metric' => ['service_name' => 'checkout'], 'value' => [1735689600, '42.5']],
+                ['metric' => ['service_name' => 'ratio'], 'value' => [1735689600, 'NaN']],
+                ['metric' => ['service_name' => 'unbounded'], 'value' => [1735689600, '+Inf']],
+            ]],
+        ]),
+    ]);
+
+    $samples = prometheus()->query('some_ratio');
+
+    expect($samples)->toHaveCount(1)
+        ->and($samples[0]->labels['service_name'])->toBe('checkout')
+        ->and($samples[0]->value)->toBe(42.5);
+});
+
+it('parses a scalar result', function (): void {
+    Http::fake([
+        'prometheus.test:9090/api/v1/query*' => Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'scalar', 'result' => [1735689600, '7']],
+        ]),
+    ]);
+
+    expect(prometheus()->query('scalar(x)')[0]->value)->toBe(7.0);
+});
+
+it('drops a non-finite scalar result', function (): void {
+    Http::fake([
+        'prometheus.test:9090/api/v1/query*' => Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'scalar', 'result' => [1735689600, 'NaN']],
+        ]),
+    ]);
+
+    expect(prometheus()->query('scalar(y)'))->toBe([]);
+});
+
+it('drops non-finite points from range series', function (): void {
+    Http::fake([
+        'prometheus.test:9090/api/v1/query_range*' => Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'matrix', 'result' => [
+                ['metric' => [], 'values' => [
+                    [1735689600, '1'], [1735689660, 'NaN'], [1735689720, '3'],
+                ]],
+            ]],
+        ]),
+    ]);
+
+    $series = prometheus()->queryRange('rate(x[1m])', new DateTimeImmutable('@1735686000'), new DateTimeImmutable('@1735689600'));
+
+    expect($series[0]->points)->toHaveCount(2)
+        ->and($series[0]->points[0]->value)->toBe(1.0)
+        ->and($series[0]->points[1]->value)->toBe(3.0);
+});

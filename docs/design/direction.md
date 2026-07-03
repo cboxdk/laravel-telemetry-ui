@@ -7,7 +7,7 @@ weight: 1
 # Design direction
 
 Laravel Nightwatch is the UX benchmark: dark, dense, monospace-accented,
-sidebar of Laravel-shaped sections, a global period selector (1H/24H/7D/14D/30D),
+sidebar of Laravel-shaped sections, a global period selector (15M/1H/24H/7D/14D/30D),
 sortable tables with sparkline context, and a per-request timeline view.
 We adopt that information architecture — and improve on it where owning the
 full Grafana stack lets us.
@@ -67,7 +67,7 @@ Sidebar (page slugs in parentheses; groups render as section headers):
 - Issues (`issues`) — exception groups with count/users/first/last seen
 - **Activity**: Requests (`requests`), Jobs (`jobs`), Commands (`commands`),
   Scheduled Tasks (`schedule`), Exceptions (`exceptions`), Queries
-  (`queries`), Notifications (`notifications`), Mail (`mail`), Cache
+  (`queries`), Mail & Notifications (`mail`), Cache
   (`cache`), Outgoing Requests (`outgoing`)
 - **Monitoring**: Users (`users`), Logs (`logs`), System (`system`)
 - Traces (`traces`) — TraceQL search + waterfall

@@ -131,10 +131,14 @@ class PrometheusSource implements MetricsSource
         $result = is_array($data['result'] ?? null) ? $data['result'] : [];
 
         if (($data['resultType'] ?? null) === 'scalar') {
-            /** @var array{0: int|float, 1: string} $scalar */
-            $scalar = $data['result'];
+            // A scalar result is a bare [ts, "value"] pair, not a list of them.
+            if (count($result) < 2) {
+                return [];
+            }
 
-            return [new Sample([], (float) $scalar[0], (float) $scalar[1])];
+            $value = $this->toFiniteFloat($result[1]);
+
+            return $value === null ? [] : [new Sample([], (float) $result[0], $value)];
         }
 
         $samples = [];
@@ -144,10 +148,19 @@ class PrometheusSource implements MetricsSource
                 continue;
             }
 
+            // Prometheus serializes NaN/±Inf as the strings "NaN"/"+Inf"; a
+            // blind (float) cast would turn them into a misleading 0.0, so drop
+            // the sample instead of rendering a false zero.
+            $value = $this->toFiniteFloat($entry['value'][1] ?? null);
+
+            if ($value === null) {
+                continue;
+            }
+
             $samples[] = new Sample(
                 labels: $this->labels($entry),
                 timestamp: (float) $entry['value'][0],
-                value: (float) $entry['value'][1],
+                value: $value,
             );
         }
 
@@ -176,7 +189,13 @@ class PrometheusSource implements MetricsSource
                     continue;
                 }
 
-                $points[] = new DataPoint((float) $value[0], (float) $value[1]);
+                $point = $this->toFiniteFloat($value[1]);
+
+                if ($point === null) {
+                    continue;
+                }
+
+                $points[] = new DataPoint((float) $value[0], $point);
             }
 
             $series[] = new TimeSeries(labels: $this->labels($entry), points: $points);
@@ -202,6 +221,26 @@ class PrometheusSource implements MetricsSource
         }
 
         return $labels;
+    }
+
+    /**
+     * Coerce a Prometheus sample value to a finite float, or null when it is
+     * missing or a non-finite marker ("NaN", "+Inf", "-Inf") that must not be
+     * rendered as a real zero. `is_numeric` already rejects those markers.
+     */
+    private function toFiniteFloat(mixed $raw): ?float
+    {
+        if (is_int($raw) || is_float($raw)) {
+            return is_finite((float) $raw) ? (float) $raw : null;
+        }
+
+        if (is_string($raw) && is_numeric($raw)) {
+            $value = (float) $raw;
+
+            return is_finite($value) ? $value : null;
+        }
+
+        return null;
     }
 
     private function deriveStep(DateTimeInterface $start, DateTimeInterface $end): int

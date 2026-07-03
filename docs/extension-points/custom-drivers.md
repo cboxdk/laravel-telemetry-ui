@@ -18,7 +18,7 @@ public function boot(): void
 {
     $this->callAfterResolving(ConnectionManager::class, function (ConnectionManager $manager): void {
         $manager->extend('victoriametrics', fn (array $config): MetricsSource => new VictoriaMetricsSource(
-            new ApiClient($config['url'], $config['headers'] ?? []),
+            $manager->client($config),
         ));
     });
 }
@@ -33,6 +33,11 @@ public function boot(): void
 `callAfterResolving` keeps boot lazy: the creator closure is registered only
 if/when the manager is first used.
 
-Planned contracts follow the same pattern — an `IssuesSource` for
-Sentry/Linear/GitHub is on the [roadmap](../roadmap.md) and will slot in as a
-fourth signal without touching the card model.
+**Reuse `$manager->client($config)`** rather than constructing `ApiClient`
+yourself — it applies the connection's Bearer/basic auth, `X-Scope-OrgID`
+tenancy, timeout, query cache and retries from config. Building `ApiClient`
+by hand silently skips all of that.
+
+Issue trackers are already a fourth signal on the same pattern: implement
+[`IssuesSource`](issue-trackers.md) (GitHub, Sentry and Linear ship built in)
+and, optionally, `CreatesIssues` — no changes to the card model.

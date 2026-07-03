@@ -177,6 +177,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Fleet discovery
+    |--------------------------------------------------------------------------
+    |
+    | The sidebar service/environment switcher lists the services and
+    | deployment environments discovered from the metrics backend. That
+    | label-value lookup is cached for this many seconds.
+    |
+    */
+
+    'fleet' => [
+        'ttl' => (int) env('TELEMETRY_UI_FLEET_TTL', 60),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Annotations
     |--------------------------------------------------------------------------
     |

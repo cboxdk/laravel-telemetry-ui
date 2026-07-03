@@ -43,6 +43,7 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $this->app->singleton(Fleet::class, static fn (Application $app): Fleet => new Fleet(
             $app->make(ConnectionManager::class),
             $app->make('cache'),
+            (int) $app->make('config')->get('telemetry-ui.fleet.ttl', 60),
         ));
 
         $this->app->singleton(Annotations::class, static fn (Application $app): Annotations => new Annotations(
