@@ -2,6 +2,13 @@
 @php($hasCustomRange = ctype_digit((string) request('from')) && ctype_digit((string) request('to')))
 
 <div class="tui-header-controls">
+    {{-- Copy deep-link to the current view (filters, range, scope) --}}
+    <button type="button" class="tui-btn tui-copy-link" x-data="telemetryUiCopyLink()" x-on:click="copy()"
+            :class="{ 'is-copied': copied }" title="Copy a link to this exact view">
+        <span x-show="!copied">🔗 Copy link</span>
+        <span x-show="copied" x-cloak>✓ Copied</span>
+    </button>
+
     {{-- Auto refresh --}}
     <div class="tui-refresh" x-data="telemetryUiRefresh()" title="Auto refresh">
         <select x-model="value" x-on:change="apply()">

@@ -11,6 +11,8 @@ use Illuminate\Contracts\View\View;
 
 final class PageController
 {
+    use BuildsChrome;
+
     public function __invoke(
         TelemetryUiManager $manager,
         SchemaDetector $detector,
@@ -21,6 +23,9 @@ final class PageController
 
         abort_unless(isset($pages[$page]), 404);
 
+        $services = $fleet->services();
+        $environments = $fleet->environments();
+
         /** @var view-string $view */
         $view = 'telemetry-ui::page';
 
@@ -28,8 +33,9 @@ final class PageController
             'page' => $page,
             'pages' => $pages,
             'cards' => $manager->cards($page),
-            'services' => $fleet->services(),
-            'environments' => $fleet->environments(),
+            'services' => $services,
+            'environments' => $environments,
+            ...$this->chrome($pages, $services, $environments, $page),
         ]);
     }
 }

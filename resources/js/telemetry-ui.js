@@ -73,7 +73,69 @@ window.telemetryUiSetRange = (fromMs, toMs) => {
     window.location = url;
 };
 
+const isHex32 = (s) => /^[0-9a-f]{32}$/i.test(s.trim());
+
 function register() {
+    window.Alpine.data('telemetryUiPalette', (commands, traceBase, traceSentinel) => ({
+        isOpen: false,
+        query: '',
+        cursor: 0,
+
+        open() {
+            this.isOpen = true;
+            this.query = '';
+            this.cursor = 0;
+            this.$nextTick(() => this.$refs.input?.focus());
+        },
+
+        close() { this.isOpen = false; },
+
+        maybeOpenOnSlash(e) {
+            // "/" opens the palette unless typing in a field.
+            const t = e.target;
+            if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+            e.preventDefault();
+            this.open();
+        },
+
+        get results() {
+            const q = this.query.trim().toLowerCase();
+            const out = [];
+
+            if (isHex32(this.query)) {
+                out.push({ type: 'Trace', label: this.query.trim(), group: 'open waterfall', href: traceBase.replace(traceSentinel, this.query.trim()) });
+            }
+
+            for (const c of commands) {
+                if (!q || c.label.toLowerCase().includes(q) || c.type.toLowerCase().includes(q)) {
+                    out.push(c);
+                }
+            }
+            return out.slice(0, 50);
+        },
+
+        move(d) {
+            const n = this.results.length;
+            if (!n) return;
+            this.cursor = (this.cursor + d + n) % n;
+        },
+
+        go() {
+            const item = this.results[this.cursor];
+            if (item) window.location = item.href;
+        },
+    }));
+
+    window.Alpine.data('telemetryUiCopyLink', () => ({
+        copied: false,
+        copy() {
+            navigator.clipboard?.writeText(window.location.href).then(() => {
+                this.copied = true;
+                setTimeout(() => { this.copied = false; }, 1500);
+            });
+        },
+    }));
+
     window.Alpine.data('telemetryUiRefresh', () => ({
         value: sessionStorage.getItem('telemetry-ui:refresh') || '0',
         timer: null,

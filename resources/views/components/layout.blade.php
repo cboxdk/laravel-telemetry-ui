@@ -1,4 +1,4 @@
-@props(['pages' => [], 'active' => null, 'services' => [], 'environments' => [], 'title' => 'Telemetry'])
+@props(['pages' => [], 'active' => null, 'services' => [], 'environments' => [], 'title' => 'Telemetry', 'commands' => [], 'traceBase' => '', 'traceSentinel' => ''])
 
 <!DOCTYPE html>
 <html lang="en" class="dark">
@@ -34,6 +34,30 @@
         <main class="tui-main">
             {{ $slot }}
         </main>
+    </div>
+
+    <div class="tui-palette-root" x-data="telemetryUiPalette(@js($commands), @js($traceBase), @js($traceSentinel))" x-cloak
+         x-on:keydown.window.cmd.k.prevent="open()" x-on:keydown.window.ctrl.k.prevent="open()"
+         x-on:keydown.window.slash="maybeOpenOnSlash($event)">
+        <div class="tui-palette-overlay" x-show="isOpen" x-on:click="close()" x-transition.opacity></div>
+        <div class="tui-palette" x-show="isOpen" x-transition>
+            <input type="text" class="tui-palette-input" placeholder="Jump to a page, service, environment — or paste a trace id…"
+                   x-model="query" x-ref="input"
+                   x-on:keydown.down.prevent="move(1)" x-on:keydown.up.prevent="move(-1)"
+                   x-on:keydown.enter.prevent="go()" x-on:keydown.escape="close()">
+            <div class="tui-palette-list">
+                <template x-for="(item, i) in results" :key="item.type + item.label + i">
+                    <a class="tui-palette-item" :class="{ 'is-active': i === cursor }" :href="item.href"
+                       x-on:mouseenter="cursor = i">
+                        <span class="tui-palette-kind" x-text="item.type"></span>
+                        <span class="tui-palette-label" x-text="item.label"></span>
+                        <span class="tui-palette-group" x-text="item.group"></span>
+                    </a>
+                </template>
+                <div class="tui-palette-empty" x-show="results.length === 0" x-text="'No matches'"></div>
+            </div>
+            <div class="tui-palette-hint">↑↓ navigate · ↵ open · esc close</div>
+        </div>
     </div>
 
     @livewireScripts

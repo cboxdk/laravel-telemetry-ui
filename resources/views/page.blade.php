@@ -1,4 +1,4 @@
-<x-telemetry-ui::layout :pages="$pages" :active="$page" :services="$services" :environments="$environments" :title="$pages[$page]['label']">
+<x-telemetry-ui::layout :pages="$pages" :active="$page" :services="$services" :environments="$environments" :title="$pages[$page]['label']" :commands="$commands" :traceBase="$traceBase" :traceSentinel="$traceSentinel">
     <header class="tui-header">
         <h1>{{ $pages[$page]['label'] }}</h1>
         <x-telemetry-ui::period-selector />

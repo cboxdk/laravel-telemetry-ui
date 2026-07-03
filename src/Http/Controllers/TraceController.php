@@ -16,6 +16,8 @@ use Illuminate\Contracts\View\View;
 
 final class TraceController
 {
+    use BuildsChrome;
+
     public function __invoke(
         TelemetryUiManager $manager,
         SchemaDetector $detector,
@@ -35,16 +37,21 @@ final class TraceController
         /** @var view-string $view */
         $view = 'telemetry-ui::trace';
 
+        $pages = $manager->visiblePages($detector);
+        $services = $fleet->services();
+        $environments = $fleet->environments();
+
         return view($view, [
-            'pages' => $manager->visiblePages($detector),
-            'services' => $fleet->services(),
-            'environments' => $fleet->environments(),
+            'pages' => $pages,
+            'services' => $services,
+            'environments' => $environments,
             'traceId' => $traceId,
             'trace' => $trace,
             'error' => $error,
             'rows' => $trace !== null ? $this->waterfall($trace) : [],
             'chain' => $trace !== null ? $this->chain($trace) : [],
             'identities' => $trace !== null ? $this->identities($trace) : [],
+            ...$this->chrome($pages, $services, $environments, 'traces'),
         ]);
     }
 
