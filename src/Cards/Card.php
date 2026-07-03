@@ -296,6 +296,13 @@ abstract class Card extends Component
     ): View {
         [$start, $end] = $this->range();
 
+        // A series of all-zero points renders as a flat, broken-looking line;
+        // treat "present but no activity" as empty so the card shows a clean
+        // state instead. Genuine data with any non-zero point still charts.
+        if ($series !== [] && ! $this->seriesHasSignal($series)) {
+            $series = [];
+        }
+
         /** @var view-string $view */
         $view = 'telemetry-ui::cards.chart';
 
@@ -314,6 +321,24 @@ abstract class Card extends Component
             'min' => $start->getTimestamp() * 1000,
             'max' => $end->getTimestamp() * 1000,
         ]);
+    }
+
+    /**
+     * Whether any series carries a non-zero data point.
+     *
+     * @param  list<array{name: string, data: list<array{float, float}>, color?: string}>  $series
+     */
+    private function seriesHasSignal(array $series): bool
+    {
+        foreach ($series as $entry) {
+            foreach ($entry['data'] as $point) {
+                if (($point[1] ?? 0.0) != 0.0) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function escapeLabelValue(string $value): string

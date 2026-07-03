@@ -70,6 +70,9 @@
                                         </span>
                                     @endif
                                     <span class="name">{{ $span->name }}</span>
+                                    @if ($summary = $span->summary())
+                                        <span class="tui-wf-summary">{{ $summary }}</span>
+                                    @endif
                                     <span x-show="collapsed['{{ $span->spanId }}']" x-cloak class="tui-wf-collapsed-count">+{{ $row['children'] }}</span>
                                 </div>
                                 <div class="tui-wf-track">

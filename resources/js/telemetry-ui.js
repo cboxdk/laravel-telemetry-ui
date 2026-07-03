@@ -131,17 +131,21 @@ function register() {
             if (window_ && window_.min != null) base.xAxis.min = window_.min;
             if (window_ && window_.max != null) base.xAxis.max = window_.max;
 
+            const stacked = type === 'bar' || type === 'area';
             const mapped = series.map((entry) => ({
                 name: entry.name,
-                type: type === 'area' ? 'line' : type,
+                // Bars misplace on a sparse time axis; render every timeseries
+                // as a (stacked) line/area which lays out correctly and reads
+                // cleanly, Grafana-style.
+                type: 'line',
                 data: entry.data,
                 color: entry.color || undefined,
                 showSymbol: false,
                 smooth: false,
+                step: type === 'bar' ? 'end' : false,
                 lineStyle: { width: 1.5 },
-                barMaxWidth: 8,
-                stack: type === 'bar' ? 'total' : undefined,
-                areaStyle: type === 'area' ? { opacity: 0.15 } : undefined,
+                stack: stacked ? 'total' : undefined,
+                areaStyle: stacked ? { opacity: type === 'bar' ? 0.35 : 0.15 } : undefined,
             }));
 
             // Grafana-style annotations: vertical marker lines (deploys, …)

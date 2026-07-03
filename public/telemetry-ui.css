@@ -681,8 +681,16 @@ html, body {
     color: var(--tui-text-dim);
 }
 
-.tui-wf-name .name { overflow: hidden; text-overflow: ellipsis; }
+.tui-wf-name .name { flex-shrink: 0; }
 .tui-wf-name.has-error .name { color: var(--tui-danger); }
+
+.tui-wf-summary {
+    color: var(--tui-text-faint);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
 
 .tui-wf-track {
     position: relative;
