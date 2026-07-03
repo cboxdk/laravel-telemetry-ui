@@ -70,6 +70,8 @@ final readonly class LinearSource implements CreatesIssues, IssuesSource
             'variables' => ['filter' => $filter === [] ? (object) [] : $filter, 'first' => min(max($limit, 1), 100)],
         ]);
 
+        $this->assertNoGraphqlErrors($response);
+
         $nodes = $response['data']['issues']['nodes'] ?? null;
         $nodes = is_array($nodes) ? $nodes : [];
 
@@ -116,6 +118,8 @@ final readonly class LinearSource implements CreatesIssues, IssuesSource
             'variables' => ['input' => ['teamId' => $this->teamId, 'title' => $title, 'description' => $body]],
         ]);
 
+        $this->assertNoGraphqlErrors($response);
+
         $node = $response['data']['issueCreate']['issue'] ?? null;
 
         if (! is_array($node)) {
@@ -156,6 +160,31 @@ final readonly class LinearSource implements CreatesIssues, IssuesSource
     public function url(): string
     {
         return 'https://linear.app';
+    }
+
+    /**
+     * Linear answers HTTP 200 even for auth/permission/query failures, putting
+     * the reason in a GraphQL `errors` array with `data: null`. Surface that
+     * as a real error instead of silently returning an empty list.
+     *
+     * @param  array<string, mixed>  $response
+     */
+    private function assertNoGraphqlErrors(array $response): void
+    {
+        $errors = $response['errors'] ?? null;
+
+        if (! is_array($errors) || $errors === []) {
+            return;
+        }
+
+        $messages = [];
+        foreach ($errors as $error) {
+            if (is_array($error) && is_string($error['message'] ?? null)) {
+                $messages[] = $error['message'];
+            }
+        }
+
+        throw new SourceException('Linear GraphQL error: '.($messages === [] ? 'unknown error' : implode('; ', $messages)));
     }
 
     private function date(mixed $value): ?DateTimeImmutable

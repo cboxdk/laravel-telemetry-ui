@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
+use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Queries\Results\Issue;
 use Illuminate\Support\Facades\Http;
 
@@ -88,3 +89,56 @@ it('rejects a sentry connection without org/project', function (): void {
 
     app(ConnectionManager::class)->issues();
 })->throws(InvalidArgumentException::class, 'org');
+
+// --- Error paths: prove each unverified driver fails loud, never fatal. ---
+
+it('surfaces a sentry auth failure as a SourceException', function (): void {
+    Http::fake(['sentry.io/*' => Http::response(['detail' => 'Invalid token'], 401)]);
+
+    config()->set('telemetry-ui.connections.issues', [
+        'driver' => 'sentry', 'org' => 'cbox', 'project' => 'web', 'token' => 'bad',
+    ]);
+
+    expect(fn () => app(ConnectionManager::class)->issues()->issues('open'))
+        ->toThrow(SourceException::class);
+});
+
+it('does not fatal on a malformed sentry payload', function (): void {
+    // A bare object where a list of issues is expected must degrade, not crash.
+    Http::fake(['sentry.io/*' => Http::response(['unexpected' => 'shape'])]);
+
+    config()->set('telemetry-ui.connections.issues', [
+        'driver' => 'sentry', 'org' => 'cbox', 'project' => 'web', 'token' => 'x',
+    ]);
+
+    expect(app(ConnectionManager::class)->issues()->issues('open'))->toBe([]);
+});
+
+it('surfaces linear graphql errors instead of an empty list', function (): void {
+    // Linear answers HTTP 200 with an errors array on auth/query failures.
+    Http::fake(['api.linear.app/graphql' => Http::response([
+        'errors' => [['message' => 'Authentication required, not authenticated']],
+        'data' => null,
+    ])]);
+
+    config()->set('telemetry-ui.connections.issues', [
+        'driver' => 'linear', 'token' => 'bad_key', 'team' => 'CBOX',
+    ]);
+
+    expect(fn () => app(ConnectionManager::class)->issues()->issues('open'))
+        ->toThrow(SourceException::class, 'Authentication required');
+});
+
+it('surfaces a linear graphql error when creating a ticket', function (): void {
+    Http::fake(['api.linear.app/graphql' => Http::response([
+        'errors' => [['message' => 'Team not found']],
+        'data' => null,
+    ])]);
+
+    config()->set('telemetry-ui.connections.issues', [
+        'driver' => 'linear', 'token' => 'k', 'team' => 'CBOX', 'team_id' => 'uuid-1',
+    ]);
+
+    expect(fn () => app(ConnectionManager::class)->issues()->createIssue('t', 'b', []))
+        ->toThrow(SourceException::class, 'Team not found');
+});

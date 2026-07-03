@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `php artisan telemetry-ui:check` — probes each configured connection with its
+  cheapest read and reports OK/FAIL/not-configured; exits non-zero on failure
+  so it doubles as a deploy healthcheck.
+
+### Fixed
+
+- Linear now surfaces GraphQL errors (auth/permission/query failures, which
+  Linear returns as HTTP 200 with an `errors` array) as a `SourceException`
+  instead of silently returning an empty issue list.
+
 ## [0.1.0-alpha.1] - 2026-07-03
 
 First alpha. A Livewire + ECharts observability dashboard querying Tempo

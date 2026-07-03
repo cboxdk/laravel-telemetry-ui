@@ -69,6 +69,22 @@ $this->metrics('metrics-eu')->queryRange(...);
 - **Errors** — all drivers throw `SourceException` with the failing URL and
   upstream message; cards render it as an inline error state.
 
+## Verifying a connection
+
+Before trusting the dashboard, confirm the config actually reaches every
+backend — a URL typo, a wrong token or a missing tenant otherwise only shows
+up as an empty or broken card:
+
+```bash
+php artisan telemetry-ui:check
+```
+
+Each configured connection is probed with its cheapest read (an instant
+`vector(1)` for metrics, a `service.name` tag lookup for traces, a label
+lookup for logs, a one-issue page for the tracker) and reported as
+`OK` / `FAIL` / `not configured`. It exits non-zero if any probe fails, so it
+doubles as a deploy healthcheck. Scope it with `--connection=metrics` (repeatable).
+
 ## Result types
 
 Drivers return plain readonly DTOs, so cards never touch raw JSON:
