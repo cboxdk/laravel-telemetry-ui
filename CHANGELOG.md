@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Linear returns as HTTP 200 with an `errors` array) as a `SourceException`
   instead of silently returning an empty issue list.
 
+### Verified
+
+- GitHub and Linear issue read **and** create paths exercised end-to-end
+  against the live APIs. Sentry remains fixture-tested only — see the
+  verification-status table in the issue-trackers docs.
+
 ## [0.1.0-alpha.1] - 2026-07-03
 
 First alpha. A Livewire + ECharts observability dashboard querying Tempo

@@ -50,6 +50,21 @@ counts and first/last seen.
 
 Queried over Linear's GraphQL API.
 
+## Verification status
+
+Honest state of what has been exercised against real APIs, so you know what to
+trust in this alpha:
+
+| Tracker | Read | Create |
+| --- | --- | --- |
+| **GitHub** | ✅ live-verified | ✅ live-verified |
+| **Linear** | ✅ live-verified (auth, filter, field mapping) | ✅ live-verified |
+| **Sentry** | ⚠️ tested against realistic fixtures, **not** yet against a live instance | n/a (read-only) |
+
+All three have unit tests over realistic payloads. Sentry's response shape is
+coded from its API docs; if you run it against a live project and something is
+off, please open an issue.
+
 ## Adding your own tracker
 
 Implement `Cbox\TelemetryUi\Contracts\IssuesSource` (list issues with a
