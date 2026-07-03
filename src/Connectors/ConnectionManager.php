@@ -120,6 +120,20 @@ final class ConnectionManager
         /** @var array<string, string> $headers */
         $headers = is_array($config['headers'] ?? null) ? $config['headers'] : [];
 
+        // A Bearer token (e.g. a Grafana service account) or basic_auth
+        // "user:pass" becomes an Authorization header unless one is already
+        // set explicitly.
+        if (! isset($headers['Authorization'])) {
+            $token = $config['token'] ?? null;
+            $basic = $config['basic_auth'] ?? null;
+
+            if (is_string($token) && $token !== '') {
+                $headers['Authorization'] = 'Bearer '.$token;
+            } elseif (is_string($basic) && str_contains($basic, ':')) {
+                $headers['Authorization'] = 'Basic '.base64_encode($basic);
+            }
+        }
+
         $tenant = $config['tenant'] ?? null;
 
         return new ApiClient(

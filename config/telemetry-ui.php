@@ -67,6 +67,17 @@ return [
     | "/prometheus") with multi-tenancy via the X-Scope-OrgID header, which
     | Tempo and Loki honour as well when "tenant" is set.
     |
+    | Auth: set "token" for a Bearer token (e.g. a Grafana service account,
+    | when querying through Grafana's datasource proxy) or "basic_auth" as
+    | "user:pass"; both are turned into an Authorization header. Add any other
+    | headers under "headers".
+    |
+    | Grafana datasource proxy recipe (no direct backend access needed):
+    |   URL  = https://grafana.example.com/api/datasources/proxy/uid/<uid>
+    |   token = <grafana service-account token, Viewer role>
+    | The Loki proxy expects the driver's own "/loki/..." path on top of the
+    | proxy base, which this package already sends.
+    |
     */
 
     'connections' => [
@@ -76,6 +87,8 @@ return [
             'url' => env('TELEMETRY_UI_METRICS_URL', 'http://localhost:9090'),
             'prefix' => env('TELEMETRY_UI_METRICS_PREFIX'),
             'tenant' => env('TELEMETRY_UI_METRICS_TENANT'),
+            'token' => env('TELEMETRY_UI_METRICS_TOKEN', env('TELEMETRY_UI_TOKEN')),
+            'basic_auth' => env('TELEMETRY_UI_METRICS_BASIC_AUTH'),
             'headers' => [],
             'timeout' => (float) env('TELEMETRY_UI_METRICS_TIMEOUT', 10.0),
         ],
@@ -84,6 +97,8 @@ return [
             'driver' => 'tempo',
             'url' => env('TELEMETRY_UI_TEMPO_URL', 'http://localhost:3200'),
             'tenant' => env('TELEMETRY_UI_TEMPO_TENANT'),
+            'token' => env('TELEMETRY_UI_TEMPO_TOKEN', env('TELEMETRY_UI_TOKEN')),
+            'basic_auth' => env('TELEMETRY_UI_TEMPO_BASIC_AUTH'),
             'headers' => [],
             'timeout' => (float) env('TELEMETRY_UI_TEMPO_TIMEOUT', 10.0),
         ],
@@ -92,6 +107,8 @@ return [
             'driver' => 'loki',
             'url' => env('TELEMETRY_UI_LOKI_URL', 'http://localhost:3100'),
             'tenant' => env('TELEMETRY_UI_LOKI_TENANT'),
+            'token' => env('TELEMETRY_UI_LOKI_TOKEN', env('TELEMETRY_UI_TOKEN')),
+            'basic_auth' => env('TELEMETRY_UI_LOKI_BASIC_AUTH'),
             'headers' => [],
             'timeout' => (float) env('TELEMETRY_UI_LOKI_TIMEOUT', 10.0),
         ],
