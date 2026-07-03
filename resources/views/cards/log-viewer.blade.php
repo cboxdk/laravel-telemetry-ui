@@ -26,7 +26,7 @@
                             @endif
                             <span class="tui-log-msg">{{ $row['message'] }}</span>
                             @if ($row['traceUrl'])
-                                <a class="tui-log-trace" href="{{ $row['traceUrl'] }}" x-on:click.stop title="Open trace">⇄ trace</a>
+                                <a class="tui-log-trace tui-trace-link" data-trace-id="{{ $row['traceId'] }}" href="{{ $row['traceUrl'] }}" x-on:click.stop title="Open trace">⇄ trace</a>
                             @endif
                         </div>
                         @if ($row['meta'] !== [] || $row['traceId'])

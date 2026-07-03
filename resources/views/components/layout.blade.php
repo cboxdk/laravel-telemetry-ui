@@ -36,6 +36,8 @@
         </main>
     </div>
 
+    @livewire('telemetry-ui.trace-drawer')
+
     <div class="tui-palette-root" x-data="telemetryUiPalette(@js($commands), @js($traceBase), @js($traceSentinel))" x-cloak
          x-on:keydown.window.cmd.k.prevent="open()" x-on:keydown.window.ctrl.k.prevent="open()"
          x-on:keydown.window.slash="maybeOpenOnSlash($event)">

@@ -69,9 +69,9 @@
                         <tr>
                             <td>{{ $summary->startedAt->format('H:i:s') }}</td>
                             <td><span class="tui-badge tui-badge-info">{{ $summary->rootServiceName }}</span></td>
-                            <td class="is-primary"><a href="{{ $this->traceUrl($summary->traceId) }}">{{ $summary->rootTraceName ?: '(unnamed)' }}</a></td>
+                            <td class="is-primary"><a class="tui-trace-link" data-trace-id="{{ $summary->traceId }}" href="{{ $this->traceUrl($summary->traceId) }}">{{ $summary->rootTraceName ?: '(unnamed)' }}</a></td>
                             <td class="is-num {{ $summary->durationMs > 1000 ? 'tui-tone-warn' : '' }}">{{ Format::ms($summary->durationMs) }}</td>
-                            <td class="is-num"><a href="{{ $this->traceUrl($summary->traceId) }}">{{ substr($summary->traceId, 0, 8) }}…</a></td>
+                            <td class="is-num"><a class="tui-trace-link" data-trace-id="{{ $summary->traceId }}" href="{{ $this->traceUrl($summary->traceId) }}">{{ substr($summary->traceId, 0, 8) }}…</a></td>
                         </tr>
                     @endforeach
                 </tbody>

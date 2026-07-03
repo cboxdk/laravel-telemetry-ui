@@ -35,6 +35,23 @@ full Grafana stack lets us.
 6. **Actions, not just charts** (roadmap): create Linear/GitHub tickets from
    an exception group, AI-assisted "explain this trace".
 
+## Navigation & detail
+
+- **Slide-in trace drawer** — clicking any trace link (search results, slow
+  queries, logs, deploys) slides the full waterfall in from the right without
+  leaving the list; the id mirrors to `?trace=` so the view is shareable and
+  browser-back closes it. cmd/ctrl-click still opens the full page in a new
+  tab.
+- **Command palette** — ⌘K / Ctrl+K (or `/`) fuzzy-jumps to any page, service
+  or environment; paste a 32-hex trace id to open its waterfall.
+- **Copy link** — shares the exact current view (filters, range, scope) with
+  anyone who already has access. (Public no-auth links are intentionally not
+  built — they'd need signed, expiring, scoped tokens.)
+- **Sparklines** — per-row trend mini-charts in the routes, jobs and outgoing
+  tables, colored by row health.
+- **Lazy cards** — the shell and sidebar render instantly; each card streams
+  in with a skeleton, so one slow query never blocks the page.
+
 ## Time controls
 
 A global period selector (15M–30D), a **custom absolute range** picker, and

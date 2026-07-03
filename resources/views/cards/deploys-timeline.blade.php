@@ -27,7 +27,7 @@
                             <td class="is-wide">{{ $deploy->notes ?? '—' }}</td>
                             <td class="is-num">
                                 @if ($deploy->traceId)
-                                    <a href="{{ $this->traceUrl($deploy->traceId) }}">{{ substr($deploy->traceId, 0, 8) }}…</a>
+                                    <a class="tui-trace-link" data-trace-id="{{ $deploy->traceId }}" href="{{ $this->traceUrl($deploy->traceId) }}">{{ substr($deploy->traceId, 0, 8) }}…</a>
                                 @else
                                     —
                                 @endif

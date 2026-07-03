@@ -31,7 +31,7 @@
                     <tbody>
                         @foreach ($rows as $row)
                             <tr>
-                                <td class="is-primary is-wide"><a href="{{ $this->traceUrl($row['traceId']) }}" title="Open trace">{{ Str::limit($row['query'], 160) }}</a></td>
+                                <td class="is-primary is-wide"><a class="tui-trace-link" data-trace-id="{{ $row['traceId'] }}" href="{{ $this->traceUrl($row['traceId']) }}" title="Open trace">{{ Str::limit($row['query'], 160) }}</a></td>
                                 <td>{{ $row['origin'] }}</td>
                                 <td class="is-num tui-tone-warn">{{ Format::ms($row['durationMs']) }}</td>
                                 <td class="is-num">{{ $row['startedAt']->format('H:i:s') }}</td>

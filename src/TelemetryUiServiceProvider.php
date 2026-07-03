@@ -103,6 +103,8 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             foreach ($manager->allCards() as $card) {
                 Livewire::component(TelemetryUiManager::componentName($card), $card);
             }
+
+            Livewire::component('telemetry-ui.trace-drawer', TraceDrawer::class);
         });
     }
 }
