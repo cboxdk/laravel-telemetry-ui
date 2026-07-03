@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Cards;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
+use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
 use Cbox\TelemetryUi\Contracts\TracesSource;
@@ -139,6 +140,11 @@ abstract class Card extends Component
     protected function logs(?string $connection = null): LogsSource
     {
         return app(ConnectionManager::class)->logs($connection);
+    }
+
+    protected function issues(?string $connection = null): IssuesSource
+    {
+        return app(ConnectionManager::class)->issues($connection);
     }
 
     /**

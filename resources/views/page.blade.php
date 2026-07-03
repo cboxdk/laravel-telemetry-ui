@@ -6,7 +6,7 @@
 
     <div class="tui-grid">
         @forelse ($cards as $card)
-            @livewire($card, ['lazy' => true])
+            @livewire($card)
         @empty
             <div class="tui-empty">
                 No cards registered for this page. Add cards in <code>config/telemetry-ui.php</code>

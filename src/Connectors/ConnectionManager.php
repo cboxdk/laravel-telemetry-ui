@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Connectors;
 
+use Cbox\TelemetryUi\Connectors\GitHub\GitHubSource;
 use Cbox\TelemetryUi\Connectors\Loki\LokiSource;
 use Cbox\TelemetryUi\Connectors\Prometheus\MimirSource;
 use Cbox\TelemetryUi\Connectors\Prometheus\PrometheusSource;
 use Cbox\TelemetryUi\Connectors\Tempo\TempoSource;
+use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
 use Cbox\TelemetryUi\Contracts\TracesSource;
@@ -46,6 +48,21 @@ final class ConnectionManager
     public function logs(?string $name = null): LogsSource
     {
         return $this->connection($name ?? 'logs', LogsSource::class);
+    }
+
+    public function issues(?string $name = null): IssuesSource
+    {
+        return $this->connection($name ?? 'issues', IssuesSource::class);
+    }
+
+    /**
+     * Whether an issues connection is configured (drives the Issues page).
+     */
+    public function hasIssues(?string $name = null): bool
+    {
+        $config = $this->config->get('telemetry-ui.connections.'.($name ?? 'issues'));
+
+        return is_array($config) && ($config['driver'] ?? null) !== null;
     }
 
     /**
@@ -102,8 +119,32 @@ final class ConnectionManager
             'mimir' => new MimirSource($this->client($config), $this->prefix($config, 'prometheus')),
             'tempo' => new TempoSource($this->client($config)),
             'loki' => new LokiSource($this->client($config)),
+            'github' => $this->github($config),
             default => throw new InvalidArgumentException("Telemetry UI driver [{$driver}] is not supported."),
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    private function github(array $config): GitHubSource
+    {
+        $repo = $config['repo'] ?? null;
+
+        if (! is_string($repo) || ! str_contains($repo, '/')) {
+            throw new InvalidArgumentException('GitHub issues connection needs a "repo" as "owner/name".');
+        }
+
+        // GitHub wants its own Accept + API-version headers; the token becomes
+        // an Authorization header via client() below.
+        $config['url'] ??= 'https://api.github.com';
+        $config['headers'] = array_merge([
+            'Accept' => 'application/vnd.github+json',
+            'X-GitHub-Api-Version' => '2022-11-28',
+            'User-Agent' => 'cboxdk-laravel-telemetry-ui',
+        ], is_array($config['headers'] ?? null) ? $config['headers'] : []);
+
+        return new GitHubSource($this->client($config), $repo);
     }
 
     /**

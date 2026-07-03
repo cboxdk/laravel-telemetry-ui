@@ -113,6 +113,16 @@ return [
             'timeout' => (float) env('TELEMETRY_UI_LOKI_TIMEOUT', 10.0),
         ],
 
+        // Optional issue tracker (GitHub, Sentry, Linear, …). When a driver is
+        // set, an "Issues" page appears in the sidebar. Disabled by default.
+        'issues' => [
+            'driver' => env('TELEMETRY_UI_ISSUES_DRIVER'),
+            'repo' => env('TELEMETRY_UI_GITHUB_REPO'),
+            'url' => env('TELEMETRY_UI_ISSUES_URL'),
+            'token' => env('TELEMETRY_UI_ISSUES_TOKEN'),
+            'timeout' => (float) env('TELEMETRY_UI_ISSUES_TIMEOUT', 10.0),
+        ],
+
     ],
 
     /*

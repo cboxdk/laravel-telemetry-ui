@@ -69,7 +69,21 @@ final class TelemetryUiServiceProvider extends ServiceProvider
 
         $this->registerRoutes();
         $this->registerGate();
+        $this->registerIssuesPage();
         $this->registerLivewireComponents();
+    }
+
+    private function registerIssuesPage(): void
+    {
+        // Config-gated (not metric-detected): only appears when an issue
+        // tracker connection is set. Registration is data-only.
+        if (config('telemetry-ui.connections.issues.driver') === null) {
+            return;
+        }
+
+        $manager = $this->app->make(TelemetryUiManager::class);
+        $manager->page('issues', 'Issues', group: null);
+        $manager->card(Cards\Builtin\IssuesList::class, page: 'issues');
     }
 
     private function registerRoutes(): void

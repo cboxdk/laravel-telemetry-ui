@@ -49,8 +49,6 @@ full Grafana stack lets us.
   built — they'd need signed, expiring, scoped tokens.)
 - **Sparklines** — per-row trend mini-charts in the routes, jobs and outgoing
   tables, colored by row health.
-- **Lazy cards** — the shell and sidebar render instantly; each card streams
-  in with a skeleton, so one slow query never blocks the page.
 
 ## Time controls
 
