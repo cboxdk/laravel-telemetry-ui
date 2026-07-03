@@ -54,6 +54,40 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Throttle
+    |--------------------------------------------------------------------------
+    |
+    | Rate limit for the dashboard routes, as "maxAttempts,decayMinutes".
+    | The dashboard fans out to the metrics/traces/logs backends on every
+    | render and auto-refresh tick, so this caps how hard a single client can
+    | drive them. Set to null to disable.
+    |
+    */
+
+    'throttle' => env('TELEMETRY_UI_THROTTLE', '120,1'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Query cache & retries
+    |--------------------------------------------------------------------------
+    |
+    | Every card issues live backend queries on each render and auto-refresh
+    | tick. "cache.ttl" caches decoded GET responses (plain arrays, safe on
+    | any store) for that many seconds so a busy dashboard with many cards and
+    | concurrent viewers does not hammer Prometheus/Tempo/Loki. Keep it short
+    | (a few seconds) so data stays fresh; 0 disables. A connection may set its
+    | own "cache" to override. "retries" retries transient connection blips.
+    |
+    */
+
+    'cache' => [
+        'ttl' => (int) env('TELEMETRY_UI_CACHE_TTL', 5),
+    ],
+
+    'retries' => (int) env('TELEMETRY_UI_RETRIES', 2),
+
+    /*
+    |--------------------------------------------------------------------------
     | Connections
     |--------------------------------------------------------------------------
     |

@@ -233,11 +233,16 @@ final class ConnectionManager
 
         $tenant = $config['tenant'] ?? null;
 
+        // A per-connection "cache" overrides the global default; 0 disables.
+        $ttl = $config['cache'] ?? $this->config->get('telemetry-ui.cache.ttl', 0);
+
         return new ApiClient(
             url: $url,
             headers: $headers,
             tenant: is_string($tenant) && $tenant !== '' ? $tenant : null,
             timeout: (float) ($config['timeout'] ?? 10.0),
+            cacheTtl: is_numeric($ttl) ? (int) $ttl : 0,
+            retries: (int) $this->config->get('telemetry-ui.retries', 2),
         );
     }
 

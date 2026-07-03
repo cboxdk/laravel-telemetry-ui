@@ -88,10 +88,17 @@ final class TelemetryUiServiceProvider extends ServiceProvider
 
     private function registerRoutes(): void
     {
+        $middleware = [...(array) config('telemetry-ui.middleware', ['web']), Authorize::class];
+
+        $throttle = config('telemetry-ui.throttle');
+        if (is_string($throttle) && $throttle !== '') {
+            $middleware[] = 'throttle:'.$throttle;
+        }
+
         Route::group([
             'domain' => config('telemetry-ui.domain'),
             'prefix' => config('telemetry-ui.path', 'telemetry-ui'),
-            'middleware' => [...(array) config('telemetry-ui.middleware', ['web']), Authorize::class],
+            'middleware' => $middleware,
             'as' => '',
         ], fn () => $this->loadRoutesFrom(__DIR__.'/../routes/web.php'));
     }

@@ -5,12 +5,20 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Connectors;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 /**
  * Thin JSON HTTP client shared by all connectors. Multi-tenant Grafana
  * backends (Mimir, Tempo, Loki) are addressed via the X-Scope-OrgID header.
+ *
+ * GET responses are cached for `$cacheTtl` seconds when positive: the busy
+ * dashboard renders many cards on every load and auto-refresh tick, and each
+ * card would otherwise hit the backend live. Only the decoded array (plain
+ * primitives) is cached — never a DTO — so it is safe across any cache store,
+ * and drivers re-parse it cheaply. Transient network blips are retried.
  */
 final readonly class ApiClient
 {
@@ -22,6 +30,8 @@ final readonly class ApiClient
         private array $headers = [],
         private ?string $tenant = null,
         private float $timeout = 10.0,
+        private int $cacheTtl = 0,
+        private int $retries = 2,
     ) {}
 
     /**
@@ -32,17 +42,34 @@ final readonly class ApiClient
     {
         $url = rtrim($this->url, '/').$path;
 
-        $headers = $this->headers;
-
-        if ($this->tenant !== null) {
-            $headers['X-Scope-OrgID'] = $this->tenant;
+        if ($this->cacheTtl <= 0) {
+            return $this->fetch($url, $query);
         }
 
+        // Errors are never cached: SourceException thrown inside the closure
+        // propagates without remember() storing anything.
+        return Cache::remember(
+            $this->cacheKey($url, $query),
+            $this->cacheTtl,
+            fn (): array => $this->fetch($url, $query),
+        );
+    }
+
+    /**
+     * POST a JSON body (e.g. a GraphQL query for Linear). Never cached —
+     * POSTs may mutate, and read-via-POST (Linear) is the rare exception.
+     *
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     */
+    public function post(string $path, array $body = []): array
+    {
+        $url = rtrim($this->url, '/').$path;
+
         try {
-            $response = Http::withHeaders($headers)
-                ->timeout($this->timeout)
-                ->acceptJson()
-                ->get($url, $query);
+            $response = $this->pending()
+                ->asJson()
+                ->post($url, $body);
         } catch (ConnectionException $exception) {
             throw SourceException::connectionFailed($url, $exception->getMessage());
         }
@@ -55,27 +82,13 @@ final readonly class ApiClient
     }
 
     /**
-     * POST a JSON body (e.g. a GraphQL query for Linear).
-     *
-     * @param  array<string, mixed>  $body
+     * @param  array<string, int|float|string>  $query
      * @return array<string, mixed>
      */
-    public function post(string $path, array $body = []): array
+    private function fetch(string $url, array $query): array
     {
-        $url = rtrim($this->url, '/').$path;
-
-        $headers = $this->headers;
-
-        if ($this->tenant !== null) {
-            $headers['X-Scope-OrgID'] = $this->tenant;
-        }
-
         try {
-            $response = Http::withHeaders($headers)
-                ->timeout($this->timeout)
-                ->acceptJson()
-                ->asJson()
-                ->post($url, $body);
+            $response = $this->pending()->get($url, $query);
         } catch (ConnectionException $exception) {
             throw SourceException::connectionFailed($url, $exception->getMessage());
         }
@@ -85,6 +98,42 @@ final readonly class ApiClient
         }
 
         return $this->decode($response, $url);
+    }
+
+    private function pending(): PendingRequest
+    {
+        $headers = $this->headers;
+
+        if ($this->tenant !== null) {
+            $headers['X-Scope-OrgID'] = $this->tenant;
+        }
+
+        $request = Http::withHeaders($headers)
+            ->timeout($this->timeout)
+            ->acceptJson();
+
+        // Retry only transient connection failures; a 4xx/5xx response is left
+        // for the caller to surface. throw:false keeps our own error handling.
+        if ($this->retries > 0) {
+            $request = $request->retry($this->retries + 1, 150, throw: false);
+        }
+
+        return $request;
+    }
+
+    /**
+     * @param  array<string, int|float|string>  $query
+     */
+    private function cacheKey(string $url, array $query): string
+    {
+        ksort($query);
+
+        return 'telemetry-ui:http:'.hash('xxh128', implode('|', [
+            $url,
+            json_encode($query),
+            $this->tenant ?? '',
+            $this->headers['Authorization'] ?? '',
+        ]));
     }
 
     /**

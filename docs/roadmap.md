@@ -38,8 +38,11 @@ weight: 99
 ## Later polish
 
 - Per-service detection scoping (today detection is fleet-wide).
-- Short-TTL query cache for busy dashboards; auto-refresh polling.
 - Exceptions grouping with first/last-seen (needs app-side state).
+
+Done: short-TTL query cache (`cache.ttl`, cached GET responses so a busy
+dashboard doesn't hammer the backends), transient-blip retries, route
+throttling, auto-refresh polling.
 
 ## Phase 4 — integrations (in progress)
 
