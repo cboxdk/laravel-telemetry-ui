@@ -22,13 +22,28 @@ contracts, resolved through named connections in `config/telemetry-ui.php`:
         'url' => env('TELEMETRY_UI_METRICS_URL'),
         'prefix' => null,          // defaults to "prometheus" for mimir
         'tenant' => 'team-apps',   // sent as X-Scope-OrgID
-        'headers' => [],           // e.g. Authorization
+        'token' => env('TELEMETRY_UI_METRICS_TOKEN'),      // -> Authorization: Bearer
+        'basic_auth' => null,      // "user:pass" -> Authorization: Basic
+        'headers' => [],           // any other headers
         'timeout' => 10.0,
     ],
     'traces' => ['driver' => 'tempo', 'url' => env('TELEMETRY_UI_TEMPO_URL')],
     'logs' => ['driver' => 'loki', 'url' => env('TELEMETRY_UI_LOKI_URL')],
 ],
 ```
+
+## Authentication
+
+Backends behind an authenticated gateway take a Bearer token or basic auth:
+
+- `token` → `Authorization: Bearer <token>` (e.g. a Grafana service account).
+  Env: `TELEMETRY_UI_<CONN>_TOKEN`, or a shared `TELEMETRY_UI_TOKEN`.
+- `basic_auth` → `Authorization: Basic <base64>`; give it as `user:pass`.
+  Env: `TELEMETRY_UI_<CONN>_BASIC_AUTH`.
+- An explicit `Authorization` under `headers` always wins.
+
+To query Tempo/Loki/Mimir through Grafana instead of hitting them directly,
+see [Connect through a Grafana datasource proxy](../cookbook/connect-via-grafana-proxy.md).
 
 The keys `metrics`, `traces` and `logs` are the defaults. Additional named
 connections are allowed and requested explicitly:
