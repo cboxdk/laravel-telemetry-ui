@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Http\Controllers;
 
+use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Support\Fleet;
@@ -21,6 +22,7 @@ final class TraceController
         SchemaDetector $detector,
         Fleet $fleet,
         ConnectionManager $connections,
+        SignalContext $context,
         string $traceId,
     ): View {
         $trace = null;
@@ -49,6 +51,7 @@ final class TraceController
             'rows' => $trace !== null ? TraceView::waterfall($trace) : [],
             'chain' => $trace !== null ? TraceView::chain($trace) : [],
             'identities' => $trace !== null ? TraceView::identities($trace) : [],
+            'context' => $trace !== null ? $context->forTrace($trace) : [],
             ...$this->chrome($pages, $services, $environments, 'traces'),
         ]);
     }

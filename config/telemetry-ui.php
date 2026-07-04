@@ -192,6 +192,42 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Signal context (correlation)
+    |--------------------------------------------------------------------------
+    |
+    | The thing an app-only monitor can't do: correlate a trace with the host
+    | and runtime signals recorded around it, because the same Prometheus
+    | scrapes system and process metrics — and node_exporter, mysqld_exporter,
+    | … when you run them — right next to the app.
+    |
+    | Each signal is a PromQL template with a `{scope}` token that expands to
+    | the scope's matcher list (service_name, host_name). Signals resolve
+    | independently and fail-open, so a signal whose metric is absent (e.g. no
+    | node_exporter) is simply skipped — never an error. `window` is the number
+    | of seconds padded around a trace so surrounding metric samples land in
+    | view.
+    |
+    | To pull in exporters that don't carry the app's labels, join on the host:
+    |   ['label' => 'DB threads', 'group' => 'db', 'unit' => 'number',
+    |    'query' => 'mysql_global_status_threads_running{instance="$host"}'],
+    | (map host_name -> the exporter's instance label for your setup).
+    |
+    */
+
+    'context' => [
+        'enabled' => (bool) env('TELEMETRY_UI_CONTEXT', true),
+        'window' => (int) env('TELEMETRY_UI_CONTEXT_WINDOW', 600),
+        'signals' => [
+            ['label' => 'Host CPU', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_cpu_utilization_ratio{{scope}})'],
+            ['label' => 'Load avg', 'group' => 'host', 'unit' => 'number', 'query' => 'max(system_cpu_load_average_ratio{{scope}})'],
+            ['label' => 'Host memory', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_memory_utilization_ratio{{scope},state="used"})'],
+            ['label' => 'Net in', 'group' => 'host', 'unit' => 'bytes/s', 'query' => 'sum(rate(system_network_io_bytes{{scope},direction="receive"}[1m]))'],
+            ['label' => 'Process RSS', 'group' => 'runtime', 'unit' => 'bytes', 'query' => 'avg(process_resident_memory_bytes{{scope}})'],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Annotations
     |--------------------------------------------------------------------------
     |

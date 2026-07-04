@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi;
 
+use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\CreatesIssues;
@@ -225,6 +226,7 @@ final class TraceDrawer extends Component
             'rows' => $trace !== null ? TraceView::waterfall($trace) : [],
             'chain' => $trace !== null ? TraceView::chain($trace) : [],
             'identities' => $trace !== null ? TraceView::identities($trace) : [],
+            'context' => $trace !== null ? app(SignalContext::class)->forTrace($trace) : [],
             'fullUrl' => $open ? route('telemetry-ui.trace', ['traceId' => $traceId]) : null,
         ]);
     }

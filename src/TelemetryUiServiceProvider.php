@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi;
 
+use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Http\Middleware\Authorize;
 use Cbox\TelemetryUi\Support\Annotations;
@@ -44,6 +45,11 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             $app->make(ConnectionManager::class),
             $app->make('cache'),
             (int) $app->make('config')->get('telemetry-ui.fleet.ttl', 60),
+        ));
+
+        $this->app->singleton(SignalContext::class, static fn (Application $app): SignalContext => new SignalContext(
+            $app->make(ConnectionManager::class),
+            $app->make('config'),
         ));
 
         $this->app->singleton(Annotations::class, static fn (Application $app): Annotations => new Annotations(

@@ -34,6 +34,28 @@
         </div>
     @endif
 
+    @if (! empty($context))
+        @php($ctxValue = fn ($sig) => match ($sig->unit) {
+            'ratio' => Format::percent($sig->current),
+            'bytes' => Format::bytes((int) $sig->current),
+            'bytes/s' => Format::bytes((int) $sig->current).'/s',
+            'ms' => Format::ms($sig->current),
+            default => rtrim(rtrim(number_format($sig->current, 2), '0'), '.'),
+        })
+        <div class="tui-context">
+            <span class="tui-context-label" title="Host &amp; runtime signals around this trace — the same Prometheus scrapes them next to the app">Context</span>
+            @foreach ($context as $sig)
+                <div class="tui-context-tile tui-ctx-{{ $sig->group }}">
+                    <div class="tui-context-head">
+                        <span class="tui-context-name">{{ $sig->label }}</span>
+                        <span class="tui-context-val">{{ $ctxValue($sig) }}</span>
+                    </div>
+                    <x-telemetry-ui::sparkline :points="$sig->points" color="#8b8b93" />
+                </div>
+            @endforeach
+        </div>
+    @endif
+
     <div class="tui-waterfall" x-data="{ collapsed: {} }">
         @foreach ($rows as $row)
             @php($span = $row['span'])

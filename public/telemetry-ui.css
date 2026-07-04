@@ -687,6 +687,62 @@ html, body {
     padding: 0 0 16px;
 }
 
+/* Signal context strip — host/runtime around a trace. */
+.tui-context {
+    display: flex;
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 0 16px;
+}
+
+.tui-context-label {
+    align-self: center;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--tui-text-faint);
+    margin-right: 2px;
+}
+
+.tui-context-tile {
+    min-width: 120px;
+    flex: 1 1 120px;
+    max-width: 180px;
+    padding: 8px 10px;
+    border: 1px solid var(--tui-border);
+    border-left: 2px solid var(--tui-text-faint);
+    border-radius: 6px;
+    background: var(--tui-surface-2);
+}
+
+.tui-context-tile.tui-ctx-host { border-left-color: #60a5fa; }
+.tui-context-tile.tui-ctx-runtime { border-left-color: #c084fc; }
+.tui-context-tile.tui-ctx-db { border-left-color: #34d399; }
+.tui-context-tile.tui-ctx-cache { border-left-color: #fbbf24; }
+
+.tui-context-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.tui-context-name {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--tui-text-faint);
+}
+
+.tui-context-val {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tui-text);
+    font-variant-numeric: tabular-nums;
+}
+
 .tui-chain-label {
     font-size: 10px;
     text-transform: uppercase;

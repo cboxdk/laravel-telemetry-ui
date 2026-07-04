@@ -75,6 +75,39 @@ it('opens and renders a trace on the open-trace event', function (): void {
         ->assertSeeHtml('is-open');
 });
 
+it('renders the host/runtime context strip beside the waterfall', function (): void {
+    config()->set('telemetry-ui.context.signals', [
+        ['label' => 'Host CPU', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_cpu_utilization_ratio{{scope}})'],
+    ]);
+
+    Http::fake([
+        'tempo.test:3200/api/traces/*' => Http::response([
+            'batches' => [[
+                'resource' => ['attributes' => [
+                    ['key' => 'service.name', 'value' => ['stringValue' => 'checkout']],
+                    ['key' => 'host.name', 'value' => ['stringValue' => 'web-3']],
+                ]],
+                'scopeSpans' => [['spans' => [
+                    ['spanId' => 'a1', 'name' => 'GET /orders', 'kind' => 'SPAN_KIND_SERVER', 'startTimeUnixNano' => '1735689600000000000', 'endTimeUnixNano' => '1735689601000000000'],
+                ]]],
+            ]],
+        ]),
+        'prometheus.test:9090/api/v1/query_range*' => Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'matrix', 'result' => [
+                ['metric' => [], 'values' => [[1735689600, '0.42'], [1735689660, '0.71']]],
+            ]],
+        ]),
+    ]);
+
+    Livewire::test(TraceDrawer::class)
+        ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab')
+        ->assertSee('GET /orders')
+        ->assertSee('Context')
+        ->assertSee('Host CPU')
+        ->assertSee('71%'); // last value of the padded window
+});
+
 it('opens from a deep-linked ?trace= id and closes cleanly', function (): void {
     fakeTrace();
 

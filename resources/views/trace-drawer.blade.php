@@ -41,7 +41,7 @@
                     @elseif ($mode === 'issue')
                         @include('telemetry-ui::partials.issue-detail', ['issue' => $issue, 'error' => $error])
                     @else
-                        @include('telemetry-ui::partials.trace-detail', ['trace' => $trace, 'rows' => $rows, 'chain' => $chain, 'identities' => $identities, 'error' => $error])
+                        @include('telemetry-ui::partials.trace-detail', ['trace' => $trace, 'rows' => $rows, 'chain' => $chain, 'identities' => $identities, 'error' => $error, 'context' => $context])
                     @endif
                 @endif
             </div>

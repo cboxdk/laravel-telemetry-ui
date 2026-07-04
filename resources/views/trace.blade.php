@@ -10,7 +10,7 @@
 
     <div class="tui-card tui-span-2">
         <div class="tui-card-body">
-            @include('telemetry-ui::partials.trace-detail', ['trace' => $trace, 'rows' => $rows, 'chain' => $chain, 'identities' => $identities, 'error' => $error])
+            @include('telemetry-ui::partials.trace-detail', ['trace' => $trace, 'rows' => $rows, 'chain' => $chain, 'identities' => $identities, 'error' => $error, 'context' => $context])
         </div>
     </div>
 </x-telemetry-ui::layout>

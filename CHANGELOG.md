@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Signal correlation** — a trace now shows the host and runtime signals
+  recorded around it (CPU, load, memory, network, process RSS) in a context
+  strip beside the waterfall, scoped by service + host and the trace's time
+  window. This is the thing an app-only monitor can't do: the same Prometheus
+  scrapes `system_*`/`process_*` — and node_exporter, mysqld_exporter, … when
+  present — right next to the app. Config-driven and fail-open per signal
+  (`telemetry-ui.context.signals`); a new headless `Analysis\SignalContext`
+  is the reusable foundation.
+
 - `php artisan telemetry-ui:check` — probes each configured connection with its
   cheapest read and reports OK/FAIL/not-configured; exits non-zero on failure
   so it doubles as a deploy healthcheck.
