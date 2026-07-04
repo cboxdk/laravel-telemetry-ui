@@ -75,7 +75,7 @@ final class TelemetryUiManager
         'job-detail' => [Builtin\Detail\JobDetailHeader::class, Builtin\Detail\JobDetailOutcomes::class, Builtin\Detail\JobDetailTraces::class],
         'commands' => [Builtin\CommandsOverview::class, Builtin\CommandsTable::class],
         'schedule' => [Builtin\ScheduleOverview::class, Builtin\ScheduleTable::class],
-        'exceptions' => [Builtin\ExceptionsOverview::class, Builtin\ExceptionsTable::class],
+        'exceptions' => [Builtin\UnifiedErrors::class, Builtin\ExceptionsOverview::class, Builtin\ExceptionsTable::class],
         'exception-detail' => [Builtin\Detail\ExceptionDetailHeader::class, Builtin\Detail\ExceptionDetailTrend::class, Builtin\Detail\ExceptionDetailTraces::class],
         'queries' => [Builtin\SlowQueries::class],
         'cache' => [Builtin\CacheOperations::class],

@@ -490,6 +490,9 @@ html, body {
 .tui-badge-info { color: var(--tui-info); border-color: rgba(96, 165, 250, 0.25); }
 /* Browser/RUM spans: a fixed sky accent so frontend rows pop in a unified trace. */
 .tui-badge-web { color: #38bdf8; border-color: rgba(56, 189, 248, 0.35); text-transform: uppercase; letter-spacing: 0.04em; }
+/* Unified errors list: class/type on top, dimmed message beneath. */
+.tui-err-type { display: block; font-weight: 600; }
+.tui-err-msg { display: block; color: var(--tui-text-dim); font-size: 0.85em; margin-top: 2px; }
 
 .tui-badge-clickable {
     cursor: pointer;

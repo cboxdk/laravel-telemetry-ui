@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Unified errors list (frontend + backend)** — a new lead card on the
+  Exceptions page groups every error by `exception.group`, the Sentry-style
+  fingerprint (class + top in-app frame) that both the backend handler and the
+  browser SDK stamp with the *same* algorithm. A JS `TypeError` and a PHP
+  exception that are "the same issue" collapse into one row tagged
+  `web`/`server`/`full-stack`, with an occurrence count and last-seen; clicking
+  a row opens a representative trace (→ waterfall + host context), and "all"
+  jumps to every trace for that fingerprint. Trace-sourced (metrics can't unify
+  — frontend errors exist only as spans), so counts are over a bounded recent
+  sample.
 - **Frontend / RUM spans in the unified trace** — browser spans emitted by
   cboxdk/laravel-telemetry's frontend proxy (alpha.6/7) now read as first-class
   frontend rows. They share the backend's `service.name`, so the per-span
