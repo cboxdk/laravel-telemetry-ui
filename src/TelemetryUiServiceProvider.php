@@ -67,7 +67,11 @@ final class TelemetryUiServiceProvider extends ServiceProvider
                 __DIR__.'/../config/telemetry-ui.php' => config_path('telemetry-ui.php'),
             ], 'telemetry-ui-config');
 
-            $this->commands([Console\CheckCommand::class, Console\AnnotateCommand::class]);
+            $this->commands([
+                Console\CheckCommand::class,
+                Console\AnnotateCommand::class,
+                Console\ScanVersionsCommand::class,
+            ]);
         }
 
         if (! (bool) config('telemetry-ui.enabled', true)) {

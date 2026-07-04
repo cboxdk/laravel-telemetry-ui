@@ -26,11 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cheapest read and reports OK/FAIL/not-configured; exits non-zero on failure
   so it doubles as a deploy healthcheck.
 - **Annotation writing** — `php artisan telemetry-ui:annotate <marker>` emits a
-  marker (deploy, incident, scaling, migration, feature — or your own) through
-  the telemetry pipeline into Loki, where it renders as a vertical line on
-  every chart. No local state: the same store the dashboard already reads.
+  marker (deploy, incident, scaling, migration, feature, version — or your own)
+  through the telemetry pipeline into Loki, where it renders as a vertical line
+  on every chart. No local state: the same store the dashboard already reads.
   `cboxdk/laravel-telemetry` is now a hard dependency (it provides the write
   path, and the dashboard instruments its own stack).
+- **Proactive auto-version annotations** — `php artisan telemetry-ui:scan-versions`
+  (schedule it) detects a `laravel_version` that's live in the metrics but
+  un-annotated and marks it, so an un-announced deploy still lands on the
+  charts. Stateless: it dedups against the version annotations already in Loki.
 - Whole-row click targets on the routes, jobs, facet, slow-query, trace-search,
   outgoing and exceptions tables — the entire row drills into the matching
   traces (or opens the trace drawer / matching issues), not just the small

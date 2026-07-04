@@ -286,6 +286,25 @@ return [
                 'id_label' => 'feature_id',
                 'notes_label' => 'feature_notes',
             ],
+            'version' => [
+                'event' => 'app.version',
+                'label' => 'Version',
+                'color' => '#2dd4bf',
+                'id_label' => 'version_id',
+                'notes_label' => 'version_notes',
+            ],
+        ],
+
+        // Proactive: `telemetry-ui:scan-versions` (schedule it every few
+        // minutes) detects a newly-seen laravel_version in the metrics and
+        // auto-emits a "version" annotation for it — so an un-announced deploy
+        // still lands on the charts. Stateless: it dedups against the version
+        // annotations already in Loki, no local store.
+        'auto_version' => [
+            'enabled' => (bool) env('TELEMETRY_UI_AUTO_VERSION', false),
+            'metric' => env('TELEMETRY_UI_AUTO_VERSION_METRIC', 'system_cpu_utilization_ratio'),
+            'marker' => 'version',
+            'lookback_days' => (int) env('TELEMETRY_UI_AUTO_VERSION_LOOKBACK', 30),
         ],
     ],
 
