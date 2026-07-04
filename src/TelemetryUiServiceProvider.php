@@ -88,17 +88,35 @@ final class TelemetryUiServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the MCP server so `php artisan mcp:start telemetry-ui` serves
-     * the stack to an agent. Skipped in unit tests (which drive tools directly)
-     * to avoid stray registration output on the stdio transport.
+     * Register the MCP server. `mcp:start telemetry-ui` serves it over stdio;
+     * flipping telemetry-ui.mcp.web.enabled also exposes it over HTTP with the
+     * OAuth 2.1 + Dynamic Client Registration flow laravel/mcp provides on top
+     * of laravel/passport — no custom OAuth here.
      */
     private function registerMcpServer(): void
     {
-        if ($this->app->runningUnitTests() || ! class_exists(\Laravel\Mcp\Facades\Mcp::class)) {
+        if (! class_exists(\Laravel\Mcp\Facades\Mcp::class)) {
             return;
         }
 
-        \Laravel\Mcp\Facades\Mcp::local('telemetry-ui', Mcp\Servers\TelemetryServer::class);
+        // stdio registration writes to the transport, so skip it under unit
+        // tests (which drive tools directly via Server::tool()).
+        if (! $this->app->runningUnitTests()) {
+            \Laravel\Mcp\Facades\Mcp::local('telemetry-ui', Mcp\Servers\TelemetryServer::class);
+        }
+
+        if (! (bool) config('telemetry-ui.mcp.web.enabled', false)) {
+            return;
+        }
+
+        \Laravel\Mcp\Facades\Mcp::web(
+            (string) config('telemetry-ui.mcp.web.path', 'telemetry-ui/mcp'),
+            Mcp\Servers\TelemetryServer::class,
+        )->middleware((array) config('telemetry-ui.mcp.web.middleware', ['auth:api']));
+
+        if ((bool) config('telemetry-ui.mcp.web.oauth', true)) {
+            \Laravel\Mcp\Facades\Mcp::oauthRoutes();
+        }
     }
 
     private function registerIssuesPage(): void

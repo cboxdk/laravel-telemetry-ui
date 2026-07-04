@@ -192,6 +192,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | MCP server
+    |--------------------------------------------------------------------------
+    |
+    | The local stdio server (`php artisan mcp:start telemetry-ui`) always
+    | works. To also expose it over HTTP for a hosted agent, flip "web.enabled":
+    | laravel/mcp serves the endpoint and — with laravel/passport installed —
+    | the OAuth 2.1 authorization server and the Dynamic Client Registration
+    | endpoint, so clients can self-register. No custom OAuth code.
+    |
+    |   composer require laravel/passport      # then run its install
+    |   TELEMETRY_UI_MCP_WEB=true
+    |
+    */
+
+    'mcp' => [
+        'web' => [
+            'enabled' => (bool) env('TELEMETRY_UI_MCP_WEB', false),
+            'path' => env('TELEMETRY_UI_MCP_PATH', 'telemetry-ui/mcp'),
+            'middleware' => ['auth:api'],
+            'oauth' => (bool) env('TELEMETRY_UI_MCP_OAUTH', true),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Signal context (correlation)
     |--------------------------------------------------------------------------
     |

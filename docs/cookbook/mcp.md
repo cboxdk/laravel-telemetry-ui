@@ -49,12 +49,33 @@ and the agent gets the request *and* the state of the box it ran on (CPU,
 memory, load, …) at that moment, each flagged if it was out of its normal
 range — the same correlation the trace drawer shows, as structured data.
 
+## Remote (HTTP) with OAuth + Dynamic Client Registration
+
+To let a hosted agent connect over the network — with proper auth and clients
+that self-register — expose the server over HTTP. This uses `laravel/mcp`'s
+built-in OAuth 2.1 authorization server and DCR endpoint on top of
+`laravel/passport`; there's no custom OAuth code to write.
+
+```bash
+composer require laravel/passport   # then: php artisan passport:install
+```
+
+```dotenv
+TELEMETRY_UI_MCP_WEB=true
+# TELEMETRY_UI_MCP_PATH=telemetry-ui/mcp   # the HTTP endpoint
+```
+
+That registers the MCP POST endpoint (guarded by `auth:api`), the
+`.well-known/oauth-*` discovery documents, and the **Dynamic Client
+Registration** endpoint — so an MCP client can register itself and obtain a
+token without any manual client setup. Passport stays optional: without
+`TELEMETRY_UI_MCP_WEB` the package pulls nothing extra and the local stdio
+server is all you get.
+
 ## Security
 
-The command is stdio-only and read-only; there is no network listener. Anyone
-who can run `php artisan` in your app can already read the same backends, so
-the MCP surface adds no new access — just a new way to ask.
-
-A remote (HTTP) transport with OAuth 2.1 + Dynamic Client Registration — so a
-hosted agent can connect over the network with proper auth — is a planned next
-layer on `laravel/mcp`'s `Mcp::web()`; today only the local stdio server ships.
+The local command is stdio-only and read-only; there is no network listener,
+and anyone who can run `php artisan` in your app can already read the same
+backends. The HTTP transport is off by default and, when on, sits behind
+Passport-issued tokens (`auth:api`) — plus the same read-only drivers, so a
+token grants querying, never writes.

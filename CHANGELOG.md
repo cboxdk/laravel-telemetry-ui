@@ -15,7 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Cursor, …) can query the stack directly for incident RCA. Six read-only
   `Server\Tool`s, including `trace_context` (a trace plus the host/runtime
   signals around it, flagged against normal). Same read drivers the dashboard
-  uses. A remote HTTP transport with OAuth/DCR is the planned next layer.
+  uses.
+- **Remote MCP over HTTP with OAuth + DCR** — set `TELEMETRY_UI_MCP_WEB=true`
+  (and install `laravel/passport`) to expose the server over HTTP behind
+  `auth:api`, with the OAuth 2.1 authorization server and **Dynamic Client
+  Registration** endpoint that `laravel/mcp` provides — no custom OAuth code.
+  Off by default; Passport stays optional.
 - **Signal correlation** — a trace now shows the host and runtime signals
   recorded around it (CPU, load, memory, network, process RSS) in a context
   strip beside the waterfall, scoped by service + host and the trace's time
