@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Thin JSON HTTP client shared by all connectors. Multi-tenant Grafana
@@ -71,11 +72,11 @@ final readonly class ApiClient
                 ->asJson()
                 ->post($url, $body);
         } catch (ConnectionException $exception) {
-            throw SourceException::connectionFailed($url, $exception->getMessage());
+            $this->fail(SourceException::connectionFailed($url, $exception->getMessage()));
         }
 
         if ($response->failed()) {
-            throw SourceException::requestFailed($url, $response->status(), $response->body());
+            $this->fail(SourceException::requestFailed($url, $response->status(), $response->body()));
         }
 
         return $this->decode($response, $url);
@@ -90,11 +91,11 @@ final readonly class ApiClient
         try {
             $response = $this->pending()->get($url, $query);
         } catch (ConnectionException $exception) {
-            throw SourceException::connectionFailed($url, $exception->getMessage());
+            $this->fail(SourceException::connectionFailed($url, $exception->getMessage()));
         }
 
         if ($response->failed()) {
-            throw SourceException::requestFailed($url, $response->status(), $response->body());
+            $this->fail(SourceException::requestFailed($url, $response->status(), $response->body()));
         }
 
         return $this->decode($response, $url);
@@ -144,10 +145,22 @@ final readonly class ApiClient
         $decoded = $response->json();
 
         if (! is_array($decoded)) {
-            throw SourceException::unexpectedPayload($url, 'response body is not a JSON object');
+            $this->fail(SourceException::unexpectedPayload($url, 'response body is not a JSON object'));
         }
 
         /** @var array<string, mixed> $decoded */
         return $decoded;
+    }
+
+    /**
+     * Log the full, potentially-sensitive backend detail (URL, query, response
+     * body) server-side, then throw. The exception the dashboard sees carries
+     * only a generic message — see {@see SourceException}.
+     */
+    private function fail(SourceException $exception): never
+    {
+        Log::warning('telemetry-ui backend request failed', ['detail' => $exception->detail]);
+
+        throw $exception;
     }
 }

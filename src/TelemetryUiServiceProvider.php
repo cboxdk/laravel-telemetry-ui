@@ -14,6 +14,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Passport\Passport;
 use Livewire\Livewire;
 
 /**
@@ -116,6 +117,20 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         )->middleware((array) config('telemetry-ui.mcp.web.middleware', ['auth:api']));
 
         if ((bool) config('telemetry-ui.mcp.web.oauth', true)) {
+            // Fail loud rather than expose an unprotected authorization flow:
+            // the OAuth 2.1 + DCR endpoints laravel/mcp registers are backed by
+            // Passport, so a deploy that enables web MCP with oauth but forgot
+            // to install/run Passport must not boot into a half-configured auth
+            // server. Set telemetry-ui.mcp.web.oauth=false only if you front the
+            // endpoint with your own auth middleware.
+            if (! class_exists(Passport::class)) {
+                throw new \RuntimeException(
+                    'telemetry-ui: MCP web transport has OAuth enabled but laravel/passport is not installed. '
+                    .'Run `composer require laravel/passport` and `php artisan passport:install`, '
+                    .'or set telemetry-ui.mcp.web.oauth=false to secure the endpoint yourself.'
+                );
+            }
+
             \Laravel\Mcp\Facades\Mcp::oauthRoutes();
         }
     }

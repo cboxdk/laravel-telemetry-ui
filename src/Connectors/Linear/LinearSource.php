@@ -110,7 +110,7 @@ final readonly class LinearSource implements CreatesIssues, IssuesSource
     public function createIssue(string $title, string $body, array $labels = []): Issue
     {
         if ($this->teamId === null || $this->teamId === '') {
-            throw new SourceException('Linear needs a "team_id" (the team UUID) to create issues.');
+            throw SourceException::because('Linear needs a "team_id" (the team UUID) to create issues.');
         }
 
         $response = $this->client->post('/graphql', [
@@ -123,7 +123,7 @@ final readonly class LinearSource implements CreatesIssues, IssuesSource
         $node = $response['data']['issueCreate']['issue'] ?? null;
 
         if (! is_array($node)) {
-            throw new SourceException('Linear did not return the created issue.');
+            throw SourceException::because('Linear did not return the created issue.');
         }
 
         return new Issue(
@@ -184,7 +184,7 @@ final readonly class LinearSource implements CreatesIssues, IssuesSource
             }
         }
 
-        throw new SourceException('Linear GraphQL error: '.($messages === [] ? 'unknown error' : implode('; ', $messages)));
+        throw SourceException::because('Linear GraphQL error: '.($messages === [] ? 'unknown error' : implode('; ', $messages)));
     }
 
     private function date(mixed $value): ?DateTimeImmutable

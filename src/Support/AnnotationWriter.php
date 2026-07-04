@@ -6,7 +6,9 @@ namespace Cbox\TelemetryUi\Support;
 
 use Cbox\Telemetry\TelemetryManager;
 use Illuminate\Contracts\Config\Repository as Config;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * Writes annotation markers into the telemetry pipeline (→ Loki) by reusing
@@ -56,8 +58,22 @@ final readonly class AnnotationWriter
             return false; // fail-open: nothing to emit when telemetry is off.
         }
 
-        $this->telemetry->event($config['event'], $attributes);
-        $this->telemetry->flush();
+        // An emit/flush failure (transport down, backend rejects the batch)
+        // must not abort the caller — the annotate command should report a
+        // clean miss and the scan-versions cron should keep marking the rest
+        // of the versions it found. The write is idempotent, so the next run
+        // retries.
+        try {
+            $this->telemetry->event($config['event'], $attributes);
+            $this->telemetry->flush();
+        } catch (Throwable $exception) {
+            Log::warning('telemetry-ui: annotation emit failed', [
+                'marker' => $marker,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return false;
+        }
 
         return true;
     }

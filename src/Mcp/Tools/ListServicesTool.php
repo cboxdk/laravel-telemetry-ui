@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Mcp\Tools;
 
+use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Support\Fleet;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -28,9 +29,13 @@ final class ListServicesTool extends Tool
 
     public function handle(Request $request): Response
     {
-        return Response::json([
-            'services' => $this->fleet->services(),
-            'environments' => $this->fleet->environments(),
-        ]);
+        try {
+            return Response::json([
+                'services' => $this->fleet->services(),
+                'environments' => $this->fleet->environments(),
+            ]);
+        } catch (SourceException $exception) {
+            return Response::error($exception->getMessage());
+        }
     }
 }

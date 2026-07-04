@@ -88,3 +88,25 @@ it('gives up after exhausting retries', function (): void {
 
     expect(fn () => $client->get('/x'))->toThrow(SourceException::class, 'Could not reach');
 });
+
+it('keeps the backend url and response body out of the user-facing message', function (): void {
+    // The gate can be opened to semi-trusted operators, so the message a card
+    // renders must not leak the internal endpoint or the raw backend body —
+    // that detail lives only in the server-side log / the exception's ->detail.
+    Http::fake(['secret-mimir.internal:9090/*' => Http::response('tenant=acme secret-token-xyz', 500)]);
+
+    $client = new ApiClient('http://secret-mimir.internal:9090', retries: 0);
+
+    try {
+        $client->get('/api/v1/query', ['query' => 'up{tenant="acme"}']);
+        expect(false)->toBeTrue('expected a SourceException');
+    } catch (SourceException $exception) {
+        expect($exception->getMessage())
+            ->toBe('The telemetry backend returned status 500.')
+            ->not->toContain('secret-mimir.internal')
+            ->not->toContain('secret-token-xyz')
+            ->and($exception->detail)
+            ->toContain('secret-mimir.internal')
+            ->toContain('secret-token-xyz');
+    }
+});
