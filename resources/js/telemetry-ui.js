@@ -54,13 +54,6 @@ const baseOption = (unit) => {
             splitLine: { lineStyle: { color: '#1c1c1f' } },
         },
         legend: { show: false },
-        // The toolbox registers the dataZoom brush; we hide its icons and
-        // keep the brush permanently active so plain drag-select zooms,
-        // like Grafana. Selecting a region navigates the whole dashboard.
-        toolbox: {
-            show: false,
-            feature: { dataZoom: { yAxisIndex: 'none' } },
-        },
     };
 };
 
@@ -289,36 +282,54 @@ function register() {
             this.resizeHandler = () => this.chart?.resize();
             window.addEventListener('resize', this.resizeHandler);
 
-            // Keep the drag-select brush permanently armed so users can just
-            // drag across a region to zoom, no toolbox click needed.
-            this.chart.dispatchAction({
-                type: 'takeGlobalCursor',
-                key: 'dataZoomSelect',
-                dataZoomSelectActive: true,
+            // Grafana-style drag-to-zoom via raw zrender events instead of an
+            // always-on dataZoom brush — the brush suppresses hover tooltips,
+            // so we draw our own selection band and realign the whole dashboard
+            // to the dragged window on release (min 5s so a click doesn't fire).
+            const zr = this.chart.getZr();
+            let dragStart = null;
+
+            const band = new echarts.graphic.Rect({
+                silent: true, invisible: true, z: 100,
+                shape: { x: 0, y: 0, width: 0, height: 0 },
+                style: { fill: 'rgba(96,165,250,0.14)', stroke: 'rgba(96,165,250,0.5)', lineWidth: 1 },
+            });
+            zr.add(band);
+
+            const clearBand = () => {
+                dragStart = null;
+                band.attr({ invisible: true, shape: { x: 0, y: 0, width: 0, height: 0 } });
+            };
+
+            zr.on('mousedown', (e) => {
+                if (e.which && e.which !== 1) return; // left button only
+                dragStart = e.offsetX;
             });
 
-            // Selecting a region realigns the whole dashboard to that window
-            // (min 5s so a click or tiny drag doesn't navigate). A drag emits
-            // the selection in params.batch; fall back to percent-of-window.
-            this.chart.on('datazoom', (params) => {
-                const sel = (params && params.batch && params.batch[0]) || params || {};
-                let start = sel.startValue;
-                let end = sel.endValue;
+            zr.on('mousemove', (e) => {
+                if (dragStart == null) return;
+                const x0 = Math.min(dragStart, e.offsetX);
+                const x1 = Math.max(dragStart, e.offsetX);
+                band.attr({ invisible: false, shape: { x: x0, y: 0, width: x1 - x0, height: this.chart.getHeight() } });
+            });
 
-                if (start == null || end == null) {
-                    const axis = this.chart.getModel().getComponent('xAxis').axis;
-                    const [lo, hi] = axis.scale.getExtent();
-                    const span = hi - lo;
-                    if (sel.start != null && sel.end != null) {
-                        start = lo + (span * sel.start) / 100;
-                        end = lo + (span * sel.end) / 100;
-                    }
-                }
+            zr.on('mouseup', (e) => {
+                if (dragStart == null) return;
+                const x0 = Math.min(dragStart, e.offsetX);
+                const x1 = Math.max(dragStart, e.offsetX);
+                clearBand();
 
-                if (start != null && end != null && end - start > 5000) {
-                    window.telemetryUiSetRange(start, end);
+                if (x1 - x0 < 6) return; // a click, not a drag
+
+                const t0 = this.chart.convertFromPixel({ xAxisIndex: 0 }, x0);
+                const t1 = this.chart.convertFromPixel({ xAxisIndex: 0 }, x1);
+                if (t0 != null && t1 != null && t1 - t0 > 5000) {
+                    window.telemetryUiSetRange(t0, t1);
                 }
             });
+
+            // Dragging out of the chart cancels rather than leaving a stuck band.
+            zr.on('globalout', clearBand);
         },
 
         destroy() {
