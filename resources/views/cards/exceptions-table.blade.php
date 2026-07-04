@@ -22,7 +22,7 @@
                 </thead>
                 <tbody>
                     @foreach ($rows as $row)
-                        <tr>
+                        <tr data-row-href="{{ $hasIssues ? $this->issuesUrl($row['exception']) : $errorTracesUrl }}">
                             <td class="is-primary is-wide">{{ $row['exception'] }}</td>
                             <td class="is-num tui-tone-danger">{{ Format::count($row['count']) }}</td>
                             @if ($hasIssues)

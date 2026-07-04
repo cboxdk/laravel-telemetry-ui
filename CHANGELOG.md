@@ -12,10 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `php artisan telemetry-ui:check` — probes each configured connection with its
   cheapest read and reports OK/FAIL/not-configured; exits non-zero on failure
   so it doubles as a deploy healthcheck.
-- Whole-row click targets on the routes, jobs, facet, slow-query and
-  trace-search tables — the entire row drills into the matching traces (or
-  opens the trace drawer), not just the small link. cmd/ctrl-click opens in a
-  new tab.
+- Whole-row click targets on the routes, jobs, facet, slow-query, trace-search,
+  outgoing and exceptions tables — the entire row drills into the matching
+  traces (or opens the trace drawer / matching issues), not just the small
+  link. cmd/ctrl-click opens in a new tab. Outgoing rows filter traces by
+  `server.address`; exception rows jump to their matching issues (or the
+  scoped error traces when no tracker is configured).
 
 ### Changed
 
