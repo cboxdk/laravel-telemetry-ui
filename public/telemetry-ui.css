@@ -894,6 +894,18 @@ html, body {
 .tui-wf-attrs td { padding: 1px 14px 1px 0; vertical-align: top; }
 .tui-wf-attrs td:first-child { color: var(--tui-text-faint); }
 
+/* Click a property value to filter traces by that dimension. */
+.tui-attr-filter {
+    color: var(--tui-text);
+    text-decoration-color: transparent;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    transition: text-decoration-color 0.1s, color 0.1s;
+}
+.tui-attr-filter:hover { color: var(--tui-info); text-decoration-color: var(--tui-info); }
+
 /* Breadcrumb / page top link */
 
 .tui-crumbs {

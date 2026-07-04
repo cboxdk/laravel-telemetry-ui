@@ -6,6 +6,18 @@
 @elseif ($trace === null || $rows === [])
     <div class="tui-empty">Trace not found.</div>
 @else
+    {{-- Any span/resource attribute is a drill-down: click a value (host, user,
+         team, client IP, …) to see every trace that shares it — dimensional
+         filtering straight from the properties window. --}}
+    @php($filterable = fn ($key) => is_string($key) && preg_match('/^[a-zA-Z0-9_.]+$/', $key) === 1)
+    @php($filterUrl = fn ($key, $value) => route('telemetry-ui.page', array_filter([
+        'page' => 'traces',
+        'q' => '{ .'.$key.' = "'.addcslashes((string) $value, '"\\').'" }',
+        'service' => request('service'),
+        'env' => request('env'),
+        'period' => request('period'),
+    ])))
+
     <div class="tui-trace-meta">
         <x-telemetry-ui::stats :items="[
             ['label' => 'Duration', 'value' => Format::ms($trace->durationMs()), 'tone' => null],
@@ -97,13 +109,28 @@
                         <tr><td>kind</td><td>{{ $span->kind->value }}</td></tr>
                         @foreach ($trace->services[$span->serviceName] ?? [] as $key => $value)
                             @if (in_array($key, ['telemetry.sdk.name', 'service.version', 'deployment.id', 'deployment.environment.name'], true))
-                                <tr><td>{{ $key }}</td><td>{{ is_scalar($value) ? $value : json_encode($value) }}</td></tr>
+                                <tr>
+                                    <td>{{ $key }}</td>
+                                    <td>
+                                        @if ($filterable($key) && is_scalar($value) && (string) $value !== '')
+                                            <a class="tui-attr-filter" href="{{ $filterUrl($key, $value) }}" title="Filter traces by {{ $key }}">{{ $value }}</a>
+                                        @else
+                                            {{ is_scalar($value) ? $value : json_encode($value) }}
+                                        @endif
+                                    </td>
+                                </tr>
                             @endif
                         @endforeach
                         @foreach ($span->attributes as $key => $value)
                             <tr>
                                 <td>{{ $key }}</td>
-                                <td>{{ is_scalar($value) ? $value : json_encode($value) }}</td>
+                                <td>
+                                    @if ($filterable($key) && is_scalar($value) && (string) $value !== '')
+                                        <a class="tui-attr-filter" href="{{ $filterUrl($key, $value) }}" title="Filter traces by {{ $key }}">{{ $value }}</a>
+                                    @else
+                                        {{ is_scalar($value) ? $value : json_encode($value) }}
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                     </table>
