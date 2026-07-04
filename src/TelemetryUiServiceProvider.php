@@ -50,6 +50,7 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $this->app->singleton(SignalContext::class, static fn (Application $app): SignalContext => new SignalContext(
             $app->make(ConnectionManager::class),
             $app->make('config'),
+            $app->make('cache'),
         ));
 
         $this->app->singleton(Annotations::class, static fn (Application $app): Annotations => new Annotations(

@@ -23,10 +23,15 @@ final class RequestDetailPaths extends Card
         $error = null;
 
         if ($this->route !== '') {
+            [$start, $end] = $this->range();
+
             try {
                 $paths = $this->traces()->tagValues(
                     'span.url.path',
                     '{ '.$this->traceScope($this->routeTraceScope()).' }',
+                    $start,
+                    $end,
+                    limit: 100,
                 );
             } catch (SourceException $exception) {
                 $error = $exception->getMessage();

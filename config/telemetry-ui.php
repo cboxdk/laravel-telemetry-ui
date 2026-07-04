@@ -210,7 +210,9 @@ return [
         'web' => [
             'enabled' => (bool) env('TELEMETRY_UI_MCP_WEB', false),
             'path' => env('TELEMETRY_UI_MCP_PATH', 'telemetry-ui/mcp'),
-            'middleware' => ['auth:api'],
+            // auth:api is the ONLY auth on this endpoint (the dashboard gate does
+            // not cover it) — keep it, and throttle it like the dashboard routes.
+            'middleware' => ['auth:api', 'throttle:60,1'],
             'oauth' => (bool) env('TELEMETRY_UI_MCP_OAUTH', true),
         ],
     ],
@@ -245,6 +247,10 @@ return [
         // Lookback for each signal's "typical" baseline, so a tile can say
         // "95% (typical 30%)" and flag what was actually different.
         'baseline_window' => (int) env('TELEMETRY_UI_CONTEXT_BASELINE', 21_600),
+        // Baselines are multi-hour averages that barely move, so they're cached
+        // this long (well beyond the live query cache) and shared across nearby
+        // traces — keeps opening a trace cheap.
+        'baseline_ttl' => (int) env('TELEMETRY_UI_CONTEXT_BASELINE_TTL', 120),
         'signals' => [
             ['label' => 'Host CPU', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_cpu_utilization_ratio{{scope}})'],
             ['label' => 'Load avg', 'group' => 'host', 'unit' => 'number', 'query' => 'max(system_cpu_load_average_ratio{{scope}})'],

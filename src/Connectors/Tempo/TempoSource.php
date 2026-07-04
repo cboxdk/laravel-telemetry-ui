@@ -101,12 +101,31 @@ final readonly class TempoSource implements TracesSource
         return new Trace($traceId, $spans, $services);
     }
 
-    public function tagValues(string $tag, ?string $traceql = null): array
-    {
+    public function tagValues(
+        string $tag,
+        ?string $traceql = null,
+        ?DateTimeInterface $start = null,
+        ?DateTimeInterface $end = null,
+        int $limit = 0,
+    ): array {
         $params = [];
 
         if ($traceql !== null) {
             $params['q'] = $traceql;
+        }
+
+        // Bound the scan to a time window + limit so it doesn't enumerate the
+        // whole retention (Tempo defaults to all blocks otherwise).
+        if ($start !== null) {
+            $params['start'] = $start->getTimestamp();
+        }
+
+        if ($end !== null) {
+            $params['end'] = $end->getTimestamp();
+        }
+
+        if ($limit > 0) {
+            $params['limit'] = $limit;
         }
 
         $response = $this->client->get('/api/v2/search/tag/'.rawurlencode($tag).'/values', $params);

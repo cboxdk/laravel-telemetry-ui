@@ -31,10 +31,17 @@ interface TracesSource
     public function trace(string $traceId): Trace;
 
     /**
-     * List the known values of a span/resource tag, optionally restricted
-     * by a TraceQL filter (e.g. values of .http.route within a service).
+     * List the known values of a span/resource tag, optionally restricted by a
+     * TraceQL filter (e.g. values of .http.route within a service) and a time
+     * window + result limit so it doesn't scan the whole backend retention.
      *
      * @return list<string>
      */
-    public function tagValues(string $tag, ?string $traceql = null): array;
+    public function tagValues(
+        string $tag,
+        ?string $traceql = null,
+        ?DateTimeInterface $start = null,
+        ?DateTimeInterface $end = null,
+        int $limit = 0,
+    ): array;
 }

@@ -45,6 +45,9 @@ final class QueryRangeTool extends TelemetryTool
                     'min' => $values === [] ? null : min($values),
                     'max' => $values === [] ? null : max($values),
                 ];
+                if (count($rows) >= self::MAX_LIMIT) {
+                    break;
+                }
             }
         } catch (SourceException $exception) {
             return Response::error($exception->getMessage());

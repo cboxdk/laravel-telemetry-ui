@@ -14,13 +14,26 @@ use Laravel\Mcp\Server\Tool;
  */
 abstract class TelemetryTool extends Tool
 {
+    /** Hard ceilings so an agent can't drive an unbounded/expensive query. */
+    protected const MAX_MINUTES = 10_080; // 7 days
+
+    protected const MAX_LIMIT = 500;
+
     /**
      * @return array{0: DateTimeImmutable, 1: DateTimeImmutable}
      */
     protected function window(Request $request): array
     {
-        $minutes = max(1, (int) $request->get('minutes', 60));
+        $raw = $request->get('minutes', 60);
+        $minutes = min(self::MAX_MINUTES, max(1, is_numeric($raw) ? (int) $raw : 60));
 
         return [new DateTimeImmutable('-'.$minutes.' minutes'), new DateTimeImmutable];
+    }
+
+    protected function limit(Request $request, int $default = 20): int
+    {
+        $raw = $request->get('limit', $default);
+
+        return min(self::MAX_LIMIT, max(1, is_numeric($raw) ? (int) $raw : $default));
     }
 }

@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Queries\Results\Trace;
 use DateTimeImmutable;
 use DateTimeInterface;
+use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Config\Repository as Config;
 
 /**
@@ -28,6 +29,7 @@ final readonly class SignalContext
     public function __construct(
         private ConnectionManager $connections,
         private Config $config,
+        private CacheFactory $cache,
     ) {}
 
     /**
@@ -128,18 +130,27 @@ final readonly class SignalContext
     }
 
     /**
-     * The typical value of a signal over the lookback window (its average),
-     * or null when there's no history to compare against.
+     * The typical value of a signal over the lookback window (its average), or
+     * null when there's no history to compare against. A baseline is a
+     * slow-changing multi-hour average, so it's cached far longer than the live
+     * query cache and keyed to a coarse time bucket — nearby traces share it,
+     * instead of each re-running the (expensive) lookback query.
      */
     private function baseline(string $query, DateTimeInterface $start, DateTimeInterface $end): ?float
     {
-        try {
-            $points = $this->points($this->connections->metrics()->queryRange($query, $start, $end));
-        } catch (SourceException) {
-            return null;
-        }
+        $ttl = max(30, (int) $this->config->get('telemetry-ui.context.baseline_ttl', 120));
+        $bucket = intdiv($end->getTimestamp(), 300) * 300;
+        $key = 'telemetry-ui:baseline:'.hash('xxh128', $query.'|'.$bucket);
 
-        return $points === [] ? null : array_sum($points) / count($points);
+        return $this->cache->store()->remember($key, $ttl, function () use ($query, $start, $end): ?float {
+            try {
+                $points = $this->points($this->connections->metrics()->queryRange($query, $start, $end));
+            } catch (SourceException) {
+                return null;
+            }
+
+            return $points === [] ? null : array_sum($points) / count($points);
+        });
     }
 
     /**

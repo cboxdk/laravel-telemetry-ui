@@ -34,7 +34,7 @@ final class SearchTracesTool extends TelemetryTool
     public function handle(Request $request): Response
     {
         [$start, $end] = $this->window($request);
-        $limit = max(1, (int) $request->get('limit', 20));
+        $limit = $this->limit($request);
 
         try {
             $rows = [];

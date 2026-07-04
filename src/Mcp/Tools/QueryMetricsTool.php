@@ -10,9 +10,8 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\JsonSchema as JsonSchemaFactory;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
-use Laravel\Mcp\Server\Tool;
 
-final class QueryMetricsTool extends Tool
+final class QueryMetricsTool extends TelemetryTool
 {
     protected string $name = 'query_metrics';
 
@@ -36,6 +35,9 @@ final class QueryMetricsTool extends Tool
             $rows = [];
             foreach ($this->connections->metrics()->query((string) $request->get('query', '')) as $sample) {
                 $rows[] = ['labels' => $sample->labels, 'value' => $sample->value];
+                if (count($rows) >= self::MAX_LIMIT) {
+                    break; // don't materialize an unbounded series set
+                }
             }
         } catch (SourceException $exception) {
             return Response::error($exception->getMessage());
