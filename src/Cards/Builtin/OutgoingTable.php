@@ -85,14 +85,13 @@ final class OutgoingTable extends Card
     }
 
     /**
-     * The traces-page URL pre-filtered to outgoing calls to this host — the
-     * standard OTel `server.address` on client spans.
+     * The purpose-built detail page for this upstream host.
      */
-    public function tracesUrl(string $host): string
+    public function detailUrl(string $host): string
     {
         return route('telemetry-ui.page', array_filter([
-            'page' => 'traces',
-            'q' => '{ '.$this->traceScope('span.server.address = "'.addcslashes($host, '"\\').'" && kind = client').' }',
+            'page' => 'outgoing-detail',
+            'host' => $host,
             'period' => $this->period,
             'service' => $this->service,
             'env' => $this->environment,

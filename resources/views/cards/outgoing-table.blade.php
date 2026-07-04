@@ -23,8 +23,8 @@
                 </thead>
                 <tbody>
                     @foreach ($rows as $row)
-                        <tr data-row-href="{{ $this->tracesUrl($row['host']) }}">
-                            <td class="is-primary"><a href="{{ $this->tracesUrl($row['host']) }}" title="View traces">{{ $row['host'] }}</a></td>
+                        <tr data-row-href="{{ $this->detailUrl($row['host']) }}">
+                            <td class="is-primary"><a href="{{ $this->detailUrl($row['host']) }}" title="Open host detail">{{ $row['host'] }}</a></td>
                             <td><x-telemetry-ui::sparkline :points="$row['spark'] ?? []" :color="$row['5xx'] > 0 || $row['failures'] > 0 ? '#f87171' : '#60a5fa'" /></td>
                             <td class="is-num">{{ Format::count($row['ok']) }}</td>
                             <td class="is-num {{ $row['4xx'] > 0 ? 'tui-tone-warn' : '' }}">{{ Format::count($row['4xx']) }}</td>

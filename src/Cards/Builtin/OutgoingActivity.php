@@ -12,7 +12,7 @@ use Illuminate\Contracts\View\View;
 /**
  * Outgoing HTTP client requests per host.
  */
-final class OutgoingActivity extends Card
+class OutgoingActivity extends Card
 {
     public function render(): View
     {
