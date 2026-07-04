@@ -64,7 +64,7 @@ final class TelemetryUiManager
     private array $cards = [
         'traces' => [Builtin\TraceSearch::class, Builtin\ServiceGraph::class],
         'requests' => [Builtin\RequestsActivity::class, Builtin\RequestDuration::class, Builtin\RoutesTable::class],
-        'request-detail' => [Builtin\Detail\RequestDetailHeader::class, Builtin\Detail\RequestDetailActivity::class, Builtin\Detail\RequestDetailDuration::class, Builtin\Detail\RequestDetailStatus::class, Builtin\Detail\RequestDetailTraces::class],
+        'request-detail' => [Builtin\Detail\RequestDetailHeader::class, Builtin\Detail\RequestDetailActivity::class, Builtin\Detail\RequestDetailDuration::class, Builtin\Detail\RequestDetailStatus::class, Builtin\Detail\RequestDetailPaths::class, Builtin\Detail\RequestDetailTraces::class],
         'jobs' => [Builtin\JobsOverview::class, Builtin\QueueLag::class, Builtin\JobsTable::class],
         'job-detail' => [Builtin\Detail\JobDetailHeader::class, Builtin\Detail\JobDetailOutcomes::class, Builtin\Detail\JobDetailTraces::class],
         'commands' => [Builtin\CommandsOverview::class, Builtin\CommandsTable::class],
