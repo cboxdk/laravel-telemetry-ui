@@ -68,6 +68,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Chart hover tooltips and drag-to-zoom both work now. The dataZoom brush was
+  kept permanently armed for drag-select, which put every chart in select-mode
+  and suppressed hover tooltips — so "no data on hover" and "zoom broken" were
+  the same bug. Replaced with a raw zrender drag-select (own selection band),
+  so hovering shows values (`trigger: 'axis'`) and dragging realigns the range.
 - Linear now surfaces GraphQL errors (auth/permission/query failures, which
   Linear returns as HTTP 200 with an `errors` array) as a `SourceException`
   instead of silently returning an empty issue list.
