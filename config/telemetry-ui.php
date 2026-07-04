@@ -245,6 +245,11 @@ return [
     'annotations' => [
         'enabled' => (bool) env('TELEMETRY_UI_ANNOTATIONS', true),
         'ttl' => (int) env('TELEMETRY_UI_ANNOTATIONS_TTL', 30),
+
+        // Each marker both reads (matched in Loki by "event") and writes (via
+        // `php artisan telemetry-ui:annotate <key>`, which emits the event
+        // through the telemetry pipeline). Add your own — anything worth a
+        // vertical line on every chart.
         'markers' => [
             'deploy' => [
                 'event' => 'app.deployment',
@@ -252,6 +257,34 @@ return [
                 'color' => '#c084fc',
                 'id_label' => 'deployment_id',
                 'notes_label' => 'deployment_notes',
+            ],
+            'incident' => [
+                'event' => 'app.incident',
+                'label' => 'Incident',
+                'color' => '#f87171',
+                'id_label' => 'incident_id',
+                'notes_label' => 'incident_notes',
+            ],
+            'scaling' => [
+                'event' => 'app.scaling',
+                'label' => 'Scaling',
+                'color' => '#60a5fa',
+                'id_label' => 'scaling_id',
+                'notes_label' => 'scaling_notes',
+            ],
+            'migration' => [
+                'event' => 'app.migration',
+                'label' => 'Migration',
+                'color' => '#34d399',
+                'id_label' => 'migration_id',
+                'notes_label' => 'migration_notes',
+            ],
+            'feature' => [
+                'event' => 'app.feature_flag',
+                'label' => 'Feature flag',
+                'color' => '#fbbf24',
+                'id_label' => 'feature_id',
+                'notes_label' => 'feature_notes',
             ],
         ],
     ],

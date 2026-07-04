@@ -55,6 +55,7 @@ exception, AI-assisted diagnosis) that a read-only dashboard can never do.
 - [Getting started](getting-started/installation.md)
 - [Core concepts: connections](core-concepts/connections.md)
 - [Cookbook: connect through a Grafana datasource proxy](cookbook/connect-via-grafana-proxy.md)
+- [Cookbook: emitting annotations](cookbook/annotations.md)
 - [Core concepts: pages & cards](core-concepts/pages-and-cards.md)
 - [Design direction](design/direction.md)
 - [Extension points: custom cards](extension-points/custom-cards.md)

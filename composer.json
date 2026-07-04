@@ -29,6 +29,7 @@
     ],
     "require": {
         "php": "^8.3|^8.4|^8.5",
+        "cboxdk/laravel-telemetry": "^0.1.0-alpha.3",
         "illuminate/contracts": "^12.0|^13.0",
         "illuminate/http": "^12.0|^13.0",
         "illuminate/support": "^12.0|^13.0",
@@ -45,9 +46,6 @@
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan-deprecation-rules": "^2.0",
         "phpstan/phpstan-phpunit": "^2.0"
-    },
-    "suggest": {
-        "cboxdk/laravel-telemetry": "The emitting side: collector-free Prometheus metrics and OTLP traces this UI is schema-aware of."
     },
     "autoload": {
         "psr-4": {
