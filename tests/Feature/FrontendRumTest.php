@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Cbox\TelemetryUi\Cards\Builtin\FrontendFetches;
+use Cbox\TelemetryUi\Cards\Builtin\FrontendPages;
 use Cbox\TelemetryUi\Cards\Builtin\TraceSearch;
 use Cbox\TelemetryUi\Cards\Builtin\UnifiedErrors;
 use Illuminate\Support\Facades\Http;
@@ -61,4 +63,59 @@ it('unifies frontend and backend errors into one list grouped by fingerprint', f
         ->assertSeeHtml('full-stack')                                  // g1 seen in both browser + backend
         ->assertSeeHtml('data-row-trace="1111111111111111aaaaaaaaaaaaaaaa"') // representative = most recent occurrence
         ->assertSeeHtml('tui-badge-web');
+});
+
+it('aggregates real-user page performance by path', function (): void {
+    Http::fake([
+        'tempo.test:3200/api/search*' => Http::response([
+            'traces' => [
+                ['traceID' => 'aaaa', 'rootServiceName' => 'cbox-web', 'rootTraceName' => 'load', 'startTimeUnixNano' => '1735689600000000000', 'durationMs' => 500, 'spanSets' => [['spans' => [
+                    ['spanID' => 'p1', 'name' => 'document.load', 'startTimeUnixNano' => '1735689600000000000', 'durationNanos' => '500000000', 'attributes' => [
+                        ['key' => 'http.url', 'value' => ['stringValue' => 'https://app.test/orders?ref=x']],
+                        ['key' => 'browser.ttfb_ms', 'value' => ['intValue' => '100']],
+                        ['key' => 'browser.dom_interactive_ms', 'value' => ['intValue' => '200']],
+                    ]],
+                    ['spanID' => 'p2', 'name' => 'document.load', 'startTimeUnixNano' => '1735689601000000000', 'durationNanos' => '600000000', 'attributes' => [
+                        ['key' => 'http.url', 'value' => ['stringValue' => 'https://app.test/orders']],
+                        ['key' => 'browser.ttfb_ms', 'value' => ['intValue' => '140']],
+                        ['key' => 'browser.dom_interactive_ms', 'value' => ['intValue' => '240']],
+                    ]],
+                ]]]],
+                ['traceID' => 'bbbb', 'rootServiceName' => 'cbox-web', 'rootTraceName' => 'load', 'startTimeUnixNano' => '1735689602000000000', 'durationMs' => 400, 'spanSets' => [['spans' => [
+                    ['spanID' => 'p3', 'name' => 'document.load', 'startTimeUnixNano' => '1735689602000000000', 'durationNanos' => '400000000', 'attributes' => [
+                        ['key' => 'http.url', 'value' => ['stringValue' => 'https://app.test/checkout']],
+                        ['key' => 'browser.ttfb_ms', 'value' => ['intValue' => '90']],
+                        ['key' => 'browser.dom_interactive_ms', 'value' => ['intValue' => '180']],
+                    ]],
+                ]]]],
+            ],
+        ]),
+    ]);
+
+    Livewire::test(FrontendPages::class)
+        ->assertSee('Page loads')      // stats strip
+        ->assertSee('Avg TTFB')
+        ->assertSee('/orders')         // grouped by path, query dropped
+        ->assertSee('/checkout')
+        ->assertDontSee('ref=x');      // path only, no query string
+});
+
+it('lists failed browser fetches grouped by url', function (): void {
+    Http::fake([
+        'tempo.test:3200/api/search*' => Http::response([
+            'traces' => [
+                ['traceID' => 'cccc1111cccc1111cccc1111cccc1111', 'rootServiceName' => 'cbox-web', 'rootTraceName' => 'GET /x', 'startTimeUnixNano' => '1735689600000000000', 'durationMs' => 5, 'spanSets' => [['spans' => [
+                    ['spanID' => 'f1', 'name' => 'fetch GET', 'startTimeUnixNano' => '1735689600000000000', 'durationNanos' => '5000000', 'attributes' => [
+                        ['key' => 'http.url', 'value' => ['stringValue' => 'https://api.stripe.com/v1/charges']],
+                        ['key' => 'http.response.status_code', 'value' => ['intValue' => '503']],
+                    ]],
+                ]]]],
+            ],
+        ]),
+    ]);
+
+    Livewire::test(FrontendFetches::class)
+        ->assertSee('api.stripe.com/v1/charges')
+        ->assertSee('503')
+        ->assertSeeHtml('data-row-trace="cccc1111cccc1111cccc1111cccc1111"');
 });

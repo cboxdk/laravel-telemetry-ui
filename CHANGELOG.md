@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Frontend page (RUM)** — a new Monitoring page for real-user browser data:
+  **Page performance** (navigation timings per page — loads, avg load, TTFB,
+  DOM-interactive, from the `document.load` spans) and **Failed browser
+  requests** (fetch/XHR calls that 5xx'd or errored, grouped by URL, each row
+  opening a representative trace where a same-origin failure continues into the
+  backend span that caused it). Trace-sourced (no RUM metric exists), bounded
+  sample.
 - **Unified errors list (frontend + backend)** — a new lead card on the
   Exceptions page groups every error by `exception.group`, the Sentry-style
   fingerprint (class + top in-app frame) that both the backend handler and the
