@@ -58,6 +58,19 @@ abstract class Card extends Component
     }
 
     /**
+     * Skeleton rendered instantly in the page shell while the card streams in
+     * its own request (lazy 'on-load'), so one slow backend query never blocks
+     * the whole page. Cards with heavy layout may override to match.
+     */
+    public function placeholder(): View
+    {
+        /** @var view-string $view */
+        $view = 'telemetry-ui::cards.placeholder';
+
+        return view($view);
+    }
+
+    /**
      * Auto-refresh tick from the header control; re-renders the card.
      */
     #[On('telemetry-ui:refresh')]

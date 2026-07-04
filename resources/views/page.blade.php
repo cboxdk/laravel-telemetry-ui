@@ -6,7 +6,10 @@
 
     <div class="tui-grid">
         @forelse ($cards as $card)
-            @livewire($card)
+            {{-- lazy:'on-load' streams each card in its own request right after
+                 paint (x-init, not x-intersect), so the shell + fast cards
+                 render instantly and slow cards load in parallel. --}}
+            @livewire($card, ['lazy' => 'on-load'], key($card))
         @empty
             <div class="tui-empty">
                 No cards registered for this page. Add cards in <code>config/telemetry-ui.php</code>

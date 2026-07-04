@@ -5,11 +5,22 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Tests;
 
 use Cbox\TelemetryUi\TelemetryUiServiceProvider;
+use Livewire\Livewire;
 use Livewire\LivewireServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Cards lazy-load in the browser (shell first, each card streams in on
+        // load). Render them eagerly in tests so a full-page request exercises
+        // the real card output instead of the skeleton placeholder.
+        Livewire::withoutLazyLoading();
+    }
+
     protected function getPackageProviders($app): array
     {
         return [
