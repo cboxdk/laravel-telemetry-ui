@@ -22,6 +22,10 @@ final class TraceSearch extends Card
     #[Url(as: 'status')]
     public string $status = '';
 
+    /** '' = all, 'frontend' = browser/RUM spans, 'backend' = server-side only. */
+    #[Url(as: 'source')]
+    public string $source = '';
+
     #[Url(as: 'route')]
     public string $route = '';
 
@@ -67,6 +71,11 @@ final class TraceSearch extends Card
         $this->query = '';
     }
 
+    public function updatedSource(): void
+    {
+        $this->query = '';
+    }
+
     public function updatedRoute(): void
     {
         $this->query = '';
@@ -86,6 +95,7 @@ final class TraceSearch extends Card
     {
         $this->query = '';
         $this->status = '';
+        $this->source = '';
         $this->route = '';
         $this->nameContains = '';
         $this->minDurationMs = 0;
@@ -111,6 +121,14 @@ final class TraceSearch extends Card
             $conditions[] = 'status = error';
         } elseif ($this->status === 'ok') {
             $conditions[] = 'status != error';
+        }
+
+        // Frontend vs backend: browser/RUM spans carry the server-stamped
+        // `browser=true` attribute (they share the backend's service.name).
+        if ($this->source === 'frontend') {
+            $conditions[] = 'span.browser = true';
+        } elseif ($this->source === 'backend') {
+            $conditions[] = 'span.browser != true';
         }
 
         if ($this->route !== '') {

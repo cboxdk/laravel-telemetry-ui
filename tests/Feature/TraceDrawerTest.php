@@ -77,6 +77,40 @@ it('opens and renders a trace on the open-trace event', function (): void {
         ->assertSeeHtml('tui-attr-filter');
 });
 
+it('renders browser/RUM spans as frontend rows in a unified trace', function (): void {
+    // A server request (root) with browser spans hung off it via traceparent:
+    // the page-load span is a child of the server span, and a fetch under that.
+    Http::fake([
+        'tempo.test:3200/api/traces/*' => Http::response([
+            'batches' => [[
+                'resource' => ['attributes' => [['key' => 'service.name', 'value' => ['stringValue' => 'cbox-web']]]],
+                'scopeSpans' => [['spans' => [
+                    ['spanId' => 's1', 'name' => 'GET /orders', 'kind' => 'SPAN_KIND_SERVER', 'startTimeUnixNano' => '1000000000', 'endTimeUnixNano' => '2000000000'],
+                    ['spanId' => 'b1', 'parentSpanId' => 's1', 'name' => 'document.load', 'kind' => 'SPAN_KIND_CLIENT', 'startTimeUnixNano' => '1100000000', 'endTimeUnixNano' => '1600000000', 'attributes' => [
+                        ['key' => 'browser', 'value' => ['boolValue' => true]],
+                        ['key' => 'browser.ttfb_ms', 'value' => ['intValue' => '120']],
+                        ['key' => 'browser.dom_interactive_ms', 'value' => ['intValue' => '250']],
+                        ['key' => 'http.url', 'value' => ['stringValue' => 'https://app.test/orders']],
+                    ]],
+                    ['spanId' => 'b2', 'parentSpanId' => 'b1', 'name' => 'fetch GET', 'kind' => 'SPAN_KIND_CLIENT', 'startTimeUnixNano' => '1200000000', 'endTimeUnixNano' => '1400000000', 'attributes' => [
+                        ['key' => 'browser', 'value' => ['boolValue' => true]],
+                        ['key' => 'http.url', 'value' => ['stringValue' => '/api/orders']],
+                        ['key' => 'http.response.status_code', 'value' => ['intValue' => '200']],
+                    ]],
+                ]]],
+            ]],
+        ]),
+    ]);
+
+    Livewire::test(TraceDrawer::class)
+        ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab')
+        ->assertSee('GET /orders')       // backend root
+        ->assertSee('document.load')     // browser page-load span, nested in the same trace
+        ->assertSeeHtml('tui-badge-web') // frontend spans carry the browser badge
+        ->assertSee('TTFB 120ms')        // RUM navigation-timing summary
+        ->assertSee('/api/orders → 200'); // browser fetch renders its URL + status
+});
+
 it('renders the host/runtime context strip beside the waterfall', function (): void {
     config()->set('telemetry-ui.context.signals', [
         ['label' => 'Host CPU', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_cpu_utilization_ratio{{scope}})'],

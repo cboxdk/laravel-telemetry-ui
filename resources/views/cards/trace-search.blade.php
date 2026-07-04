@@ -20,6 +20,15 @@
         </label>
 
         <label class="tui-filter">
+            <span>Source</span>
+            <select wire:model.live="source">
+                <option value="">Any</option>
+                <option value="frontend">Frontend (browser)</option>
+                <option value="backend">Backend</option>
+            </select>
+        </label>
+
+        <label class="tui-filter">
             <span>Route</span>
             <input type="text" placeholder="/orders/{id}" wire:model.live.debounce.500ms="route" spellcheck="false">
         </label>

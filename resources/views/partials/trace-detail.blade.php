@@ -86,6 +86,9 @@
                         @else
                             <span class="tui-wf-caret is-leaf"></span>
                         @endif
+                        @if ($span->isBrowser())
+                            <span class="tui-badge tui-badge-web" title="Ran in the browser (RUM) — frontend span">web</span>
+                        @endif
                         @if ($span->serviceName !== '')
                             <span class="tui-badge" style="border-color: {{ $identity['color'] }}55; color: {{ $identity['color'] }}">
                                 {{ $span->serviceName }}@if ($identity['label']) · {{ $identity['label'] }}@endif

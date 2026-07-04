@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Frontend / RUM spans in the unified trace** — browser spans emitted by
+  cboxdk/laravel-telemetry's frontend proxy (alpha.6/7) now read as first-class
+  frontend rows. They share the backend's `service.name`, so the per-span
+  server-stamped `browser=true` attribute is the marker: browser spans get a
+  `web` badge in the waterfall, `document.load` shows its RUM timings (`TTFB`,
+  `DOM`), and browser `fetch` spans render their URL + status. Trace search
+  gains a **Source** filter (frontend/backend) that scopes on `span.browser`.
+  Because the browser continues the backend's `traceparent`, a page load, its
+  fetches and the server spans they trigger already nest into one waterfall —
+  end-to-end frontend→backend on open data.
+
 - **Dimensional drill-down / filtering (Grafana-style)** — every span/resource
   attribute in the trace properties window (host, user, team, client IP,
   deployment, method — whatever the app emits) is a click-to-filter link that

@@ -488,6 +488,8 @@ html, body {
 .tui-badge-warn { color: var(--tui-warn); border-color: rgba(251, 191, 36, 0.25); }
 .tui-badge-danger { color: var(--tui-danger); border-color: rgba(248, 113, 113, 0.25); }
 .tui-badge-info { color: var(--tui-info); border-color: rgba(96, 165, 250, 0.25); }
+/* Browser/RUM spans: a fixed sky accent so frontend rows pop in a unified trace. */
+.tui-badge-web { color: #38bdf8; border-color: rgba(56, 189, 248, 0.35); text-transform: uppercase; letter-spacing: 0.04em; }
 
 .tui-badge-clickable {
     cursor: pointer;
