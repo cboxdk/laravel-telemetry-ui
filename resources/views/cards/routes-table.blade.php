@@ -1,6 +1,6 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
-<x-telemetry-ui::card title="Routes" subtitle="Per-route request volume, status mix and latency — click a route for its traces" span="2">
+<x-telemetry-ui::card title="Routes" subtitle="Per-route request volume, status mix and latency — click a route for its detail page" span="2">
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @else
@@ -28,9 +28,9 @@
                     </thead>
                     <tbody>
                         @foreach ($rows as $row)
-                            <tr data-row-href="{{ $this->tracesUrl($row['route']) }}">
+                            <tr data-row-href="{{ $this->detailUrl($row['route']) }}">
                                 <td><span class="tui-badge {{ $row['method'] === 'GET' ? 'tui-badge-info' : 'tui-badge-ok' }}">{{ $row['method'] }}</span></td>
-                                <td class="is-primary"><a href="{{ $this->tracesUrl($row['route']) }}" title="View traces">{{ $row['route'] }}</a></td>
+                                <td class="is-primary"><a href="{{ $this->detailUrl($row['route']) }}" title="Open route detail">{{ $row['route'] }}</a></td>
                                 <td><x-telemetry-ui::sparkline :points="$row['spark']" :color="$row['5xx'] > 0 ? '#f87171' : ($row['4xx'] > 0 ? '#fbbf24' : '#34d399')" /></td>
                                 <td class="is-num">{{ Format::count($row['ok']) }}</td>
                                 <td class="is-num {{ $row['4xx'] > 0 ? 'tui-tone-warn' : '' }}">{{ Format::count($row['4xx']) }}</td>

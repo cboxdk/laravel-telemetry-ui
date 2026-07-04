@@ -14,7 +14,7 @@ use Illuminate\Contracts\View\View;
  * Request throughput with status-class breakdown (1/2/3XX grey, 4XX amber,
  * 5XX red) — the Nightwatch "Activity / Requests" card.
  */
-final class RequestsActivity extends Card
+class RequestsActivity extends Card
 {
     public function render(): View
     {

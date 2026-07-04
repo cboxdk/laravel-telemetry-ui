@@ -28,6 +28,10 @@ final class PaletteCommands
         $commands = [];
 
         foreach ($pages as $slug => $meta) {
+            if ($meta['hidden'] ?? false) {
+                continue; // detail pages aren't jump targets
+            }
+
             $commands[] = [
                 'type' => 'Page',
                 'label' => $meta['label'],

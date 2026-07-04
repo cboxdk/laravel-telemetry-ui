@@ -171,6 +171,16 @@ abstract class Card extends Component
     }
 
     /**
+     * Extra PromQL label matchers applied to every {@see metric()} on this
+     * card — an entity-detail card (a single route, host, …) overrides this to
+     * scope the whole card to that entity. Empty by default.
+     */
+    protected function scopeMatchers(): string
+    {
+        return '';
+    }
+
+    /**
      * A metric reference with the current scope (and any extra matchers)
      * applied: `metric{service_name="checkout",deployment_environment_name="prod"}`.
      */
@@ -184,6 +194,10 @@ abstract class Card extends Component
 
         if ($this->environment !== '') {
             $matchers[] = 'deployment_environment_name="'.$this->escapeLabelValue($this->environment).'"';
+        }
+
+        if (($scope = $this->scopeMatchers()) !== '') {
+            $matchers[] = $scope;
         }
 
         if ($extraMatchers !== '') {

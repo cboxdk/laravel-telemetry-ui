@@ -16,7 +16,7 @@
             <x-telemetry-ui::scope-switcher :services="$services" :environments="$environments" />
 
             <nav class="tui-nav">
-                @php($groups = collect($pages)->groupBy(fn ($meta) => $meta['group'] ?? '', preserveKeys: true))
+                @php($groups = collect($pages)->reject(fn ($meta) => $meta['hidden'] ?? false)->groupBy(fn ($meta) => $meta['group'] ?? '', preserveKeys: true))
                 @foreach ($groups as $group => $items)
                     @if ($group !== '')
                         <div class="tui-nav-group">{{ $group }}</div>

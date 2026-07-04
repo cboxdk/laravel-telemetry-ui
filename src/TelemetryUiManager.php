@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
  * (class-strings and labels) so packages can contribute from their service
  * providers at zero boot cost.
  *
- * @phpstan-type PageMeta array{label: string, group: string|null, icon: string|null, detect: string|null}
+ * @phpstan-type PageMeta array{label: string, group: string|null, icon: string|null, detect: string|null, hidden?: bool}
  */
 final class TelemetryUiManager
 {
@@ -30,6 +30,9 @@ final class TelemetryUiManager
         'dashboard' => ['label' => 'Dashboard', 'group' => null, 'icon' => null, 'detect' => null],
         'traces' => ['label' => 'Traces', 'group' => null, 'icon' => null, 'detect' => null],
         'requests' => ['label' => 'Requests', 'group' => 'Activity', 'icon' => null, 'detect' => null],
+        // Purpose-built detail pages: routable + rendered, but not in the
+        // sidebar nav (reached by drilling into a row).
+        'request-detail' => ['label' => 'Request', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
         'jobs' => ['label' => 'Jobs', 'group' => 'Activity', 'icon' => null, 'detect' => null],
         'commands' => ['label' => 'Commands', 'group' => 'Activity', 'icon' => null, 'detect' => 'commands_.*'],
         'schedule' => ['label' => 'Scheduled Tasks', 'group' => 'Activity', 'icon' => null, 'detect' => null],
@@ -59,6 +62,7 @@ final class TelemetryUiManager
     private array $cards = [
         'traces' => [Builtin\TraceSearch::class, Builtin\ServiceGraph::class],
         'requests' => [Builtin\RequestsActivity::class, Builtin\RequestDuration::class, Builtin\RoutesTable::class],
+        'request-detail' => [Builtin\Detail\RequestDetailHeader::class, Builtin\Detail\RequestDetailActivity::class, Builtin\Detail\RequestDetailDuration::class, Builtin\Detail\RequestDetailTraces::class],
         'jobs' => [Builtin\JobsOverview::class, Builtin\QueueLag::class, Builtin\JobsTable::class],
         'commands' => [Builtin\CommandsOverview::class, Builtin\CommandsTable::class],
         'schedule' => [Builtin\ScheduleOverview::class, Builtin\ScheduleTable::class],
@@ -92,8 +96,9 @@ final class TelemetryUiManager
         ?string $group = null,
         ?string $icon = null,
         ?string $detectMetric = null,
+        bool $hidden = false,
     ): self {
-        $this->pages[$slug] = ['label' => $label, 'group' => $group, 'icon' => $icon, 'detect' => $detectMetric];
+        $this->pages[$slug] = ['label' => $label, 'group' => $group, 'icon' => $icon, 'detect' => $detectMetric, 'hidden' => $hidden];
 
         return $this;
     }

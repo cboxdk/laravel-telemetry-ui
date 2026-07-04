@@ -12,7 +12,7 @@ use Illuminate\Contracts\View\View;
 /**
  * Request latency: average and p95, from the request duration histogram.
  */
-final class RequestDuration extends Card
+class RequestDuration extends Card
 {
     public function render(): View
     {

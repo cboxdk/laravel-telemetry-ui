@@ -104,13 +104,14 @@ final class RoutesTable extends Card
     }
 
     /**
-     * The traces-page URL pre-filtered to this route.
+     * The purpose-built detail page for this route (its own throughput,
+     * latency, error rate and traces) — not a pre-filtered trace search.
      */
-    public function tracesUrl(string $route): string
+    public function detailUrl(string $route): string
     {
         return route('telemetry-ui.page', array_filter([
-            'page' => 'traces',
-            'q' => '{ '.$this->traceScope('span.http.route = "'.addcslashes($route, '"\\').'" && kind = server').' }',
+            'page' => 'request-detail',
+            'route' => $route,
             'period' => $this->period,
             'service' => $this->service,
             'env' => $this->environment,
