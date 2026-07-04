@@ -72,7 +72,9 @@ it('opens and renders a trace on the open-trace event', function (): void {
         ->assertSet('traceId', 'abc123abc123abc123abc123abc123ab')
         ->assertSee('GET /orders')
         ->assertSee('select * from orders')
-        ->assertSeeHtml('is-open');
+        ->assertSeeHtml('is-open')
+        // Span attributes are dimensional drill-down links (click a value → filter).
+        ->assertSeeHtml('tui-attr-filter');
 });
 
 it('renders the host/runtime context strip beside the waterfall', function (): void {
