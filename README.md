@@ -32,6 +32,10 @@ over MCP).
 - **Dimensional filtering** — every attribute in a trace (host, user, team,
   client IP, deployment…) is a click-to-filter link, Grafana-style. A **Hosts**
   page lists every server reporting telemetry.
+- **Web analytics & RUM** — visit analytics on open data (page views, cookieless
+  unique visitors, bounce, engagement, top pages, referrers, geo, devices) plus
+  a real-user Frontend page (page-load timings, failed browser requests) — all
+  joined to the backend trace. See the [analytics cookbook](docs/cookbook/analytics.md).
 - **Signal correlation** — a trace shows the host/runtime signals recorded
   *around* it (CPU, load, memory, network, RSS), each flagged against its
   typical baseline ("Host CPU 95%, typical 30%"). The thing an app-only
