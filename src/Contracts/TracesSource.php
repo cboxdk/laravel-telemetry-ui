@@ -10,6 +10,8 @@ use DateTimeInterface;
 
 /**
  * A TraceQL-capable tracing backend (Tempo, ...).
+ *
+ * @api Implement to add a traces driver; cards depend only on this contract.
  */
 interface TracesSource
 {

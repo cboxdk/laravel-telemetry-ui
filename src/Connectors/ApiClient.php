@@ -20,6 +20,8 @@ use Illuminate\Support\Facades\Log;
  * card would otherwise hit the backend live. Only the decoded array (plain
  * primitives) is cached — never a DTO — so it is safe across any cache store,
  * and drivers re-parse it cheaply. Transient network blips are retried.
+ *
+ * @internal Drivers reach it through ConnectionManager; not a public API.
  */
 final readonly class ApiClient
 {

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Console;
 
+use Cbox\Telemetry\TelemetryManager;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository as Config;
@@ -64,6 +65,8 @@ final class CheckCommand extends Command
         $this->newLine();
         $this->table(['Connection', 'Driver', 'Status', 'Detail'], $rows);
 
+        $this->reportEmitter();
+
         if ($failed) {
             $this->error('One or more connections failed. Check url, token/basic_auth and tenant in config/telemetry-ui.php.');
 
@@ -79,6 +82,24 @@ final class CheckCommand extends Command
         $this->info('All configured connections are reachable.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The annotation write path (`telemetry-ui:annotate`, `scan-versions`) runs
+     * through cboxdk/laravel-telemetry's emitter. Report whether it will emit —
+     * informational only, so it doesn't affect the connection exit code.
+     */
+    private function reportEmitter(): void
+    {
+        try {
+            $enabled = $this->laravel->make(TelemetryManager::class)->enabled();
+        } catch (Throwable) {
+            return;
+        }
+
+        $this->line($enabled
+            ? '<fg=green>✓</> Telemetry emitter enabled — annotations will write to the logs backend.'
+            : '<fg=yellow>•</> Telemetry emitter disabled — annotation markers will be skipped until it is enabled.');
     }
 
     private function driverFor(Config $config, string $name): ?string

@@ -9,11 +9,15 @@ use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Support\Str;
+use Laravel\Mcp\Server\Tool;
 
 /**
- * Registry for dashboard pages and their cards. Registration is data-only
+ * Registry for dashboard pages, cards and MCP tools. Registration is data-only
  * (class-strings and labels) so packages can contribute from their service
  * providers at zero boot cost.
+ *
+ * @api Use via the TelemetryUi facade. page()/card()/mcpTool() are the
+ *      supported extension points.
  *
  * @phpstan-type PageMeta array{label: string, group: string|null, icon: string|null, detect: string|null, hidden?: bool}
  */
@@ -90,7 +94,40 @@ final class TelemetryUiManager
         'system' => [Builtin\SystemMemory::class, Builtin\SystemCpu::class, Builtin\SystemFilesystem::class, Builtin\SystemNetwork::class],
     ];
 
+    /**
+     * Extra MCP tools contributed by apps/packages, appended to the built-in
+     * read tools the TelemetryServer already exposes.
+     *
+     * @var list<class-string<Tool>>
+     */
+    private array $mcpTools = [];
+
     public function __construct(private readonly Config $config) {}
+
+    /**
+     * Register an MCP tool on the telemetry server. Packages call this from a
+     * service provider to expose their own read tool (e.g. an autoscale
+     * decision explainer) alongside the built-in metrics/traces/logs tools.
+     *
+     * @param  class-string<Tool>  $tool
+     */
+    public function mcpTool(string $tool): self
+    {
+        $this->mcpTools[] = $tool;
+
+        return $this;
+    }
+
+    /**
+     * App/package-contributed MCP tools. The TelemetryServer merges these with
+     * its built-in tools when the server boots.
+     *
+     * @return list<class-string<Tool>>
+     */
+    public function mcpTools(): array
+    {
+        return array_values(array_unique($this->mcpTools));
+    }
 
     /**
      * Register a page in the sidebar. Pages with the same group are shown

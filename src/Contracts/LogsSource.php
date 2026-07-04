@@ -9,6 +9,8 @@ use DateTimeInterface;
 
 /**
  * A LogQL-capable log backend (Loki, ...).
+ *
+ * @api Implement to add a logs driver; cards depend only on this contract.
  */
 interface LogsSource
 {

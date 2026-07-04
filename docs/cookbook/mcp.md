@@ -72,6 +72,26 @@ token without any manual client setup. Passport stays optional: without
 `TELEMETRY_UI_MCP_WEB` the package pulls nothing extra and the local stdio
 server is all you get.
 
+## Adding your own tool
+
+The server exposes six built-in read tools. A package can contribute its own —
+say a tool that explains an autoscaler's decisions — by registering a
+`Laravel\Mcp\Server\Tool` from a service provider:
+
+```php
+use Cbox\TelemetryUi\Facades\TelemetryUi;
+
+public function boot(): void
+{
+    TelemetryUi::mcpTool(ExplainAutoscaleTool::class);
+}
+```
+
+`TelemetryServer` merges registered tools with its built-ins when it boots, so
+they appear on both the stdio and HTTP transports. Keep them read-only and
+catch `SourceException` (returning `Response::error(...)`) exactly like the
+built-in tools do, so a backend hiccup surfaces cleanly instead of as a 500.
+
 ## Security
 
 The local command is stdio-only and read-only; there is no network listener,

@@ -27,6 +27,11 @@ use Livewire\Component;
  *
  * Cards share the global scope: the time period plus the service/environment
  * selected in the sidebar switcher, all synced via the query string.
+ *
+ * @api This base and its protected scope helpers (metric(), traceScope(),
+ *      logSelector(), range(), scopeMatchers(), escapeLabelValue(), the
+ *      chart/stat builders) are the supported extension surface. The built-in
+ *      Cards\Builtin\* implementations are not API — subclass this base.
  */
 abstract class Card extends Component
 {

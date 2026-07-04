@@ -10,6 +10,8 @@ use DateTimeInterface;
 
 /**
  * A PromQL-capable metrics backend (Prometheus, Mimir, ...).
+ *
+ * @api Implement to add a metrics driver; cards depend only on this contract.
  */
 interface MetricsSource
 {

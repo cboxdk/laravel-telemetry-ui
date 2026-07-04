@@ -6,6 +6,7 @@ use Cbox\TelemetryUi\Mcp\Servers\TelemetryServer;
 use Cbox\TelemetryUi\Mcp\Tools\ListServicesTool;
 use Cbox\TelemetryUi\Mcp\Tools\QueryMetricsTool;
 use Cbox\TelemetryUi\Mcp\Tools\TraceContextTool;
+use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Http;
 
 it('runs the query_metrics tool through the real driver', function (): void {
@@ -73,4 +74,16 @@ it('correlates host context for a trace via trace_context', function (): void {
         ->assertOk()
         ->assertSee('Host CPU')
         ->assertSee('context');
+});
+
+it('lets a package contribute an extra MCP tool via the manager', function (): void {
+    $manager = app(TelemetryUiManager::class);
+
+    expect($manager->mcpTools())->not->toContain(QueryMetricsTool::class);
+
+    $manager->mcpTool(QueryMetricsTool::class)->mcpTool(QueryMetricsTool::class);
+
+    // Registered, and de-duplicated — TelemetryServer::boot() appends these to
+    // its built-in read tools.
+    expect($manager->mcpTools())->toBe([QueryMetricsTool::class]);
 });

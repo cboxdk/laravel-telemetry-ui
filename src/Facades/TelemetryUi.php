@@ -8,13 +8,20 @@ use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @method static \Cbox\TelemetryUi\TelemetryUiManager page(string $slug, string $label, ?string $group = null, ?string $icon = null, ?string $detectMetric = null)
+ * Public registry facade — the supported way for apps and packages to
+ * contribute pages, cards and MCP tools to the dashboard.
+ *
+ * @method static \Cbox\TelemetryUi\TelemetryUiManager page(string $slug, string $label, ?string $group = null, ?string $icon = null, ?string $detectMetric = null, bool $hidden = false)
  * @method static \Cbox\TelemetryUi\TelemetryUiManager card(string $card, string $page = 'dashboard')
- * @method static array<string, array{label: string, group: string|null, icon: string|null, detect: string|null}> pages()
+ * @method static \Cbox\TelemetryUi\TelemetryUiManager mcpTool(string $tool)
+ * @method static array<string, array{label: string, group: string|null, icon: string|null, detect: string|null, hidden?: bool}> pages()
  * @method static bool hasPage(string $slug)
  * @method static list<class-string<\Cbox\TelemetryUi\Cards\Card>> cards(string $page = 'dashboard')
+ * @method static list<class-string<\Laravel\Mcp\Server\Tool>> mcpTools()
  *
  * @see TelemetryUiManager
+ *
+ * @api
  */
 final class TelemetryUi extends Facade
 {

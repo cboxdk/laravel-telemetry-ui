@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Mcp\Tools\QueryMetricsTool;
 use Cbox\TelemetryUi\Mcp\Tools\QueryRangeTool;
 use Cbox\TelemetryUi\Mcp\Tools\SearchTracesTool;
 use Cbox\TelemetryUi\Mcp\Tools\TraceContextTool;
+use Cbox\TelemetryUi\TelemetryUiManager;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Tool;
 
@@ -52,4 +53,18 @@ class TelemetryServer extends Server
         QueryLogsTool::class,
         TraceContextTool::class,
     ];
+
+    /**
+     * Append app/package-contributed tools (registered via
+     * TelemetryUi::mcpTool()) to the built-in read tools. Runs before the
+     * server builds its context, so late registrations are still picked up.
+     */
+    protected function boot(): void
+    {
+        $extra = app(TelemetryUiManager::class)->mcpTools();
+
+        if ($extra !== []) {
+            $this->tools = [...$this->tools, ...$extra];
+        }
+    }
 }
