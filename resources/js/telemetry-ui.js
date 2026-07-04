@@ -75,22 +75,49 @@ window.telemetryUiSetRange = (fromMs, toMs) => {
 
 const isHex32 = (s) => /^[0-9a-f]{32}$/i.test(s.trim());
 
-// Trace/issue links open the slide-in drawer on a plain click; cmd/ctrl/
-// shift-click (or the middle button) fall through to the href in a new tab.
+// Navigation delegation. Trace/issue links open the slide-in drawer; whole
+// rows (data-row-trace / data-row-href) are Nightwatch-style click targets so
+// you don't have to aim for the little link. cmd/ctrl/shift-click (or the
+// middle button) always falls through to a new tab / the href.
 document.addEventListener('click', (e) => {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    if (e.button !== 0) return;
 
+    const plain = !(e.metaKey || e.ctrlKey || e.shiftKey);
+
+    // Explicit drawer links (may live inside a clickable row).
     const trace = e.target.closest('.tui-trace-link');
-    if (trace && trace.dataset.traceId) {
+    if (trace && trace.dataset.traceId && plain) {
         e.preventDefault();
         window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: trace.dataset.traceId });
         return;
     }
 
     const issue = e.target.closest('.tui-issue-link');
-    if (issue && issue.dataset.issueId) {
+    if (issue && issue.dataset.issueId && plain) {
         e.preventDefault();
         window.Livewire?.dispatch('telemetry-ui:open-issue', { issueId: issue.dataset.issueId });
+        return;
+    }
+
+    // Whole-row affordances: skip when the click landed on a real interactive
+    // child, so inner links/buttons/inputs keep their own behavior.
+    if (e.target.closest('a, button, input, select, textarea, label, [wire\\:click]')) return;
+
+    const traceRow = e.target.closest('[data-row-trace]');
+    if (traceRow && traceRow.dataset.rowTrace && plain) {
+        e.preventDefault();
+        window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: traceRow.dataset.rowTrace });
+        return;
+    }
+
+    const hrefRow = e.target.closest('[data-row-href]');
+    if (hrefRow && hrefRow.dataset.rowHref) {
+        if (plain) {
+            e.preventDefault();
+            window.location.href = hrefRow.dataset.rowHref;
+        } else {
+            window.open(hrefRow.dataset.rowHref, '_blank');
+        }
     }
 });
 

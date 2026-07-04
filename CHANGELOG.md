@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `php artisan telemetry-ui:check` — probes each configured connection with its
   cheapest read and reports OK/FAIL/not-configured; exits non-zero on failure
   so it doubles as a deploy healthcheck.
+- Whole-row click targets on the routes, jobs, facet, slow-query and
+  trace-search tables — the entire row drills into the matching traces (or
+  opens the trace drawer), not just the small link. cmd/ctrl-click opens in a
+  new tab.
+
+### Changed
+
+- Dashboard cards now stream in (lazy `on-load`) instead of rendering eagerly,
+  so the page shell paints instantly and a slow backend query on one card no
+  longer blocks the whole page; each card loads in its own parallel request.
 
 ### Fixed
 

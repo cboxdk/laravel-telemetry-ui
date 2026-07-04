@@ -451,6 +451,12 @@ html, body {
 .tui-table tbody tr:hover td { background: var(--tui-surface-2); }
 .tui-table tbody tr:last-child td { border-bottom: 0; }
 
+/* Whole-row click targets (Nightwatch-style drill-down). */
+.tui-table tbody tr[data-row-href],
+.tui-table tbody tr[data-row-trace] { cursor: pointer; }
+.tui-table tbody tr[data-row-href]:hover td,
+.tui-table tbody tr[data-row-trace]:hover td { background: var(--tui-surface-3, var(--tui-surface-2)); }
+
 .tui-table .is-num, .tui-table th.is-num { text-align: right; }
 .tui-table .is-primary { color: var(--tui-text); }
 .tui-table .is-wide { white-space: normal; word-break: break-word; min-width: 280px; }

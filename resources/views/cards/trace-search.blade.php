@@ -66,7 +66,7 @@
                 </thead>
                 <tbody>
                     @foreach ($results as $summary)
-                        <tr>
+                        <tr data-row-trace="{{ $summary->traceId }}">
                             <td>{{ $summary->startedAt->format('H:i:s') }}</td>
                             <td><span class="tui-badge tui-badge-info">{{ $summary->rootServiceName }}</span></td>
                             <td class="is-primary"><a class="tui-trace-link" data-trace-id="{{ $summary->traceId }}" href="{{ $this->traceUrl($summary->traceId) }}">{{ $summary->rootTraceName ?: '(unnamed)' }}</a></td>

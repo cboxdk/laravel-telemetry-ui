@@ -27,7 +27,7 @@
                     </thead>
                     <tbody>
                         @foreach ($rows as $row)
-                            <tr>
+                            <tr data-row-href="{{ $this->tracesUrl($row['job']) }}">
                                 <td class="is-primary"><a href="{{ $this->tracesUrl($row['job']) }}" title="View traces">{{ $row['job'] }}</a></td>
                                 <td><span class="tui-badge">{{ $row['queue'] }}</span></td>
                                 <td><x-telemetry-ui::sparkline :points="$row['spark'] ?? []" :color="$row['failed'] > 0 ? '#f87171' : ($row['released'] > 0 ? '#fbbf24' : '#34d399')" /></td>

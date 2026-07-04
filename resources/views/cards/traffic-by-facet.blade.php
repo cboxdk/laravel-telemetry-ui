@@ -34,7 +34,7 @@
                 </thead>
                 <tbody>
                     @foreach ($rows as $row)
-                        <tr>
+                        <tr data-row-href="{{ $this->tracesUrl($row['value']) }}">
                             <td class="is-primary"><a href="{{ $this->tracesUrl($row['value']) }}" title="View traces">{{ $row['value'] }}</a></td>
                             <td class="is-num">{{ $row['traces'] }}</td>
                             <td class="is-num {{ $row['errors'] > 0 ? 'tui-tone-danger' : '' }}">{{ $row['errors'] }}</td>
