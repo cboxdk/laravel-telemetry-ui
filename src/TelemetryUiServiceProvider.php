@@ -71,6 +71,7 @@ final class TelemetryUiServiceProvider extends ServiceProvider
                 Console\CheckCommand::class,
                 Console\AnnotateCommand::class,
                 Console\ScanVersionsCommand::class,
+                Console\McpCommand::class,
             ]);
         }
 

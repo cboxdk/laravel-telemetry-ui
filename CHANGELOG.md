@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MCP server** — `php artisan telemetry-ui:mcp` serves metrics, traces, logs
+  and the correlation/analysis tools over the Model Context Protocol (stdio),
+  so an agent (Claude Desktop, Cursor, …) can query the stack directly for
+  incident RCA. Six read-only tools, including `trace_context` (a trace plus
+  the host/runtime signals around it, flagged against normal). Dependency-free
+  JSON-RPC handler; the same read drivers the dashboard uses.
 - **Signal correlation** — a trace now shows the host and runtime signals
   recorded around it (CPU, load, memory, network, process RSS) in a context
   strip beside the waterfall, scoped by service + host and the trace's time
