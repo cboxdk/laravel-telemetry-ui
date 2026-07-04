@@ -493,6 +493,10 @@ html, body {
 /* Unified errors list: class/type on top, dimmed message beneath. */
 .tui-err-type { display: block; font-weight: 600; }
 .tui-err-msg { display: block; color: var(--tui-text-dim); font-size: 0.85em; margin-top: 2px; }
+/* Analytics breakdown: referrers / countries / devices side by side. */
+.tui-analytics-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; }
+.tui-analytics-col-title { margin: 0 0 8px; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.04em; color: var(--tui-text-dim); }
+.tui-analytics-empty { font-size: 0.85em; margin: 4px 0; }
 
 .tui-badge-clickable {
     cursor: pointer;

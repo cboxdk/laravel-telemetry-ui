@@ -67,7 +67,7 @@ it('renders every built-in page', function (string $page): void {
     'exceptions', 'queries', 'cache', 'outgoing', 'mail',
     'statamic-cache', 'statamic-stache', 'statamic-glide', 'statamic-forms',
     'statamic-content', 'statamic-inventory',
-    'frontend', 'users', 'logs', 'system',
+    'analytics', 'frontend', 'users', 'logs', 'system',
 ]);
 
 it('renders every built-in page in every period', function (string $period): void {

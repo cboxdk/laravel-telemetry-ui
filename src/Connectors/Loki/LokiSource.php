@@ -61,10 +61,18 @@ final readonly class LokiSource implements LogsSource
                     continue;
                 }
 
+                // Loki entries can carry per-line structured metadata (a third
+                // tuple element) — this is where OTLP log-record attributes
+                // (session.id, url.path, trace_id, …) land, since promoting
+                // high-cardinality attributes to stream labels would explode the
+                // index. Merge it over the shared stream labels so callers see a
+                // flat attribute map either way.
+                $metadata = isset($value[2]) && is_array($value[2]) ? $this->labels(['stream' => $value[2]]) : [];
+
                 $entries[] = new LogEntry(
                     timestampNano: (int) $value[0],
                     line: (string) $value[1],
-                    labels: $labels,
+                    labels: $metadata === [] ? $labels : [...$labels, ...$metadata],
                 );
             }
         }
