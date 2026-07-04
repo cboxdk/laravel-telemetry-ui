@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Dimensional drill-down / filtering (Grafana-style)** — every span/resource
+  attribute in the trace properties window (host, user, team, client IP,
+  deployment, method — whatever the app emits) is a click-to-filter link that
+  scopes Traces to `{ .key = "value" }`. Plus a new **Hosts** page listing
+  every host/server reporting telemetry (request volume, errors, CPU, memory),
+  each row filtering requests to that host.
 - **Purpose-built detail pages with progressive drill-down** — clicking a row
   opens a dedicated detail page instead of a pre-filtered trace search, à la
   Nightwatch, for **routes, jobs and exceptions**. Each shows the entity's own
