@@ -12,7 +12,7 @@ use Illuminate\Contracts\View\View;
 /**
  * Reported exceptions over time (exceptions_reported_total).
  */
-final class ExceptionsOverview extends Card
+class ExceptionsOverview extends Card
 {
     public function render(): View
     {

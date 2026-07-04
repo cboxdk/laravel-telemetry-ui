@@ -77,6 +77,21 @@ final class ExceptionsTable extends Card
     }
 
     /**
+     * The purpose-built detail page for this exception class (its occurrence
+     * trend and the error traces behind it).
+     */
+    public function detailUrl(string $exception): string
+    {
+        return route('telemetry-ui.page', array_filter([
+            'page' => 'exception-detail',
+            'exception' => $exception,
+            'period' => $this->period,
+            'service' => $this->service,
+            'env' => $this->environment,
+        ]));
+    }
+
+    /**
      * Link to the Issues page pre-searched for this exception's short class
      * name, so a spike jumps straight to any matching ticket.
      */

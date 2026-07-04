@@ -12,7 +12,7 @@ use Illuminate\Contracts\View\View;
 /**
  * Queue job outcomes: processed, released (retried) and failed.
  */
-final class JobsOverview extends Card
+class JobsOverview extends Card
 {
     private const OUTCOMES = [
         'processed' => ['Processed', '#34d399', 'ok'],

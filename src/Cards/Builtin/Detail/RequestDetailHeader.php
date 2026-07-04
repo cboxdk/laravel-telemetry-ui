@@ -44,17 +44,20 @@ final class RequestDetailHeader extends Card
         $errRate = $total > 0 ? $errCount / $total : 0.0;
 
         /** @var view-string $view */
-        $view = 'telemetry-ui::cards.request-detail-header';
+        $view = 'telemetry-ui::cards.detail-header';
 
         return view($view, [
-            'route' => $this->route === '' ? '(all routes)' : $this->route,
+            'title' => $this->route === '' ? '(all routes)' : $this->route,
+            'subtitle' => 'Route detail',
             'backUrl' => $this->backUrl(),
+            'backLabel' => '← All requests',
             'error' => $error,
-            'total' => Format::count($total),
-            'errorPct' => Format::percent($errRate),
-            'errorTone' => $errRate > 0.01 ? 'danger' : 'dim',
-            'avg' => $total > 0 ? Format::ms($time / $total) : '—',
-            'p95' => $p95 !== null ? Format::ms($p95) : '—',
+            'stats' => [
+                ['label' => 'Requests', 'value' => Format::count($total), 'tone' => null],
+                ['label' => 'Error rate', 'value' => Format::percent($errRate), 'tone' => $errRate > 0.01 ? 'danger' : 'dim'],
+                ['label' => 'AVG', 'value' => $total > 0 ? Format::ms($time / $total) : '—', 'tone' => 'dim'],
+                ['label' => 'P95', 'value' => $p95 !== null ? Format::ms($p95) : '—', 'tone' => 'warn'],
+            ],
         ]);
     }
 

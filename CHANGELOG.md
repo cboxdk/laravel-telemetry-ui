@@ -9,12 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Purpose-built detail pages** — clicking a route now opens a dedicated
-  request-detail page (its own throughput, latency, error rate and traces,
-  scoped to that route) instead of a pre-filtered trace search, à la Nightwatch.
-  Built on a new "hidden page" concept (routable + rendered, but not in the
-  sidebar) and a `scopeMatchers()` card hook, so the throughput/latency cards
-  are reused, scoped to the entity. The pattern extends to jobs, hosts, etc.
+- **Purpose-built detail pages with progressive drill-down** — clicking a row
+  opens a dedicated detail page instead of a pre-filtered trace search, à la
+  Nightwatch, for **routes, jobs and exceptions**. Each shows the entity's own
+  numbers scoped to it, and drills deeper: a route detail goes throughput →
+  latency → *exact status codes* → its individual traces (→ waterfall + host
+  context). Built on a "hidden page" concept (routable + rendered, out of the
+  sidebar), a `scopeMatchers()` card hook and per-entity `ScopesTo*` traits, so
+  the overview cards are reused scoped to one entity — the pattern extends to
+  hosts, queries, etc. cheaply.
 - **MCP server** — `php artisan mcp:start telemetry-ui` serves metrics, traces,
   logs and the correlation/analysis tools over the Model Context Protocol,
   built on the first-party `laravel/mcp` package, so an agent (Claude Desktop,

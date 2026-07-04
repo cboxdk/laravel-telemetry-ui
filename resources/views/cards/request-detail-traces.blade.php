@@ -1,6 +1,6 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
-<x-telemetry-ui::card title="Recent traces" subtitle="Requests to this route — click a row for the waterfall + host context" span="2">
+<x-telemetry-ui::card :title="$title ?? 'Recent traces'" :subtitle="$subtitle ?? 'Click a row for the waterfall + host context'" span="2">
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @elseif ($results === [])

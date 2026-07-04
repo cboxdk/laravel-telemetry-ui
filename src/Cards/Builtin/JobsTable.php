@@ -104,11 +104,11 @@ final class JobsTable extends Card
         return $this->view(array_slice($rows, 0, 100), null);
     }
 
-    public function tracesUrl(string $job): string
+    public function detailUrl(string $job): string
     {
         return route('telemetry-ui.page', array_filter([
-            'page' => 'traces',
-            'q' => '{ '.$this->traceScope('span.laravel.job.class = "'.addcslashes($job, '"\\').'"').' }',
+            'page' => 'job-detail',
+            'job' => $job,
             'period' => $this->period,
             'service' => $this->service,
             'env' => $this->environment,
