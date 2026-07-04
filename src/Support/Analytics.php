@@ -25,6 +25,9 @@ final class Analytics
     /** The LogQL line filter that selects page-view events on a scope selector. */
     public const PAGE_VIEW_FILTER = ' |= "analytics.page_view"';
 
+    /** The LogQL line filter that selects engagement events (visible time, scroll). */
+    public const ENGAGEMENT_FILTER = ' |= "analytics.engagement"';
+
     /**
      * Normalise raw page-view log entries into flat visit rows.
      *
@@ -73,6 +76,92 @@ final class Analytics
         }
 
         return count($sessions);
+    }
+
+    /**
+     * Page views bucketed over [$startMs, $endMs] into a chart series
+     * ([timestampMs, count] points) — the traffic trend line.
+     *
+     * @param  list<array{ts: int, ...}>  $rows
+     * @return list<array{int, int}>
+     */
+    public static function viewsSeries(array $rows, int $startMs, int $endMs, int $buckets = 48): array
+    {
+        $span = max(1, $endMs - $startMs);
+        $bucketMs = max(1, intdiv($span, $buckets));
+
+        $counts = array_fill(0, $buckets, 0);
+
+        foreach ($rows as $row) {
+            $ts = $row['ts'];
+
+            if ($ts < $startMs || $ts > $endMs) {
+                continue;
+            }
+
+            $counts[min($buckets - 1, intdiv($ts - $startMs, $bucketMs))]++;
+        }
+
+        $series = [];
+        for ($i = 0; $i < $buckets; $i++) {
+            $series[] = [$startMs + $i * $bucketMs, $counts[$i]];
+        }
+
+        return $series;
+    }
+
+    /**
+     * Bounce rate: the fraction of sessions with a single page view. Null when
+     * there are no identified sessions.
+     *
+     * @param  list<array{session: string, ...}>  $rows
+     */
+    public static function bounceRate(array $rows): ?float
+    {
+        /** @var array<string, int> $perSession */
+        $perSession = [];
+
+        foreach ($rows as $row) {
+            if ($row['session'] !== '') {
+                $perSession[$row['session']] = ($perSession[$row['session']] ?? 0) + 1;
+            }
+        }
+
+        if ($perSession === []) {
+            return null;
+        }
+
+        $single = count(array_filter($perSession, static fn (int $c): bool => $c === 1));
+
+        return $single / count($perSession);
+    }
+
+    /**
+     * Average visible time (ms) across engagement events, or null if none. The
+     * emitter's browser SDK sends one `analytics.engagement` event per page
+     * hide with `visible_time_ms`.
+     *
+     * @param  iterable<LogEntry>  $entries
+     */
+    public static function avgEngagementMs(iterable $entries): ?float
+    {
+        $sum = 0.0;
+        $count = 0;
+
+        foreach ($entries as $entry) {
+            if (trim($entry->line) !== 'analytics.engagement') {
+                continue;
+            }
+
+            $ms = self::label($entry->labels, 'visible.time.ms', 'visible_time_ms');
+
+            if (is_numeric($ms)) {
+                $sum += (float) $ms;
+                $count++;
+            }
+        }
+
+        return $count > 0 ? $sum / $count : null;
     }
 
     /**

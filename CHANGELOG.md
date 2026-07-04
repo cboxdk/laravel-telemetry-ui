@@ -10,9 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Analytics page (visit analytics)** — a privacy-first traffic dashboard built
-  on the emitter's unsampled `analytics.page_view` stream: page views, **unique
-  visitors** (the cookieless daily session hash — no cookies, no stored IP),
-  views-per-visit, top pages with distinct visitors, and a sources/audience
+  on the emitter's unsampled `analytics.page_view` stream: a page-views trend
+  chart (with deploy annotations), **unique visitors** (the cookieless daily
+  session hash — no cookies, no stored IP), views-per-visit, **bounce rate**
+  (single-page-view sessions) and **average engagement time** (from
+  `analytics.engagement` events), top pages with distinct visitors, and a
+  sources/audience
   breakdown (referrers, and — when the emitter's geo/User-Agent enrichment is on
   — countries and devices). Trace/Loki-sourced so it's exact for low-traffic
   sites and a bounded sample at scale (the eventual answer being a ClickHouse
