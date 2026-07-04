@@ -71,7 +71,6 @@ final class TelemetryUiServiceProvider extends ServiceProvider
                 Console\CheckCommand::class,
                 Console\AnnotateCommand::class,
                 Console\ScanVersionsCommand::class,
-                Console\McpCommand::class,
             ]);
         }
 
@@ -85,6 +84,21 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $this->registerGate();
         $this->registerIssuesPage();
         $this->registerLivewireComponents();
+        $this->registerMcpServer();
+    }
+
+    /**
+     * Register the MCP server so `php artisan mcp:start telemetry-ui` serves
+     * the stack to an agent. Skipped in unit tests (which drive tools directly)
+     * to avoid stray registration output on the stdio transport.
+     */
+    private function registerMcpServer(): void
+    {
+        if ($this->app->runningUnitTests() || ! class_exists(\Laravel\Mcp\Facades\Mcp::class)) {
+            return;
+        }
+
+        \Laravel\Mcp\Facades\Mcp::local('telemetry-ui', Mcp\Servers\TelemetryServer::class);
     }
 
     private function registerIssuesPage(): void

@@ -6,11 +6,12 @@ weight: 3
 
 # MCP server
 
-`php artisan telemetry-ui:mcp` serves the read side of your stack over the
-[Model Context Protocol](https://modelcontextprotocol.io) (JSON-RPC over
-stdio), so an agent — Claude Desktop, Cursor, your own — can query metrics,
-traces, logs and the correlation/analysis layer directly. It's the same data
-the dashboard renders, made available for incident RCA in a chat:
+`php artisan mcp:start telemetry-ui` serves the read side of your stack over the
+[Model Context Protocol](https://modelcontextprotocol.io), built on the
+first-party [`laravel/mcp`](https://github.com/laravel/mcp) package, so an
+agent — Claude Desktop, Cursor, your own — can query metrics, traces, logs and
+the correlation/analysis layer directly. It's the same data the dashboard
+renders, made available for incident RCA in a chat:
 
 > "Why did checkout error at 14:05? Look at the traces and the host metrics."
 
@@ -25,7 +26,7 @@ Point your MCP client at the artisan command. For Claude Desktop / Cursor:
   "mcpServers": {
     "telemetry-ui": {
       "command": "php",
-      "args": ["artisan", "telemetry-ui:mcp"],
+      "args": ["artisan", "mcp:start", "telemetry-ui"],
       "cwd": "/path/to/your/app"
     }
   }
@@ -53,3 +54,7 @@ range — the same correlation the trace drawer shows, as structured data.
 The command is stdio-only and read-only; there is no network listener. Anyone
 who can run `php artisan` in your app can already read the same backends, so
 the MCP surface adds no new access — just a new way to ask.
+
+A remote (HTTP) transport with OAuth 2.1 + Dynamic Client Registration — so a
+hosted agent can connect over the network with proper auth — is a planned next
+layer on `laravel/mcp`'s `Mcp::web()`; today only the local stdio server ships.
