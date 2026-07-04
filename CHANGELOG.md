@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   present — right next to the app. Config-driven and fail-open per signal
   (`telemetry-ui.context.signals`); a new headless `Analysis\SignalContext`
   is the reusable foundation.
+- **"What was different"** — each context signal also carries its baseline (the
+  typical value for that scope over a longer lookback), so a tile reads "Host
+  CPU 95% (typical 30%)" and flags outliers. Answers the "was the box busted?"
+  question at a glance, without ML — just an honest comparison to normal.
 
 - `php artisan telemetry-ui:check` — probes each configured connection with its
   cheapest read and reports OK/FAIL/not-configured; exits non-zero on failure

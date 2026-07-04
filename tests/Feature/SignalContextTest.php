@@ -46,13 +46,35 @@ it('summarizes a context signal for a scope and window', function (): void {
         ->and($summaries[0]->label)->toBe('Host CPU')
         ->and($summaries[0]->current)->toBe(0.9)
         ->and($summaries[0]->max)->toBe(0.9)
-        ->and(round($summaries[0]->avg, 3))->toBe(0.533);
+        ->and(round($summaries[0]->avg, 3))->toBe(0.533)
+        // Baseline is computed too, and 0.9 vs a 0.53 typical is an outlier.
+        ->and(round($summaries[0]->baseline, 3))->toBe(0.533)
+        ->and($summaries[0]->isOutlier())->toBeTrue();
 
     // The {scope} token expanded to the label matchers.
     Http::assertSent(fn ($request): bool => str_contains(
         rawurldecode($request->url()),
         'system_cpu_utilization_ratio{service_name="cbox-web",host_name="web-1"}',
     ));
+});
+
+it('does not flag a signal sitting at its baseline', function (): void {
+    config()->set('telemetry-ui.context.signals', [
+        ['label' => 'Host CPU', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_cpu_utilization_ratio{{scope}})'],
+    ]);
+
+    Http::fake([
+        'prometheus.test:9090/api/v1/query_range*' => Http::response(rangeResponse(0.3, 0.3, 0.3)),
+    ]);
+
+    $summaries = app(SignalContext::class)->for(
+        ['service_name' => 'cbox-web'],
+        new DateTimeImmutable('@1735689600'),
+        new DateTimeImmutable('@1735689780'),
+    );
+
+    expect($summaries[0]->baseline)->toBe(0.3)
+        ->and($summaries[0]->isOutlier())->toBeFalse();
 });
 
 it('skips a signal whose metric is absent or all-zero — never errors', function (): void {

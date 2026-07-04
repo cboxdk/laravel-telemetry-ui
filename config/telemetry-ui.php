@@ -217,6 +217,9 @@ return [
     'context' => [
         'enabled' => (bool) env('TELEMETRY_UI_CONTEXT', true),
         'window' => (int) env('TELEMETRY_UI_CONTEXT_WINDOW', 600),
+        // Lookback for each signal's "typical" baseline, so a tile can say
+        // "95% (typical 30%)" and flag what was actually different.
+        'baseline_window' => (int) env('TELEMETRY_UI_CONTEXT_BASELINE', 21_600),
         'signals' => [
             ['label' => 'Host CPU', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_cpu_utilization_ratio{{scope}})'],
             ['label' => 'Load avg', 'group' => 'host', 'unit' => 'number', 'query' => 'max(system_cpu_load_average_ratio{{scope}})'],

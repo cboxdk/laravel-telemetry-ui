@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Analysis;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Queries\Results\Trace;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -71,6 +72,12 @@ final readonly class SignalContext
         }
 
         $selector = $this->selector($scope);
+
+        // Baseline lookback ends where the window starts, so "typical" is the
+        // recent normal — not contaminated by the spike we're inspecting.
+        $lookback = max(300, (int) $this->config->get('telemetry-ui.context.baseline_window', 21_600));
+        $baselineStart = (new DateTimeImmutable('@'.$start->getTimestamp()))->modify('-'.$lookback.' seconds');
+
         $out = [];
 
         foreach ($signals as $signal) {
@@ -78,7 +85,7 @@ final readonly class SignalContext
                 continue;
             }
 
-            $summary = $this->resolve($signal, $selector, $start, $end);
+            $summary = $this->resolve($signal, $selector, $start, $end, $baselineStart);
             if ($summary !== null) {
                 $out[] = $summary;
             }
@@ -90,7 +97,7 @@ final readonly class SignalContext
     /**
      * @param  array<string, mixed>  $signal
      */
-    private function resolve(array $signal, string $selector, DateTimeInterface $start, DateTimeInterface $end): ?MetricSummary
+    private function resolve(array $signal, string $selector, DateTimeInterface $start, DateTimeInterface $end, DateTimeInterface $baselineStart): ?MetricSummary
     {
         $query = $this->expand((string) $signal['query'], $selector);
 
@@ -100,10 +107,7 @@ final readonly class SignalContext
             return null; // fail-open: a missing signal is one fewer tile.
         }
 
-        $points = [];
-        foreach ($series[0]->points ?? [] as $point) {
-            $points[] = $point->value;
-        }
+        $points = $this->points($series);
 
         if ($points === [] || max(array_map('abs', $points)) === 0.0) {
             return null; // no signal here — don't render an empty tile.
@@ -119,7 +123,37 @@ final readonly class SignalContext
             avg: array_sum($points) / count($points),
             max: max($points),
             points: $points,
+            baseline: $this->baseline($query, $baselineStart, $start),
         );
+    }
+
+    /**
+     * The typical value of a signal over the lookback window (its average),
+     * or null when there's no history to compare against.
+     */
+    private function baseline(string $query, DateTimeInterface $start, DateTimeInterface $end): ?float
+    {
+        try {
+            $points = $this->points($this->connections->metrics()->queryRange($query, $start, $end));
+        } catch (SourceException) {
+            return null;
+        }
+
+        return $points === [] ? null : array_sum($points) / count($points);
+    }
+
+    /**
+     * @param  list<TimeSeries>  $series
+     * @return list<float>
+     */
+    private function points(array $series): array
+    {
+        $points = [];
+        foreach ($series[0]->points ?? [] as $point) {
+            $points[] = $point->value;
+        }
+
+        return $points;
     }
 
     /**

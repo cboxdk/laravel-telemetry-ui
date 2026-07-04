@@ -720,6 +720,21 @@ html, body {
 .tui-context-tile.tui-ctx-runtime { border-left-color: #c084fc; }
 .tui-context-tile.tui-ctx-db { border-left-color: #34d399; }
 .tui-context-tile.tui-ctx-cache { border-left-color: #fbbf24; }
+.tui-context-tile.is-outlier {
+    border-color: rgba(248, 113, 113, 0.5);
+    border-left-color: #f87171;
+    background: rgba(248, 113, 113, 0.06);
+}
+
+.tui-context-flag { margin-left: 4px; color: #f87171; }
+
+.tui-context-base {
+    display: block;
+    font-size: 10px;
+    color: var(--tui-text-faint);
+    font-variant-numeric: tabular-nums;
+    margin: -2px 0 5px;
+}
 
 .tui-context-head {
     display: flex;

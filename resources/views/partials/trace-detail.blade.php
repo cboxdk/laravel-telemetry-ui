@@ -35,22 +35,25 @@
     @endif
 
     @if (! empty($context))
-        @php($ctxValue = fn ($sig) => match ($sig->unit) {
-            'ratio' => Format::percent($sig->current),
-            'bytes' => Format::bytes((int) $sig->current),
-            'bytes/s' => Format::bytes((int) $sig->current).'/s',
-            'ms' => Format::ms($sig->current),
-            default => rtrim(rtrim(number_format($sig->current, 2), '0'), '.'),
+        @php($ctxValue = fn (string $unit, float $v) => match ($unit) {
+            'ratio' => Format::percent($v),
+            'bytes' => Format::bytes((int) $v),
+            'bytes/s' => Format::bytes((int) $v).'/s',
+            'ms' => Format::ms($v),
+            default => rtrim(rtrim(number_format($v, 2), '0'), '.'),
         })
         <div class="tui-context">
-            <span class="tui-context-label" title="Host &amp; runtime signals around this trace — the same Prometheus scrapes them next to the app">Context</span>
+            <span class="tui-context-label" title="Host &amp; runtime signals around this trace, vs. what's typical for this scope — the 'what was different?' view">Context</span>
             @foreach ($context as $sig)
-                <div class="tui-context-tile tui-ctx-{{ $sig->group }}">
+                <div @class(['tui-context-tile', 'tui-ctx-'.$sig->group, 'is-outlier' => $sig->isOutlier()])>
                     <div class="tui-context-head">
                         <span class="tui-context-name">{{ $sig->label }}</span>
-                        <span class="tui-context-val">{{ $ctxValue($sig) }}</span>
+                        <span class="tui-context-val">{{ $ctxValue($sig->unit, $sig->current) }}@if ($sig->isOutlier())<span class="tui-context-flag" title="Well above its usual level here">⚠</span>@endif</span>
                     </div>
-                    <x-telemetry-ui::sparkline :points="$sig->points" color="#8b8b93" />
+                    @if ($sig->baseline !== null)
+                        <span class="tui-context-base">typ {{ $ctxValue($sig->unit, $sig->baseline) }}</span>
+                    @endif
+                    <x-telemetry-ui::sparkline :points="$sig->points" :color="$sig->isOutlier() ? '#f87171' : '#8b8b93'" />
                 </div>
             @endforeach
         </div>
