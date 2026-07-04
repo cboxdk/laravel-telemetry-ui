@@ -47,19 +47,27 @@ final class AutoscaleDecisions extends Card
 Grafana is generic; this dashboard knows what a Laravel app *is*. Routes,
 jobs, scheduled tasks, cache stores and users are first-class concepts, cross
 linked across signals. It also lives inside your app: your auth, your
-Livewire stack, and — on the roadmap — actions (create a ticket from an
-exception, AI-assisted diagnosis) that a read-only dashboard can never do.
+Livewire stack, and actions a read-only dashboard can never do — create a
+ticket from an exception, or hand the whole stack to an agent over MCP for
+incident RCA.
 
 ## Documentation
 
 - [Getting started](getting-started/installation.md)
-- [Core concepts: connections](core-concepts/connections.md)
-- [Cookbook: connect through a Grafana datasource proxy](cookbook/connect-via-grafana-proxy.md)
-- [Cookbook: emitting annotations](cookbook/annotations.md)
-- [Cookbook: MCP server](cookbook/mcp.md)
-- [Core concepts: pages & cards](core-concepts/pages-and-cards.md)
+- Core concepts:
+  [connections](core-concepts/connections.md) ·
+  [pages & cards](core-concepts/pages-and-cards.md) ·
+  [configuration reference](core-concepts/configuration.md) ·
+  [signal correlation](core-concepts/correlation.md)
+- Cookbook:
+  [connect through a Grafana datasource proxy](cookbook/connect-via-grafana-proxy.md) ·
+  [emitting annotations](cookbook/annotations.md) ·
+  [MCP server](cookbook/mcp.md)
+- Extension points:
+  [custom cards](extension-points/custom-cards.md) ·
+  [custom detail pages](extension-points/detail-pages.md) ·
+  [custom drivers](extension-points/custom-drivers.md) ·
+  [issue trackers](extension-points/issue-trackers.md)
 - [Design direction](design/direction.md)
-- [Extension points: custom cards](extension-points/custom-cards.md)
-- [Extension points: custom drivers](extension-points/custom-drivers.md)
 - [Architecture decision records](adr/)
 - [Roadmap](roadmap.md)

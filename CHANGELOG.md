@@ -100,6 +100,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `extend()` can reuse the configured `ApiClient` (auth, tenancy, cache,
   retries) instead of building one by hand.
 
+### Security
+
+- Backend failures no longer leak the internal endpoint, query string or raw
+  response body to the dashboard. `SourceException` now carries a generic
+  user-facing message and a separate detail; `ApiClient` logs the full detail
+  server-side (the dashboard gate may be opened to semi-trusted operators).
+- The MCP web transport throws at boot when OAuth is enabled but
+  `laravel/passport` is absent, instead of registering a half-configured
+  authorization server. `mcp.web.middleware` documents that `auth:api` is the
+  only guard on that endpoint.
+- MCP tools are bounded (row/series/window/limit caps + a dedicated throttle),
+  `tagValues` lookups carry a time window + limit, and the annotation writer
+  can no longer crash a command or the scan-versions cron on an emit failure.
+
+### Documentation
+
+- New [configuration reference](docs/core-concepts/configuration.md) (every key
+  + env var), [signal correlation](docs/core-concepts/correlation.md) and
+  [custom detail pages](docs/extension-points/detail-pages.md) guides; README
+  and roadmap rewritten for the correlation/MCP/annotations/drill-down surface.
+
 ### Verified
 
 - GitHub and Linear issue read **and** create paths exercised end-to-end
