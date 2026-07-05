@@ -25,6 +25,22 @@ it('fires DashboardViewed on a page view (audit / usage metering)', function ():
         && $e->environment === 'prod');
 });
 
+it('records an array-shaped scope param as empty, not the literal Array', function (): void {
+    Event::fake([DashboardViewed::class]);
+    Gate::define('viewTelemetryUi', fn (?object $user = null, ?string $page = null): bool => true);
+
+    Http::fake([
+        'prometheus.test:9090/api/v1/label/*' => Http::response(['status' => 'success', 'data' => []]),
+        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
+    ]);
+
+    // ?service[]=x is an array — the audit event must record '' (not the literal
+    // 'Array', and no "Array to string conversion" warning/500 in the controller).
+    $this->get('/telemetry-ui/requests?service[]=x');
+
+    Event::assertDispatched(DashboardViewed::class, fn (DashboardViewed $e): bool => $e->service === '');
+});
+
 it('fires BackendQueried for each real backend hit (load metering)', function (): void {
     Event::fake([BackendQueried::class]);
 

@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi;
 
 use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
+use Cbox\TelemetryUi\Connectors\ResolvedConnections;
 use Cbox\TelemetryUi\Http\Middleware\Authorize;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Fleet;
@@ -59,6 +60,11 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         // Request-scoped so a resolved tenancy lock never leaks between
         // requests (users) under a persistent runtime like Octane.
         $this->app->scoped(ScopeLock::class, static fn (Application $app): ScopeLock => new ScopeLock(
+            $app->make(TelemetryUiManager::class),
+        ));
+
+        // Same reason for the per-viewer connection resolver's memo.
+        $this->app->scoped(ResolvedConnections::class, static fn (Application $app): ResolvedConnections => new ResolvedConnections(
             $app->make(TelemetryUiManager::class),
         ));
 

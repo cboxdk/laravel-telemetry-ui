@@ -223,15 +223,18 @@ abstract class Card extends Component
      */
     protected function pageUrl(string $page, array $extra = []): string
     {
+        // Extra params first, then the scope keys — so a stray extra key can
+        // never override the enforced scope (page/period/range/service/env).
+        // Drop only null/'' (a legitimate '0' id or param survives).
         return route('telemetry-ui.page', array_filter([
+            ...$extra,
             'page' => $page,
             'period' => $this->period,
             'from' => $this->from,
             'to' => $this->to,
             'service' => $this->service,
             'env' => $this->environment,
-            ...$extra,
-        ]));
+        ], static fn (mixed $value): bool => $value !== null && $value !== ''));
     }
 
     /**

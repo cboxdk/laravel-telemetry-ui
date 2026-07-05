@@ -54,6 +54,13 @@ is constrained to the viewer's allowed services/environments. Beyond that, the
 host page's own auth is the outer boundary — don't embed a card on a public
 page.
 
+> **Pass scope, or `:embedded="true"`.** A card knows it's embedded (and gates
+> itself) when you pass any scope prop — `service`, `period`, etc. — which the
+> examples above all do. If you embed a card with *no* props, pass
+> `:embedded="true"` explicitly so it still runs the gate: a bare, prop-less
+> mount is treated as the dashboard's own (already gate-checked by the route).
+> `<livewire:telemetry-ui.requests-activity :embedded="true" />`
+
 ## Reshaping the built-in dashboard
 
 If you want the pre-built dashboard but tailored, you don't have to embed

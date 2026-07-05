@@ -31,3 +31,12 @@ it('sanitises the accent value', function (): void {
         ->assertOk()
         ->assertDontSee('body{display:none', false);      // stripped to safe CSS-colour chars
 });
+
+it('blocks an external url() in the accent value', function (): void {
+    config()->set('telemetry-ui.brand.accent', 'url(//evil.example/x)'); // exfil attempt
+
+    $this->get('/telemetry-ui')
+        ->assertOk()
+        ->assertDontSee('//evil.example', false)          // no slash survives → no external url()
+        ->assertDontSee('url(//', false);
+});

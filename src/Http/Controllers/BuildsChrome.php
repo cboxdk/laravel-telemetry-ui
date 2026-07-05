@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Http\Controllers;
 
+use Cbox\TelemetryUi\Events\DashboardViewed;
 use Cbox\TelemetryUi\Support\PaletteCommands;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\TelemetryUiManager;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Request;
 
@@ -53,5 +55,22 @@ trait BuildsChrome
             'traceBase' => PaletteCommands::traceBase($active, $query),
             'traceSentinel' => PaletteCommands::TRACE_SENTINEL,
         ];
+    }
+
+    /**
+     * Fire the audit/usage event for a page view — the one place the scope is
+     * read off the request, coerced safely (an array-shaped ?service[]= param
+     * records as '' rather than the literal 'Array' or throwing).
+     */
+    protected function recordView(string $page): void
+    {
+        event(new DashboardViewed(Auth::user(), $page, $this->queryString('service'), $this->queryString('env')));
+    }
+
+    private function queryString(string $key): string
+    {
+        $value = Request::query($key);
+
+        return is_string($value) ? $value : '';
     }
 }

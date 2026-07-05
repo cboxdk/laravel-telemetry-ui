@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
+use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Queries\Results\Span;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
@@ -18,6 +19,8 @@ use Livewire\Attributes\Url;
  */
 final class TraceSearch extends Card
 {
+    use CoercesAttributes;
+
     #[Url(as: 'q')]
     public string $query = '';
 
@@ -144,18 +147,36 @@ final class TraceSearch extends Card
      */
     private function requestContext(TraceSummary $summary): array
     {
-        $attributes = $summary->matchedSpans[0]->attributes ?? [];
-        $str = static fn (mixed $v): ?string => is_scalar($v) && (string) $v !== '' ? (string) $v : null;
+        $attributes = $this->requestSpanAttributes($summary);
 
-        $status = $str($attributes['http.response.status_code'] ?? null);
+        $status = $this->str($attributes['http.response.status_code'] ?? null);
 
         return [
-            'method' => $str($attributes['http.request.method'] ?? null),
-            'target' => $str($attributes['http.route'] ?? $attributes['url.path'] ?? null),
+            'method' => $this->str($attributes['http.request.method'] ?? null),
+            'target' => $this->str($attributes['http.route'] ?? $attributes['url.path'] ?? null),
             'status' => $status,
             'isError' => $status !== null && (int) $status >= 500,
             'browser' => Span::attributesAreBrowser($attributes),
         ];
+    }
+
+    /**
+     * The matched span that actually carries request context — a scoped query
+     * (service/env selected or locked) drops the `kind = server` filter, so
+     * matchedSpans[0] may be an internal/client span. Prefer the first span with
+     * an HTTP method/route; fall back to the first matched span.
+     *
+     * @return array<string, mixed>
+     */
+    private function requestSpanAttributes(TraceSummary $summary): array
+    {
+        foreach ($summary->matchedSpans as $span) {
+            if (isset($span->attributes['http.request.method']) || isset($span->attributes['http.route'])) {
+                return $span->attributes;
+            }
+        }
+
+        return $summary->matchedSpans[0]->attributes ?? [];
     }
 
     private function buildQuery(): string

@@ -16,7 +16,6 @@ use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
 use Cbox\TelemetryUi\Contracts\TracesSource;
-use Cbox\TelemetryUi\TelemetryUiManager;
 use Closure;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Support\Facades\Auth;
@@ -28,6 +27,12 @@ use InvalidArgumentException;
  */
 final class ConnectionManager
 {
+    /**
+     * Upper bound on the driver cache, so a many-tenant Octane worker can't grow
+     * it without limit (see {@see cached()}).
+     */
+    private const MAX_CACHED_DRIVERS = 64;
+
     /**
      * @var array<string, Closure(array<string, mixed>): object>
      */
@@ -91,6 +96,7 @@ final class ConnectionManager
         $repos = $single ? ['issues' => $config] : $config;
 
         $sources = [];
+        $labelCounts = [];
 
         foreach ($repos as $key => $repoConfig) {
             if (! is_array($repoConfig) || ($repoConfig['driver'] ?? null) === null) {
@@ -118,6 +124,13 @@ final class ConnectionManager
             $label = is_string($repoConfig['label'] ?? null) && $repoConfig['label'] !== ''
                 ? $repoConfig['label']
                 : $source->label();
+
+            // Labels double as the repo filter key, so two label-less repos on
+            // the same driver (both "GitHub") must not collide — suffix repeats.
+            $labelCounts[$label] = ($labelCounts[$label] ?? 0) + 1;
+            if ($labelCounts[$label] > 1) {
+                $label .= ' ('.$labelCounts[$label].')';
+            }
 
             $sources[] = ['key' => (string) $key, 'label' => $label, 'source' => $source];
         }
@@ -211,19 +224,12 @@ final class ConnectionManager
      */
     private function connectionConfig(string $name): ?array
     {
-        $resolver = app(TelemetryUiManager::class)->connectionResolver();
+        // The per-viewer resolver (multi-tenant hosting) is memoised for the
+        // request, so a page of cards resolves the tenant once, not per backend.
+        $resolved = app(ResolvedConnections::class)->config($name);
 
-        // Only consult the per-viewer resolver when there IS a viewer — an
-        // unauthenticated request (or boot-time page registration) must fall
-        // through to static config, never dereference a null user or resolve one
-        // tenant's backends for a request that has no user.
-        if ($resolver !== null && ($user = Auth::user()) !== null) {
-            $resolved = $resolver($user);
-
-            if (is_array($resolved) && is_array($resolved[$name] ?? null)) {
-                /** @var array<string, mixed> */
-                return $resolved[$name];
-            }
+        if ($resolved !== null) {
+            return $resolved;
         }
 
         $config = $this->config->get("telemetry-ui.connections.{$name}");
@@ -246,7 +252,19 @@ final class ConnectionManager
         // the page. json_encode degrades (unencodable leaves collapse) instead.
         $key = $name.':'.md5((string) json_encode($config));
 
-        return $this->resolved[$key] ??= $this->build($config, $name);
+        if (isset($this->resolved[$key])) {
+            return $this->resolved[$key];
+        }
+
+        // Bound the cache: this manager is a process-lived singleton, so under a
+        // many-tenant Octane worker the per-(name, config) driver map would grow
+        // without limit. Drop the oldest entry once past the cap — drivers are
+        // cheap to rebuild, and a hot tenant is re-cached on its next access.
+        if (count($this->resolved) >= self::MAX_CACHED_DRIVERS) {
+            array_shift($this->resolved);
+        }
+
+        return $this->resolved[$key] = $this->build($config, $name);
     }
 
     /**

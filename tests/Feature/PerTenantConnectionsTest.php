@@ -57,10 +57,12 @@ it('falls back to the static config for connections the resolver omits', functio
 });
 
 it('does not hand one tenant another tenant\'s cached driver', function (): void {
+    // The resolver is memoised per request, so two tenants are two requests —
+    // forgetScopedInstances() is the Octane request boundary. The ConnectionManager
+    // singleton (and its config-keyed driver cache) survives it, like a worker.
     $this->actingAs(new GenericUser(['id' => 1]));
 
-    $tenant = 'a';
-    app(TelemetryUiManager::class)->resolveConnectionsUsing(fn ($user) => [
+    app(TelemetryUiManager::class)->resolveConnectionsUsing(fn ($user): array => [
         'metrics' => ['driver' => 'prometheus', 'url' => 'http://tenant-'.$GLOBALS['tenant'].':9090'],
     ]);
 
@@ -73,6 +75,8 @@ it('does not hand one tenant another tenant\'s cached driver', function (): void
 
     $GLOBALS['tenant'] = 'a';
     $manager->metrics()->query('up');
+
+    app()->forgetScopedInstances(); // next request: the per-viewer memo resets
     $GLOBALS['tenant'] = 'b';
     $manager->metrics()->query('up');
 
