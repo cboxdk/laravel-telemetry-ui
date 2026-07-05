@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\CreatesIssues;
 use Cbox\TelemetryUi\Support\TraceView;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -87,6 +88,14 @@ final class TraceDrawer extends Component
     public function submitTicket(): void
     {
         $this->composeError = null;
+
+        // Server-side enforcement of the write ability — the compose UI is
+        // hidden without it, but never trust the client.
+        if (! Gate::allows('manageTelemetryUi')) {
+            $this->composeError = 'You are not authorized to create issues.';
+
+            return;
+        }
 
         $title = trim($this->draftTitle);
 

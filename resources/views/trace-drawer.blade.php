@@ -37,7 +37,11 @@
             <div class="tui-drawer-body" wire:key="drawer-{{ $mode }}-{{ $key }}">
                 @if ($open)
                     @if ($mode === 'compose')
-                        @include('telemetry-ui::partials.compose-ticket', ['error' => $composeError])
+                        @can('manageTelemetryUi')
+                            @include('telemetry-ui::partials.compose-ticket', ['error' => $composeError])
+                        @else
+                            <div class="tui-drawer-pad tui-tone-dim">You are not authorized to create tickets.</div>
+                        @endcan
                     @elseif ($mode === 'issue')
                         @include('telemetry-ui::partials.issue-detail', ['issue' => $issue, 'error' => $error])
                     @else

@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 /**
@@ -49,7 +50,7 @@ final class ExceptionsTable extends Card
             'error' => $error,
             'errorTracesUrl' => $this->errorTracesUrl(),
             'hasIssues' => app(ConnectionManager::class)->hasIssues(),
-            'canCreate' => app(ConnectionManager::class)->canCreateIssues(),
+            'canCreate' => app(ConnectionManager::class)->canCreateIssues() && Gate::allows('manageTelemetryUi'),
         ]);
     }
 

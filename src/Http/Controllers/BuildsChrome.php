@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Http\Controllers;
 
 use Cbox\TelemetryUi\Support\PaletteCommands;
+use Cbox\TelemetryUi\Support\SchemaDetector;
+use Cbox\TelemetryUi\TelemetryUiManager;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Request;
 
 /**
@@ -13,6 +16,22 @@ use Illuminate\Support\Facades\Request;
  */
 trait BuildsChrome
 {
+    /**
+     * Pages the current user may both see (metric detection) and access (the
+     * per-page gate) — so the sidebar and palette never advertise a page the
+     * gate would 403. The route middleware still enforces access on its own.
+     *
+     * @return array<string, array{label: string, group: string|null, icon: string|null, detect: string|null, hidden?: bool}>
+     */
+    protected function accessiblePages(TelemetryUiManager $manager, SchemaDetector $detector): array
+    {
+        return array_filter(
+            $manager->visiblePages($detector),
+            static fn (array $meta, string $slug): bool => Gate::allows('viewTelemetryUi', [$slug]),
+            ARRAY_FILTER_USE_BOTH,
+        );
+    }
+
     /**
      * @param  array<string, array{label: string, group: string|null, icon: string|null, detect: string|null}>  $pages
      * @param  list<string>  $services

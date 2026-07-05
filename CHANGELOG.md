@@ -143,6 +143,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Finer-grained authorization.** The `viewTelemetryUi` gate is now **re-run on
+  Livewire updates** (card/drawer actions POST to `/livewire/update`, which
+  previously skipped it — the gate was only enforced at page load). The gate
+  also receives the **page slug**, so an app can restrict individual pages
+  (e.g. the PII-heavy Logs/Users) without closing the whole dashboard — denied
+  pages 403 and drop from the sidebar/palette. And a new **`manageTelemetryUi`**
+  ability gates write actions (creating tracker issues), checked server-side and
+  hiding the compose UI, so a read-only viewer can't file tickets (it falls back
+  to the view gate, so existing setups are unchanged). See the new
+  [authorization doc](docs/core-concepts/authorization.md).
 - Backend failures no longer leak the internal endpoint, query string or raw
   response body to the dashboard. `SourceException` now carries a generic
   user-facing message and a separate detail; `ApiClient` logs the full detail

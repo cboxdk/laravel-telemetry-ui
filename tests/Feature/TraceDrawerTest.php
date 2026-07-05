@@ -3,8 +3,13 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\TraceDrawer;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
+
+// Creating tickets requires the write ability; allow it by default so the
+// compose tests exercise the happy path (a dedicated test revokes it).
+beforeEach(fn () => Gate::define('manageTelemetryUi', fn (?object $user = null): bool => true));
 
 function fakeTrace(): void
 {

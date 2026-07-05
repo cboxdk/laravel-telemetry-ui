@@ -39,6 +39,9 @@ wins):
 Gate::define('viewTelemetryUi', fn ($user) => $user?->isAdmin() ?? false);
 ```
 
+The gate also supports per-page restriction and a separate write ability
+(`manageTelemetryUi`) — see [authorization](authorization.md).
+
 ## Query cache & retries
 
 Every card issues live backend queries on each render and refresh tick.

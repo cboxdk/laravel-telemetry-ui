@@ -37,7 +37,7 @@ final class TraceController
         /** @var view-string $view */
         $view = 'telemetry-ui::trace';
 
-        $pages = $manager->visiblePages($detector);
+        $pages = $this->accessiblePages($manager, $detector);
         $services = $fleet->services();
         $environments = $fleet->environments();
 

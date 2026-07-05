@@ -19,7 +19,7 @@ final class PageController
         Fleet $fleet,
         string $page = 'dashboard',
     ): View {
-        $pages = $manager->visiblePages($detector);
+        $pages = $this->accessiblePages($manager, $detector);
 
         abort_unless(isset($pages[$page]), 404);
 

@@ -58,6 +58,7 @@ incident RCA.
   [connections](core-concepts/connections.md) ·
   [pages & cards](core-concepts/pages-and-cards.md) ·
   [configuration reference](core-concepts/configuration.md) ·
+  [authorization](core-concepts/authorization.md) ·
   [signal correlation](core-concepts/correlation.md)
 - Cookbook:
   [web analytics & RUM](cookbook/analytics.md) ·

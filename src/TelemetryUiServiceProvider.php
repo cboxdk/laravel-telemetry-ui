@@ -169,7 +169,17 @@ final class TelemetryUiServiceProvider extends ServiceProvider
     {
         // Deny-by-default outside local; apps open access by redefining the
         // gate (app providers boot after this one, so their definition wins).
-        Gate::define('viewTelemetryUi', fn (?object $user = null): bool => $this->app->environment('local'));
+        // The second argument is the page slug being accessed (null for
+        // Livewire updates and cross-cutting checks), so an app can restrict
+        // individual pages — e.g. hide Logs from non-admins — without closing
+        // the whole dashboard. The default ignores it.
+        Gate::define('viewTelemetryUi', fn (?object $user = null, ?string $page = null): bool => $this->app->environment('local'));
+
+        // Write actions (creating tracker issues from the UI) require a
+        // separate ability so a read-only viewer can't file tickets. It falls
+        // back to the view gate unless the app defines something stricter
+        // (app definitions boot later and win).
+        Gate::define('manageTelemetryUi', static fn (?object $user = null): bool => Gate::allows('viewTelemetryUi'));
     }
 
     private function registerLivewireComponents(): void
@@ -180,6 +190,12 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             if (! class_exists(Livewire::class)) {
                 return;
             }
+
+            // Re-run the gate on every Livewire update, not just the initial
+            // page load: card/drawer actions (e.g. creating a ticket) POST to
+            // /livewire/update, which otherwise only carries Livewire's own
+            // persistent middleware — the dashboard gate would be skipped.
+            Livewire::addPersistentMiddleware(Authorize::class);
 
             $manager = $app->make(TelemetryUiManager::class);
 
