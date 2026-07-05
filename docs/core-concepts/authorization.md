@@ -63,6 +63,33 @@ which preserves existing behaviour. Define it to split read from write:
 Gate::define('manageTelemetryUi', fn ($user) => $user?->isAdmin() ?? false);
 ```
 
+## Authenticating with an existing panel (e.g. Statamic CP)
+
+The route middleware stack is config-driven (`telemetry-ui.middleware`, with the
+gate always appended), so you can front the dashboard with any auth middleware
+instead of plain `web`. To sign in with **Statamic control-panel users**, run it
+through Statamic's CP groups — unauthenticated visitors are redirected to the CP
+login:
+
+```php
+// config/telemetry-ui.php
+'middleware' => ['statamic.cp', 'statamic.cp.authenticated'],
+```
+
+Use **both** groups: `statamic.cp` carries session/CSRF/bindings, and
+`statamic.cp.authenticated` adds the authenticate + authorize layer. Then scope
+the gate to a Statamic permission:
+
+```php
+Gate::define('viewTelemetryUi', fn ($user) => (bool) $user?->can('access cp'));
+// or restrict to supers — $user?->isSuper() — or a custom permission.
+```
+
+The same works for any guarded panel (Filament, Nova, a custom admin): put its
+auth middleware in `telemetry-ui.middleware` and check the user in the gate.
+Livewire updates keep working — they run on the global `web` group, and the gate
+is still re-checked on them.
+
 ## MCP and the API
 
 The HTTP MCP transport is a separate surface with its own auth (`auth:api` +
