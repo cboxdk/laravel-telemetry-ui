@@ -59,6 +59,13 @@ html, body {
     letter-spacing: -0.01em;
 }
 
+/* Optional white-label logo (telemetry-ui.brand.logo). */
+.tui-brand-logo {
+    max-height: 24px;
+    width: auto;
+    margin-bottom: 6px;
+}
+
 /* Scope switcher */
 
 .tui-scope {

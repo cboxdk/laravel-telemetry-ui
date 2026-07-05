@@ -7,11 +7,14 @@ namespace Cbox\TelemetryUi\Http\Controllers;
 use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Events\DashboardViewed;
 use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\TraceView;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Request;
 
 final class TraceController
 {
@@ -40,6 +43,8 @@ final class TraceController
         $pages = $this->accessiblePages($manager, $detector);
         $services = $fleet->services();
         $environments = $fleet->environments();
+
+        event(new DashboardViewed(Auth::user(), 'traces', (string) Request::query('service', ''), (string) Request::query('env', '')));
 
         return view($view, [
             'pages' => $pages,

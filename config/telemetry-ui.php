@@ -54,6 +54,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Branding
+    |--------------------------------------------------------------------------
+    |
+    | White-label the dashboard when embedding it in your own product: the
+    | sidebar name/logo and the accent colour. `name` defaults to your app
+    | name; `logo` is an image URL (shown before the name); `accent` is any CSS
+    | colour and overrides the green highlight. For deeper changes, publish and
+    | override the views (they're namespaced `telemetry-ui::`).
+    |
+    */
+
+    'brand' => [
+        'name' => env('TELEMETRY_UI_BRAND_NAME'),
+        'logo' => env('TELEMETRY_UI_BRAND_LOGO'),
+        'accent' => env('TELEMETRY_UI_BRAND_ACCENT'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Throttle
     |--------------------------------------------------------------------------
     |

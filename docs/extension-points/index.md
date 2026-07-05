@@ -103,7 +103,9 @@ events, `wire:stream`, conventions) is in [custom cards](custom-cards.md).
 - **[Custom drivers](custom-drivers.md)** — `ConnectionManager::extend('victoriametrics', fn ($config) => new MyDriver(...))` to add a backend; cards depend only on the contracts.
 - **[Issue trackers](issue-trackers.md)** — add a tracker (or a list of repos) implementing `IssuesSource`.
 - **[MCP server](../cookbook/mcp.md)** — `TelemetryUi::mcpTool(MyTool::class)` exposes a read tool to agents.
-- **[Authorization & tenancy](../core-concepts/authorization.md)** — the `viewTelemetryUi` / `manageTelemetryUi` gates, and `TelemetryUi::restrictScopeUsing()` to lock a viewer to services/environments.
+- **[Authorization & tenancy](../core-concepts/authorization.md)** — the `viewTelemetryUi` / `manageTelemetryUi` gates, `TelemetryUi::restrictScopeUsing()` to lock a viewer to services/environments, and `TelemetryUi::resolveConnectionsUsing()` for per-tenant backends.
+- **Events** — listen to `Cbox\TelemetryUi\Events\DashboardViewed` (audit / usage metering: who viewed which page in which scope) and `Cbox\TelemetryUi\Events\BackendQueried` (backend load metering: url, method, duration, ok — one per real backend hit, cached reads excluded).
+- **Branding** — `telemetry-ui.brand` config sets the sidebar `name`/`logo` and `accent` colour to white-label the dashboard; for deeper changes, publish and override the namespaced `telemetry-ui::` views.
 
 ## Conventions
 

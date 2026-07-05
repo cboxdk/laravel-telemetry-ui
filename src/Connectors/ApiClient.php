@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Connectors;
 
+use Cbox\TelemetryUi\Events\BackendQueried;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -68,14 +69,18 @@ final readonly class ApiClient
     public function post(string $path, array $body = []): array
     {
         $url = rtrim($this->url, '/').$path;
+        $started = microtime(true);
 
         try {
             $response = $this->pending()
                 ->asJson()
                 ->post($url, $body);
         } catch (ConnectionException $exception) {
+            $this->meter($url, 'POST', $started, false);
             $this->fail(SourceException::connectionFailed($url, $exception->getMessage()));
         }
+
+        $this->meter($url, 'POST', $started, ! $response->failed());
 
         if ($response->failed()) {
             $this->fail(SourceException::requestFailed($url, $response->status(), $response->body()));
@@ -90,17 +95,31 @@ final readonly class ApiClient
      */
     private function fetch(string $url, array $query): array
     {
+        $started = microtime(true);
+
         try {
             $response = $this->pending()->get($url, $query);
         } catch (ConnectionException $exception) {
+            $this->meter($url, 'GET', $started, false);
             $this->fail(SourceException::connectionFailed($url, $exception->getMessage()));
         }
+
+        $this->meter($url, 'GET', $started, ! $response->failed());
 
         if ($response->failed()) {
             $this->fail(SourceException::requestFailed($url, $response->status(), $response->body()));
         }
 
         return $this->decode($response, $url);
+    }
+
+    /**
+     * Emit a {@see BackendQueried} event so a host can meter backend load per
+     * tenant. Only real backend hits fire it — cached reads don't.
+     */
+    private function meter(string $url, string $method, float $started, bool $ok): void
+    {
+        event(new BackendQueried($url, $method, (microtime(true) - $started) * 1000, $ok));
     }
 
     private function pending(): PendingRequest

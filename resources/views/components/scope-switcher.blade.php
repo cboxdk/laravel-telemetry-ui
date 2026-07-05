@@ -13,7 +13,10 @@
         window.location = url;
      ">
     <div class="tui-brand">
-        <span class="tui-brand-name">{{ config('app.name') }}</span>
+        @if ($logo = config('telemetry-ui.brand.logo'))
+            <img class="tui-brand-logo" src="{{ $logo }}" alt="">
+        @endif
+        <span class="tui-brand-name">{{ config('telemetry-ui.brand.name') ?: config('app.name') }}</span>
     </div>
 
     <label class="tui-scope-field">

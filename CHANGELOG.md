@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Integration events** — `DashboardViewed` (user + page + scope, for audit and
+  usage metering) and `BackendQueried` (url + method + duration + ok, for backend
+  load metering per tenant) let a host hook the dashboard without patching it.
+- **Branding / white-label** — `telemetry-ui.brand` config sets the sidebar
+  name, logo and accent colour; views are namespaced (`telemetry-ui::`) so a
+  host can override any of them.
 - **Per-tenant backends** — `TelemetryUi::resolveConnectionsUsing(fn ($user) => [...])`
   resolves connection config per viewer, so a hosted multi-tenant install can
   point each tenant at their own Mimir/Tempo/Loki (or a shared backend behind a
