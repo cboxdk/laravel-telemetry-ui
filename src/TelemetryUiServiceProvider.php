@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Http\Middleware\Authorize;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\SchemaDetector;
+use Cbox\TelemetryUi\Support\ScopeLock;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -52,6 +53,12 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             $app->make(ConnectionManager::class),
             $app->make('config'),
             $app->make('cache'),
+        ));
+
+        // Request-scoped so a resolved tenancy lock never leaks between
+        // requests (users) under a persistent runtime like Octane.
+        $this->app->scoped(ScopeLock::class, static fn (Application $app): ScopeLock => new ScopeLock(
+            $app->make(TelemetryUiManager::class),
         ));
 
         $this->app->singleton(Annotations::class, static fn (Application $app): Annotations => new Annotations(

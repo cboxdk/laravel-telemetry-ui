@@ -25,7 +25,7 @@ final readonly class Fleet
      */
     public function services(): array
     {
-        return $this->labelValues('service_name');
+        return $this->restrict($this->labelValues('service_name'), app(ScopeLock::class)->services());
     }
 
     /**
@@ -33,7 +33,24 @@ final readonly class Fleet
      */
     public function environments(): array
     {
-        return $this->labelValues('deployment_environment_name');
+        return $this->restrict($this->labelValues('deployment_environment_name'), app(ScopeLock::class)->environments());
+    }
+
+    /**
+     * Keep only the discovered values the viewer is allowed to see. An empty
+     * allowed set means unrestricted.
+     *
+     * @param  list<string>  $discovered
+     * @param  list<string>  $allowed
+     * @return list<string>
+     */
+    private function restrict(array $discovered, array $allowed): array
+    {
+        if ($allowed === []) {
+            return $discovered;
+        }
+
+        return array_values(array_filter($discovered, static fn (string $value): bool => in_array($value, $allowed, true)));
     }
 
     /**

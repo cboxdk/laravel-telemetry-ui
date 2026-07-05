@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi;
 use Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Support\SchemaDetector;
+use Closure;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Support\Str;
 use Laravel\Mcp\Server\Tool;
@@ -106,7 +107,38 @@ final class TelemetryUiManager
      */
     private array $mcpTools = [];
 
+    /**
+     * Per-viewer scope lock (tenancy). Returns the services / environments the
+     * current user may see; empty/absent = unrestricted for that dimension.
+     *
+     * @var (Closure(mixed): array{services?: list<string>, environments?: list<string>})|null
+     */
+    private ?Closure $scopeResolver = null;
+
     public function __construct(private readonly Config $config) {}
+
+    /**
+     * Lock the dashboard to a subset of services and/or environments per
+     * viewer — a lightweight tenancy control for embedding in an app. The
+     * resolver receives the authenticated user and returns the allowed set;
+     * the scope switcher only offers it and every query is forced into it.
+     *
+     * @param  Closure(mixed): array{services?: list<string>, environments?: list<string>}  $resolver
+     */
+    public function restrictScopeUsing(Closure $resolver): self
+    {
+        $this->scopeResolver = $resolver;
+
+        return $this;
+    }
+
+    /**
+     * @return (Closure(mixed): array{services?: list<string>, environments?: list<string>})|null
+     */
+    public function scopeResolver(): ?Closure
+    {
+        return $this->scopeResolver;
+    }
 
     /**
      * Register an MCP tool on the telemetry server. Packages call this from a

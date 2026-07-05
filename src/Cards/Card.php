@@ -14,6 +14,7 @@ use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Period;
+use Cbox\TelemetryUi\Support\ScopeLock;
 use DateTimeImmutable;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
@@ -154,9 +155,15 @@ abstract class Card extends Component
     {
         [$start, $end] = $this->range();
 
+        $services = $this->scopedServices();
+        $environments = $this->scopedEnvironments();
+
+        // The marker query takes a single exact value per label, so scope it
+        // only when the effective scope is a single service/env (a selection,
+        // or a one-value lock). A multi-value lock leaves markers unscoped.
         $matchers = array_filter([
-            'service_name' => $this->service,
-            'deployment_environment_name' => $this->environment,
+            'service_name' => count($services) === 1 ? $services[0] : '',
+            'deployment_environment_name' => count($environments) === 1 ? $environments[0] : '',
         ]);
 
         return app(Annotations::class)->between($start, $end, $matchers);
@@ -191,15 +198,10 @@ abstract class Card extends Component
      */
     protected function metric(string $name, string $extraMatchers = ''): string
     {
-        $matchers = [];
-
-        if ($this->service !== '') {
-            $matchers[] = 'service_name="'.$this->escapeLabelValue($this->service).'"';
-        }
-
-        if ($this->environment !== '') {
-            $matchers[] = 'deployment_environment_name="'.$this->escapeLabelValue($this->environment).'"';
-        }
+        $matchers = array_values(array_filter([
+            $this->labelMatcher('service_name', $this->scopedServices()),
+            $this->labelMatcher('deployment_environment_name', $this->scopedEnvironments()),
+        ], static fn (?string $m): bool => $m !== null));
 
         if (($scope = $this->scopeMatchers()) !== '') {
             $matchers[] = $scope;
@@ -218,15 +220,10 @@ abstract class Card extends Component
      */
     protected function traceScope(string $extraConditions = ''): string
     {
-        $conditions = [];
-
-        if ($this->service !== '') {
-            $conditions[] = 'resource.service.name = "'.$this->escapeLabelValue($this->service).'"';
-        }
-
-        if ($this->environment !== '') {
-            $conditions[] = 'resource.deployment.environment.name = "'.$this->escapeLabelValue($this->environment).'"';
-        }
+        $conditions = array_values(array_filter([
+            $this->traceMatcher('resource.service.name', $this->scopedServices()),
+            $this->traceMatcher('resource.deployment.environment.name', $this->scopedEnvironments()),
+        ], static fn (?string $c): bool => $c !== null));
 
         if ($extraConditions !== '') {
             $conditions[] = $extraConditions;
@@ -241,15 +238,10 @@ abstract class Card extends Component
      */
     protected function logSelector(string $extraMatchers = ''): string
     {
-        $matchers = [];
-
-        if ($this->service !== '') {
-            $matchers[] = 'service_name="'.$this->escapeLabelValue($this->service).'"';
-        }
-
-        if ($this->environment !== '') {
-            $matchers[] = 'deployment_environment_name="'.$this->escapeLabelValue($this->environment).'"';
-        }
+        $matchers = array_values(array_filter([
+            $this->labelMatcher('service_name', $this->scopedServices()),
+            $this->labelMatcher('deployment_environment_name', $this->scopedEnvironments()),
+        ], static fn (?string $m): bool => $m !== null));
 
         if ($extraMatchers !== '') {
             $matchers[] = $extraMatchers;
@@ -260,6 +252,88 @@ abstract class Card extends Component
         }
 
         return '{'.implode(',', $matchers).'}';
+    }
+
+    /**
+     * The effective services to scope by: the user's selection when it's
+     * allowed by the tenancy lock, otherwise the whole allowed set — so a blank
+     * or out-of-bounds `?service=` can never widen past the lock. Empty means
+     * unrestricted (no lock, no selection).
+     *
+     * @return list<string>
+     */
+    private function scopedServices(): array
+    {
+        return $this->applyLock($this->service, app(ScopeLock::class)->services());
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function scopedEnvironments(): array
+    {
+        return $this->applyLock($this->environment, app(ScopeLock::class)->environments());
+    }
+
+    /**
+     * @param  list<string>  $allowed
+     * @return list<string>
+     */
+    private function applyLock(string $selected, array $allowed): array
+    {
+        if ($selected !== '' && ($allowed === [] || in_array($selected, $allowed, true))) {
+            return [$selected];
+        }
+
+        return $allowed;
+    }
+
+    /**
+     * A PromQL/Loki label matcher for a set of values: exact for one, an RE2
+     * alternation for several, nothing for none.
+     *
+     * @param  list<string>  $values
+     */
+    private function labelMatcher(string $label, array $values): ?string
+    {
+        return match (count($values)) {
+            0 => null,
+            1 => $label.'="'.$this->escapeLabelValue($values[0]).'"',
+            default => $label.'=~"'.$this->escapeLabelValue($this->alternation($values)).'"',
+        };
+    }
+
+    /**
+     * A TraceQL scope condition for a set of values.
+     *
+     * @param  list<string>  $values
+     */
+    private function traceMatcher(string $key, array $values): ?string
+    {
+        return match (count($values)) {
+            0 => null,
+            1 => $key.' = "'.$this->escapeLabelValue($values[0]).'"',
+            default => $key.' =~ "'.$this->escapeLabelValue($this->alternation($values)).'"',
+        };
+    }
+
+    /**
+     * A literal RE2 alternation ("a|b") of the values, each regex-escaped so
+     * metacharacters match literally.
+     *
+     * @param  list<string>  $values
+     */
+    private function alternation(array $values): string
+    {
+        // Escape only the RE2 metacharacters (not e.g. a hyphen, which
+        // preg_quote would), so a plain "web-a|web-b" stays readable.
+        $meta = [
+            '\\' => '\\\\', '.' => '\\.', '+' => '\\+', '*' => '\\*', '?' => '\\?',
+            '(' => '\\(', ')' => '\\)', '[' => '\\[', ']' => '\\]', '{' => '\\{',
+            '}' => '\\}', '^' => '\\^', '$' => '\\$', '|' => '\\|',
+        ];
+
+        return implode('|', array_map(static fn (string $value): string => strtr($value, $meta), $values));
     }
 
     /**

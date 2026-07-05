@@ -90,6 +90,41 @@ auth middleware in `telemetry-ui.middleware` and check the user in the gate.
 Livewire updates keep working — they run on the global `web` group, and the gate
 is still re-checked on them.
 
+## Tenancy: lock a viewer to services / environments
+
+When the dashboard is embedded in an app, you often want a viewer to see only
+their own service(s) — a lightweight tenancy lock. Register a resolver that
+returns the allowed services and/or environments for the current user:
+
+```php
+use Cbox\TelemetryUi\Facades\TelemetryUi;
+
+TelemetryUi::restrictScopeUsing(fn ($user) => [
+    'services' => $user->allowedServices(),   // e.g. ['cbox-web']
+    'environments' => ['production'],          // optional; omit/[] = all envs
+]);
+```
+
+An empty or absent key means *unrestricted* for that dimension. With a lock in
+place:
+
+- The **scope switcher only offers the allowed values** (the discovered fleet is
+  intersected with the lock).
+- **Every query is forced into the lock** — a blank `?service=` (which normally
+  means "all services") and a hand-edited `?service=someone-else` are both
+  coerced back to the allowed set, across metrics, traces and logs. A single
+  allowed service scopes to `service_name="x"`; several scope to a
+  `service_name=~"a|b"` alternation.
+
+The resolver runs per request (request-scoped, so nothing leaks between users
+under Octane). It's enforced server-side in the query scope, not just the UI, so
+it can't be bypassed from the URL.
+
+> Note: chart **deploy-marker annotations** are scoped when the effective scope
+> is a single service; a multi-service lock leaves the markers unscoped (they
+> reveal only deploy *timestamps*, not telemetry). The MCP transport is a
+> separate surface and is not covered by the scope lock.
+
 ## MCP and the API
 
 The HTTP MCP transport is a separate surface with its own auth (`auth:api` +

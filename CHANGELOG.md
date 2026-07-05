@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Tenancy scope lock** — `TelemetryUi::restrictScopeUsing(fn ($user) => [...])`
+  locks a viewer to a subset of services and/or environments, for embedding the
+  dashboard in an app. The scope switcher only offers the allowed values and
+  **every query is forced into the lock** server-side — a blank or hand-edited
+  `?service=` can't widen past it (one allowed service → `service_name="x"`,
+  several → a `service_name=~"a|b"` alternation), across metrics, traces and
+  logs. Resolved per request. See the [authorization doc](docs/core-concepts/authorization.md#tenancy-lock-a-viewer-to-services--environments).
+
 ## [0.1.0-alpha.2] - 2026-07-05
 
 ### Added
