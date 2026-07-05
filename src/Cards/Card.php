@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Cards;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
+use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
@@ -13,6 +14,7 @@ use Cbox\TelemetryUi\Queries\Results\Sample;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
+use Cbox\TelemetryUi\Support\Format;
 use Cbox\TelemetryUi\Support\Period;
 use Cbox\TelemetryUi\Support\ScopeLock;
 use DateTimeImmutable;
@@ -444,8 +446,58 @@ abstract class Card extends Component
     }
 
     /**
-     * Render the shared "stats + chart" card view, which most metric cards
-     * use instead of shipping their own Blade file.
+     * A whole metric chart card in one call — the terse path for the common
+     * "run a PromQL range query, draw it" card. It queries the range, converts
+     * the series, catches backend errors, and renders {@see chartCard()}. Use a
+     * grouped query (`sum by (x)(…)`) for multiple lines. Pass $stat to add a
+     * headline tile from an instant query ($statQuery, or the same $promql).
+     *
+     *   public function render(): View
+     *   {
+     *       return $this->promChart('Queue depth', $this->metric('queue_size'), stat: 'Now');
+     *   }
+     */
+    protected function promChart(
+        string $title,
+        string $promql,
+        ?string $subtitle = null,
+        ?string $seriesLabel = null,
+        string $type = 'line',
+        ?string $unit = null,
+        int $span = 1,
+        ?string $stat = null,
+        ?string $statQuery = null,
+    ): View {
+        [$start, $end] = $this->range();
+
+        try {
+            $series = $this->toChartSeries($this->metrics()->queryRange($promql, $start, $end), $seriesLabel);
+            $stats = $stat !== null ? [$this->stat($stat, $this->formatValue($this->total($statQuery ?? $promql), $unit))] : [];
+        } catch (SourceException $exception) {
+            return $this->chartCard($title, error: $exception->getMessage(), span: $span, subtitle: $subtitle);
+        }
+
+        return $this->chartCard($title, series: $series, stats: $stats, type: $type, unit: $unit, span: $span, subtitle: $subtitle);
+    }
+
+    /**
+     * Format a metric value for a stat tile, picking the formatter from the
+     * chart's unit.
+     */
+    private function formatValue(float $value, ?string $unit): string
+    {
+        return match ($unit) {
+            'bytes' => Format::bytes($value),
+            'ms', 'milliseconds' => Format::ms($value),
+            'ratio', 'percent' => Format::percent($value),
+            default => Format::count($value),
+        };
+    }
+
+    /**
+     * Render the shared "stats + chart" card view (ECharts, annotations, zoom,
+     * lazy skeleton, error state) — most metric cards use this instead of
+     * shipping their own Blade file. See {@see promChart()} for the terse path.
      *
      * @param  list<array{name: string, data: list<array{float, float}>, color?: string}>  $series
      * @param  list<array{label: string, value: string, tone: string|null}>  $stats

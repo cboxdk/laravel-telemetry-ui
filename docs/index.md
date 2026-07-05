@@ -66,7 +66,7 @@ incident RCA.
   [connect through a Grafana datasource proxy](cookbook/connect-via-grafana-proxy.md) ·
   [emitting annotations](cookbook/annotations.md) ·
   [MCP server](cookbook/mcp.md)
-- Extension points:
+- Extension points — **[Developer integrations guide](extension-points/index.md)** (start here) ·
   [custom cards](extension-points/custom-cards.md) ·
   [custom detail pages](extension-points/detail-pages.md) ·
   [custom drivers](extension-points/custom-drivers.md) ·
