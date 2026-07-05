@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
+use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Contracts\View\View;
@@ -18,6 +19,8 @@ use Illuminate\Contracts\View\View;
  */
 final class FrontendPages extends Card
 {
+    use CoercesAttributes;
+
     private const SEARCH_LIMIT = 200;
 
     public function render(): View
@@ -117,10 +120,5 @@ final class FrontendPages extends Card
         $path = parse_url($url, PHP_URL_PATH);
 
         return is_string($path) && $path !== '' ? $path : $url;
-    }
-
-    private function num(mixed $value): float
-    {
-        return is_numeric($value) ? (float) $value : 0.0;
     }
 }

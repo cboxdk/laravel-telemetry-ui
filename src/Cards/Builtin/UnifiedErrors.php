@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
+use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Queries\Results\Span;
 use Illuminate\Contracts\View\View;
@@ -23,6 +24,8 @@ use Illuminate\Support\Carbon;
  */
 final class UnifiedErrors extends Card
 {
+    use CoercesAttributes;
+
     private const SEARCH_LIMIT = 100;
 
     public function render(): View
@@ -109,10 +112,5 @@ final class UnifiedErrors extends Card
             $frontend => 'frontend',
             default => 'backend',
         };
-    }
-
-    private function str(mixed $value): ?string
-    {
-        return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
     }
 }

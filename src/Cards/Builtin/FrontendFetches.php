@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
+use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -18,6 +19,8 @@ use Illuminate\Support\Carbon;
  */
 final class FrontendFetches extends Card
 {
+    use CoercesAttributes;
+
     private const SEARCH_LIMIT = 200;
 
     public function render(): View
@@ -84,10 +87,5 @@ final class FrontendFetches extends Card
         }
 
         return strtok($url, '?') ?: $url;
-    }
-
-    private function str(mixed $value): ?string
-    {
-        return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
     }
 }
