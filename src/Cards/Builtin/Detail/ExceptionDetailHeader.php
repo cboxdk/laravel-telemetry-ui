@@ -48,11 +48,6 @@ final class ExceptionDetailHeader extends Card
 
     public function backUrl(): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'exceptions',
-            'period' => $this->period,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        return $this->pageUrl('exceptions');
     }
 }

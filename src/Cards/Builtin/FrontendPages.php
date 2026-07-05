@@ -100,13 +100,9 @@ final class FrontendPages extends Card
      */
     public function tracesUrl(string $path): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'traces',
+        return $this->pageUrl('traces', [
             'q' => '{ span.url.path = "'.addcslashes($path, '"\\').'" }',
-            'period' => $this->period,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        ]);
     }
 
     /**

@@ -81,15 +81,9 @@ final class TrafficByFacet extends Card
     {
         $attribute = $this->attribute() ?? 'enduser.id';
 
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'traces',
+        return $this->pageUrl('traces', [
             'q' => '{ '.$this->traceScope('span.'.$attribute.' = "'.addcslashes($value, '"\\').'"').' }',
-            'period' => $this->period,
-            'from' => $this->from,
-            'to' => $this->to,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        ]);
     }
 
     /**

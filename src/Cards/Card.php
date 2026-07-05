@@ -230,6 +230,26 @@ abstract class Card extends Component
     }
 
     /**
+     * A URL to another dashboard page carrying the current scope (period, range,
+     * service, env) plus any extra query params — the one place row drill-downs
+     * build their links.
+     *
+     * @param  array<string, string|null>  $extra
+     */
+    protected function pageUrl(string $page, array $extra = []): string
+    {
+        return route('telemetry-ui.page', array_filter([
+            'page' => $page,
+            'period' => $this->period,
+            'from' => $this->from,
+            'to' => $this->to,
+            'service' => $this->service,
+            'env' => $this->environment,
+            ...$extra,
+        ]));
+    }
+
+    /**
      * A metric reference with the current scope (and any extra matchers)
      * applied: `metric{service_name="checkout",deployment_environment_name="prod"}`.
      */

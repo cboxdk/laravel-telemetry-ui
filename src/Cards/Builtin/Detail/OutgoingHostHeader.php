@@ -59,11 +59,6 @@ final class OutgoingHostHeader extends Card
 
     public function backUrl(): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'outgoing',
-            'period' => $this->period,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        return $this->pageUrl('outgoing');
     }
 }

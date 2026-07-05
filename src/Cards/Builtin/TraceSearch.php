@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Results\Span;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
@@ -140,14 +141,13 @@ final class TraceSearch extends Card
         $str = static fn (mixed $v): ?string => is_scalar($v) && (string) $v !== '' ? (string) $v : null;
 
         $status = $str($attributes['http.response.status_code'] ?? null);
-        $browser = $attributes['browser'] ?? null;
 
         return [
             'method' => $str($attributes['http.request.method'] ?? null),
             'target' => $str($attributes['http.route'] ?? $attributes['url.path'] ?? null),
             'status' => $status,
             'isError' => $status !== null && (int) $status >= 500,
-            'browser' => $browser === true || $browser === 'true',
+            'browser' => Span::attributesAreBrowser($attributes),
         ];
     }
 

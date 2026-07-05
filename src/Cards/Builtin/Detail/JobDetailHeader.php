@@ -56,11 +56,6 @@ final class JobDetailHeader extends Card
 
     public function backUrl(): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'jobs',
-            'period' => $this->period,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        return $this->pageUrl('jobs');
     }
 }

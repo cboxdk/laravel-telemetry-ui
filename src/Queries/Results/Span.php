@@ -40,7 +40,18 @@ final readonly class Span
      */
     public function isBrowser(): bool
     {
-        $value = $this->attributes['browser'] ?? null;
+        return self::attributesAreBrowser($this->attributes);
+    }
+
+    /**
+     * The `browser=true` test on a raw attribute bag — for callers that hold
+     * span attributes but not a Span (e.g. grouping matched spans by origin).
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public static function attributesAreBrowser(array $attributes): bool
+    {
+        $value = $attributes['browser'] ?? null;
 
         return $value === true || $value === 1 || $value === '1'
             || (is_string($value) && strtolower($value) === 'true');

@@ -63,11 +63,6 @@ final class RequestDetailHeader extends Card
 
     public function backUrl(): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'requests',
-            'period' => $this->period,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        return $this->pageUrl('requests');
     }
 }

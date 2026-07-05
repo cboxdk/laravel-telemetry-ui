@@ -59,12 +59,8 @@ final class HostsTable extends Card
      */
     public function tracesUrl(string $host): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'traces',
+        return $this->pageUrl('traces', [
             'q' => '{ '.$this->traceScope('.host.name = "'.addcslashes($host, '"\\').'"').' }',
-            'period' => $this->period,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        ]);
     }
 }

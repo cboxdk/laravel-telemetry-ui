@@ -106,13 +106,7 @@ final class JobsTable extends Card
 
     public function detailUrl(string $job): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'job-detail',
-            'job' => $job,
-            'period' => $this->period,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        return $this->pageUrl('job-detail', ['job' => $job]);
     }
 
     /**

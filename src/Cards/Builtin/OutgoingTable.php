@@ -89,12 +89,6 @@ final class OutgoingTable extends Card
      */
     public function detailUrl(string $host): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'outgoing-detail',
-            'host' => $host,
-            'period' => $this->period,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        return $this->pageUrl('outgoing-detail', ['host' => $host]);
     }
 }

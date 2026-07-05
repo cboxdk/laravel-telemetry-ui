@@ -83,13 +83,7 @@ final class ExceptionsTable extends Card
      */
     public function detailUrl(string $exception): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'exception-detail',
-            'exception' => $exception,
-            'period' => $this->period,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        return $this->pageUrl('exception-detail', ['exception' => $exception]);
     }
 
     /**
@@ -107,12 +101,8 @@ final class ExceptionsTable extends Card
 
     private function errorTracesUrl(): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'traces',
+        return $this->pageUrl('traces', [
             'q' => '{ '.$this->traceScope('status = error').' }',
-            'period' => $this->period,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        ]);
     }
 }

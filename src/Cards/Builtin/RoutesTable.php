@@ -109,13 +109,7 @@ final class RoutesTable extends Card
      */
     public function detailUrl(string $route): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'request-detail',
-            'route' => $route,
-            'period' => $this->period,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        return $this->pageUrl('request-detail', ['route' => $route]);
     }
 
     /**

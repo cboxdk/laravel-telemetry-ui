@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Results\Span;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 
@@ -54,7 +55,7 @@ final class UnifiedErrors extends Card
                     ];
 
                     $row['count']++;
-                    $this->isBrowser($span->attributes) ? $row['frontend'] = true : $row['backend'] = true;
+                    Span::attributesAreBrowser($span->attributes) ? $row['frontend'] = true : $row['backend'] = true;
 
                     // Keep the most recent occurrence as the representative one.
                     if ($span->startNano >= $row['lastNano']) {
@@ -96,15 +97,9 @@ final class UnifiedErrors extends Card
      */
     private function tracesUrl(string $group): string
     {
-        return route('telemetry-ui.page', array_filter([
-            'page' => 'traces',
+        return $this->pageUrl('traces', [
             'q' => '{ span.exception.group = "'.addcslashes($group, '"\\').'" }',
-            'period' => $this->period,
-            'from' => $this->from,
-            'to' => $this->to,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        ]);
     }
 
     private function source(bool $frontend, bool $backend): string
@@ -114,17 +109,6 @@ final class UnifiedErrors extends Card
             $frontend => 'frontend',
             default => 'backend',
         };
-    }
-
-    /**
-     * @param  array<string, mixed>  $attributes
-     */
-    private function isBrowser(array $attributes): bool
-    {
-        $value = $attributes['browser'] ?? null;
-
-        return $value === true || $value === 1 || $value === '1'
-            || (is_string($value) && strtolower($value) === 'true');
     }
 
     private function str(mixed $value): ?string
