@@ -33,12 +33,13 @@ final readonly class Annotations
     /**
      * Markers within [$start, $end] for the given scope, newest first.
      *
-     * @param  array<string, string>  $streamMatchers  e.g. service_name / deployment_environment_name
+     * @param  string  $selector  a Loki stream selector, already scoped to the
+     *                            viewer's service/env (from Card::logSelector())
      * @return list<Annotation>
      */
-    public function between(DateTimeImmutable $start, DateTimeImmutable $end, array $streamMatchers = []): array
+    public function between(DateTimeImmutable $start, DateTimeImmutable $end, string $selector = '{service_name=~".+"}'): array
     {
-        $all = $this->lookback($streamMatchers);
+        $all = $this->lookback($selector);
 
         $from = $start->getTimestamp() * 1000.0;
         $to = $end->getTimestamp() * 1000.0;
@@ -52,24 +53,21 @@ final readonly class Annotations
     /**
      * All markers within the lookback window for a scope (cached).
      *
-     * @param  array<string, string>  $streamMatchers
      * @return list<Annotation>
      */
-    public function lookback(array $streamMatchers = []): array
+    public function lookback(string $selector = '{service_name=~".+"}'): array
     {
         if (! (bool) $this->config->get('telemetry-ui.annotations.enabled', true)) {
             return [];
         }
 
-        ksort($streamMatchers);
-
-        $key = 'telemetry-ui:annotations:'.md5(serialize($streamMatchers));
+        $key = 'telemetry-ui:annotations:'.md5($selector);
 
         // Cache primitive rows, not Annotation objects — file/database/redis
         // cache stores serialize, and cross-request unserialize of a package
         // class can yield __PHP_Incomplete_Class. Rehydrate after reading.
         /** @var list<array{ts: float, label: string, notes: string|null, kind: string, traceId: string|null, color: string}> $rows */
-        $rows = $this->cache->store()->remember($key, $this->ttl, fn (): array => $this->fetch($streamMatchers));
+        $rows = $this->cache->store()->remember($key, $this->ttl, fn (): array => $this->fetch($selector));
 
         return array_map(
             static fn (array $row): Annotation => new Annotation(
@@ -85,10 +83,9 @@ final readonly class Annotations
     }
 
     /**
-     * @param  array<string, string>  $streamMatchers
      * @return list<array{ts: float, label: string, notes: string|null, kind: string, traceId: string|null, color: string}>
      */
-    private function fetch(array $streamMatchers): array
+    private function fetch(string $selector): array
     {
         /** @var array<string, array{event: string, label: string, color: string, notes_label?: string, id_label?: string}> $markers */
         $markers = (array) $this->config->get('telemetry-ui.annotations.markers', []);
@@ -112,7 +109,6 @@ final readonly class Annotations
             return [];
         }
 
-        $selector = $this->selector($streamMatchers);
         $end = new DateTimeImmutable;
         $start = $end->modify('-'.$this->lookbackDays.' days');
 
@@ -158,25 +154,5 @@ final readonly class Annotations
         usort($annotations, static fn (array $a, array $b): int => $b['ts'] <=> $a['ts']);
 
         return $annotations;
-    }
-
-    /**
-     * @param  array<string, string>  $streamMatchers
-     */
-    private function selector(array $streamMatchers): string
-    {
-        $parts = [];
-
-        foreach ($streamMatchers as $label => $value) {
-            if ($value !== '') {
-                $parts[] = $label.'="'.addcslashes($value, '"\\').'"';
-            }
-        }
-
-        if ($parts === []) {
-            $parts[] = 'service_name=~".+"';
-        }
-
-        return '{'.implode(',', $parts).'}';
     }
 }

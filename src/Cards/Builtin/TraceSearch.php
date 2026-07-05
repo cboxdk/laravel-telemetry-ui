@@ -45,11 +45,18 @@ final class TraceSearch extends Card
         [$start, $end] = $this->range();
 
         // Pull the request context (method/route/status) so a row reads like a
-        // request, not just a span name. Only for the built query — a raw query
-        // may already carry its own select().
-        $traceql = $this->query !== ''
-            ? $this->query
-            : $this->buildQuery().' | select(span.http.request.method, span.http.route, span.http.response.status_code, span.url.path, span.browser)';
+        // request, not just a span name. A raw ?q= (deep link, drill-down, or
+        // hand-typed) is forced into the viewer's scope lock — the builder path
+        // is already scoped — and enriched with the same select() unless it
+        // carries its own.
+        $select = ' | select(span.http.request.method, span.http.route, span.http.response.status_code, span.url.path, span.browser)';
+
+        if ($this->query !== '') {
+            $raw = $this->enforceScope($this->query);
+            $traceql = str_contains($raw, '| select(') ? $raw : $raw.$select;
+        } else {
+            $traceql = $this->buildQuery().$select;
+        }
 
         $results = [];
         $error = null;

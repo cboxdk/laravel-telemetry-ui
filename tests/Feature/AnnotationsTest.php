@@ -35,7 +35,7 @@ it('reads deploy markers from loki within a range', function (): void {
     $annotations = app(Annotations::class)->between(
         new DateTimeImmutable('@1735689000'),
         new DateTimeImmutable('@1735690000'),
-        ['service_name' => 'telemetry-demo'],
+        '{service_name="telemetry-demo"}',
     );
 
     // Only the exact "app.deployment" line becomes a marker; the inline
@@ -62,7 +62,6 @@ it('filters markers to the requested window', function (): void {
     $annotations = app(Annotations::class)->between(
         new DateTimeImmutable('@1735680000'),
         new DateTimeImmutable('@1735685000'),
-        [],
     );
 
     expect($annotations)->toBe([]);
@@ -71,7 +70,7 @@ it('filters markers to the requested window', function (): void {
 it('can be disabled', function (): void {
     config()->set('telemetry-ui.annotations.enabled', false);
 
-    expect(app(Annotations::class)->lookback([]))->toBe([]);
+    expect(app(Annotations::class)->lookback())->toBe([]);
 
     Http::assertNothingSent();
 });
@@ -79,7 +78,7 @@ it('can be disabled', function (): void {
 it('fails open when the logs backend is down', function (): void {
     Http::fake(['loki.test:3100/*' => Http::response('down', 503)]);
 
-    expect(app(Annotations::class)->lookback(['service_name' => 'x']))->toBe([]);
+    expect(app(Annotations::class)->lookback('{service_name="x"}'))->toBe([]);
 });
 
 it('draws deploy annotation lines on dashboard charts', function (): void {

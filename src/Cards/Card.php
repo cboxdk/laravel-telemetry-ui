@@ -195,18 +195,10 @@ abstract class Card extends Component
     {
         [$start, $end] = $this->range();
 
-        $services = $this->scopedServices();
-        $environments = $this->scopedEnvironments();
-
-        // The marker query takes a single exact value per label, so scope it
-        // only when the effective scope is a single service/env (a selection,
-        // or a one-value lock). A multi-value lock leaves markers unscoped.
-        $matchers = array_filter([
-            'service_name' => count($services) === 1 ? $services[0] : '',
-            'deployment_environment_name' => count($environments) === 1 ? $environments[0] : '',
-        ]);
-
-        return app(Annotations::class)->between($start, $end, $matchers);
+        // Reuse the same scoped Loki selector every log query uses, so deploy
+        // markers respect the exact service/env scope (single, multi-value
+        // alternation, or a fail-closed lock) — not a single-value special case.
+        return app(Annotations::class)->between($start, $end, $this->logSelector());
     }
 
     /**

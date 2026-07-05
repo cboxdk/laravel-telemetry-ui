@@ -53,7 +53,7 @@ final class AnalyticsPages extends Card
     public function tracesUrl(string $path): string
     {
         return $this->pageUrl('traces', [
-            'q' => '{ span.url.path = "'.addcslashes($path, '"\\').'" }',
+            'q' => '{ '.$this->traceScope('span.url.path = "'.addcslashes($path, '"\\').'"').' }',
         ]);
     }
 }
