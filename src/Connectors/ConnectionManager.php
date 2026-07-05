@@ -16,8 +16,10 @@ use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
 use Cbox\TelemetryUi\Contracts\TracesSource;
+use Cbox\TelemetryUi\TelemetryUiManager;
 use Closure;
 use Illuminate\Contracts\Config\Repository as Config;
+use Illuminate\Support\Facades\Auth;
 use InvalidArgumentException;
 
 /**
@@ -78,10 +80,9 @@ final class ConnectionManager
      */
     public function issueSources(): array
     {
-        /** @var array<string, mixed>|null $config */
-        $config = $this->config->get('telemetry-ui.connections.issues');
+        $config = $this->connectionConfig('issues');
 
-        if (! is_array($config) || $config === []) {
+        if ($config === null || $config === []) {
             return [];
         }
 
@@ -95,7 +96,7 @@ final class ConnectionManager
                 continue;
             }
 
-            $source = $this->resolved['issues:'.$key] ??= $this->build($repoConfig, 'issues['.$key.']');
+            $source = $this->cached('issues['.$key.']', $repoConfig);
 
             if (! $source instanceof IssuesSource) {
                 continue;
@@ -169,7 +170,13 @@ final class ConnectionManager
      */
     private function connection(string $name, string $contract): object
     {
-        $source = $this->resolved[$name] ??= $this->resolve($name);
+        $config = $this->connectionConfig($name);
+
+        if ($config === null) {
+            throw new InvalidArgumentException("Telemetry UI connection [{$name}] is not configured.");
+        }
+
+        $source = $this->cached($name, $config);
 
         if (! $source instanceof $contract) {
             throw new InvalidArgumentException(
@@ -180,16 +187,40 @@ final class ConnectionManager
         return $source;
     }
 
-    private function resolve(string $name): object
+    /**
+     * The effective config for a connection: the per-viewer resolver's value
+     * (multi-tenant hosting) if it supplies one, otherwise the static config.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function connectionConfig(string $name): ?array
     {
-        /** @var array<string, mixed>|null $config */
-        $config = $this->config->get("telemetry-ui.connections.{$name}");
+        $resolver = app(TelemetryUiManager::class)->connectionResolver();
 
-        if (! is_array($config)) {
-            throw new InvalidArgumentException("Telemetry UI connection [{$name}] is not configured.");
+        if ($resolver !== null) {
+            $resolved = $resolver(Auth::user());
+
+            if (is_array($resolved) && is_array($resolved[$name] ?? null)) {
+                /** @var array<string, mixed> */
+                return $resolved[$name];
+            }
         }
 
-        return $this->build($config, $name);
+        $config = $this->config->get("telemetry-ui.connections.{$name}");
+
+        return is_array($config) ? $config : null;
+    }
+
+    /**
+     * Build (once) and cache a driver, keyed by name AND config — so a per-tenant
+     * resolver never hands one tenant another tenant's cached driver, even when
+     * this manager is a singleton under a persistent runtime like Octane.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function cached(string $name, array $config): object
+    {
+        return $this->resolved[$name.':'.md5(serialize($config))] ??= $this->build($config, $name);
     }
 
     /**

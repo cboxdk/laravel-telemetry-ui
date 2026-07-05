@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Cbox\TelemetryUi\TelemetryUiManager removePage(string $slug)
  * @method static \Cbox\TelemetryUi\TelemetryUiManager mcpTool(string $tool)
  * @method static \Cbox\TelemetryUi\TelemetryUiManager restrictScopeUsing(\Closure $resolver)
+ * @method static \Cbox\TelemetryUi\TelemetryUiManager resolveConnectionsUsing(\Closure $resolver)
  * @method static array<string, array{label: string, group: string|null, icon: string|null, detect: string|null, hidden?: bool}> pages()
  * @method static bool hasPage(string $slug)
  * @method static list<class-string<\Cbox\TelemetryUi\Cards\Card>> cards(string $page = 'dashboard')

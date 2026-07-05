@@ -115,6 +115,13 @@ final class TelemetryUiManager
      */
     private ?Closure $scopeResolver = null;
 
+    /**
+     * Per-viewer connection-config resolver (multi-tenant hosting).
+     *
+     * @var (Closure(mixed): array<string, array<string, mixed>>)|null
+     */
+    private ?Closure $connectionResolver = null;
+
     public function __construct(private readonly Config $config) {}
 
     /**
@@ -138,6 +145,30 @@ final class TelemetryUiManager
     public function scopeResolver(): ?Closure
     {
         return $this->scopeResolver;
+    }
+
+    /**
+     * Resolve backend connection config per viewer (multi-tenant hosting): point
+     * each tenant at their own Mimir/Tempo/Loki, or the same backend with a
+     * different `X-Scope-OrgID`. The resolver receives the authenticated user
+     * and returns a map of connection name → config; anything it omits falls
+     * back to the static `telemetry-ui.connections` config. Resolved per request.
+     *
+     * @param  Closure(mixed): array<string, array<string, mixed>>  $resolver
+     */
+    public function resolveConnectionsUsing(Closure $resolver): self
+    {
+        $this->connectionResolver = $resolver;
+
+        return $this;
+    }
+
+    /**
+     * @return (Closure(mixed): array<string, array<string, mixed>>)|null
+     */
+    public function connectionResolver(): ?Closure
+    {
+        return $this->connectionResolver;
     }
 
     /**

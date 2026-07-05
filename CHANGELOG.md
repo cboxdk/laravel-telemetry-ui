@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Per-tenant backends** — `TelemetryUi::resolveConnectionsUsing(fn ($user) => [...])`
+  resolves connection config per viewer, so a hosted multi-tenant install can
+  point each tenant at their own Mimir/Tempo/Loki (or a shared backend behind a
+  per-tenant `X-Scope-OrgID`). Omitted connections fall back to the static
+  config; drivers are cached by config, so one tenant never gets another's under
+  Octane. See [authorization](docs/core-concepts/authorization.md#per-tenant-backends).
 - **Tenancy scope lock** — `TelemetryUi::restrictScopeUsing(fn ($user) => [...])`
   locks a viewer to a subset of services and/or environments, for embedding the
   dashboard in an app. The scope switcher only offers the allowed values and

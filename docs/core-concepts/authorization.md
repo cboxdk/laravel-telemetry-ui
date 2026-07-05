@@ -125,6 +125,25 @@ it can't be bypassed from the URL.
 > reveal only deploy *timestamps*, not telemetry). The MCP transport is a
 > separate surface and is not covered by the scope lock.
 
+### Per-tenant backends
+
+The scope lock partitions viewers within *one* backend. If instead each tenant
+has their **own** backend — or shares one behind a per-tenant `X-Scope-OrgID` —
+resolve the connection config per viewer:
+
+```php
+TelemetryUi::resolveConnectionsUsing(fn ($user) => [
+    'metrics' => ['driver' => 'mimir', 'url' => $user->tenant->mimir_url, 'tenant' => $user->tenant->id],
+    'traces'  => ['driver' => 'tempo', 'url' => $user->tenant->tempo_url, 'tenant' => $user->tenant->id],
+    'logs'    => ['driver' => 'loki',  'url' => $user->tenant->loki_url,  'tenant' => $user->tenant->id],
+]);
+```
+
+The resolver receives the authenticated user; any connection it omits falls back
+to the static `telemetry-ui.connections` config. It runs per request, and built
+drivers are cached by config (not just name), so under a persistent runtime like
+Octane one tenant never gets another's connection.
+
 ## MCP and the API
 
 The HTTP MCP transport is a separate surface with its own auth (`auth:api` +
