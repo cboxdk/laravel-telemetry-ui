@@ -74,13 +74,19 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($results as $summary)
-                        <tr data-row-trace="{{ $summary->traceId }}">
-                            <td>{{ $summary->startedAt->format('H:i:s') }}</td>
-                            <td><span class="tui-badge tui-badge-info">{{ $summary->rootServiceName }}</span></td>
-                            <td class="is-primary"><a class="tui-trace-link" data-trace-id="{{ $summary->traceId }}" href="{{ $this->traceUrl($summary->traceId) }}">{{ $summary->rootTraceName ?: '(unnamed)' }}</a></td>
-                            <td class="is-num {{ $summary->durationMs > 1000 ? 'tui-tone-warn' : '' }}">{{ Format::ms($summary->durationMs) }}</td>
-                            <td class="is-num"><a class="tui-trace-link" data-trace-id="{{ $summary->traceId }}" href="{{ $this->traceUrl($summary->traceId) }}">{{ substr($summary->traceId, 0, 8) }}…</a></td>
+                    @foreach ($results as $row)
+                        <tr data-row-trace="{{ $row['traceId'] }}">
+                            <td>{{ $row['startedAt']->format('H:i:s') }}</td>
+                            <td>
+                                <span class="tui-badge tui-badge-info">{{ $row['service'] }}</span>
+                                @if ($row['browser'])<span class="tui-badge tui-badge-web" title="Browser (RUM)">web</span>@endif
+                            </td>
+                            <td class="is-primary">
+                                <a class="tui-trace-link" data-trace-id="{{ $row['traceId'] }}" href="{{ $this->traceUrl($row['traceId']) }}">@if ($row['method'])<span class="tui-method">{{ $row['method'] }}</span> @endif{{ $row['target'] ?? $row['name'] }}</a>
+                                @if ($row['status'])<span class="tui-badge {{ $row['isError'] ? 'tui-badge-danger' : 'tui-tone-dim' }}" title="HTTP status">{{ $row['status'] }}</span>@endif
+                            </td>
+                            <td class="is-num {{ $row['durationMs'] > 1000 ? 'tui-tone-warn' : '' }}">{{ Format::ms($row['durationMs']) }}</td>
+                            <td class="is-num"><a class="tui-trace-link" data-trace-id="{{ $row['traceId'] }}" href="{{ $this->traceUrl($row['traceId']) }}">{{ substr($row['traceId'], 0, 8) }}…</a></td>
                         </tr>
                     @endforeach
                 </tbody>

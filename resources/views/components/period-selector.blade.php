@@ -9,6 +9,10 @@
         <span x-show="copied" x-cloak>✓ Copied</span>
     </button>
 
+    {{-- Refresh now --}}
+    <button type="button" class="tui-btn tui-refresh-now" x-data x-on:click="window.location.reload()"
+            title="Refresh now">↻</button>
+
     {{-- Auto refresh --}}
     <div class="tui-refresh" x-data="telemetryUiRefresh()" title="Auto refresh">
         <select x-model="value" x-on:change="apply()">

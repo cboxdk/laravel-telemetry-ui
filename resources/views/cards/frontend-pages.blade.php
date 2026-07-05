@@ -4,7 +4,7 @@
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @elseif ($rows === [])
-        <div class="tui-empty">No browser page loads in this period. Enable the frontend SDK (@telemetryBrowser) to see RUM here.</div>
+        <div class="tui-empty">No browser page loads in this period. RUM runs under the app's own service — check the service scope, and that the frontend SDK (@telemetryBrowser) is enabled.</div>
     @else
         <x-telemetry-ui::stats :items="$stats" />
 
@@ -21,7 +21,7 @@
                 </thead>
                 <tbody>
                     @foreach ($rows as $row)
-                        <tr>
+                        <tr data-row-href="{{ $this->tracesUrl($row['path']) }}" title="Traces for this page (browser → backend)">
                             <td class="is-primary is-wide">{{ $row['path'] }}</td>
                             <td class="is-num">{{ Format::count($row['loads']) }}</td>
                             <td class="is-num">{{ Format::ms($row['loadMs']) }}</td>

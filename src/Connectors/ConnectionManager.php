@@ -55,22 +55,95 @@ final class ConnectionManager
 
     public function issues(?string $name = null): IssuesSource
     {
-        return $this->connection($name ?? 'issues', IssuesSource::class);
+        if ($name !== null && $name !== 'issues') {
+            return $this->connection($name, IssuesSource::class);
+        }
+
+        $sources = $this->issueSources();
+
+        if ($sources === []) {
+            throw new InvalidArgumentException('Telemetry UI connection [issues] is not configured.');
+        }
+
+        return $sources[0]['source'];
     }
 
     /**
-     * Whether an issues connection is configured (drives the Issues page).
+     * All configured issue trackers. `connections.issues` may be a single
+     * connection (a map with a "driver") or a list of them — so one project's
+     * frontend, api and sidecar repos surface together. Each carries a label
+     * (its config "label", or the driver's own).
+     *
+     * @return list<array{key: string, label: string, source: IssuesSource}>
+     */
+    public function issueSources(): array
+    {
+        /** @var array<string, mixed>|null $config */
+        $config = $this->config->get('telemetry-ui.connections.issues');
+
+        if (! is_array($config) || $config === []) {
+            return [];
+        }
+
+        // A single connection has a top-level "driver"; otherwise it's a list.
+        $repos = isset($config['driver']) ? ['issues' => $config] : $config;
+
+        $sources = [];
+
+        foreach ($repos as $key => $repoConfig) {
+            if (! is_array($repoConfig) || ($repoConfig['driver'] ?? null) === null) {
+                continue;
+            }
+
+            $source = $this->resolved['issues:'.$key] ??= $this->build($repoConfig, 'issues['.$key.']');
+
+            if (! $source instanceof IssuesSource) {
+                continue;
+            }
+
+            $label = is_string($repoConfig['label'] ?? null) && $repoConfig['label'] !== ''
+                ? $repoConfig['label']
+                : $source->label();
+
+            $sources[] = ['key' => (string) $key, 'label' => $label, 'source' => $source];
+        }
+
+        return $sources;
+    }
+
+    /**
+     * Whether at least one issue tracker is configured (drives the Issues
+     * page). Config-only — it does not build the driver, so a present-but-
+     * misconfigured connection still reports as configured (and surfaces its
+     * error when actually used).
      */
     public function hasIssues(?string $name = null): bool
     {
         $config = $this->config->get('telemetry-ui.connections.'.($name ?? 'issues'));
 
-        return is_array($config) && ($config['driver'] ?? null) !== null;
+        if (! is_array($config) || $config === []) {
+            return false;
+        }
+
+        // Single connection (top-level driver) or a list of connections.
+        // isset() is false when driver is null/absent, so a present key means
+        // a configured single connection.
+        if (isset($config['driver'])) {
+            return true;
+        }
+
+        foreach ($config as $repo) {
+            if (is_array($repo) && ($repo['driver'] ?? null) !== null) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
-     * Whether the configured tracker can create issues (GitHub, Linear) —
-     * gates the "create ticket" affordances.
+     * Whether the primary tracker can create issues (GitHub, Linear) — gates
+     * the "create ticket" affordances. Creation targets the first source.
      */
     public function canCreateIssues(?string $name = null): bool
     {
@@ -116,6 +189,17 @@ final class ConnectionManager
             throw new InvalidArgumentException("Telemetry UI connection [{$name}] is not configured.");
         }
 
+        return $this->build($config, $name);
+    }
+
+    /**
+     * Build a driver from an inline config map (used by named connections and
+     * by each entry of a multi-repo issues list).
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function build(array $config, string $name): object
+    {
         $driver = $config['driver'] ?? null;
 
         if (! is_string($driver) || $driver === '') {

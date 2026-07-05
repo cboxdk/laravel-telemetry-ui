@@ -4,7 +4,7 @@
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @elseif ($rows === [])
-        <div class="tui-empty">No page views in this period.</div>
+        <div class="tui-empty">No page views in this period. Analytics runs under the app's own service — check the service scope.</div>
     @else
         <div class="tui-table-wrap">
             <table class="tui-table">
@@ -17,7 +17,7 @@
                 </thead>
                 <tbody>
                     @foreach ($rows as $row)
-                        <tr>
+                        <tr data-row-href="{{ $this->tracesUrl($row['key']) }}" title="Traces for this page (browser → backend)">
                             <td class="is-primary is-wide">{{ $row['key'] }}</td>
                             <td class="is-num">{{ Format::count($row['views']) }}</td>
                             <td class="is-num tui-tone-dim">{{ Format::count($row['visitors']) }}</td>

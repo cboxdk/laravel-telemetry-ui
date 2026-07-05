@@ -1,11 +1,11 @@
-<x-telemetry-ui::card title="Issues" :subtitle="$trackerLabel !== '' ? $trackerLabel : 'Open issues and pull requests from your tracker'" span="2">
+<x-telemetry-ui::card title="Issues" :subtitle="$multiSource ? 'Open issues and pull requests across '.count($sources).' repos' : 'Open issues and pull requests from your tracker'" span="2">
     <x-slot:actions>
         @if ($url !== '')
             <a class="tui-btn" href="{{ $url }}" target="_blank" rel="noopener">View all ↗</a>
         @endif
     </x-slot:actions>
 
-    @if ($error)
+    @if ($error && $rows === [])
         <div class="tui-error">{{ $error }}</div>
     @else
         <div class="tui-toolbar">
@@ -14,6 +14,14 @@
                 <option value="closed">Closed</option>
                 <option value="all">All</option>
             </select>
+            @if ($multiSource)
+                <select class="tui-input" style="min-width: 120px" wire:model.live="sourceFilter">
+                    <option value="">All repos</option>
+                    @foreach ($sources as $src)
+                        <option value="{{ $src }}">{{ $src }}</option>
+                    @endforeach
+                </select>
+            @endif
             @if ($labels !== [])
                 <select class="tui-input" style="min-width: 130px" wire:model.live="label">
                     <option value="">All labels</option>
@@ -25,7 +33,7 @@
             <input type="search" class="tui-input tui-input-grow" placeholder="Search titles…" wire:model.live.debounce.400ms="search">
         </div>
 
-        @if ($issues === [])
+        @if ($rows === [])
             <div class="tui-empty">No matching issues. 🎉</div>
         @else
             <div class="tui-table-wrap">
@@ -33,6 +41,7 @@
                     <thead>
                         <tr>
                             <th></th>
+                            @if ($multiSource)<th>Repo</th>@endif
                             <th>Title</th>
                             <th>Labels</th>
                             <th>Author</th>
@@ -41,15 +50,19 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($issues as $issue)
+                        @foreach ($rows as $row)
+                            @php($issue = $row['issue'])
                             <tr>
                                 <td>
                                     <span class="tui-badge {{ $issue->kind === 'pr' ? 'tui-badge-info' : ($issue->isOpen() ? 'tui-badge-ok' : '') }}">
                                         {{ $issue->kind === 'pr' ? 'PR' : $issue->id }}
                                     </span>
                                 </td>
+                                @if ($multiSource)<td><span class="tui-badge tui-badge-info">{{ $row['source'] }}</span></td>@endif
                                 <td class="is-primary is-wide">
-                                    <a class="tui-issue-link" data-issue-id="{{ $issue->id }}" href="{{ $issue->url }}">{{ $issue->title }}</a>
+                                    {{-- The trace drawer resolves issues from the primary tracker, so only
+                                         intercept for a single source; otherwise link straight to the tracker. --}}
+                                    <a class="tui-issue-link" @unless($multiSource) data-issue-id="{{ $issue->id }}" @else target="_blank" rel="noopener" @endunless href="{{ $issue->url }}">{{ $issue->title }}</a>
                                 </td>
                                 <td>
                                     @foreach (array_slice($issue->labels, 0, 4) as $lbl)

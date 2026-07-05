@@ -45,4 +45,19 @@ final class AnalyticsPages extends Card
             'error' => $error,
         ]);
     }
+
+    /**
+     * Every trace touching this path — spans the browser page load and the
+     * backend request it triggered (they share one trace).
+     */
+    public function tracesUrl(string $path): string
+    {
+        return route('telemetry-ui.page', array_filter([
+            'page' => 'traces',
+            'q' => '{ span.url.path = "'.addcslashes($path, '"\\').'" }',
+            'period' => $this->period,
+            'service' => $this->service,
+            'env' => $this->environment,
+        ]));
+    }
 }

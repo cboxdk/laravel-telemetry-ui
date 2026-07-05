@@ -149,6 +149,14 @@ return [
 
         // Optional issue tracker (GitHub, Sentry, Linear, …). When a driver is
         // set, an "Issues" page appears in the sidebar. Disabled by default.
+        //
+        // For several repos in one project (frontend, api, sidecar, …) make
+        // this a LIST of connections instead — each with an optional "label":
+        //   'issues' => [
+        //       ['driver' => 'github', 'repo' => 'acme/frontend', 'token' => '…', 'label' => 'frontend'],
+        //       ['driver' => 'github', 'repo' => 'acme/api',      'token' => '…', 'label' => 'api'],
+        //   ],
+        // The Issues page aggregates them, tagged by label, with a repo filter.
         'issues' => [
             'driver' => env('TELEMETRY_UI_ISSUES_DRIVER'),
             'repo' => env('TELEMETRY_UI_GITHUB_REPO'),

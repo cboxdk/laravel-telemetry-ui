@@ -95,6 +95,21 @@ final class FrontendPages extends Card
     }
 
     /**
+     * Every trace for this path — the browser page load *and* the backend
+     * request it triggered, in one waterfall (frontend → backend).
+     */
+    public function tracesUrl(string $path): string
+    {
+        return route('telemetry-ui.page', array_filter([
+            'page' => 'traces',
+            'q' => '{ span.url.path = "'.addcslashes($path, '"\\').'" }',
+            'period' => $this->period,
+            'service' => $this->service,
+            'env' => $this->environment,
+        ]));
+    }
+
+    /**
      * The path portion of a full URL, for grouping (drops origin + query).
      */
     private function path(mixed $url): string

@@ -7,7 +7,6 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
-use Cbox\TelemetryUi\Queries\Results\Issue;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
 
@@ -26,32 +25,49 @@ final class IssuesList extends Card
     #[Url(as: 'issue_label')]
     public string $label = '';
 
+    /** Filter to one tracker/repo when several are configured. */
+    #[Url(as: 'issue_source')]
+    public string $sourceFilter = '';
+
     public function render(): View
     {
-        $issues = [];
+        $rows = [];
         $labels = [];
+        $sources = [];
         $error = null;
-        $label = '';
         $url = '';
 
-        if (! app(ConnectionManager::class)->hasIssues()) {
-            $error = 'No issue tracker configured. Set TELEMETRY_UI_ISSUES_DRIVER (github, sentry, linear) and its token.';
+        $configured = app(ConnectionManager::class)->issueSources();
+
+        if ($configured === []) {
+            $error = 'No issue tracker configured. Set connections.issues (a single tracker, or a list of them for frontend/api/… repos).';
         } else {
-            try {
-                $source = $this->issues();
-                $label = $source->label();
-                $url = $source->url();
-                $state = in_array($this->state, ['open', 'closed', 'all'], true) ? $this->state : 'open';
-                $issues = $source->issues($state, $this->search !== '' ? $this->search : null, limit: 50);
+            $state = in_array($this->state, ['open', 'closed', 'all'], true) ? $this->state : 'open';
+            $sources = array_map(static fn (array $s): string => $s['label'], $configured);
+            $url = $configured[0]['source']->url();
 
-                // Distinct labels across the result set, for the filter.
-                $labels = collect($issues)->flatMap(fn (Issue $i): array => $i->labels)->unique()->sort()->values()->all();
-
-                if ($this->label !== '') {
-                    $issues = array_values(array_filter($issues, fn (Issue $i): bool => in_array($this->label, $i->labels, true)));
+            foreach ($configured as $s) {
+                if ($this->sourceFilter !== '' && $s['label'] !== $this->sourceFilter) {
+                    continue;
                 }
-            } catch (SourceException $exception) {
-                $error = $exception->getMessage();
+
+                try {
+                    foreach ($s['source']->issues($state, $this->search !== '' ? $this->search : null, limit: 50) as $issue) {
+                        $rows[] = ['issue' => $issue, 'source' => $s['label']];
+                    }
+                } catch (SourceException $exception) {
+                    // One tracker being down shouldn't hide the others.
+                    $error ??= $s['label'].': '.$exception->getMessage();
+                }
+            }
+
+            // Newest first across all trackers.
+            usort($rows, static fn (array $a, array $b): int => ($b['issue']->updatedAt?->getTimestamp() ?? 0) <=> ($a['issue']->updatedAt?->getTimestamp() ?? 0));
+
+            $labels = collect($rows)->flatMap(fn (array $r): array => $r['issue']->labels)->unique()->sort()->values()->all();
+
+            if ($this->label !== '') {
+                $rows = array_values(array_filter($rows, fn (array $r): bool => in_array($this->label, $r['issue']->labels, true)));
             }
         }
 
@@ -59,10 +75,11 @@ final class IssuesList extends Card
         $view = 'telemetry-ui::cards.issues-list';
 
         return view($view, [
-            'issues' => $issues,
+            'rows' => $rows,
             'labels' => $labels,
+            'sources' => $sources,
+            'multiSource' => count($sources) > 1,
             'error' => $error,
-            'trackerLabel' => $label,
             'url' => $url,
         ]);
     }

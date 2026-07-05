@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Results\TraceSummary;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
 
@@ -42,13 +43,27 @@ final class TraceSearch extends Card
     {
         [$start, $end] = $this->range();
 
-        $traceql = $this->query !== '' ? $this->query : $this->buildQuery();
+        // Pull the request context (method/route/status) so a row reads like a
+        // request, not just a span name. Only for the built query — a raw query
+        // may already carry its own select().
+        $traceql = $this->query !== ''
+            ? $this->query
+            : $this->buildQuery().' | select(span.http.request.method, span.http.route, span.http.response.status_code, span.url.path, span.browser)';
 
         $results = [];
         $error = null;
 
         try {
-            $results = $this->traces()->search($traceql, $start, $end, limit: 50);
+            foreach ($this->traces()->search($traceql, $start, $end, limit: 50) as $summary) {
+                $results[] = [
+                    'traceId' => $summary->traceId,
+                    'service' => $summary->rootServiceName,
+                    'name' => $summary->rootTraceName !== '' ? $summary->rootTraceName : '(unnamed)',
+                    'durationMs' => $summary->durationMs,
+                    'startedAt' => $summary->startedAt,
+                    ...$this->requestContext($summary),
+                ];
+            }
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
         }
@@ -111,6 +126,29 @@ final class TraceSearch extends Card
             'service' => $this->service,
             'env' => $this->environment,
         ]));
+    }
+
+    /**
+     * HTTP request context off the matched (root) span, so the trace list can
+     * show method + route + status instead of a bare span name.
+     *
+     * @return array{method: ?string, target: ?string, status: ?string, isError: bool, browser: bool}
+     */
+    private function requestContext(TraceSummary $summary): array
+    {
+        $attributes = $summary->matchedSpans[0]->attributes ?? [];
+        $str = static fn (mixed $v): ?string => is_scalar($v) && (string) $v !== '' ? (string) $v : null;
+
+        $status = $str($attributes['http.response.status_code'] ?? null);
+        $browser = $attributes['browser'] ?? null;
+
+        return [
+            'method' => $str($attributes['http.request.method'] ?? null),
+            'target' => $str($attributes['http.route'] ?? $attributes['url.path'] ?? null),
+            'status' => $status,
+            'isError' => $status !== null && (int) $status >= 500,
+            'browser' => $browser === true || $browser === 'true',
+        ];
     }
 
     private function buildQuery(): string

@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issues across multiple repos** — `connections.issues` may now be a list of
+  trackers (frontend, api, sidecar, …), each with a `label`. The Issues page
+  aggregates them newest-first, tags each row with its repo, and adds a repo
+  filter. A single connection still works unchanged.
+- **Manual refresh button** in the toolbar, next to the auto-refresh control.
+- **Trace list reads like requests** — rows now show the HTTP method, route and
+  status (error-highlighted) off the root span, plus a `web` badge for RUM
+  traces, instead of a bare span name.
+- **Row drill-down on Analytics & Frontend** — a page row opens every trace for
+  that path, which spans the browser page load *and* the backend request it
+  triggered (frontend → backend in one waterfall).
+
+### Changed
+
+- Empty states on Analytics/Frontend now hint that the data lives under the
+  app's own service, so an empty page nudges you to check the service scope.
+
+### Fixed
+
+- Deploy-marker annotations are fetched in a single Loki query instead of one
+  per marker type (6+ round trips) — much cheaper on every chart card.
+
+### Added
+
 - **Tenancy scope lock** — `TelemetryUi::restrictScopeUsing(fn ($user) => [...])`
   locks a viewer to a subset of services and/or environments, for embedding the
   dashboard in an app. The scope switcher only offers the allowed values and
