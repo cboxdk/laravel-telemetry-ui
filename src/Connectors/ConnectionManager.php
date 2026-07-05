@@ -87,7 +87,8 @@ final class ConnectionManager
         }
 
         // A single connection has a top-level "driver"; otherwise it's a list.
-        $repos = isset($config['driver']) ? ['issues' => $config] : $config;
+        $single = isset($config['driver']);
+        $repos = $single ? ['issues' => $config] : $config;
 
         $sources = [];
 
@@ -96,7 +97,19 @@ final class ConnectionManager
                 continue;
             }
 
-            $source = $this->cached('issues['.$key.']', $repoConfig);
+            // In a multi-repo list, one misconfigured repo (bad driver, missing
+            // token/repo) must not take the whole Issues page down — skip it and
+            // list the trackers that do build. A single tracker still surfaces
+            // its config error (the caller decides how to render it).
+            try {
+                $source = $this->cached('issues['.$key.']', $repoConfig);
+            } catch (\Throwable $e) {
+                if ($single) {
+                    throw $e;
+                }
+
+                continue;
+            }
 
             if (! $source instanceof IssuesSource) {
                 continue;
@@ -120,7 +133,10 @@ final class ConnectionManager
      */
     public function hasIssues(?string $name = null): bool
     {
-        $config = $this->config->get('telemetry-ui.connections.'.($name ?? 'issues'));
+        // Resolver-aware (like issues()/issueSources()), so page registration and
+        // the create-ticket gate agree with the tracker actually resolved for the
+        // viewer — not a static-config-only view that disagrees per tenant.
+        $config = $this->connectionConfig($name ?? 'issues');
 
         if (! is_array($config) || $config === []) {
             return false;
@@ -197,8 +213,12 @@ final class ConnectionManager
     {
         $resolver = app(TelemetryUiManager::class)->connectionResolver();
 
-        if ($resolver !== null) {
-            $resolved = $resolver(Auth::user());
+        // Only consult the per-viewer resolver when there IS a viewer — an
+        // unauthenticated request (or boot-time page registration) must fall
+        // through to static config, never dereference a null user or resolve one
+        // tenant's backends for a request that has no user.
+        if ($resolver !== null && ($user = Auth::user()) !== null) {
+            $resolved = $resolver($user);
 
             if (is_array($resolved) && is_array($resolved[$name] ?? null)) {
                 /** @var array<string, mixed> */
@@ -220,7 +240,13 @@ final class ConnectionManager
      */
     private function cached(string $name, array $config): object
     {
-        return $this->resolved[$name.':'.md5(serialize($config))] ??= $this->build($config, $name);
+        // Key on a JSON projection, not serialize() — a per-tenant resolver may
+        // return config carrying a closure or resource (a lazy token, a Guzzle
+        // handler), and serialize() throws an uncatchable Error on those, 500-ing
+        // the page. json_encode degrades (unencodable leaves collapse) instead.
+        $key = $name.':'.md5((string) json_encode($config));
+
+        return $this->resolved[$key] ??= $this->build($config, $name);
     }
 
     /**

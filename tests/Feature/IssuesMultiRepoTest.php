@@ -54,3 +54,27 @@ it('aggregates issues from every repo with a source badge and filter', function 
         ->assertSee('Timeout on /orders')
         ->assertDontSee('Button misaligned');
 });
+
+it('skips a misconfigured repo in a list instead of 500ing the page', function (): void {
+    config()->set('telemetry-ui.connections.issues', [
+        ['driver' => 'github', 'repo' => 'no-slash', 'label' => 'broken'], // invalid owner/name → build throws
+        ['driver' => 'github', 'repo' => 'cboxdk/api', 'token' => 'ghp_y', 'label' => 'api'],
+    ]);
+
+    Http::fake([
+        'api.github.com/repos/cboxdk/api/issues*' => Http::response([
+            ['number' => 2, 'title' => 'Timeout on /orders', 'state' => 'open', 'html_url' => 'https://github.com/cboxdk/api/issues/2', 'updated_at' => '2026-07-02T10:00:00Z', 'labels' => []],
+        ]),
+    ]);
+
+    // The good repo resolves; the broken one is skipped, not fatal.
+    expect(app(ConnectionManager::class)->issueSources())->toHaveCount(1);
+
+    Livewire::test(IssuesList::class)->assertSee('Timeout on /orders');
+});
+
+it('surfaces a single misconfigured tracker as an inline error, not a 500', function (): void {
+    config()->set('telemetry-ui.connections.issues', ['driver' => 'github', 'repo' => 'no-slash']);
+
+    Livewire::test(IssuesList::class)->assertSee('owner/name'); // the validation message, rendered inline
+});

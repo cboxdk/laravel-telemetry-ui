@@ -36,6 +36,26 @@ it('allows access when the gate permits', function (): void {
         ->assertSee('Jobs');
 });
 
+it('removes and replaces the config-declared dashboard cards', function (): void {
+    $manager = app(TelemetryUiManager::class);
+
+    // The dashboard's default cards come from config, not the runtime map —
+    // removeCard/setCards must still reach them.
+    expect($manager->cards('dashboard'))->toContain(JobsOverview::class);
+
+    $manager->removeCard(JobsOverview::class, 'dashboard');
+    expect($manager->cards('dashboard'))
+        ->not->toContain(JobsOverview::class)
+        ->toContain(RequestsActivity::class); // the other built-ins remain
+
+    // setCards replaces the whole page (and can blank it).
+    $manager->setCards('dashboard', [DummyCard::class]);
+    expect($manager->cards('dashboard'))->toBe([DummyCard::class]);
+
+    $manager->setCards('dashboard', []);
+    expect($manager->cards('dashboard'))->toBe([]);
+});
+
 it('renders registered pages and 404s unknown ones', function (): void {
     Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
 

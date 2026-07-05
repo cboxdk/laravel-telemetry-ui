@@ -100,6 +100,15 @@ final class TelemetryUiManager
     ];
 
     /**
+     * The dashboard's default cards live in config (telemetry-ui.cards), not the
+     * $cards map above. Fold them into $cards['dashboard'] once — before any
+     * card()/setCards()/removeCard()/cards() touches it — so those mutators act
+     * on the real, effective list (otherwise removeCard/setCards on 'dashboard'
+     * would silently no-op against config-declared cards).
+     */
+    private bool $dashboardSeeded = false;
+
+    /**
      * Extra MCP tools contributed by apps/packages, appended to the built-in
      * read tools the TelemetryServer already exposes.
      *
@@ -222,6 +231,10 @@ final class TelemetryUiManager
      */
     public function card(string $card, string $page = 'dashboard'): self
     {
+        if ($page === 'dashboard') {
+            $this->seedDashboardCards();
+        }
+
         $this->cards[$page][] = $card;
 
         return $this;
@@ -235,6 +248,12 @@ final class TelemetryUiManager
      */
     public function setCards(string $page, array $cards): self
     {
+        // Replacing the list outright — mark dashboard seeded so cards() won't
+        // re-merge the config defaults on top of the caller's chosen set.
+        if ($page === 'dashboard') {
+            $this->dashboardSeeded = true;
+        }
+
         $this->cards[$page] = array_values($cards);
 
         return $this;
@@ -247,6 +266,10 @@ final class TelemetryUiManager
      */
     public function removeCard(string $card, string $page = 'dashboard'): self
     {
+        if ($page === 'dashboard') {
+            $this->seedDashboardCards();
+        }
+
         $this->cards[$page] = array_values(array_filter(
             $this->cards[$page] ?? [],
             static fn (string $registered): bool => $registered !== $card,
@@ -299,16 +322,30 @@ final class TelemetryUiManager
      */
     public function cards(string $page = 'dashboard'): array
     {
-        $cards = $this->cards[$page] ?? [];
-
         if ($page === 'dashboard') {
-            /** @var list<class-string<Card>> $configured */
-            $configured = (array) $this->config->get('telemetry-ui.cards', []);
-
-            $cards = [...$configured, ...$cards];
+            $this->seedDashboardCards();
         }
 
-        return array_values(array_unique($cards));
+        return array_values(array_unique($this->cards[$page] ?? []));
+    }
+
+    /**
+     * Fold the config-declared dashboard cards into the runtime registry, once.
+     * Config cards come first (matching the prior read-time merge order), then
+     * anything a package already registered on the dashboard at runtime.
+     */
+    private function seedDashboardCards(): void
+    {
+        if ($this->dashboardSeeded) {
+            return;
+        }
+
+        $this->dashboardSeeded = true;
+
+        /** @var list<class-string<Card>> $configured */
+        $configured = array_values(array_filter((array) $this->config->get('telemetry-ui.cards', []), 'is_string'));
+
+        $this->cards['dashboard'] = [...$configured, ...($this->cards['dashboard'] ?? [])];
     }
 
     /**

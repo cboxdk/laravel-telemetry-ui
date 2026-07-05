@@ -37,10 +37,18 @@ final class IssuesList extends Card
         $error = null;
         $url = '';
 
-        $configured = app(ConnectionManager::class)->issueSources();
+        try {
+            $configured = app(ConnectionManager::class)->issueSources();
+        } catch (\Throwable $exception) {
+            // A misconfigured single tracker (bad driver / missing repo) surfaces
+            // as an inline error, never a 500 — a broken backend must not take
+            // the page down.
+            $configured = [];
+            $error = $exception->getMessage();
+        }
 
         if ($configured === []) {
-            $error = 'No issue tracker configured. Set connections.issues (a single tracker, or a list of them for frontend/api/… repos).';
+            $error ??= 'No issue tracker configured. Set connections.issues (a single tracker, or a list of them for frontend/api/… repos).';
         } else {
             $state = in_array($this->state, ['open', 'closed', 'all'], true) ? $this->state : 'open';
             $sources = array_map(static fn (array $s): string => $s['label'], $configured);

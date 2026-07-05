@@ -4,9 +4,15 @@ declare(strict_types=1);
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\TelemetryUiManager;
+use Illuminate\Auth\GenericUser;
 use Illuminate\Support\Facades\Http;
 
 it('resolves connection config per viewer, overriding the static config', function (): void {
+    // A per-tenant resolver only fires for an actual viewer — an unauthenticated
+    // or boot-time context falls through to static config (no null deref, no
+    // resolver I/O at boot).
+    $this->actingAs(new GenericUser(['id' => 1]));
+
     // Static config points at the default backend…
     config()->set('telemetry-ui.connections.metrics', ['driver' => 'prometheus', 'url' => 'http://default:9090']);
 
@@ -21,6 +27,19 @@ it('resolves connection config per viewer, overriding the static config', functi
 
     Http::assertSent(fn ($request): bool => str_contains($request->url(), 'tenant-a:9009')
         && ($request->header('X-Scope-OrgID')[0] ?? null) === 'team-a');
+});
+
+it('reports issues from the per-tenant resolver, not just static config', function (): void {
+    $this->actingAs(new GenericUser(['id' => 1]));
+
+    // No static issues connection — only the resolver provides one for this viewer.
+    app(TelemetryUiManager::class)->resolveConnectionsUsing(fn ($user): array => [
+        'issues' => ['driver' => 'github', 'repo' => 'cboxdk/api', 'token' => 'ghp_y'],
+    ]);
+
+    // hasIssues() consults the resolver like issues() does — the create-ticket
+    // gate and the trace-drawer label agree with the tracker actually resolved.
+    expect(app(ConnectionManager::class)->hasIssues())->toBeTrue();
 });
 
 it('falls back to the static config for connections the resolver omits', function (): void {
@@ -38,6 +57,8 @@ it('falls back to the static config for connections the resolver omits', functio
 });
 
 it('does not hand one tenant another tenant\'s cached driver', function (): void {
+    $this->actingAs(new GenericUser(['id' => 1]));
+
     $tenant = 'a';
     app(TelemetryUiManager::class)->resolveConnectionsUsing(fn ($user) => [
         'metrics' => ['driver' => 'prometheus', 'url' => 'http://tenant-'.$GLOBALS['tenant'].':9090'],

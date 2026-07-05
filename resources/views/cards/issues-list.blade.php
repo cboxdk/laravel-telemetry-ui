@@ -8,6 +8,10 @@
     @if ($error && $rows === [])
         <div class="tui-error">{{ $error }}</div>
     @else
+        @if ($error)
+            {{-- Partial failure: some trackers returned issues, another is down. --}}
+            <div class="tui-error" style="margin-bottom: .5rem">⚠ {{ $error }}</div>
+        @endif
         <div class="tui-toolbar">
             <select class="tui-input" style="min-width: 100px" wire:model.live="state">
                 <option value="open">Open</option>
