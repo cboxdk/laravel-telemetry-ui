@@ -16,4 +16,17 @@ final class Assets
 
         return $mtime === false ? 0 : $mtime;
     }
+
+    /**
+     * The stylesheet + script tags for the dashboard bundle, cache-busted — so
+     * a host page can load them once (via the @telemetryUiAssets directive)
+     * before embedding cards as widgets. Livewire/Alpine are the host's own.
+     */
+    public static function tags(): string
+    {
+        $css = route('telemetry-ui.asset', ['asset' => 'telemetry-ui.css', 'v' => self::version('telemetry-ui.css')]);
+        $js = route('telemetry-ui.asset', ['asset' => 'telemetry-ui.js', 'v' => self::version('telemetry-ui.js')]);
+
+        return '<link rel="stylesheet" href="'.e($css).'">'."\n".'<script src="'.e($js).'" defer></script>';
+    }
 }

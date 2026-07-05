@@ -61,6 +61,7 @@ incident RCA.
   [authorization](core-concepts/authorization.md) ·
   [signal correlation](core-concepts/correlation.md)
 - Cookbook:
+  [embed cards as widgets](cookbook/embed-widgets.md) ·
   [web analytics & RUM](cookbook/analytics.md) ·
   [connect through a Grafana datasource proxy](cookbook/connect-via-grafana-proxy.md) ·
   [emitting annotations](cookbook/annotations.md) ·

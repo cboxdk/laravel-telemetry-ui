@@ -12,6 +12,7 @@ use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLock;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -89,6 +90,13 @@ final class TelemetryUiServiceProvider extends ServiceProvider
 
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'telemetry-ui');
 
+        // Host pages embedding cards as widgets load the bundle once with
+        // @telemetryUiAssets (Livewire/Alpine remain the host's own).
+        Blade::directive(
+            'telemetryUiAssets',
+            static fn (): string => "<?php echo \Cbox\TelemetryUi\Support\Assets::tags(); ?>",
+        );
+
         $this->registerRoutes();
         $this->registerGate();
         $this->registerIssuesPage();
@@ -144,9 +152,10 @@ final class TelemetryUiServiceProvider extends ServiceProvider
 
     private function registerIssuesPage(): void
     {
-        // Config-gated (not metric-detected): only appears when an issue
-        // tracker connection is set. Registration is data-only.
-        if (config('telemetry-ui.connections.issues.driver') === null) {
+        // Config-gated (not metric-detected): only appears when at least one
+        // issue tracker is configured — a single connection or a repo list.
+        // hasIssues() is config-only, so this stays a data-only registration.
+        if (! $this->app->make(ConnectionManager::class)->hasIssues()) {
             return;
         }
 

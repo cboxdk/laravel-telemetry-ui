@@ -17,6 +17,7 @@ use Cbox\TelemetryUi\Support\Period;
 use Cbox\TelemetryUi\Support\ScopeLock;
 use DateTimeImmutable;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -54,6 +55,40 @@ abstract class Card extends Component
 
     #[Url(as: 'env')]
     public string $environment = '';
+
+    /** True when the card is embedded on a host page (not the built-in dashboard). */
+    public bool $embedded = false;
+
+    /**
+     * Cards are Livewire components, so any of them can be dropped onto a host
+     * page as a widget: `<livewire:telemetry-ui.requests-activity service="cbox-web" period="24h" />`.
+     * Passed scope wins over the URL. Embedded or not, a card must still pass
+     * the dashboard gate — so an embedded widget can't leak data past
+     * `viewTelemetryUi` (the host still controls its own page's auth on top).
+     */
+    public function mount(
+        ?string $service = null,
+        ?string $environment = null,
+        ?string $period = null,
+        ?string $from = null,
+        ?string $to = null,
+        ?bool $embedded = null,
+    ): void {
+        $this->embedded = $embedded ?? ($service !== null || $environment !== null || $period !== null || $from !== null || $to !== null);
+
+        // On the dashboard the route already enforces the gate; an embedded
+        // widget runs outside those routes, so it must gate itself — a card
+        // dropped on a host page can't leak data past viewTelemetryUi.
+        if ($this->embedded) {
+            abort_unless(Gate::allows('viewTelemetryUi'), 403);
+        }
+
+        $this->service = $service ?? $this->service;
+        $this->environment = $environment ?? $this->environment;
+        $this->period = $period ?? $this->period;
+        $this->from = $from ?? $this->from;
+        $this->to = $to ?? $this->to;
+    }
 
     #[On('telemetry-ui:period-changed')]
     public function updatePeriod(string $period): void
