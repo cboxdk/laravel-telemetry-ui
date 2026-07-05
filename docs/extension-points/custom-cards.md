@@ -84,3 +84,29 @@ home for ticket-creation and AI-resolve flows on the roadmap.
 - Catch `SourceException` and render an inline error state; a broken backend
   must not take the page down.
 - Respect `$this->range()`; don't hardcode time windows.
+
+## Add, replace, remove
+
+The registry supports more than appending — useful for white-labelling or
+embedding, where you want to reshape the built-in dashboard:
+
+```php
+use Cbox\TelemetryUi\Facades\TelemetryUi;
+
+// Add — append a card to any page (default: the dashboard).
+TelemetryUi::card(MyCard::class, page: 'requests');
+
+// Replace — swap a page's whole card list for your own (a branded dashboard).
+TelemetryUi::setCards('dashboard', [MyHeadline::class, MyChart::class]);
+
+// Remove — drop a single built-in card…
+TelemetryUi::removeCard(\Cbox\TelemetryUi\Cards\Builtin\JobsOverview::class, 'dashboard');
+
+// …or a whole page/section from the sidebar + routing.
+TelemetryUi::removePage('users');
+```
+
+Re-registering a page slug with `TelemetryUi::page(...)` overwrites it, so you
+can relabel or regroup a built-in page too. To *extend* a built-in card instead
+of replacing it, subclass it (the built-in overview cards are not `final` — the
+detail pages do exactly this) and register your subclass.

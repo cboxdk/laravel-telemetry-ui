@@ -85,3 +85,20 @@ it('registers cards from config and runtime, deduplicated and in order', functio
     expect($manager->cards('autoscale'))->toBe([DummyCard::class])
         ->and($manager->pages())->toHaveKeys(['dashboard', 'autoscale', 'requests', 'jobs', 'traces']);
 });
+
+it('replaces, removes cards and removes whole pages (embed/white-label)', function (): void {
+    $manager = app(TelemetryUiManager::class);
+
+    // Swap a page's built-in cards for your own.
+    $manager->setCards('requests', [DummyCard::class]);
+    expect($manager->cards('requests'))->toBe([DummyCard::class]);
+
+    // Drop a single built-in card.
+    $manager->removeCard(RequestDuration::class, 'requests')->card(RequestsActivity::class, 'requests');
+    expect($manager->cards('requests'))->toBe([DummyCard::class, RequestsActivity::class]);
+
+    // Remove a whole section from the sidebar + routing.
+    $manager->removePage('users');
+    expect($manager->pages())->not->toHaveKey('users')
+        ->and($manager->hasPage('users'))->toBeFalse();
+});

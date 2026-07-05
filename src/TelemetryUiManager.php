@@ -185,13 +185,52 @@ final class TelemetryUiManager
     }
 
     /**
-     * Register a card on a page.
+     * Register a card on a page (appended after any already there).
      *
      * @param  class-string<Card>  $card
      */
     public function card(string $card, string $page = 'dashboard'): self
     {
         $this->cards[$page][] = $card;
+
+        return $this;
+    }
+
+    /**
+     * Replace a page's entire card list — swap the built-in cards for your own
+     * (e.g. a branded dashboard). Pass [] to blank the page.
+     *
+     * @param  list<class-string<Card>>  $cards
+     */
+    public function setCards(string $page, array $cards): self
+    {
+        $this->cards[$page] = array_values($cards);
+
+        return $this;
+    }
+
+    /**
+     * Remove a card from a page — drop a built-in you don't want.
+     *
+     * @param  class-string<Card>  $card
+     */
+    public function removeCard(string $card, string $page = 'dashboard'): self
+    {
+        $this->cards[$page] = array_values(array_filter(
+            $this->cards[$page] ?? [],
+            static fn (string $registered): bool => $registered !== $card,
+        ));
+
+        return $this;
+    }
+
+    /**
+     * Remove a page entirely (and its cards) — hide a built-in section such as
+     * Users or Logs from an embedded/white-labelled install.
+     */
+    public function removePage(string $slug): self
+    {
+        unset($this->pages[$slug], $this->cards[$slug]);
 
         return $this;
     }
