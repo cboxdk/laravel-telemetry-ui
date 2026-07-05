@@ -97,51 +97,62 @@ final readonly class Annotations
             return [];
         }
 
+        // Map event name → marker, and match ALL markers in a single Loki
+        // query with a regex line filter — markers are sparse, so one query
+        // over the lookback beats one query per marker type (6+ round trips).
+        $byEvent = [];
+        foreach ($markers as $marker) {
+            $event = $marker['event'] ?? '';
+            if ($event !== '') {
+                $byEvent[$event] = $marker;
+            }
+        }
+
+        if ($byEvent === []) {
+            return [];
+        }
+
         $selector = $this->selector($streamMatchers);
         $end = new DateTimeImmutable;
         $start = $end->modify('-'.$this->lookbackDays.' days');
 
+        $pattern = implode('|', array_map(
+            static fn (string $event): string => preg_quote($event, '/'),
+            array_keys($byEvent),
+        ));
+
+        try {
+            $entries = $this->connections->logs()->query(
+                $selector.' |~ "'.addcslashes($pattern, '"\\').'"',
+                $start,
+                $end,
+                limit: 500,
+            );
+        } catch (SourceException) {
+            return [];
+        }
+
         $annotations = [];
 
-        foreach ($markers as $marker) {
-            $event = $marker['event'] ?? '';
+        foreach ($entries as $entry) {
+            // Classify by the exact event name; ignore incidental matches.
+            $marker = $byEvent[trim($entry->line)] ?? null;
 
-            if ($event === '') {
+            if ($marker === null) {
                 continue;
             }
 
-            try {
-                $entries = $this->connections->logs()->query(
-                    $selector.' |= "'.addcslashes($event, '"\\').'"',
-                    $start,
-                    $end,
-                    limit: 200,
-                );
-            } catch (SourceException) {
-                continue;
-            }
+            $id = $entry->labels[$marker['id_label'] ?? 'deployment_id'] ?? null;
+            $notes = $entry->labels[$marker['notes_label'] ?? 'deployment_notes'] ?? null;
 
-            foreach ($entries as $entry) {
-                // Only exact event lines, not incidental mentions.
-                if (trim($entry->line) !== $event) {
-                    continue;
-                }
-
-                $idLabel = $marker['id_label'] ?? 'deployment_id';
-                $notesLabel = $marker['notes_label'] ?? 'deployment_notes';
-
-                $id = $entry->labels[$idLabel] ?? null;
-                $notes = $entry->labels[$notesLabel] ?? null;
-
-                $annotations[] = [
-                    'ts' => $entry->timestampNano / 1_000_000,
-                    'label' => $id !== null && $id !== '' ? ($marker['label'] ?? 'Deploy').' '.$id : ($marker['label'] ?? 'Marker'),
-                    'notes' => $notes !== null && $notes !== '' ? $notes : null,
-                    'kind' => $event,
-                    'traceId' => $entry->labels['trace_id'] ?? null,
-                    'color' => $marker['color'] ?? '#c084fc',
-                ];
-            }
+            $annotations[] = [
+                'ts' => $entry->timestampNano / 1_000_000,
+                'label' => $id !== null && $id !== '' ? ($marker['label'] ?? 'Deploy').' '.$id : ($marker['label'] ?? 'Marker'),
+                'notes' => $notes !== null && $notes !== '' ? $notes : null,
+                'kind' => trim($entry->line),
+                'traceId' => $entry->labels['trace_id'] ?? null,
+                'color' => $marker['color'] ?? '#c084fc',
+            ];
         }
 
         usort($annotations, static fn (array $a, array $b): int => $b['ts'] <=> $a['ts']);

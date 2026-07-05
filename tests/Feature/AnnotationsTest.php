@@ -46,8 +46,14 @@ it('reads deploy markers from loki within a range', function (): void {
         ->and($annotations[0]->traceId)->toBe('aaaabbbbccccddddeeeeffff00001111')
         ->and($annotations[0]->timestampMs)->toBe(1735689600000.0);
 
-    Http::assertSent(fn ($request): bool => str_contains(requestQuery($request)['query'] ?? '', 'app.deployment')
-        && str_contains(requestQuery($request)['query'] ?? '', 'service_name="telemetry-demo"'));
+    // One combined regex query matches every marker type (not one query each).
+    Http::assertSent(function ($request): bool {
+        $q = requestQuery($request)['query'] ?? '';
+
+        return str_contains($q, '|~')
+            && str_contains($q, 'deployment') && str_contains($q, 'incident')
+            && str_contains($q, 'service_name="telemetry-demo"');
+    });
 });
 
 it('filters markers to the requested window', function (): void {
