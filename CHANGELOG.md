@@ -26,10 +26,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Empty states on Analytics/Frontend now hint that the data lives under the
   app's own service, so an empty page nudges you to check the service scope.
 
+### Security
+
+- **Scope lock is now enforced on raw trace queries.** A hand-edited or
+  deep-linked `?q=` on the Traces page ran verbatim, bypassing the tenancy
+  lock; it is now forced into the viewer's allowed services (drill-down links
+  go through the scoped builder too).
+- **Scope lock fails closed.** A viewer whose resolver returns an empty allowed
+  set now matches nothing instead of the whole fleet, and deploy-marker queries
+  respect a multi-value lock (previously left unscoped).
+
 ### Fixed
 
 - Deploy-marker annotations are fetched in a single Loki query instead of one
   per marker type (6+ round trips) — much cheaper on every chart card.
+- `TelemetryUi::setCards()` / `removeCard()` now affect the **dashboard** page's
+  config-declared cards (they previously no-op'd there).
+- A misconfigured repo in a multi-repo `connections.issues` list is skipped
+  instead of 500-ing the Issues page; a partial per-tracker failure shows a
+  warning banner rather than silently dropping that repo.
+- Per-tenant connection config is keyed safely (no fatal when a resolver returns
+  a closure/resource), memoised per request, and `hasIssues()` is resolver-aware
+  so page/gate decisions match the tracker actually resolved.
+- The brand accent value can no longer smuggle an external `url(...)`, and an
+  array-shaped `?service[]=` no longer corrupts the `DashboardViewed` audit scope.
 
 ### Added
 
