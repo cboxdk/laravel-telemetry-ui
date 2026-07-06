@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   colored dot handle, a hover tooltip with the full detail (label, exact
   time, notes), and a click-callout with an "Open trace" button that jumps
   straight into the emitting trace via the drawer.
+- **The trace context strip names its scope.** The host/runtime tiles now
+  say exactly whose signals they show — the `host.name` that served the
+  trace (linked to the Hosts page) and the service, or "all hosts" when
+  the resource carries no host and the queries aggregate service-wide.
+  `host.name` also joined the resource rows in the span attribute panel.
 - **The drawer opens instantly.** Clicking a trace/issue/error row slides
   the drawer in immediately with a shimmer skeleton; the content morphs in
   when the backend queries land — no more click lag.

@@ -54,8 +54,25 @@
             'ms' => Format::ms($v),
             default => rtrim(rtrim(number_format($v, 2), '0'), '.'),
         })
+        @php($ctxRoot = $trace?->root())
+        @php($ctxHost = $ctxRoot !== null ? ($trace->services[$ctxRoot->serviceName]['host.name'] ?? null) : null)
         <div class="tui-context">
-            <span class="tui-context-label" title="Host &amp; runtime signals around this trace, vs. what's typical for this scope — the 'what was different?' view">Context</span>
+            {{-- Say WHOSE signals these are: the exact host that served the
+                 trace when the resource carries host.name, otherwise the
+                 service-wide aggregate (that's what the queries scope to). --}}
+            <div class="tui-context-scope" title="Host &amp; runtime signals around this trace, vs. what's typical for this scope — the 'what was different?' view">
+                <span class="tui-context-label">Context</span>
+                <span class="tui-context-who">
+                    @if (is_string($ctxHost) && $ctxHost !== '')
+                        <a href="{{ route('telemetry-ui.page', ['page' => 'hosts']) }}" title="Open the Hosts page">{{ $ctxHost }}</a>
+                    @else
+                        all hosts
+                    @endif
+                    @if ($ctxRoot !== null && $ctxRoot->serviceName !== '')
+                        · {{ $ctxRoot->serviceName }}
+                    @endif
+                </span>
+            </div>
             @foreach ($context as $sig)
                 <div @class(['tui-context-tile', 'tui-ctx-'.$sig->group, 'is-outlier' => $sig->isOutlier()])>
                     <div class="tui-context-head">
@@ -132,7 +149,7 @@
                             </tr>
                         @endforeach
                         @foreach ($trace->services[$span->serviceName] ?? [] as $key => $value)
-                            @if (in_array($key, ['telemetry.sdk.name', 'service.version', 'deployment.id', 'deployment.environment.name'], true))
+                            @if (in_array($key, ['telemetry.sdk.name', 'service.version', 'deployment.id', 'deployment.environment.name', 'host.name'], true))
                                 <tr>
                                     <td>{{ $key }}</td>
                                     <td>

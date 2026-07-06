@@ -145,6 +145,8 @@ it('renders the host/runtime context strip beside the waterfall', function (): v
         ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab')
         ->assertSee('GET /orders')
         ->assertSee('Context')
+        ->assertSee('web-3')     // the scope cell names the host the tiles describe
+        ->assertSee('checkout')  // …and the service
         ->assertSee('Host CPU')
         ->assertSee('71%'); // last value of the padded window
 });

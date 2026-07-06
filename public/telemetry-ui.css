@@ -912,6 +912,32 @@ html, body {
     margin-right: 2px;
 }
 
+/* The scope cell: which host (or aggregate) + service the tiles describe. */
+
+.tui-context-scope {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    margin-right: 4px;
+    min-width: 0;
+}
+
+.tui-context-scope .tui-context-label { align-self: flex-start; margin-right: 0; }
+
+.tui-context-who {
+    font-family: var(--tui-mono);
+    font-size: 10px;
+    color: var(--tui-text-dim);
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tui-context-who a { color: var(--tui-info); text-decoration: none; }
+.tui-context-who a:hover { text-decoration: underline; }
+
 .tui-context-tile {
     min-width: 120px;
     flex: 1 1 120px;
