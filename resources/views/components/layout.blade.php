@@ -4,7 +4,7 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{{ $title }} — {{ config('telemetry-ui.brand.name') ?: 'Telemetry' }}</title>
     <link rel="stylesheet" href="{{ route('telemetry-ui.asset', ['asset' => 'telemetry-ui.css', 'v' => Cbox\TelemetryUi\Support\Assets::version('telemetry-ui.css')]) }}">
     <script src="{{ route('telemetry-ui.asset', ['asset' => 'telemetry-ui.js', 'v' => Cbox\TelemetryUi\Support\Assets::version('telemetry-ui.js')]) }}" defer></script>
@@ -16,8 +16,20 @@
     @livewireStyles
 </head>
 <body>
-    <div class="tui-shell">
-        <aside class="tui-sidebar">
+    <div class="tui-shell" x-data="{ nav: false }" x-on:keydown.window.escape="nav = false">
+        {{-- Mobile-only topbar: brand + hamburger; the sidebar becomes an
+             off-canvas drawer below the breakpoint (see telemetry-ui.css). --}}
+        <header class="tui-topbar">
+            <button type="button" class="tui-topbar-menu" x-on:click="nav = true"
+                    aria-label="Open navigation" aria-controls="tui-sidebar" x-bind:aria-expanded="nav">
+                <span></span><span></span><span></span>
+            </button>
+            <span class="tui-topbar-brand">{{ config('telemetry-ui.brand.name') ?: config('app.name') }}</span>
+        </header>
+
+        <div class="tui-sidebar-overlay" x-show="nav" x-cloak x-on:click="nav = false" x-transition.opacity></div>
+
+        <aside class="tui-sidebar" id="tui-sidebar" x-bind:class="{ 'is-open': nav }">
             <x-telemetry-ui::scope-switcher :services="$services" :environments="$environments" />
 
             <nav class="tui-nav">

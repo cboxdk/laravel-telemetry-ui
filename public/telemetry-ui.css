@@ -35,6 +35,43 @@ html, body {
     min-height: 100vh;
 }
 
+/* Mobile topbar + off-canvas drawer chrome. Hidden on desktop; the media
+   query at the bottom of this file turns the sidebar into the drawer. */
+
+.tui-topbar { display: none; }
+.tui-sidebar-overlay { display: none; }
+
+.tui-topbar-menu {
+    appearance: none;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 38px;
+    height: 34px;
+    padding: 0;
+    background: var(--tui-surface);
+    border: 1px solid var(--tui-border);
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.tui-topbar-menu span {
+    display: block;
+    width: 14px;
+    height: 1.5px;
+    border-radius: 1px;
+    background: var(--tui-text-dim);
+}
+
+.tui-topbar-menu:hover span { background: var(--tui-text); }
+
+.tui-topbar-brand {
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
 /* Sidebar */
 
 .tui-sidebar {
@@ -547,6 +584,99 @@ html, body {
     white-space: pre-wrap;
     word-break: break-word;
 }
+
+/* CPU profile strip (trace detail) */
+
+.tui-profile {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 10px;
+    align-items: center;
+    padding: 0 0 16px;
+    font-family: var(--tui-mono);
+    font-size: 11px;
+}
+
+.tui-profile > .tui-context-label { grid-column: 1 / -1; margin-bottom: 2px; }
+
+.tui-profile-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(160px, 38%) 1fr 48px;
+    gap: 10px;
+    align-items: center;
+}
+
+.tui-profile-fn {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--tui-text-dim);
+}
+
+.tui-profile-bar {
+    height: 8px;
+    background: #131316;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.tui-profile-bar > span {
+    display: block;
+    height: 100%;
+    background: #c084fc;
+    opacity: 0.75;
+    border-radius: 3px;
+}
+
+.tui-profile-pct {
+    text-align: right;
+    color: var(--tui-text-faint);
+}
+
+/* Exception-group detail (drawer) */
+
+.tui-exception-message {
+    margin: 0 0 14px;
+    font-family: var(--tui-mono);
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--tui-danger);
+    word-break: break-word;
+}
+
+.tui-section-title {
+    margin: 20px 0 8px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--tui-text-faint);
+}
+
+.tui-code {
+    margin: 0;
+    padding: 12px 14px;
+    background: var(--tui-surface);
+    border: 1px solid var(--tui-border);
+    border-radius: 8px;
+    font-family: var(--tui-mono);
+    font-size: 11.5px;
+    line-height: 1.65;
+    color: var(--tui-text-dim);
+    overflow-x: auto;
+    white-space: pre;
+}
+
+.tui-code .is-throw-line {
+    display: inline-block;
+    min-width: 100%;
+    background: rgba(248, 113, 113, 0.13);
+    color: var(--tui-text);
+    border-radius: 3px;
+}
+
+.tui-stacktrace { max-height: 320px; overflow-y: auto; }
 
 /* Toolbar (search inputs, filters inside cards) */
 
@@ -1147,4 +1277,122 @@ code {
     background: var(--tui-surface-2);
     border-radius: 4px;
     padding: 1px 4px;
+}
+
+/* Mobile (phones + small tablets): topbar appears, the sidebar becomes an
+   off-canvas drawer, and dense desktop spacing loosens up for touch. */
+
+@media (max-width: 768px) {
+    .tui-shell { display: block; }
+
+    .tui-topbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 60;
+        padding: 10px 14px;
+        padding-top: calc(10px + env(safe-area-inset-top));
+        background: rgba(9, 9, 11, 0.92);
+        backdrop-filter: blur(8px);
+        border-bottom: 1px solid var(--tui-border);
+    }
+
+    .tui-sidebar {
+        position: fixed;
+        z-index: 75;
+        top: 0;
+        left: 0;
+        height: 100dvh;
+        width: min(280px, 84vw);
+        background: var(--tui-bg);
+        transform: translateX(-100%);
+        transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+        padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+
+    .tui-sidebar.is-open { transform: translateX(0); }
+
+    .tui-sidebar-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        background: rgba(0, 0, 0, 0.55);
+    }
+
+    /* Roomier touch targets in the drawer. */
+    .tui-nav-item { padding: 9px 10px; font-size: 14px; }
+    .tui-scope-field select { padding-top: 8px; padding-bottom: 8px; }
+
+    .tui-main { padding: 16px 14px 40px; }
+
+    .tui-header {
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .tui-header h1 { font-size: 17px; }
+
+    .tui-header-controls {
+        flex-wrap: wrap;
+        row-gap: 6px;
+        max-width: 100%;
+    }
+
+    /* Period presets scroll sideways instead of blowing up the header. */
+    .tui-periods { max-width: 100%; overflow-x: auto; }
+    .tui-period { padding: 6px 9px; }
+
+    .tui-btn { padding: 7px 10px; }
+
+    /* The custom-range popover becomes a viewport-anchored sheet so it can't
+       clip off-screen when its trigger sits near an edge. */
+    .tui-range-panel {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        top: calc(60px + env(safe-area-inset-top));
+    }
+
+    .tui-grid { gap: 12px; }
+    .tui-stats { gap: 12px 18px; }
+
+    .tui-filters { gap: 8px 10px; }
+    .tui-filter { flex: 1 1 140px; }
+    .tui-filter select,
+    .tui-filter input { width: 100%; min-width: 0; }
+
+    .tui-toolbar { flex-wrap: wrap; }
+    .tui-input { min-width: 0; flex: 1 1 160px; }
+
+    /* iOS zooms into any focused field whose font-size is below 16px. */
+    .tui-input,
+    .tui-filter select,
+    .tui-filter input,
+    .tui-scope-field select,
+    .tui-range-panel input,
+    .tui-palette-input,
+    .tui-compose-body { font-size: 16px; }
+
+    /* Trace waterfall: shrink the name column so bars keep breathing room,
+       and drop the per-row service chip — it starves the span name of space
+       (the compact "web" badge stays; it marks frontend rows). */
+    .tui-wf-row { grid-template-columns: minmax(110px, 38%) 1fr 56px; gap: 8px; }
+    .tui-wf-name .tui-badge:not(.tui-badge-web) { display: none; }
+
+    .tui-log-meta { margin-left: 0; }
+
+    .tui-drawer { width: 100vw; border-left: 0; }
+    .tui-drawer-header { padding: 12px 14px; }
+    .tui-drawer-body { padding: 14px 14px 32px; }
+
+    .tui-palette { top: 8vh; }
+    .tui-palette-hint { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tui-sidebar { transition: none; }
 }
