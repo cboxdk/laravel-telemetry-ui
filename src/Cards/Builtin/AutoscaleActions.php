@@ -12,42 +12,53 @@ use Illuminate\Contracts\View\View;
 /**
  * Executed scaling actions over time, split by direction — how often (and
  * which way) the autoscaler actually moved. From
- * queue_autoscale.scaling.actions.
+ * queue_autoscale.scaling.actions, whose direction label is 'up' | 'down'
+ * (the WorkersScaled action, verified against live data).
  */
 final class AutoscaleActions extends Card
 {
     protected ?string $drillPage = 'autoscale';
 
     private const DIRECTIONS = [
-        'scale_up' => ['Scale up', '#34d399'],
-        'scale_down' => ['Scale down', '#60a5fa'],
+        'up' => ['Scale up', '#34d399'],
+        'down' => ['Scale down', '#60a5fa'],
     ];
 
     public function render(): View
     {
         [$start, $end] = $this->range();
 
-        $p = $this->promDuration();
-        $w = $this->rateWindow();
+        $metric = $this->metric('queue_autoscale_scaling_actions_total');
+
+        try {
+            $totals = [];
+
+            foreach ($this->metrics()->query('sum by (direction) (increase('.$metric.'['.$this->promDuration().']))') as $sample) {
+                $direction = $sample->labels['direction'] ?? '';
+                $totals[$direction] = ($totals[$direction] ?? 0.0) + $sample->value;
+            }
+
+            $range = $this->metrics()->queryRange(
+                'sum by (direction) (increase('.$metric.'['.$this->rateWindow().']))',
+                $start,
+                $end,
+            );
+        } catch (SourceException $exception) {
+            return $this->chartCard('Scaling actions', error: $exception->getMessage());
+        }
 
         $series = [];
         $stats = [];
 
-        try {
-            foreach (self::DIRECTIONS as $direction => [$label, $color]) {
-                $metric = $this->metric('queue_autoscale_scaling_actions_total', 'direction="'.$direction.'"');
+        foreach (self::DIRECTIONS as $direction => [$label, $color]) {
+            $total = $totals[$direction] ?? 0.0;
+            $stats[] = $this->stat($label, Format::count($total), $total > 0 ? null : 'dim');
 
-                $total = $this->total('sum(increase('.$metric.'['.$p.']))');
-                $stats[] = $this->stat($label, Format::count($total), $total > 0 ? null : 'dim');
-
-                $range = $this->metrics()->queryRange('sum(increase('.$metric.'['.$w.']))', $start, $end);
-
-                if (isset($range[0])) {
-                    $series[] = ['name' => $label, 'data' => $range[0]->toChartData(), 'color' => $color];
+            foreach ($range as $timeSeries) {
+                if (($timeSeries->labels['direction'] ?? '') === $direction) {
+                    $series[] = ['name' => $label, 'data' => $timeSeries->toChartData(), 'color' => $color];
                 }
             }
-        } catch (SourceException $exception) {
-            return $this->chartCard('Scaling actions', error: $exception->getMessage());
         }
 
         return $this->chartCard(

@@ -188,12 +188,15 @@ it('charts autoscaler target against active workers', function (): void {
 });
 
 it('charts executed scaling actions by direction', function (): void {
+    // The live direction label values are 'up' | 'down' (WorkersScaled action).
     Http::fake([
         'prometheus.test:9090/api/v1/query_range*' => Http::response(queuesMatrix([
-            ['metric' => [], 'values' => [[1735689600, '1'], [1735689660, '2']]],
+            ['metric' => ['direction' => 'up'], 'values' => [[1735689600, '1'], [1735689660, '2']]],
+            ['metric' => ['direction' => 'down'], 'values' => [[1735689600, '0'], [1735689660, '1']]],
         ])),
         'prometheus.test:9090/api/v1/query?*' => Http::response(queuesVector([
-            ['metric' => [], 'value' => [1735689600, '3']],
+            ['metric' => ['direction' => 'up'], 'value' => [1735689600, '3']],
+            ['metric' => ['direction' => 'down'], 'value' => [1735689600, '1']],
         ])),
     ]);
 
@@ -206,7 +209,7 @@ it('charts executed scaling actions by direction', function (): void {
     Http::assertSent(function ($request): bool {
         $q = rawurldecode(requestQuery($request)['query'] ?? '');
 
-        return str_contains($q, 'queue_autoscale_scaling_actions_total') && str_contains($q, 'direction="scale_up"');
+        return str_contains($q, 'queue_autoscale_scaling_actions_total') && str_contains($q, 'sum by (direction)');
     });
 });
 

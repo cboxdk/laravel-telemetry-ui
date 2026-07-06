@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the log was squeezed into one column. The wrapper now uses
   `display: contents`.
 - **Live tail is on by default** on the request log.
+- **Scaling actions card matched nothing on real data.** The autoscaler's
+  `direction` label carries `up` / `down` (the WorkersScaled action), not
+  `scale_up` / `scale_down`; the card now groups by the label instead of
+  filtering on guessed values. Verified against live production series —
+  as are the rest of the autoscale names, including
+  `queue_autoscale_sla_breach_ratio` and
+  `queue_autoscale_sla_predicted_pickup_seconds`.
 
 ## [0.2.1] - 2026-07-06
 
