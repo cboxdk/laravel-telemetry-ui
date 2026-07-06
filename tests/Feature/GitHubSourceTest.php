@@ -6,6 +6,8 @@ use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\GitHub\GitHubSource;
 use Cbox\TelemetryUi\Queries\Results\Issue;
+use Cbox\TelemetryUi\TelemetryUiServiceProvider;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 
 function fakeGitHub(): void
@@ -40,6 +42,33 @@ function fakeGitHub(): void
         ]),
     ]);
 }
+
+it('shows the error groups next to the tracker list on the issues page', function (): void {
+    fakeGitHub();
+
+    config()->set('telemetry-ui.connections.issues', [
+        'driver' => 'github',
+        'repo' => 'cboxdk/laravel-telemetry-ui',
+        'token' => 'ghp_test',
+    ]);
+
+    // The issues page is config-gated at boot; re-boot the provider now
+    // that a tracker is configured so the real registration path runs.
+    // (Re-booting also re-defines the gate — open it afterwards.)
+    app()->register(TelemetryUiServiceProvider::class, force: true);
+    Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
+
+    Http::fake([
+        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
+        'tempo.test:3200/*' => Http::response(['traces' => []]),
+        'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
+    ]);
+
+    $this->get('/telemetry-ui/issues')
+        ->assertOk()
+        ->assertSee('Errors')            // the unified error groups card
+        ->assertSee('Charts render blank on Safari'); // …and the tracker list
+});
 
 it('lists github issues and distinguishes pull requests', function (): void {
     fakeGitHub();

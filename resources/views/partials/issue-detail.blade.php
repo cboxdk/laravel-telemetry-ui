@@ -31,7 +31,9 @@
     @endif
 
     @if ($issue->body)
-        <div class="tui-issue-body">{{ Str::limit($issue->body, 4000) }}</div>
+        {{-- Markdown → strict-allowlist HTML (SafeHtml): readable like on
+             the tracker, never executable — external content. --}}
+        <div class="tui-issue-body tui-md">{!! Cbox\TelemetryUi\Support\SafeHtml::fromMarkdown(Str::limit($issue->body, 8000)) !!}</div>
     @else
         <div class="tui-note">No description.</div>
     @endif

@@ -167,6 +167,9 @@ final class TelemetryUiServiceProvider extends ServiceProvider
 
         $manager = $this->app->make(TelemetryUiManager::class);
         $manager->page('issues', 'Issues', group: null);
+        // The error groups ARE issues — show them next to the tracker's
+        // tickets, so "what's broken" and "what's filed" live on one page.
+        $manager->card(Cards\Builtin\UnifiedErrors::class, page: 'issues');
         $manager->card(Cards\Builtin\IssuesList::class, page: 'issues');
     }
 

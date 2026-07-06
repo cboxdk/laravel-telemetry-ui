@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Error groups live on the Issues page too.** The unified Errors card
+  now sits above the tracker list — "what's broken" and "what's filed"
+  on one page.
+- **Issue/PR bodies render as formatted markdown.** Dependabot's
+  release-notes blocks, headings, lists, code and links display like on
+  the tracker instead of raw tag soup — via a strict-allowlist sanitizer
+  (structural tags only, every attribute dropped except validated http(s)
+  hrefs; scripts/styles/iframes lose their payload entirely), because
+  tracker bodies are external content.
 - **Annotations are now interactive.** Each chart marker line carries a
   colored dot handle; hovering it opens a callout ANCHORED to the line
   (the pointer can move into it), and clicking pins the same callout in
