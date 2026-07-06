@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Dashboard cards drill into their pages.** Cards that summarise a
+  dedicated page (Requests activity/duration, Exceptions, Jobs, queue and
+  autoscale cards) gain a "Requests →"-style header link when rendered on
+  the dashboard or as an embedded widget, carrying the active
+  period/service/env scope. On the card's own page the link is suppressed.
+  Package cards opt in by setting `protected ?string $drillPage = 'my-page'`.
+
 ## [0.2.1] - 2026-07-06
 
 ### Fixed

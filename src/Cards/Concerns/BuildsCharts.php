@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Support\Format;
+use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Contracts\View\View;
 
 /**
@@ -114,6 +115,7 @@ trait BuildsCharts
         return view($view, [
             'title' => $title,
             'subtitle' => $subtitle,
+            'drill' => $this->drillLink(),
             'series' => $series,
             'stats' => $stats,
             'type' => $type,
@@ -126,6 +128,27 @@ trait BuildsCharts
             'min' => $start->getTimestamp() * 1000,
             'max' => $end->getTimestamp() * 1000,
         ]);
+    }
+
+    /**
+     * The header drill link for cards that summarise a dedicated page —
+     * rendered on the dashboard (and embedded widgets) only, so a card on
+     * its own page stays quiet.
+     *
+     * @return array{url: string, label: string}|null
+     */
+    private function drillLink(): ?array
+    {
+        if ($this->drillPage === null || $this->onPage !== 'dashboard') {
+            return null;
+        }
+
+        $meta = app(TelemetryUiManager::class)->pages()[$this->drillPage] ?? null;
+
+        return [
+            'url' => $this->pageUrl($this->drillPage),
+            'label' => $meta['label'] ?? $this->drillPage,
+        ];
     }
 
     /**

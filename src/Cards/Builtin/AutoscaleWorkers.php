@@ -17,6 +17,8 @@ use Illuminate\Contracts\View\View;
  */
 class AutoscaleWorkers extends Card
 {
+    protected ?string $drillPage = 'autoscale';
+
     public function render(): View
     {
         [$start, $end] = $this->range();

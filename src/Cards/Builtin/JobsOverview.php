@@ -14,6 +14,8 @@ use Illuminate\Contracts\View\View;
  */
 class JobsOverview extends Card
 {
+    protected ?string $drillPage = 'jobs';
+
     private const OUTCOMES = [
         'processed' => ['Processed', '#34d399', 'ok'],
         'released' => ['Released', '#fbbf24', 'warn'],

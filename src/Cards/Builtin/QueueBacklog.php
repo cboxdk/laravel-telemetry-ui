@@ -16,6 +16,8 @@ use Illuminate\Contracts\View\View;
  */
 class QueueBacklog extends Card
 {
+    protected ?string $drillPage = 'queues';
+
     private const STATES = [
         'pending' => ['Pending', '#60a5fa'],
         'scheduled' => ['Scheduled', '#c084fc'],

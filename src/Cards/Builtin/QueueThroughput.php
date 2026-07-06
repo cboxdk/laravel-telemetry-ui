@@ -13,6 +13,8 @@ use Illuminate\Contracts\View\View;
  */
 class QueueThroughput extends Card
 {
+    protected ?string $drillPage = 'queues';
+
     public function render(): View
     {
         return $this->promChart(

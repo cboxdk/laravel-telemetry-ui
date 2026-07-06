@@ -14,6 +14,8 @@ use Illuminate\Contracts\View\View;
  */
 class ExceptionsOverview extends Card
 {
+    protected ?string $drillPage = 'exceptions';
+
     public function render(): View
     {
         [$start, $end] = $this->range();

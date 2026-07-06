@@ -15,6 +15,8 @@ use Illuminate\Contracts\View\View;
  */
 final class QueueLag extends Card
 {
+    protected ?string $drillPage = 'jobs';
+
     public function render(): View
     {
         [$start, $end] = $this->range();

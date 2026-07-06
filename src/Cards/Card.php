@@ -65,6 +65,20 @@ abstract class Card extends Component
     public bool $embedded = false;
 
     /**
+     * The dashboard page this card is rendering on ('dashboard' also covers
+     * embedded widgets). Captured at mount so drill links can be suppressed
+     * on a card's own page.
+     */
+    public string $onPage = 'dashboard';
+
+    /**
+     * The page a chartCard() drills into from the dashboard — set it on cards
+     * that summarise a dedicated page (e.g. 'requests'), and the card header
+     * gains a "Requests →" link there. Null = no drill link.
+     */
+    protected ?string $drillPage = null;
+
+    /**
      * Cards are Livewire components, so any of them can be dropped onto a host
      * page as a widget: `<livewire:telemetry-ui.requests-activity service="cbox-web" period="24h" />`.
      * Passed scope wins over the URL. Embedded or not, a card must still pass
@@ -93,6 +107,9 @@ abstract class Card extends Component
         $this->period = $period ?? $this->period;
         $this->from = $from ?? $this->from;
         $this->to = $to ?? $this->to;
+
+        $page = request()->route()?->parameter('page');
+        $this->onPage = is_string($page) && $page !== '' ? $page : 'dashboard';
     }
 
     #[On('telemetry-ui:period-changed')]

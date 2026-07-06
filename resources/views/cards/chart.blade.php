@@ -1,4 +1,10 @@
 <x-telemetry-ui::card :title="$title" :subtitle="$subtitle ?? null" :span="$span">
+    @if ($drill ?? null)
+        <x-slot:actions>
+            <a class="tui-btn" href="{{ $drill['url'] }}">{{ $drill['label'] }} →</a>
+        </x-slot:actions>
+    @endif
+
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @else

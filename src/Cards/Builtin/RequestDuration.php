@@ -14,6 +14,8 @@ use Illuminate\Contracts\View\View;
  */
 class RequestDuration extends Card
 {
+    protected ?string $drillPage = 'requests';
+
     public function render(): View
     {
         [$start, $end] = $this->range();

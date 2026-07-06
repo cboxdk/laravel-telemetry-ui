@@ -16,6 +16,8 @@ use Illuminate\Contracts\View\View;
  */
 final class AutoscaleCluster extends Card
 {
+    protected ?string $drillPage = 'autoscale';
+
     private const SERIES = [
         'queue_autoscale_cluster_workers' => ['Workers', '#34d399'],
         'queue_autoscale_cluster_required_workers' => ['Required', '#fbbf24'],

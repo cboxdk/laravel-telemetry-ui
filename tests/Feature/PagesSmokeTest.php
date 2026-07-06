@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
+use Cbox\TelemetryUi\Cards\Builtin\RequestsActivity;
 use Cbox\TelemetryUi\Support\Period;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
+use Livewire\Livewire;
 
 beforeEach(function (): void {
     Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
@@ -74,6 +77,22 @@ it('renders every built-in page', function (string $page): void {
 it('renders every built-in page in every period', function (string $period): void {
     $this->get('/telemetry-ui?period='.$period)->assertOk();
 })->with(array_map(fn (Period $period): string => $period->value, Period::cases()));
+
+it('links dashboard cards through to their dedicated pages', function (): void {
+    // On the dashboard (the default when no page route param is present)
+    // a summarising card carries a drill link to its page…
+    Livewire::test(JobsOverview::class)
+        ->assertSee('Jobs →')
+        ->assertSee('/telemetry-ui/jobs', false);
+
+    Livewire::test(RequestsActivity::class)
+        ->assertSee('Requests →');
+
+    // …but on its own page the link is suppressed.
+    Livewire::test(JobsOverview::class)
+        ->set('onPage', 'jobs')
+        ->assertDontSee('Jobs →');
+});
 
 it('applies the service and environment scope to metric queries', function (): void {
     $this->get('/telemetry-ui/requests?service=checkout&env=prod')->assertOk();

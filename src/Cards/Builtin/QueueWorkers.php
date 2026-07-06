@@ -15,6 +15,8 @@ use Illuminate\Contracts\View\View;
  */
 final class QueueWorkers extends Card
 {
+    protected ?string $drillPage = 'queues';
+
     private const STATES = [
         'busy' => ['Busy', '#34d399'],
         'idle' => ['Idle', '#71717a'],

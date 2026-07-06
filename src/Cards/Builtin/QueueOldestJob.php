@@ -15,6 +15,8 @@ use Illuminate\Contracts\View\View;
  */
 final class QueueOldestJob extends Card
 {
+    protected ?string $drillPage = 'queues';
+
     public function render(): View
     {
         [$start, $end] = $this->range();

@@ -16,6 +16,8 @@ use Illuminate\Contracts\View\View;
  */
 final class AutoscaleActions extends Card
 {
+    protected ?string $drillPage = 'autoscale';
+
     private const DIRECTIONS = [
         'scale_up' => ['Scale up', '#34d399'],
         'scale_down' => ['Scale down', '#60a5fa'],
