@@ -30,7 +30,7 @@
                 </div>
                 <div class="tui-drawer-actions">
                     @if ($fullUrl)
-                        <a class="tui-btn" href="{{ $fullUrl }}" @if ($mode === 'issue') target="_blank" rel="noopener" @endif title="{{ match ($mode) { 'issue' => 'Open on tracker', 'exception' => 'Every trace for this error', default => 'Open full page' } }}">↗ {{ match ($mode) { 'issue' => 'Open', 'exception' => 'All traces', default => 'Full page' } }}</a>
+                        <a class="tui-btn" href="{{ $fullUrl }}" @if ($mode === 'issue') target="_blank" rel="noopener" @endif title="{{ match ($mode) { 'issue' => 'Open on tracker', 'exception' => 'Open the full issue page', default => 'Open full page' } }}">↗ {{ $mode === 'issue' ? 'Open' : 'Full page' }}</a>
                     @endif
                     <button type="button" class="tui-btn" wire:click="close" title="Close">✕</button>
                 </div>

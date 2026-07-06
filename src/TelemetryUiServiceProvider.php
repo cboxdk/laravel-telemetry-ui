@@ -57,6 +57,12 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             $app->make('cache'),
         ));
 
+        // Memoizes per request, so the issue page's cards share one set of
+        // backend queries for the same group.
+        $this->app->singleton(Analysis\ErrorGroupReport::class, static fn (Application $app): Analysis\ErrorGroupReport => new Analysis\ErrorGroupReport(
+            $app->make(ConnectionManager::class),
+        ));
+
         // Request-scoped so a resolved tenancy lock never leaks between
         // requests (users) under a persistent runtime like Octane.
         $this->app->scoped(ScopeLock::class, static fn (Application $app): ScopeLock => new ScopeLock(

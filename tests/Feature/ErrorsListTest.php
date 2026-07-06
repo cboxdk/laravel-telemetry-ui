@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\Cards\Builtin\UnifiedErrors;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -136,4 +137,50 @@ it('only lists groups active within the page period', function (): void {
         ->test(UnifiedErrors::class)
         ->assertDontSee('StaleException')
         ->assertSee('No errors in this period');
+});
+
+it('renders the full issue page: header, trend, tags and deep-dive', function (): void {
+    Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
+    $now = time();
+
+    Http::fake([
+        'loki.test:3100/loki/api/v1/query_range*' => function ($request) use ($now) {
+            $q = rawurldecode(requestQuery($request)['query'] ?? '');
+
+            if (str_contains($q, '|~')) { // annotation markers: none
+                return Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]);
+            }
+
+            return Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => [
+                [
+                    'stream' => [
+                        'service_name' => 'checkout', 'exception_group' => 'abc123def456',
+                        'exception_type' => 'PaymentDeclined', 'exception_message' => 'Card declined',
+                        'exception_file' => 'app/Checkout.php', 'exception_line' => '42',
+                        'exception_stacktrace' => '#0 app/Checkout.php(42): charge()',
+                        'deployment_environment_name' => 'production', 'deployment_id' => 'v9.1.0',
+                        'host_name' => 'web-3', 'enduser_id' => '7',
+                    ],
+                    'values' => [
+                        [(string) (($now - 300) * 1_000_000_000), 'exception'],
+                        [(string) (($now - 200) * 1_000_000_000), 'exception'],
+                    ],
+                ],
+            ]]]);
+        },
+        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
+        'tempo.test:3200/*' => Http::response(['traces' => []]),
+    ]);
+
+    $this->get('/telemetry-ui/error-detail?group=abc123def456')
+        ->assertOk()
+        ->assertSee('PaymentDeclined')            // header title
+        ->assertSee('Card declined')              // header subtitle
+        ->assertSee('All issues')                 // back link
+        ->assertSee('Events')                     // trend card
+        ->assertSee('Tags')                       // distributions card
+        ->assertSee('web-3')                      // host distribution value
+        ->assertSee('100%')                       // single host -> 100%
+        ->assertSee('Latest occurrence')          // deep-dive card
+        ->assertSee('#0 app/Checkout.php(42): charge()'); // stacktrace
 });

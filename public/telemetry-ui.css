@@ -790,6 +790,56 @@ html, body {
 .tui-host-service .tui-stats { padding: 0; gap: 16px; }
 .tui-host-service .tui-stat-value { font-size: 16px; }
 
+/* Tag distributions (issue page) */
+
+.tui-tagdist {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px 22px;
+}
+
+.tui-tagdist-head {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--tui-text-faint);
+    margin-bottom: 7px;
+}
+
+.tui-tagdist-row {
+    display: grid;
+    grid-template-columns: minmax(80px, 45%) 1fr 34px;
+    gap: 8px;
+    align-items: center;
+    font-family: var(--tui-mono);
+    font-size: 11px;
+    margin-bottom: 5px;
+}
+
+.tui-tagdist-value {
+    color: var(--tui-text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tui-tagdist-bar {
+    height: 7px;
+    background: #131316;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.tui-tagdist-bar > span {
+    display: block;
+    height: 100%;
+    background: var(--tui-info);
+    opacity: 0.7;
+    border-radius: 3px;
+}
+
+.tui-tagdist-pct { text-align: right; color: var(--tui-text-faint); }
+
 /* Root-cause hints (exception detail) */
 
 .tui-suspect {

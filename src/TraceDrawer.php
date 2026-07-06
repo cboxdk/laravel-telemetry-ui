@@ -4,20 +4,16 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi;
 
+use Cbox\TelemetryUi\Analysis\ErrorGroupReport;
 use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Analysis\TraceProfile;
 use Cbox\TelemetryUi\Cards\Concerns\ScopesQueries;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\CreatesIssues;
-use Cbox\TelemetryUi\Support\Annotations;
-use Cbox\TelemetryUi\Support\ExceptionFingerprint;
 use Cbox\TelemetryUi\Support\TraceView;
-use DateTimeImmutable;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -36,14 +32,6 @@ use Livewire\Component;
 final class TraceDrawer extends Component
 {
     use ScopesQueries;
-
-    /**
-     * The exception-group detail searches its own wide window (independent of
-     * the page period) so "first seen" is meaningful, bounded by a sample cap.
-     */
-    private const EXCEPTION_LOOKBACK_DAYS = 30;
-
-    private const EXCEPTION_SEARCH_LIMIT = 100;
 
     /**
      * @var list<array{type: string, id: string}>
@@ -296,51 +284,28 @@ final class TraceDrawer extends Component
     }
 
     /**
-     * The Sentry-style error-group detail: every occurrence of one
-     * `exception.group` fingerprint (bounded sample over a wide window), with
-     * the newest occurrence's stacktrace + source context. Backend errors are
-     * read from the structured exception records laravel-telemetry emits into
-     * Loki (which carry the stacktrace); when the group has none, it falls
-     * back to browser exception spans in Tempo (fingerprinted read-side, see
-     * {@see ExceptionFingerprint}) — so the whole panel is read-side only.
+     * The Sentry-style error-group detail — data assembled by the shared
+     * {@see ErrorGroupReport} (also behind the full issue page), scoped by
+     * this component's selection + tenancy lock.
      */
     private function renderException(string $group): View
     {
         $error = null;
-        $occurrences = [];
-        $stats = null;
-        $detail = null;
+        $report = ['occurrences' => [], 'stats' => null, 'detail' => null, 'request' => null, 'suspect' => null, 'releases' => []];
 
-        // Fingerprints are 12 hex chars, but custom emitters may stamp their
-        // own — allow a token-ish id, never raw LogQL/TraceQL metacharacters.
-        if (preg_match('#^[\w.:/-]{1,64}$#', $group) !== 1) {
+        if (! ErrorGroupReport::validId($group)) {
             $error = 'Not a valid error-group id.';
         } else {
             try {
-                $occurrences = $this->backendOccurrences($group);
-
-                // A group is one throw site in one runtime — when Loki has no
-                // records for it, it can only be a frontend group.
-                if ($occurrences === []) {
-                    $occurrences = $this->browserOccurrences($group);
-                }
-
-                $stats = $this->exceptionStats($occurrences);
-                $detail = $occurrences[0]['detail'] ?? null;
+                $report = app(ErrorGroupReport::class)->for(
+                    $group,
+                    $this->logSelector(),
+                    $this->traceScope('span.browser = true && span.exception.type != nil'),
+                );
             } catch (SourceException $exception) {
                 $error = $exception->getMessage();
             }
         }
-
-        // The request that hit it (Sentry's "which request?" panel): pulled
-        // from the newest occurrence's trace root. The trace may be sampled
-        // away — the record outlives it — so this degrades to null quietly.
-        $request = ($occurrences[0]['traceId'] ?? '') !== '' ? $this->exceptionRequest($occurrences[0]['traceId']) : null;
-
-        // Root-cause hints: the change event (deploy, migration, flag, …)
-        // closest before first-seen, and which releases the error appears in.
-        $suspect = $occurrences !== [] ? $this->exceptionSuspect($occurrences[array_key_last($occurrences)]['nano']) : null;
-        $releases = $this->exceptionReleases($occurrences);
 
         $manager = app(ConnectionManager::class);
         $canCreate = Gate::allows('manageTelemetryUi')
@@ -358,307 +323,22 @@ final class TraceDrawer extends Component
             'key' => $group,
             'error' => $error,
             'group' => $group,
-            'stats' => $stats,
-            'occurrences' => array_slice($occurrences, 0, 20),
-            'detail' => $detail,
-            'request' => $request,
-            'suspect' => $suspect,
-            'releases' => $releases,
+            'stats' => $report['stats'],
+            'occurrences' => array_slice($report['occurrences'], 0, 20),
+            'detail' => $report['detail'],
+            'request' => $report['request'],
+            'suspect' => $report['suspect'],
+            'releases' => $report['releases'],
             'canCreate' => $canCreate,
-            'draft' => $canCreate ? $this->exceptionDraft($group, $stats, $detail) : null,
-            'lookbackDays' => self::EXCEPTION_LOOKBACK_DAYS,
-            // No full-page equivalent: the occurrences table below IS the
-            // all-occurrences view (backend groups aren't traceable by a
-            // span attribute, so a traces-page link would come up empty).
-            'fullUrl' => null,
+            'draft' => $canCreate ? app(ErrorGroupReport::class)->draft($group, $report['stats'], $report['detail']) : null,
+            'lookbackDays' => ErrorGroupReport::LOOKBACK_DAYS,
+            // Sentry-style full page for this issue.
+            'fullUrl' => route('telemetry-ui.page', array_filter([
+                'page' => 'error-detail',
+                'group' => $group,
+                'period' => request('period'),
+            ])),
         ]);
-    }
-
-    /**
-     * Backend occurrences: the structured exception records laravel-telemetry
-     * emits into Loki at report() time — authoritative (present even when the
-     * trace was sampled away) and complete (they carry the stacktrace and
-     * optional source context). Newest first.
-     *
-     * @return list<array{nano: int, at: string, traceId: string, service: string, message: string, user: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>
-     */
-    private function backendOccurrences(string $group): array
-    {
-        [$start, $end] = $this->exceptionWindow();
-
-        $entries = app(ConnectionManager::class)->logs()->query(
-            $this->logSelector().' | exception_group="'.$this->escapeLabelValue($group).'"',
-            $start,
-            $end,
-            limit: self::EXCEPTION_SEARCH_LIMIT,
-        );
-
-        $occurrences = [];
-
-        foreach ($entries as $entry) {
-            if (($entry->labels['exception_group'] ?? '') !== $group) {
-                continue;
-            }
-
-            $label = static fn (string $key): string => $entry->labels[$key] ?? '';
-
-            $occurrences[] = [
-                'nano' => $entry->timestampNano,
-                'at' => Carbon::createFromTimestamp(intdiv($entry->timestampNano, 1_000_000_000))->format('d/m H:i:s'),
-                'traceId' => $label('trace_id'),
-                'service' => $label('service_name'),
-                'message' => $label('exception_message'),
-                'user' => $label('enduser_id'),
-                'frontend' => false,
-                'detail' => [
-                    'type' => $label('exception_type'),
-                    'message' => $label('exception_message'),
-                    'file' => $label('exception_file'),
-                    'line' => (int) $label('exception_line'),
-                    'stacktrace' => $label('exception_stacktrace'),
-                    'source' => $label('exception_source'),
-                    // Sentry-style environment facts, straight off the record.
-                    'environment' => $label('deployment_environment_name'),
-                    'release' => $label('deployment_id'),
-                    'host' => $label('host_name'),
-                ],
-            ];
-        }
-
-        usort($occurrences, static fn (array $a, array $b): int => $b['nano'] <=> $a['nano']);
-
-        return $occurrences;
-    }
-
-    /**
-     * Frontend occurrences: browser exception spans in Tempo. The ingest
-     * doesn't stamp a fingerprint, so match on the one computed read-side
-     * (same algorithm as the backend). Browser errors carry no stacktrace —
-     * type/message/file:line is all the SDK ships. Newest first.
-     *
-     * @return list<array{nano: int, at: string, traceId: string, service: string, message: string, user: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>
-     */
-    private function browserOccurrences(string $group): array
-    {
-        [$start, $end] = $this->exceptionWindow();
-
-        $traceql = '{ '.$this->traceScope('span.browser = true && span.exception.type != nil')
-            .' } | select(span.exception.type, span.exception.message, span.exception.file, span.exception.line)';
-
-        $results = app(ConnectionManager::class)->traces()
-            ->search($traceql, $start, $end, limit: self::EXCEPTION_SEARCH_LIMIT);
-
-        $occurrences = [];
-
-        foreach ($results as $summary) {
-            foreach ($summary->matchedSpans as $span) {
-                $attr = static fn (string $key): string => is_scalar($value = $span->attributes[$key] ?? null) ? (string) $value : '';
-
-                $type = $attr('exception.type');
-                $file = $attr('exception.file');
-                $line = (int) $attr('exception.line');
-
-                if ($type === '' || ExceptionFingerprint::compute($type, $file, $line) !== $group) {
-                    continue;
-                }
-
-                $occurrences[] = [
-                    'nano' => $span->startNano,
-                    'at' => Carbon::createFromTimestamp(intdiv($span->startNano, 1_000_000_000))->format('d/m H:i:s'),
-                    'traceId' => $summary->traceId,
-                    'service' => $summary->rootServiceName,
-                    'message' => $attr('exception.message'),
-                    'user' => $attr('enduser.id'),
-                    'frontend' => true,
-                    'detail' => [
-                        'type' => $type,
-                        'message' => $attr('exception.message'),
-                        'file' => $file,
-                        'line' => $line,
-                        'stacktrace' => '',
-                        'source' => '',
-                        'environment' => '',
-                        'release' => '',
-                        'host' => '',
-                    ],
-                ];
-            }
-        }
-
-        usort($occurrences, static fn (array $a, array $b): int => $b['nano'] <=> $a['nano']);
-
-        return $occurrences;
-    }
-
-    /**
-     * The request/job behind the newest occurrence — origin (root span name),
-     * route, status and user off its trace root. Null when the trace was
-     * sampled away or can't be fetched; the panel just omits the strip.
-     *
-     * @return array{traceId: string, origin: string, method: string, route: string, status: string, user: string}|null
-     */
-    private function exceptionRequest(string $traceId): ?array
-    {
-        if (preg_match('/^[0-9a-f]{16,32}$/', $traceId) !== 1) {
-            return null;
-        }
-
-        try {
-            $trace = app(ConnectionManager::class)->traces()->trace($traceId);
-        } catch (SourceException) {
-            return null;
-        }
-
-        $root = $trace->root();
-
-        if ($root === null) {
-            return null;
-        }
-
-        $attr = static fn (string $key): string => is_scalar($value = $root->attributes[$key] ?? null) ? (string) $value : '';
-
-        return [
-            'traceId' => $traceId,
-            'origin' => $root->name,
-            'method' => $attr('http.request.method'),
-            'route' => $attr('http.route'),
-            'status' => $attr('http.response.status_code'),
-            'user' => $attr('enduser.id'),
-        ];
-    }
-
-    /**
-     * Sentry's "suspect commit", on open data: the change event (deploy,
-     * migration, feature flag, …) closest BEFORE the group's first
-     * occurrence, within 48h. An error born right after a change was very
-     * likely born because of it.
-     *
-     * @return array{label: string, kind: string, time: string, gap: string, notes: string|null, traceId: string|null, color: string}|null
-     */
-    private function exceptionSuspect(int $firstSeenNano): ?array
-    {
-        $firstSeenMs = intdiv($firstSeenNano, 1_000_000);
-
-        foreach (app(Annotations::class)->lookback($this->logSelector()) as $annotation) {
-            // Newest-first: the first marker at/before first-seen is the closest.
-            if ($annotation->timestampMs > $firstSeenMs) {
-                continue;
-            }
-
-            if ($firstSeenMs - $annotation->timestampMs > 48 * 3_600_000) {
-                return null; // too long before — not a credible suspect.
-            }
-
-            return [
-                'label' => $annotation->label,
-                'kind' => $annotation->kind,
-                'time' => date('d/m H:i', (int) ($annotation->timestampMs / 1000)),
-                'gap' => Carbon::createFromTimestampMs((int) $annotation->timestampMs)
-                    ->diffForHumans(Carbon::createFromTimestampMs($firstSeenMs), ['syntax' => Carbon::DIFF_ABSOLUTE, 'parts' => 1]),
-                'notes' => $annotation->notes,
-                'traceId' => $annotation->traceId,
-                'color' => $annotation->color,
-            ];
-        }
-
-        return null;
-    }
-
-    /**
-     * Which releases the sampled occurrences carry — "only in v2.4.1" is a
-     * strong regression signal.
-     *
-     * @param  list<array{nano: int, at: string, traceId: string, service: string, message: string, user: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>  $occurrences
-     * @return list<array{release: string, count: int}>
-     */
-    private function exceptionReleases(array $occurrences): array
-    {
-        $releases = [];
-
-        foreach ($occurrences as $occurrence) {
-            $release = $occurrence['detail']['release'];
-
-            if ($release !== '') {
-                $releases[$release] = ($releases[$release] ?? 0) + 1;
-            }
-        }
-
-        arsort($releases);
-
-        return array_map(
-            static fn (string $release, int $count): array => ['release' => $release, 'count' => $count],
-            array_keys(array_slice($releases, 0, 5, true)),
-            array_values(array_slice($releases, 0, 5, true)),
-        );
-    }
-
-    /**
-     * @return array{DateTimeImmutable, DateTimeImmutable}
-     */
-    private function exceptionWindow(): array
-    {
-        $end = new DateTimeImmutable;
-
-        return [$end->modify('-'.self::EXCEPTION_LOOKBACK_DAYS.' days'), $end];
-    }
-
-    /**
-     * @param  list<array{nano: int, at: string, traceId: string, service: string, message: string, user: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>  $occurrences
-     * @return array{count: int, sampled: bool, firstSeen: string, lastSeen: string, source: string, users: int}|null
-     */
-    private function exceptionStats(array $occurrences): ?array
-    {
-        if ($occurrences === []) {
-            return null;
-        }
-
-        $users = [];
-
-        foreach ($occurrences as $occurrence) {
-            if ($occurrence['user'] !== '') {
-                $users[$occurrence['user']] = true;
-            }
-        }
-
-        return [
-            'count' => count($occurrences),
-            'sampled' => count($occurrences) >= self::EXCEPTION_SEARCH_LIMIT,
-            'firstSeen' => Carbon::createFromTimestamp(intdiv($occurrences[array_key_last($occurrences)]['nano'], 1_000_000_000))->diffForHumans(),
-            'lastSeen' => Carbon::createFromTimestamp(intdiv($occurrences[0]['nano'], 1_000_000_000))->diffForHumans(),
-            'source' => $occurrences[0]['frontend'] ? 'frontend' : 'backend',
-            'users' => count($users),
-        ];
-    }
-
-    /**
-     * Prefilled compose-ticket draft for this error group.
-     *
-     * @param  array{count: int, sampled: bool, firstSeen: string, lastSeen: string, source: string}|null  $stats
-     * @param  array{type: string, message: string, file: string, line: int, stacktrace: string, source: string}|null  $detail
-     * @return array{title: string, body: string, labels: list<string>}
-     */
-    private function exceptionDraft(string $group, ?array $stats, ?array $detail): array
-    {
-        $type = $detail['type'] ?? '';
-        $title = trim(($type !== '' ? class_basename($type) : 'Error '.$group).': '.Str::limit($detail['message'] ?? '', 90));
-
-        $lines = array_filter([
-            $type !== '' ? '**'.$type.'**' : null,
-            ($detail['message'] ?? '') !== '' ? $detail['message'] : null,
-            '',
-            '- group: `'.$group.'`',
-            ($detail['file'] ?? '') !== '' ? '- at: `'.$detail['file'].':'.($detail['line'] ?? 0).'`' : null,
-            $stats !== null ? '- occurrences: '.$stats['count'].($stats['sampled'] ? '+' : '').' (last '.self::EXCEPTION_LOOKBACK_DAYS.' days, '.$stats['source'].')' : null,
-            $stats !== null ? '- first seen: '.$stats['firstSeen'].' · last seen: '.$stats['lastSeen'] : null,
-            '',
-            ($detail['stacktrace'] ?? '') !== '' ? "```\n".Str::limit($detail['stacktrace'], 2000)."\n```" : null,
-        ], static fn (?string $line): bool => $line !== null);
-
-        return [
-            'title' => rtrim($title, ': '),
-            'body' => implode("\n", $lines),
-            'labels' => ['bug'],
-        ];
     }
 
     private function renderIssue(string $issueId): View

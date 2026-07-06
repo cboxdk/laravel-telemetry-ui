@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Full issue page (Sentry-style show view).** Every error group now has
+  its own page (`error-detail?group=…`, the drawer's "Full page" button):
+  header with events / users / first seen / last seen, an events trend
+  chart with the deploy/change markers drawn on top (release markers,
+  Sentry-style), **tag distributions** (host, environment, release,
+  service, user — "is it one box, one release, one customer?"), and the
+  full deep-dive: request strip, root-cause hints, source context,
+  stacktrace and recent occurrences. Drawer and page share one
+  per-request-memoized `ErrorGroupReport`, so the page's four cards cost
+  one set of backend queries.
 - **Users affected.** Error groups now count distinct users (from the
   `enduser.id` laravel-telemetry ≥ alpha.18 stamps on exception records):
   a Users column on the errors list and a "users affected" fact on the
