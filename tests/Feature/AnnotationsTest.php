@@ -56,6 +56,37 @@ it('reads deploy markers from loki within a range', function (): void {
     });
 });
 
+it('reads statamic cache purges as cache purge markers', function (): void {
+    Http::fake([
+        'loki.test:3100/loki/api/v1/query_range*' => Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'streams', 'result' => [
+                [
+                    'stream' => [
+                        'service_name' => 'telemetry-demo',
+                        'cache_type' => 'static',
+                        'cache_trigger' => 'http',
+                    ],
+                    'values' => [
+                        ['1735689600000000000', 'statamic.cache.purge'],
+                    ],
+                ],
+            ]],
+        ]),
+    ]);
+
+    $annotations = app(Annotations::class)->between(
+        new DateTimeImmutable('@1735689000'),
+        new DateTimeImmutable('@1735690000'),
+    );
+
+    expect($annotations)->toHaveCount(1)
+        ->and($annotations[0]->label)->toBe('Cache purge static')
+        ->and($annotations[0]->notes)->toBe('http')
+        ->and($annotations[0]->kind)->toBe('statamic.cache.purge')
+        ->and($annotations[0]->color)->toBe('#fb923c');
+});
+
 it('filters markers to the requested window', function (): void {
     fakeDeployMarkers();
 

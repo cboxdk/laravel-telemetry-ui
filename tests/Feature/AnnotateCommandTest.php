@@ -36,6 +36,19 @@ it('maps id and notes to the marker\'s dotted OTLP attributes', function (): voi
     app(AnnotationWriter::class)->write('scaling', 'web', '+2 workers');
 });
 
+it('emits a cache purge marker with the cache.type attribute', function (): void {
+    $telemetry = fakeTelemetry();
+    $telemetry->shouldReceive('event')->once()->with('app.cache_purge', [
+        'cache.type' => 'redis',
+        'cache.notes' => 'full flush',
+    ]);
+    $telemetry->shouldReceive('flush')->once();
+
+    $this->artisan('telemetry-ui:annotate', ['marker' => 'cache_purge', '--id' => 'redis', '--notes' => 'full flush'])
+        ->expectsOutputToContain('emitted')
+        ->assertExitCode(0);
+});
+
 it('rejects an unknown marker', function (): void {
     fakeTelemetry();
 

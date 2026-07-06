@@ -351,6 +351,26 @@ return [
                 'id_label' => 'version_id',
                 'notes_label' => 'version_notes',
             ],
+            // Cache purges. `cache_purge` is the app-agnostic marker — emit it
+            // from your own purge hook (`php artisan telemetry-ui:annotate
+            // cache_purge --id=redis --notes="full flush"`).
+            'cache_purge' => [
+                'event' => 'app.cache_purge',
+                'label' => 'Cache purge',
+                'color' => '#fb923c',
+                'id_label' => 'cache_type',
+                'notes_label' => 'cache_notes',
+            ],
+            // cboxdk/statamic-telemetry emits statamic.cache.purge on every
+            // stache/static/glide clear (cache.type + cache.trigger attrs),
+            // so Statamic purges land on charts with no wiring.
+            'statamic_cache_purge' => [
+                'event' => 'statamic.cache.purge',
+                'label' => 'Cache purge',
+                'color' => '#fb923c',
+                'id_label' => 'cache_type',
+                'notes_label' => 'cache_trigger',
+            ],
         ],
 
         // Proactive: `telemetry-ui:scan-versions` (schedule it every few
