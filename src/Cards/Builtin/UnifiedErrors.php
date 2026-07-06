@@ -7,26 +7,31 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
-use Cbox\TelemetryUi\Queries\Results\Span;
+use Cbox\TelemetryUi\Support\ExceptionFingerprint;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 
 /**
  * The unified errors list — every exception, frontend and backend, grouped by
- * `exception.group`. Both cboxdk/laravel-telemetry's backend handler and its
- * browser SDK stamp that fingerprint (class + top in-app frame) with the SAME
- * algorithm, so a JS error and a PHP error that are "the same issue" collapse
- * into one row. This is the Sentry-style issues list, on open data: each row
- * drills straight into a representative trace (→ waterfall + host context).
+ * `exception.group`. This is the Sentry-style issues list, on open data: each
+ * row drills into the error-group detail drawer (stacktrace, source context,
+ * occurrences).
  *
- * Trace-sourced (metrics can't unify — frontend errors exist only as spans),
- * so counts are over a bounded recent sample, not the exact retention total.
+ * Two sources, because the two runtimes record errors differently:
+ * - Backend: laravel-telemetry's report() hook emits a structured exception
+ *   record (OTLP log → Loki) with the fingerprint — present even when the
+ *   trace was sampled away, so this is the authoritative feed.
+ * - Frontend: browser exception spans (Tempo) carry type/message/file/line
+ *   but no fingerprint; the UI computes the identical one read-side
+ *   ({@see ExceptionFingerprint}).
+ *
+ * Counts are over a bounded recent sample, not the exact retention total.
  */
 final class UnifiedErrors extends Card
 {
     use CoercesAttributes;
 
-    private const SEARCH_LIMIT = 100;
+    private const SEARCH_LIMIT = 500;
 
     public function render(): View
     {
@@ -36,39 +41,57 @@ final class UnifiedErrors extends Card
         $error = null;
 
         try {
-            $traceql = '{ '.$this->traceScope('span.exception.group != nil')
-                .' } | select(span.exception.group, span.exception.type, span.exception.message, span.browser)';
-
-            $results = $this->traces()->search($traceql, $start, $end, limit: self::SEARCH_LIMIT);
-
-            /** @var array<string, array{group: string, type: string, message: string, count: int, frontend: bool, backend: bool, lastNano: int, traceId: string}> $groups */
+            /** @var array<string, array{group: string, type: string, message: string, count: int, frontend: bool, backend: bool, lastNano: int}> $groups */
             $groups = [];
+
+            // Backend: structured exception records in Loki. The fingerprint
+            // lives in structured metadata, so filter on the label — a
+            // missing label reads as "", which also skips ordinary log lines.
+            $entries = $this->logs()->query(
+                $this->logSelector().' | exception_group != ""',
+                $start,
+                $end,
+                limit: self::SEARCH_LIMIT,
+            );
+
+            foreach ($entries as $entry) {
+                $group = $entry->labels['exception_group'] ?? '';
+
+                if ($group === '') {
+                    continue;
+                }
+
+                $this->fold($groups, $group, $entry->timestampNano, frontend: false, attributes: [
+                    'type' => $entry->labels['exception_type'] ?? '',
+                    'message' => $entry->labels['exception_message'] ?? '',
+                ]);
+            }
+
+            // Frontend: browser exception spans, grouped by the computed
+            // fingerprint (the ingest doesn't stamp one).
+            $traceql = '{ '.$this->traceScope('span.browser = true && span.exception.type != nil')
+                .' } | select(span.exception.type, span.exception.message, span.exception.file, span.exception.line)';
+
+            $results = $this->traces()->search($traceql, $start, $end, limit: 100);
 
             foreach ($results as $summary) {
                 foreach ($summary->matchedSpans as $span) {
-                    $group = $this->str($span->attributes['exception.group'] ?? null);
+                    $type = $this->str($span->attributes['exception.type'] ?? null);
 
-                    if ($group === null) {
+                    if ($type === null) {
                         continue;
                     }
 
-                    $row = $groups[$group] ?? [
-                        'group' => $group, 'type' => '', 'message' => '', 'count' => 0,
-                        'frontend' => false, 'backend' => false, 'lastNano' => 0, 'traceId' => '',
-                    ];
+                    $group = ExceptionFingerprint::compute(
+                        $type,
+                        $this->str($span->attributes['exception.file'] ?? null) ?? '',
+                        (int) ($span->attributes['exception.line'] ?? 0),
+                    );
 
-                    $row['count']++;
-                    Span::attributesAreBrowser($span->attributes) ? $row['frontend'] = true : $row['backend'] = true;
-
-                    // Keep the most recent occurrence as the representative one.
-                    if ($span->startNano >= $row['lastNano']) {
-                        $row['lastNano'] = $span->startNano;
-                        $row['type'] = $this->str($span->attributes['exception.type'] ?? null) ?? $row['type'];
-                        $row['message'] = $this->str($span->attributes['exception.message'] ?? null) ?? $row['message'];
-                        $row['traceId'] = $summary->traceId;
-                    }
-
-                    $groups[$group] = $row;
+                    $this->fold($groups, $group, $span->startNano, frontend: true, attributes: [
+                        'type' => $type,
+                        'message' => $this->str($span->attributes['exception.message'] ?? null) ?? '',
+                    ]);
                 }
             }
 
@@ -79,7 +102,6 @@ final class UnifiedErrors extends Card
                 ...$row,
                 'source' => $this->source($row['frontend'], $row['backend']),
                 'lastSeen' => Carbon::createFromTimestamp(intdiv($row['lastNano'], 1_000_000_000))->diffForHumans(),
-                'tracesUrl' => $this->tracesUrl($row['group']),
             ], $rows);
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
@@ -96,13 +118,29 @@ final class UnifiedErrors extends Card
     }
 
     /**
-     * All error traces for one group, for the "see every occurrence" drill.
+     * Merge one occurrence into its group, keeping the newest occurrence's
+     * type/message as the representative ones.
+     *
+     * @param  array<string, array{group: string, type: string, message: string, count: int, frontend: bool, backend: bool, lastNano: int}>  $groups
+     * @param  array{type: string, message: string}  $attributes
      */
-    private function tracesUrl(string $group): string
+    private function fold(array &$groups, string $group, int $nano, bool $frontend, array $attributes): void
     {
-        return $this->pageUrl('traces', [
-            'q' => '{ span.exception.group = "'.addcslashes($group, '"\\').'" }',
-        ]);
+        $row = $groups[$group] ?? [
+            'group' => $group, 'type' => '', 'message' => '', 'count' => 0,
+            'frontend' => false, 'backend' => false, 'lastNano' => 0,
+        ];
+
+        $row['count']++;
+        $frontend ? $row['frontend'] = true : $row['backend'] = true;
+
+        if ($nano >= $row['lastNano']) {
+            $row['lastNano'] = $nano;
+            $row['type'] = $attributes['type'] !== '' ? $attributes['type'] : $row['type'];
+            $row['message'] = $attributes['message'] !== '' ? $attributes['message'] : $row['message'];
+        }
+
+        $groups[$group] = $row;
     }
 
     private function source(bool $frontend, bool $backend): string

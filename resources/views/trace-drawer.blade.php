@@ -10,17 +10,19 @@
                     @if ($depth > 1)
                         <div class="tui-drawer-crumbs">
                             @foreach ($crumbs as $crumb)
-                                <span class="tui-drawer-crumb {{ $loop->last ? 'is-current' : '' }}">{{ $crumb['type'] === 'issue' ? '⧉' : '⇄' }} {{ $crumb['label'] }}</span>@if (! $loop->last)<span class="tui-drawer-crumb-sep">›</span>@endif
+                                <span class="tui-drawer-crumb {{ $loop->last ? 'is-current' : '' }}">{{ match ($crumb['type']) { 'issue' => '⧉', 'exception' => '⚠', default => '⇄' } }} {{ $crumb['label'] }}</span>@if (! $loop->last)<span class="tui-drawer-crumb-sep">›</span>@endif
                             @endforeach
                         </div>
                     @else
-                        <span class="tui-drawer-eyebrow">{{ $mode === 'compose' ? 'New ticket' : ($mode === 'issue' ? 'Issue' : 'Trace') }}</span>
+                        <span class="tui-drawer-eyebrow">{{ match ($mode) { 'compose' => 'New ticket', 'issue' => 'Issue', 'exception' => 'Error group', default => 'Trace' } }}</span>
                     @endif
                     <h2>
                         @if ($mode === 'compose')
                             Create ticket @if ($trackerLabel !== '')<span class="tui-drawer-sub">· {{ $trackerLabel }}</span>@endif
                         @elseif ($mode === 'issue')
                             {{ $issue?->title ?? ($error ? 'Error' : 'Loading…') }}
+                        @elseif ($mode === 'exception')
+                            {{ ($detail['type'] ?? '') !== '' ? $detail['type'] : 'Error group '.$group }}
                         @else
                             {{ $trace?->root()?->name ?: ($error ? 'Error' : 'Loading…') }}
                         @endif
@@ -28,7 +30,7 @@
                 </div>
                 <div class="tui-drawer-actions">
                     @if ($fullUrl)
-                        <a class="tui-btn" href="{{ $fullUrl }}" @if ($mode === 'issue') target="_blank" rel="noopener" @endif title="{{ $mode === 'issue' ? 'Open on tracker' : 'Open full page' }}">↗ {{ $mode === 'issue' ? 'Open' : 'Full page' }}</a>
+                        <a class="tui-btn" href="{{ $fullUrl }}" @if ($mode === 'issue') target="_blank" rel="noopener" @endif title="{{ match ($mode) { 'issue' => 'Open on tracker', 'exception' => 'Every trace for this error', default => 'Open full page' } }}">↗ {{ match ($mode) { 'issue' => 'Open', 'exception' => 'All traces', default => 'Full page' } }}</a>
                     @endif
                     <button type="button" class="tui-btn" wire:click="close" title="Close">✕</button>
                 </div>
@@ -44,8 +46,10 @@
                         @endcan
                     @elseif ($mode === 'issue')
                         @include('telemetry-ui::partials.issue-detail', ['issue' => $issue, 'error' => $error])
+                    @elseif ($mode === 'exception')
+                        @include('telemetry-ui::partials.exception-detail', ['error' => $error, 'group' => $group, 'stats' => $stats, 'occurrences' => $occurrences, 'detail' => $detail, 'canCreate' => $canCreate, 'draft' => $draft, 'lookbackDays' => $lookbackDays])
                     @else
-                        @include('telemetry-ui::partials.trace-detail', ['trace' => $trace, 'rows' => $rows, 'chain' => $chain, 'identities' => $identities, 'error' => $error, 'context' => $context])
+                        @include('telemetry-ui::partials.trace-detail', ['trace' => $trace, 'rows' => $rows, 'chain' => $chain, 'identities' => $identities, 'error' => $error, 'context' => $context, 'profile' => $profile])
                     @endif
                 @endif
             </div>

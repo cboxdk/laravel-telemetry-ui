@@ -103,6 +103,13 @@ document.addEventListener('click', (e) => {
         return;
     }
 
+    const exceptionRow = e.target.closest('[data-row-exception]');
+    if (exceptionRow && exceptionRow.dataset.rowException && plain) {
+        e.preventDefault();
+        window.Livewire?.dispatch('telemetry-ui:open-exception', { group: exceptionRow.dataset.rowException });
+        return;
+    }
+
     const hrefRow = e.target.closest('[data-row-href]');
     if (hrefRow && hrefRow.dataset.rowHref) {
         if (plain) {

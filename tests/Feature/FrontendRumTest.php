@@ -6,22 +6,19 @@ use Cbox\TelemetryUi\Cards\Builtin\FrontendFetches;
 use Cbox\TelemetryUi\Cards\Builtin\FrontendPages;
 use Cbox\TelemetryUi\Cards\Builtin\TraceSearch;
 use Cbox\TelemetryUi\Cards\Builtin\UnifiedErrors;
+use Cbox\TelemetryUi\Support\ExceptionFingerprint;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
-function errorSpan(string $group, string $type, string $message, bool $browser): array
+function errorSpan(string $type, string $message, string $file, int $line): array
 {
-    $attrs = [
-        ['key' => 'exception.group', 'value' => ['stringValue' => $group]],
+    return [
         ['key' => 'exception.type', 'value' => ['stringValue' => $type]],
         ['key' => 'exception.message', 'value' => ['stringValue' => $message]],
+        ['key' => 'exception.file', 'value' => ['stringValue' => $file]],
+        ['key' => 'exception.line', 'value' => ['intValue' => (string) $line]],
+        ['key' => 'browser', 'value' => ['boolValue' => true]],
     ];
-
-    if ($browser) {
-        $attrs[] = ['key' => 'browser', 'value' => ['boolValue' => true]];
-    }
-
-    return $attrs;
 }
 
 it('scopes trace search to browser spans when the source is frontend', function (): void {
@@ -42,17 +39,31 @@ it('excludes browser spans when the source is backend', function (): void {
 });
 
 it('unifies frontend and backend errors into one list grouped by fingerprint', function (): void {
-    // Same fingerprint g1 seen in the browser AND the backend -> one full-stack
-    // row; a backend-only RuntimeException stays its own row.
+    // Backend errors come from the structured exception records in Loki;
+    // browser errors come from Tempo exception spans, fingerprinted read-side
+    // with the same algorithm — so a JS error and a backend record from the
+    // same site collapse into one full-stack row, while a backend-only
+    // RuntimeException stays its own row.
+    $shared = ExceptionFingerprint::compute('TypeError', 'checkout.js', 10);
+
     Http::fake([
+        'loki.test:3100/loki/api/v1/query_range*' => Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'streams', 'result' => [
+                [
+                    'stream' => ['service_name' => 'cbox-web', 'exception_group' => $shared, 'exception_type' => 'TypeError', 'exception_message' => 'Cannot read foo of undefined'],
+                    'values' => [['1735689500000000000', 'exception']],
+                ],
+                [
+                    'stream' => ['service_name' => 'cbox-web', 'exception_group' => 'aaaa11112222', 'exception_type' => 'RuntimeException', 'exception_message' => 'boom'],
+                    'values' => [['1735689400000000000', 'exception']],
+                ],
+            ]],
+        ]),
         'tempo.test:3200/api/search*' => Http::response([
             'traces' => [
                 ['traceID' => '1111111111111111aaaaaaaaaaaaaaaa', 'rootServiceName' => 'cbox-web', 'rootTraceName' => 'load', 'startTimeUnixNano' => '1735689600000000000', 'durationMs' => 5,
-                    'spanSets' => [['spans' => [['spanID' => 'a1', 'name' => 'exception', 'startTimeUnixNano' => '1735689600000000000', 'durationNanos' => '0', 'attributes' => errorSpan('g1', 'TypeError', 'Cannot read foo of undefined', true)]]]]],
-                ['traceID' => '2222222222222222bbbbbbbbbbbbbbbb', 'rootServiceName' => 'cbox-web', 'rootTraceName' => 'GET /x', 'startTimeUnixNano' => '1735689500000000000', 'durationMs' => 5,
-                    'spanSets' => [['spans' => [['spanID' => 'b1', 'name' => 'exception', 'startTimeUnixNano' => '1735689500000000000', 'durationNanos' => '0', 'attributes' => errorSpan('g1', 'TypeError', 'Cannot read foo of undefined', false)]]]]],
-                ['traceID' => '3333333333333333cccccccccccccccc', 'rootServiceName' => 'cbox-web', 'rootTraceName' => 'GET /y', 'startTimeUnixNano' => '1735689400000000000', 'durationMs' => 5,
-                    'spanSets' => [['spans' => [['spanID' => 'c1', 'name' => 'exception', 'startTimeUnixNano' => '1735689400000000000', 'durationNanos' => '0', 'attributes' => errorSpan('g2', 'RuntimeException', 'boom', false)]]]]],
+                    'spanSets' => [['spans' => [['spanID' => 'a1', 'name' => 'exception', 'startTimeUnixNano' => '1735689600000000000', 'durationNanos' => '0', 'attributes' => errorSpan('TypeError', 'Cannot read foo of undefined', 'checkout.js', 10)]]]]],
             ],
         ]),
     ]);
@@ -60,8 +71,8 @@ it('unifies frontend and backend errors into one list grouped by fingerprint', f
     Livewire::test(UnifiedErrors::class)
         ->assertSee('TypeError')
         ->assertSee('RuntimeException')
-        ->assertSeeHtml('full-stack')                                  // g1 seen in both browser + backend
-        ->assertSeeHtml('data-row-trace="1111111111111111aaaaaaaaaaaaaaaa"') // representative = most recent occurrence
+        ->assertSeeHtml('full-stack')                          // shared fingerprint seen in both browser + backend
+        ->assertSeeHtml('data-row-exception="'.$shared.'"')    // row opens the error-group detail drawer
         ->assertSeeHtml('tui-badge-web');
 });
 

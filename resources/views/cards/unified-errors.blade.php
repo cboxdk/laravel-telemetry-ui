@@ -1,6 +1,6 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
-<x-telemetry-ui::card title="Errors" subtitle="Every exception — frontend and backend — grouped by fingerprint. Click a row for a representative trace." span="2">
+<x-telemetry-ui::card title="Errors" subtitle="Every exception — frontend and backend — grouped by fingerprint. Click a row for stacktrace and occurrences." span="2">
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @elseif ($rows === [])
@@ -17,12 +17,11 @@
                         <th>Error</th>
                         <th class="is-num">Count</th>
                         <th class="is-num">Last seen</th>
-                        <th class="is-num">Traces</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach ($rows as $row)
-                        <tr data-row-trace="{{ $row['traceId'] }}" title="Open a representative trace">
+                        <tr data-row-exception="{{ $row['group'] }}" title="Open the error detail — stacktrace, source, occurrences">
                             <td>
                                 @if ($row['source'] === 'frontend')
                                     <span class="tui-badge tui-badge-web" title="Browser (RUM) error">web</span>
@@ -40,7 +39,6 @@
                             </td>
                             <td class="is-num tui-tone-danger">{{ Format::count($row['count']) }}</td>
                             <td class="is-num tui-tone-dim">{{ $row['lastSeen'] }}</td>
-                            <td class="is-num"><a href="{{ $row['tracesUrl'] }}" x-on:click.stop title="All traces for this error">⧉ all</a></td>
                         </tr>
                     @endforeach
                 </tbody>
