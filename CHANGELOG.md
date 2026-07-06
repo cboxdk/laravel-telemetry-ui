@@ -17,9 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Package cards opt in by setting `protected ?string $drillPage = 'my-page'`.
 
 - **Hide chart annotations per type.** The header gains a ⚑ toggle listing
-  the configured marker types (Deploy, Incident, …) with a checkbox each —
-  uncheck the noisy ones and every chart drops those lines. The choice sits
-  in the URL (`ann_off`), so it survives navigation and deep links.
+  the configured marker types (Deploy, Incident, …) with a checkbox each,
+  plus a show/hide-all master switch — uncheck the noisy ones and every
+  chart drops those lines instantly. Purely client-side: cards always ship
+  the full annotation set and the charts filter marker lines by kind, so
+  toggling costs zero backend queries. The choice sits in the URL
+  (`ann_off`), so it survives navigation and deep links.
 
 ### Fixed
 

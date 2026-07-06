@@ -24,8 +24,9 @@
     </div>
 
     {{-- Chart annotations: hide noisy marker types per type (ann_off csv).
-         Applies in place: updates the URL via replaceState and broadcasts a
-         Livewire event every card listens to — no page reload. --}}
+         Pure frontend: updates the URL via replaceState and fires a window
+         event the charts filter their marker lines on — no reload, no
+         backend refetch. --}}
     @php($annMarkers = (array) config('telemetry-ui.annotations.markers', []))
     @if ((bool) config('telemetry-ui.annotations.enabled', true) && $annMarkers !== [])
         <div class="tui-range" title="Chart annotations"
@@ -33,12 +34,17 @@
                  open: false,
                  keys: {{ \Illuminate\Support\Js::from(array_keys($annMarkers)) }},
                  off: (new URL(window.location).searchParams.get('ann_off') || '').split(',').filter(Boolean),
+                 init() {
+                     // Charts resolve marker keys → event kinds through this map.
+                     window.telemetryUiAnnEvents = {{ \Illuminate\Support\Js::from(array_map(static fn (array $m): string => $m['event'] ?? '', $annMarkers)) }};
+                 },
                  apply(off) {
                      this.off = off;
                      const url = new URL(window.location);
                      if (off.length) { url.searchParams.set('ann_off', off.join(',')); } else { url.searchParams.delete('ann_off'); }
                      history.replaceState(history.state, '', url);
-                     Livewire.dispatch('telemetry-ui:annotations-changed', { off: off.join(',') });
+                     const kinds = off.map(k => window.telemetryUiAnnEvents[k]).filter(Boolean);
+                     window.dispatchEvent(new CustomEvent('telemetry-ui:annotations-visibility', { detail: { kinds } }));
                  },
                  toggle(key) {
                      this.apply(this.off.includes(key) ? this.off.filter(k => k !== key) : [...this.off, key]);

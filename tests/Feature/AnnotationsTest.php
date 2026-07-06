@@ -212,7 +212,7 @@ it('draws deploy annotation lines on dashboard charts', function (): void {
         ->assertSee('hotfix');
 });
 
-it('hides annotation types toggled off via ann_off', function (): void {
+it('ships every annotation with its kind so the header toggle hides types client-side', function (): void {
     Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
 
     Http::fake([
@@ -234,20 +234,12 @@ it('hides annotation types toggled off via ann_off', function (): void {
         ]),
     ]);
 
-    // Drawn by default…
-    expect(Livewire::test(JobsOverview::class)->html())->toContain('abc123');
+    // The card ships the annotation AND its kind — hiding a type is a pure
+    // frontend concern (the chart filters marker lines by kind), so the
+    // toggle never triggers a backend refetch and the payload must always
+    // be complete.
+    $html = Livewire::test(JobsOverview::class)->html();
 
-    // …gone when the deploy marker type arrives hidden via the URL…
-    expect(Livewire::withQueryParams(['ann_off' => 'deploy'])->test(JobsOverview::class)->html())
-        ->not->toContain('abc123');
-
-    // …and the header toggle applies in place via a Livewire event, no reload.
-    $card = Livewire::test(JobsOverview::class)
-        ->dispatch('telemetry-ui:annotations-changed', off: 'deploy');
-
-    expect($card->html())->not->toContain('abc123');
-
-    $card->dispatch('telemetry-ui:annotations-changed', off: '');
-
-    expect($card->html())->toContain('abc123');
+    expect($html)->toContain('abc123')
+        ->and($html)->toContain('app.deployment');
 });

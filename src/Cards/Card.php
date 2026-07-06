@@ -61,14 +61,6 @@ abstract class Card extends Component
     #[Url(as: 'env')]
     public string $environment = '';
 
-    /**
-     * Marker types hidden from charts (csv of marker keys from
-     * telemetry-ui.annotations.markers, e.g. "deploy,incident") — set by the
-     * header's annotations toggle, shared by every card via the URL.
-     */
-    #[Url(as: 'ann_off')]
-    public string $annotationsOff = '';
-
     /** True when the card is embedded on a host page (not the built-in dashboard). */
     public bool $embedded = false;
 
@@ -131,16 +123,6 @@ abstract class Card extends Component
         $this->period = Period::tryFrom($period) !== null ? $period : Period::default()->value;
         $this->from = '';
         $this->to = '';
-    }
-
-    /**
-     * The header's ⚑ annotations toggle broadcasts the hidden marker types
-     * so every chart re-renders in place — no page reload.
-     */
-    #[On('telemetry-ui:annotations-changed')]
-    public function updateAnnotations(string $off): void
-    {
-        $this->annotationsOff = $off;
     }
 
     /**
@@ -238,30 +220,10 @@ abstract class Card extends Component
         // Reuse the same scoped Loki selector every log query uses, so deploy
         // markers respect the exact service/env scope (single, multi-value
         // alternation, or a fail-closed lock) — not a single-value special case.
-        $annotations = app(Annotations::class)->between($start, $end, $this->logSelector());
-
-        $hidden = array_filter(explode(',', $this->annotationsOff));
-
-        if ($hidden === []) {
-            return $annotations;
-        }
-
-        // Marker keys → the event names annotations carry as their kind.
-        /** @var array<string, array{event?: string}> $markers */
-        $markers = (array) config('telemetry-ui.annotations.markers', []);
-
-        $hiddenEvents = [];
-
-        foreach ($hidden as $key) {
-            if (($markers[$key]['event'] ?? '') !== '') {
-                $hiddenEvents[] = $markers[$key]['event'];
-            }
-        }
-
-        return array_values(array_filter(
-            $annotations,
-            static fn (Annotation $annotation): bool => ! in_array($annotation->kind, $hiddenEvents, true),
-        ));
+        // Cards always ship the FULL annotation set; the header's ⚑ toggle
+        // hides marker types client-side (by kind), so toggling never costs
+        // a backend refetch.
+        return app(Annotations::class)->between($start, $end, $this->logSelector());
     }
 
     /**

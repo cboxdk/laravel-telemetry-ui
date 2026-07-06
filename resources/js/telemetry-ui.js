@@ -332,11 +332,21 @@ function register() {
     // Alpine deep-proxies component state, and a proxied ECharts instance
     // misbehaves (resize() no-ops, coordinate lookups fail) — which left
     // charts stuck at whatever width they measured mid-morph.
+    // Hidden annotation kinds (event names) right now: the header's ⚑ toggle
+    // keeps the ann_off URL param and the key→event map up to date; charts
+    // resolve it here so a lazily-loaded chart starts out correct too.
+    const hiddenAnnotationKinds = () => {
+        const off = (new URL(window.location).searchParams.get('ann_off') || '').split(',').filter(Boolean);
+        const map = window.telemetryUiAnnEvents || {};
+        return off.map((key) => map[key]).filter(Boolean);
+    };
+
     window.Alpine.data('telemetryUiChart', (series, type = 'line', unit = null, annotations = [], window_ = {}) => {
         let chart = null;
         let resizeHandler = null;
         let sizeObserver = null;
         let hideTimer = null;
+        let annVisibilityHandler = null;
 
         return {
         // The annotation under the pointer, plus the marker line's own pixel
@@ -434,6 +444,20 @@ function register() {
             // line gets a colored dot handle; hovering OR clicking opens the
             // same line-anchored callout (markup in chart.blade.php) — hover
             // previews it, click pins it. A clustered rollout shows ×N.
+            // Hiding a type is a pure frontend concern: the card always ships
+            // every annotation, and the lines are filtered by kind here \u2014 the
+            // header toggle never triggers a backend refetch.
+            const annotationLines = (hidden) => annotations
+                .filter((a) => !hidden.includes(a.kind))
+                .map((a) => ({
+                    xAxis: a.xAxis,
+                    markerLabel: (a.label || '') + (a.count > 1 ? ` \u00d7${a.count}` : ''),
+                    marker: a,
+                    label: { color: a.color || '#c084fc' },
+                    itemStyle: { color: a.color || '#c084fc' },
+                    lineStyle: { color: a.color || '#c084fc' },
+                }));
+
             if (annotations.length && mapped.length) {
                 mapped[0].markLine = {
                     silent: false,
@@ -449,15 +473,16 @@ function register() {
                         formatter: (p) => p.data.markerLabel || '',
                     },
                     lineStyle: { type: 'dashed', width: 1.5 },
-                    data: annotations.map((a) => ({
-                        xAxis: a.xAxis,
-                        markerLabel: (a.label || '') + (a.count > 1 ? ` \u00d7${a.count}` : ''),
-                        marker: a,
-                        label: { color: a.color || '#c084fc' },
-                        itemStyle: { color: a.color || '#c084fc' },
-                        lineStyle: { color: a.color || '#c084fc' },
-                    })),
+                    data: annotationLines(hiddenAnnotationKinds()),
                 };
+
+                annVisibilityHandler = (event) => {
+                    if (!chart) return;
+                    const hidden = event?.detail?.kinds ?? hiddenAnnotationKinds();
+                    this.closeMarker();
+                    chart.setOption({ series: [{ markLine: { data: annotationLines(hidden) } }] });
+                };
+                window.addEventListener('telemetry-ui:annotations-visibility', annVisibilityHandler);
             }
 
             chart.setOption({
@@ -549,6 +574,10 @@ function register() {
 
         destroy() {
             window.removeEventListener('resize', resizeHandler);
+            if (annVisibilityHandler) {
+                window.removeEventListener('telemetry-ui:annotations-visibility', annVisibilityHandler);
+                annVisibilityHandler = null;
+            }
             sizeObserver?.disconnect();
             sizeObserver = null;
             chart?.dispose();
