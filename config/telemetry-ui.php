@@ -340,10 +340,13 @@ return [
         ],
         // No exporter needed: what the app ITSELF measured about the Redis
         // it talks to from this host (laravel-telemetry's redis.commands,
-        // TELEMETRY_INSTRUMENT_REDIS=true).
+        // TELEMETRY_INSTRUMENT_REDIS=true). 'observed' kind: this can never
+        // claim up/down — it only proves the app used Redis recently.
         'redis-app' => [
             'label' => 'Redis (seen by app)',
+            'kind' => 'observed',
             'up' => 'sum(rate(redis_commands_total{host_name="{host}"}[10m])) > 0',
+            'note' => 'App-side view only. Point redis_exporter at this Prometheus for real health, memory, clients and hit ratio.',
             'tiles' => [
                 ['label' => 'Commands/s', 'query' => 'sum(rate(redis_commands_total{host_name="{host}"}[5m]))', 'unit' => 'raw'],
                 ['label' => 'Commands (1h)', 'query' => 'sum(increase(redis_commands_total{host_name="{host}"}[1h]))'],

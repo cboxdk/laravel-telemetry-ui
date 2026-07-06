@@ -28,6 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   trace (linked to the Hosts page) and the service, or "all hosts" when
   the resource carries no host and the queries aggregate service-wide.
   `host.name` also joined the resource rows in the span attribute panel.
+- **The drawer is now a docked properties pane on wide screens.** At
+  ≥1100px it pushes the page aside instead of covering it — no backdrop,
+  the page stays fully interactive, and selecting another row simply swaps
+  the pane's content (links *inside* the pane still stack with
+  back-navigation). Narrow screens keep the overlay behavior.
+- **Host services tell the truth about visibility.** App-side sections
+  (like "Redis (seen by app)") carry an `observed` badge instead of
+  up/down — traffic measured by the app proves usage, not health — plus a
+  note pointing at the exporter that would unlock full monitoring.
 - **The drawer opens instantly.** Clicking a trace/issue/error row slides
   the drawer in immediately with a shimmer skeleton; the content morphs in
   when the backend queries land — no more click lag.

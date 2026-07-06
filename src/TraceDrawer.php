@@ -92,21 +92,21 @@ final class TraceDrawer extends Component
     }
 
     #[On('telemetry-ui:open-trace')]
-    public function openTrace(string $traceId): void
+    public function openTrace(string $traceId, bool $replace = false): void
     {
-        $this->push('trace', $traceId);
+        $this->push('trace', $traceId, $replace);
     }
 
     #[On('telemetry-ui:open-issue')]
-    public function openIssue(string $issueId): void
+    public function openIssue(string $issueId, bool $replace = false): void
     {
-        $this->push('issue', $issueId);
+        $this->push('issue', $issueId, $replace);
     }
 
     #[On('telemetry-ui:open-exception')]
-    public function openException(string $group): void
+    public function openException(string $group, bool $replace = false): void
     {
-        $this->push('exception', $group);
+        $this->push('exception', $group, $replace);
     }
 
     /**
@@ -182,8 +182,21 @@ final class TraceDrawer extends Component
         $this->syncUrl();
     }
 
-    private function push(string $type, string $id): void
+    /**
+     * Push onto the stack, or — for a click on the PAGE while the pane is
+     * already open — replace it: the docked pane behaves like a properties
+     * panel (select a new row, see that row). Links inside the pane keep
+     * stacking so back-navigation still works while digging.
+     */
+    private function push(string $type, string $id, bool $replace = false): void
     {
+        if ($replace) {
+            $this->stack = [['type' => $type, 'id' => $id]];
+            $this->syncUrl();
+
+            return;
+        }
+
         $top = end($this->stack) ?: null;
 
         // Don't stack the same thing twice in a row.

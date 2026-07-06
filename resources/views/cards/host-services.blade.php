@@ -12,7 +12,11 @@
             @foreach ($services as $service)
                 <div class="tui-host-service">
                     <div class="tui-host-service-head">
-                        <span class="tui-badge {{ $service['up'] ? 'tui-badge-ok' : 'tui-badge-danger' }}">{{ $service['up'] ? 'up' : 'down' }}</span>
+                        @if ($service['kind'] === 'observed')
+                            <span class="tui-badge tui-badge-info" title="Measured by the app itself — no health probe, so quiet ≠ down">observed</span>
+                        @else
+                            <span class="tui-badge {{ $service['up'] ? 'tui-badge-ok' : 'tui-badge-danger' }}">{{ $service['up'] ? 'up' : 'down' }}</span>
+                        @endif
                         <strong>{{ $service['label'] }}</strong>
                     </div>
                     <div class="tui-stats">
@@ -23,6 +27,9 @@
                             </div>
                         @endforeach
                     </div>
+                    @if ($service['note'] !== null)
+                        <div class="tui-note">{{ $service['note'] }}</div>
+                    @endif
                 </div>
             @endforeach
         </div>

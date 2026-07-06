@@ -69,6 +69,33 @@ it('stacks a trace on top of an issue and pops back to it', function (): void {
         ->assertSet('stack', []);
 });
 
+it('replaces the pane content instead of stacking when the click comes from the page', function (): void {
+    config()->set('telemetry-ui.connections.issues', [
+        'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_test',
+    ]);
+    fakeTrace();
+    Http::fake([
+        'api.github.com/repos/cboxdk/laravel-telemetry-ui/issues/7' => Http::response([
+            'number' => 7, 'title' => 'Flaky checkout', 'state' => 'open',
+            'html_url' => 'https://github.com/cboxdk/laravel-telemetry-ui/issues/7',
+            'body' => 'investigating', 'updated_at' => '2026-07-03T12:00:00Z',
+        ]),
+        'tempo.test:3200/api/traces/*' => Http::response([
+            'batches' => [['resource' => ['attributes' => [['key' => 'service.name', 'value' => ['stringValue' => 'checkout']]]],
+                'scopeSpans' => [['spans' => [['spanId' => 'a1', 'name' => 'GET /orders', 'kind' => 'SPAN_KIND_SERVER', 'startTimeUnixNano' => '1000000000', 'endTimeUnixNano' => '2000000000']]]]]],
+        ]),
+    ]);
+
+    Livewire::test(TraceDrawer::class)
+        ->dispatch('telemetry-ui:open-issue', issueId: '#7')
+        // Selecting another row on the page swaps the pane — no crumb trail.
+        ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab', replace: true)
+        ->assertCount('stack', 1)
+        ->assertSet('traceId', 'abc123abc123abc123abc123abc123ab')
+        ->assertSet('issueId', '')
+        ->assertSee('GET /orders');
+});
+
 it('opens and renders a trace on the open-trace event', function (): void {
     fakeTrace();
 

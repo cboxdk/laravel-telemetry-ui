@@ -1215,7 +1215,12 @@ html, body {
 
 .tui-copy-link.is-copied { color: var(--tui-accent); border-color: rgba(52, 211, 153, 0.4); }
 
-/* Slide-in trace drawer */
+/* Slide-in trace drawer. On narrow screens it overlays; on wide screens
+   (≥1100px) it DOCKS: the page content is pushed aside (margin on .tui-main
+   via body.tui-drawer-docked), the backdrop disappears, and the page stays
+   fully interactive — a properties pane, not a modal. */
+
+:root { --tui-drawer-w: clamp(520px, 44vw, 880px); }
 
 .tui-drawer-root { position: fixed; inset: 0; z-index: 80; pointer-events: none; }
 .tui-drawer-root.is-open { pointer-events: auto; }
@@ -1229,6 +1234,18 @@ html, body {
 }
 
 .tui-drawer-root.is-open .tui-drawer-overlay { opacity: 1; }
+
+.tui-main { transition: margin-right 0.24s cubic-bezier(0.4, 0, 0.2, 1); }
+
+@media (min-width: 1100px) {
+    /* Docked mode: no backdrop, clicks pass through to the page. */
+    .tui-drawer-root.is-open { pointer-events: none; }
+    .tui-drawer-root .tui-drawer { pointer-events: auto; }
+    .tui-drawer-overlay { display: none; }
+    .tui-drawer { width: var(--tui-drawer-w); }
+
+    body.tui-drawer-docked .tui-main { margin-right: var(--tui-drawer-w); }
+}
 
 .tui-drawer {
     position: absolute;

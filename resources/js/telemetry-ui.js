@@ -98,6 +98,26 @@ function openDrawerShell(eyebrow) {
 // Blade-side buttons (e.g. the annotation callout) reuse the same shell-open.
 window.telemetryUiOpenDrawer = openDrawerShell;
 
+// Docked properties-pane: on wide screens the pane pushes the page content
+// aside instead of covering it (body class -> CSS margin), so the page stays
+// clickable and selecting another row just swaps the pane's content.
+const dockQuery = window.matchMedia('(min-width: 1100px)');
+
+function syncDock() {
+    const root = document.querySelector('.tui-drawer-root');
+    document.body.classList.toggle(
+        'tui-drawer-docked',
+        !!root && root.classList.contains('is-open') && dockQuery.matches,
+    );
+}
+
+new MutationObserver(syncDock).observe(document.documentElement, {
+    subtree: true, attributes: true, attributeFilter: ['class'],
+});
+dockQuery.addEventListener('change', syncDock);
+window.addEventListener('resize', syncDock);
+document.addEventListener('DOMContentLoaded', syncDock);
+
 // Navigation delegation. Trace/issue links open the slide-in drawer; whole
 // rows (data-row-trace / data-row-href) are Nightwatch-style click targets so
 // you don't have to aim for the little link. cmd/ctrl/shift-click (or the
@@ -107,12 +127,16 @@ document.addEventListener('click', (e) => {
 
     const plain = !(e.metaKey || e.ctrlKey || e.shiftKey);
 
+    // A click on the PAGE swaps the pane's content (properties-panel
+    // behavior); a click INSIDE the pane stacks, keeping back-navigation.
+    const replace = !e.target.closest('.tui-drawer');
+
     // Explicit drawer links (may live inside a clickable row).
     const trace = e.target.closest('.tui-trace-link');
     if (trace && trace.dataset.traceId && plain) {
         e.preventDefault();
         openDrawerShell('Trace');
-        window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: trace.dataset.traceId });
+        window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: trace.dataset.traceId, replace });
         return;
     }
 
@@ -120,7 +144,7 @@ document.addEventListener('click', (e) => {
     if (issue && issue.dataset.issueId && plain) {
         e.preventDefault();
         openDrawerShell('Issue');
-        window.Livewire?.dispatch('telemetry-ui:open-issue', { issueId: issue.dataset.issueId });
+        window.Livewire?.dispatch('telemetry-ui:open-issue', { issueId: issue.dataset.issueId, replace });
         return;
     }
 
@@ -132,7 +156,7 @@ document.addEventListener('click', (e) => {
     if (traceRow && traceRow.dataset.rowTrace && plain) {
         e.preventDefault();
         openDrawerShell('Trace');
-        window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: traceRow.dataset.rowTrace });
+        window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: traceRow.dataset.rowTrace, replace });
         return;
     }
 
@@ -140,7 +164,7 @@ document.addEventListener('click', (e) => {
     if (exceptionRow && exceptionRow.dataset.rowException && plain) {
         e.preventDefault();
         openDrawerShell('Error group');
-        window.Livewire?.dispatch('telemetry-ui:open-exception', { group: exceptionRow.dataset.rowException });
+        window.Livewire?.dispatch('telemetry-ui:open-exception', { group: exceptionRow.dataset.rowException, replace });
         return;
     }
 

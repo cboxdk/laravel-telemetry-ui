@@ -31,7 +31,7 @@ final class HostServices extends Card
         $services = [];
         $error = null;
 
-        /** @var array<string, array{label?: string, up?: string, tiles?: array<int, array{label?: string, query?: string, unit?: string}>}> $configured */
+        /** @var array<string, array{label?: string, kind?: string, up?: string, note?: string, tiles?: array<int, array{label?: string, query?: string, unit?: string}>}> $configured */
         $configured = (array) config('telemetry-ui.host-services', []);
 
         try {
@@ -71,9 +71,13 @@ final class HostServices extends Card
 
                 $services[] = [
                     'label' => (string) ($service['label'] ?? '?'),
-                    // An *_up gauge answers 1/0; a rate-filter probe answers
-                    // its (positive) rate. Anything above zero means alive.
+                    // 'exporter' sections have a real health probe (an *_up
+                    // gauge: 1/0). 'observed' sections only know the app
+                    // interacted with the service — absence of traffic is
+                    // NOT downtime, so they never claim up/down.
+                    'kind' => ($service['kind'] ?? 'exporter') === 'observed' ? 'observed' : 'exporter',
                     'up' => ($up[0]->value ?? 0.0) > 0.0,
+                    'note' => is_string($service['note'] ?? null) ? $service['note'] : null,
                     'tiles' => $tiles,
                 ];
             }
