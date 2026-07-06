@@ -13,26 +13,35 @@
 >
     <div class="tui-chart" style="height: {{ (int) $height }}px"></div>
 
-    {{-- Click-callout for an annotation marker: the full detail the thin
-         line can't carry — label, exact time, notes, and its trace. --}}
+    {{-- The annotation callout, ANCHORED to the marker line: hovering the
+         line previews it (and the pointer can move into it), clicking pins
+         it — one shape, one place, both triggers. Clustered rollouts show
+         the count, the span (first → last) and the covered hosts. --}}
     <div class="tui-annotation-pop" x-cloak x-show="marker"
-         x-on:click.outside="marker = null" x-on:keydown.escape.window="marker = null"
+         x-on:mouseenter="cancelHide()" x-on:mouseleave="scheduleHide()"
+         x-on:click.outside="pinned && closeMarker()" x-on:keydown.escape.window="closeMarker()"
          :style="popStyle()">
         <template x-if="marker">
             <div>
                 <div class="tui-annotation-pop-head">
                     <span class="tui-annotation-dot" :style="'background:' + marker.color"></span>
-                    <strong x-text="marker.label"></strong>
-                    <button type="button" class="tui-annotation-pop-close" x-on:click="marker = null" title="Close">✕</button>
+                    <strong x-text="marker.label + (marker.count > 1 ? ' ×' + marker.count : '')"></strong>
+                    <button type="button" class="tui-annotation-pop-close" x-show="pinned" x-on:click="closeMarker()" title="Close">✕</button>
                 </div>
-                <div class="tui-annotation-pop-time" x-text="marker.time"></div>
+                <div class="tui-annotation-pop-time"
+                     x-text="marker.timeEnd ? marker.time + ' → ' + marker.timeEnd : marker.time"></div>
                 <div class="tui-annotation-pop-notes" x-show="marker.notes" x-text="marker.notes"></div>
+                <div class="tui-annotation-pop-hosts" x-show="marker.hostCount > 0"
+                     x-text="marker.hostCount + (marker.hostCount === 1 ? ' host: ' : ' hosts: ')
+                        + (marker.hosts || []).join(', ')
+                        + (marker.hostCount > (marker.hosts || []).length ? ' +' + (marker.hostCount - marker.hosts.length) + ' more' : '')"></div>
                 <div class="tui-annotation-pop-actions" x-show="marker.traceId">
                     <button type="button" class="tui-btn tui-btn-sm"
-                            x-on:click="window.telemetryUiOpenDrawer?.('Trace'); window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: marker.traceId }); marker = null">
+                            x-on:click="window.telemetryUiOpenDrawer?.('Trace'); window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: marker.traceId }); closeMarker()">
                         ⇄ Open trace
                     </button>
                 </div>
+                <div class="tui-annotation-pop-hint" x-show="!pinned">click to pin</div>
             </div>
         </template>
     </div>

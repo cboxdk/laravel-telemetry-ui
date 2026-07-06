@@ -292,18 +292,43 @@ function register() {
         let chart = null;
         let resizeHandler = null;
         let sizeObserver = null;
+        let hideTimer = null;
 
         return {
-        // The annotation the user clicked, with the pixel position for the
-        // callout ({label, time, notes, traceId, color, px, py}), or null.
+        // The annotation under the pointer (or pinned by click), plus the
+        // marker line's own pixel position — the callout is ANCHORED to the
+        // line, so hover and click show the exact same thing in the exact
+        // same place. Hover previews; click pins.
         marker: null,
+        pinned: false,
 
         popStyle() {
             if (!this.marker) return 'display: none';
             const wrap = this.$el.getBoundingClientRect();
-            const x = Math.max(8, Math.min(this.marker.px + 10, wrap.width - 250));
-            const y = Math.max(8, Math.min(this.marker.py, Math.max(8, wrap.height - 120)));
-            return `left: ${x}px; top: ${y}px;`;
+            const x = Math.max(8, Math.min(this.marker.px + 10, wrap.width - 256));
+            return `left: ${x}px; top: 6px;`;
+        },
+
+        showMarker(a) {
+            if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+            const px = chart ? chart.convertToPixel({ xAxisIndex: 0 }, a.xAxis) : 20;
+            this.marker = { ...a, px: Number.isFinite(px) ? px : 20 };
+        },
+
+        cancelHide() {
+            if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        },
+
+        scheduleHide() {
+            if (this.pinned) return;
+            this.cancelHide();
+            hideTimer = setTimeout(() => { if (!this.pinned) this.marker = null; }, 250);
+        },
+
+        closeMarker() {
+            this.cancelHide();
+            this.pinned = false;
+            this.marker = null;
         },
 
         init() {
@@ -339,12 +364,10 @@ function register() {
 
             // Grafana-style annotations: vertical marker lines (deploys, …)
             // attached to the first series so they share the time axis. Each
-            // line gets a colored dot handle at the top (a real hit target),
-            // a hover tooltip with the full detail, and a click-callout
-            // (state on this component, markup in chart.blade.php).
+            // line gets a colored dot handle; hovering OR clicking opens the
+            // same line-anchored callout (markup in chart.blade.php) — hover
+            // previews it, click pins it. A clustered rollout shows ×N.
             if (annotations.length && mapped.length) {
-                const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-
                 mapped[0].markLine = {
                     silent: false,
                     symbol: ['none', 'circle'],
@@ -361,19 +384,11 @@ function register() {
                     lineStyle: { type: 'dashed', width: 1.5 },
                     data: annotations.map((a) => ({
                         xAxis: a.xAxis,
-                        markerLabel: a.label || '',
+                        markerLabel: (a.label || '') + (a.count > 1 ? ` \u00d7${a.count}` : ''),
                         marker: a,
                         label: { color: a.color || '#c084fc' },
                         itemStyle: { color: a.color || '#c084fc' },
                         lineStyle: { color: a.color || '#c084fc' },
-                        tooltip: {
-                            show: true,
-                            trigger: 'item',
-                            formatter: () => `<strong>${esc(a.label || '')}</strong><br>`
-                                + `<span style="opacity:.75">${esc(a.time || '')}</span>`
-                                + (a.notes ? `<br>${esc(a.notes)}` : '')
-                                + '<br><span style="opacity:.55;font-size:11px">Click for details</span>',
-                        },
                     })),
                 };
             }
@@ -394,12 +409,25 @@ function register() {
             resizeHandler = () => chart?.resize();
             window.addEventListener('resize', resizeHandler);
 
-            // Clicking a marker line (or its dot handle) opens the callout
-            // with the annotation's full detail (see chart.blade.php).
+            // One callout, two triggers: hovering a marker line previews it
+            // (and it survives moving the pointer INTO the callout); clicking
+            // pins it until ✕ / Escape / a click elsewhere.
+            const isMarker = (params) => params.componentType === 'markLine' && params.data && params.data.marker;
+
+            chart.on('mouseover', (params) => {
+                if (!isMarker(params) || this.pinned) return;
+                this.showMarker(params.data.marker);
+            });
+
+            chart.on('mouseout', (params) => {
+                if (!isMarker(params)) return;
+                this.scheduleHide();
+            });
+
             chart.on('click', (params) => {
-                if (params.componentType !== 'markLine' || !params.data || !params.data.marker) return;
-                const a = params.data.marker;
-                this.marker = { ...a, px: params.event?.offsetX ?? 20, py: params.event?.offsetY ?? 20 };
+                if (!isMarker(params)) return;
+                this.showMarker(params.data.marker);
+                this.pinned = true;
             });
 
             // Grafana-style drag-to-zoom via raw zrender events instead of an

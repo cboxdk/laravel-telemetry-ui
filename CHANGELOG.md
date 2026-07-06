@@ -10,9 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Annotations are now interactive.** Each chart marker line carries a
-  colored dot handle, a hover tooltip with the full detail (label, exact
-  time, notes), and a click-callout with an "Open trace" button that jumps
-  straight into the emitting trace via the drawer.
+  colored dot handle; hovering it opens a callout ANCHORED to the line
+  (the pointer can move into it), and clicking pins the same callout in
+  the same place — one shape, one position, both triggers. It shows the
+  label, exact time, notes and an "Open trace" button into the emitting
+  trace.
+- **Rollout markers cluster.** A horizontal deployment emits the same
+  marker from every host within minutes; 200 servers no longer draw 200
+  lines. Same-kind+label events within a 15-minute gap window fold into
+  one marker showing ×N, the rollout span (first → last host) and the
+  covered hosts — on charts, in the callout and on the Deploys timeline.
 - **Host detail page** — clicking a host (from the Hosts list or the trace
   context strip) opens its own page: headline CPU/memory/load/request stats,
   host-scoped system charts (CPU load, memory, network, filesystem), and a

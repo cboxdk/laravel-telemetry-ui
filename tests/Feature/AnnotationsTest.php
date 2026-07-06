@@ -76,6 +76,56 @@ it('shapes markers for the chart tooltip/callout with time, kind and trace id', 
     ])->toHaveKey('time');
 });
 
+it('clusters a horizontal rollout into one marker with hosts and span', function (): void {
+    // The same deploy id from three hosts within minutes (a rolling deploy),
+    // plus an UNRELATED older deploy well outside the gap window.
+    Http::fake([
+        'loki.test:3100/loki/api/v1/query_range*' => Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'streams', 'result' => [
+                [
+                    'stream' => ['service_name' => 'demo', 'deployment_id' => 'v2.4.1', 'host_name' => 'web-1'],
+                    'values' => [['1735689600000000000', 'app.deployment']],
+                ],
+                [
+                    'stream' => ['service_name' => 'demo', 'deployment_id' => 'v2.4.1', 'host_name' => 'web-2'],
+                    'values' => [['1735689660000000000', 'app.deployment']],
+                ],
+                [
+                    'stream' => ['service_name' => 'demo', 'deployment_id' => 'v2.4.1', 'host_name' => 'web-3'],
+                    'values' => [['1735689720000000000', 'app.deployment']],
+                ],
+                [
+                    'stream' => ['service_name' => 'demo', 'deployment_id' => 'v2.4.0', 'host_name' => 'web-1'],
+                    'values' => [['1735600000000000000', 'app.deployment']],
+                ],
+            ]],
+        ]),
+    ]);
+
+    $annotations = app(Annotations::class)->between(
+        new DateTimeImmutable('@1735500000'),
+        new DateTimeImmutable('@1735700000'),
+    );
+
+    expect($annotations)->toHaveCount(2);
+
+    $rollout = $annotations[0]; // newest first
+    expect($rollout->label)->toBe('Deploy v2.4.1')
+        ->and($rollout->count)->toBe(3)
+        ->and($rollout->timestampMs)->toBe(1735689600000.0)   // rollout start
+        ->and($rollout->endMs)->toBe(1735689720000.0)         // rollout end
+        ->and($rollout->hosts)->toBe(['web-1', 'web-2', 'web-3']);
+
+    expect($annotations[1]->label)->toBe('Deploy v2.4.0')
+        ->and($annotations[1]->count)->toBe(1)
+        ->and($annotations[1]->endMs)->toBeNull();
+
+    // The chart payload carries the cluster facts for the callout.
+    expect($rollout->toMarkLine())->toMatchArray(['count' => 3, 'hostCount' => 3])
+        ->and($rollout->toMarkLine()['timeEnd'])->not->toBeNull();
+});
+
 it('reads statamic cache purges as cache purge markers', function (): void {
     Http::fake([
         'loki.test:3100/loki/api/v1/query_range*' => Http::response([

@@ -19,10 +19,18 @@
                     @foreach ($deploys as $deploy)
                         @php($at = (new DateTimeImmutable)->setTimestamp((int) ($deploy->timestampMs / 1000)))
                         <tr>
-                            <td>{{ $at->format('d/m H:i:s') }}</td>
+                            <td>
+                                {{ $at->format('d/m H:i:s') }}
+                                @if ($deploy->endMs !== null)
+                                    <span class="tui-tone-dim">→ {{ (new DateTimeImmutable)->setTimestamp((int) ($deploy->endMs / 1000))->format('H:i:s') }}</span>
+                                @endif
+                            </td>
                             <td class="is-primary">
                                 <span class="tui-annotation-dot" style="background: {{ $deploy->color }}"></span>
                                 {{ $deploy->label }}
+                                @if ($deploy->count > 1)
+                                    <span class="tui-badge" title="{{ count($deploy->hosts) }} hosts reported this marker">×{{ $deploy->count }}</span>
+                                @endif
                             </td>
                             <td class="is-wide">{{ $deploy->notes ?? '—' }}</td>
                             <td class="is-num">

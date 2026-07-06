@@ -61,12 +61,13 @@ final readonly class Annotations
             return [];
         }
 
-        $key = 'telemetry-ui:annotations:'.md5($selector);
+        // v2: cluster fields (count/end/hosts) joined the row shape.
+        $key = 'telemetry-ui:annotations:v2:'.md5($selector);
 
         // Cache primitive rows, not Annotation objects — file/database/redis
         // cache stores serialize, and cross-request unserialize of a package
         // class can yield __PHP_Incomplete_Class. Rehydrate after reading.
-        /** @var list<array{ts: float, label: string, notes: string|null, kind: string, traceId: string|null, color: string}> $rows */
+        /** @var list<array{ts: float, label: string, notes: string|null, kind: string, traceId: string|null, color: string, count: int, end: float|null, hosts: list<string>}> $rows */
         $rows = $this->cache->store()->remember($key, $this->ttl, fn (): array => $this->fetch($selector));
 
         return array_map(
@@ -77,13 +78,16 @@ final readonly class Annotations
                 kind: $row['kind'],
                 traceId: $row['traceId'],
                 color: $row['color'],
+                count: $row['count'] ?? 1,
+                endMs: $row['end'] ?? null,
+                hosts: $row['hosts'] ?? [],
             ),
             $rows,
         );
     }
 
     /**
-     * @return list<array{ts: float, label: string, notes: string|null, kind: string, traceId: string|null, color: string}>
+     * @return list<array{ts: float, label: string, notes: string|null, kind: string, traceId: string|null, color: string, count: int, end: float|null, hosts: list<string>}>
      */
     private function fetch(string $selector): array
     {
@@ -148,11 +152,86 @@ final readonly class Annotations
                 'kind' => trim($entry->line),
                 'traceId' => $entry->labels['trace_id'] ?? null,
                 'color' => $marker['color'] ?? '#c084fc',
+                'host' => $entry->labels['host_name'] ?? null,
             ];
         }
 
-        usort($annotations, static fn (array $a, array $b): int => $b['ts'] <=> $a['ts']);
+        usort($annotations, static fn (array $a, array $b): int => $a['ts'] <=> $b['ts']);
 
-        return $annotations;
+        $clustered = $this->cluster($annotations);
+
+        usort($clustered, static fn (array $a, array $b): int => $b['ts'] <=> $a['ts']);
+
+        return $clustered;
+    }
+
+    /**
+     * A horizontal rollout emits the SAME marker (kind + label, e.g.
+     * "Deploy v2.4.1") from every host within minutes — 200 servers must
+     * not become 200 lines on every chart. Fold same-kind+label events
+     * whose gaps stay under the window into one cluster carrying the
+     * count, the covered hosts and the rollout span (first → last).
+     *
+     * @param  list<array{ts: float, label: string, notes: string|null, kind: string, traceId: string|null, color: string, host: string|null}>  $annotations  sorted ascending by ts
+     * @return list<array{ts: float, label: string, notes: string|null, kind: string, traceId: string|null, color: string, count: int, end: float|null, hosts: list<string>}>
+     */
+    private function cluster(array $annotations, float $gapMs = 900_000): array
+    {
+        /** @var array<string, array{ts: float, label: string, notes: string|null, kind: string, traceId: string|null, color: string, count: int, end: float, hosts: list<string>}> $open */
+        $open = [];
+        $out = [];
+
+        /** @param array{ts: float, label: string, notes: string|null, kind: string, traceId: string|null, color: string, count: int, end: float, hosts: list<string>} $cluster */
+        $flush = static function (array $cluster) use (&$out): void {
+            $out[] = [
+                'ts' => $cluster['ts'],
+                'label' => $cluster['label'],
+                'notes' => $cluster['notes'],
+                'kind' => $cluster['kind'],
+                'traceId' => $cluster['traceId'],
+                'color' => $cluster['color'],
+                'count' => $cluster['count'],
+                'end' => $cluster['end'] > $cluster['ts'] ? $cluster['end'] : null,
+                'hosts' => array_values(array_unique($cluster['hosts'])),
+            ];
+        };
+
+        foreach ($annotations as $annotation) {
+            $key = $annotation['kind'].'|'.$annotation['label'];
+            $host = $annotation['host'];
+            unset($annotation['host']);
+
+            $current = $open[$key] ?? null;
+
+            if ($current !== null && $gapMs >= $annotation['ts'] - $current['end']) {
+                $current['count']++;
+                $current['end'] = $annotation['ts'];
+                $current['notes'] ??= $annotation['notes'];
+                $current['traceId'] ??= $annotation['traceId'];
+                if ($host !== null && $host !== '') {
+                    $current['hosts'][] = $host;
+                }
+                $open[$key] = $current;
+
+                continue;
+            }
+
+            if ($current !== null) {
+                $flush($current);
+            }
+
+            $open[$key] = [
+                ...$annotation,
+                'count' => 1,
+                'end' => $annotation['ts'],
+                'hosts' => $host !== null && $host !== '' ? [$host] : [],
+            ];
+        }
+
+        foreach ($open as $cluster) {
+            $flush($cluster);
+        }
+
+        return $out;
     }
 }
