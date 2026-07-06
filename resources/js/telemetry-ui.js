@@ -68,6 +68,36 @@ window.telemetryUiSetRange = (fromMs, toMs) => {
 
 const isHex32 = (s) => /^[0-9a-f]{32}$/i.test(s.trim());
 
+// The drawer's content is server-rendered, so opening it costs a Livewire
+// round trip plus the backend queries behind it. Slide the shell open
+// instantly with a skeleton — the morph replaces it when the data lands.
+function openDrawerShell(eyebrow) {
+    const root = document.querySelector('.tui-drawer-root');
+    if (!root) return;
+
+    root.classList.add('is-open');
+
+    const eyebrowEl = root.querySelector('.tui-drawer-eyebrow');
+    if (eyebrowEl) eyebrowEl.textContent = eyebrow;
+
+    const title = root.querySelector('.tui-drawer-title h2');
+    if (title) title.textContent = 'Loading\u2026';
+
+    const body = root.querySelector('.tui-drawer-body');
+    if (body) {
+        body.innerHTML = '<div class="tui-skel tui-skel-title"></div>'
+            + '<div class="tui-skel tui-skel-sub"></div>'
+            + '<div class="tui-skel-stats" style="padding-top: 18px;">'
+            + '<div class="tui-skel tui-skel-stat"></div>'.repeat(4)
+            + '</div>'
+            + Array.from({ length: 9 }, (_, i) =>
+                `<div class="tui-skel tui-drawer-skel-row" style="width: ${88 - i * 6}%"></div>`).join('');
+    }
+}
+
+// Blade-side buttons (e.g. the annotation callout) reuse the same shell-open.
+window.telemetryUiOpenDrawer = openDrawerShell;
+
 // Navigation delegation. Trace/issue links open the slide-in drawer; whole
 // rows (data-row-trace / data-row-href) are Nightwatch-style click targets so
 // you don't have to aim for the little link. cmd/ctrl/shift-click (or the
@@ -81,6 +111,7 @@ document.addEventListener('click', (e) => {
     const trace = e.target.closest('.tui-trace-link');
     if (trace && trace.dataset.traceId && plain) {
         e.preventDefault();
+        openDrawerShell('Trace');
         window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: trace.dataset.traceId });
         return;
     }
@@ -88,6 +119,7 @@ document.addEventListener('click', (e) => {
     const issue = e.target.closest('.tui-issue-link');
     if (issue && issue.dataset.issueId && plain) {
         e.preventDefault();
+        openDrawerShell('Issue');
         window.Livewire?.dispatch('telemetry-ui:open-issue', { issueId: issue.dataset.issueId });
         return;
     }
@@ -99,6 +131,7 @@ document.addEventListener('click', (e) => {
     const traceRow = e.target.closest('[data-row-trace]');
     if (traceRow && traceRow.dataset.rowTrace && plain) {
         e.preventDefault();
+        openDrawerShell('Trace');
         window.Livewire?.dispatch('telemetry-ui:open-trace', { traceId: traceRow.dataset.rowTrace });
         return;
     }
@@ -106,6 +139,7 @@ document.addEventListener('click', (e) => {
     const exceptionRow = e.target.closest('[data-row-exception]');
     if (exceptionRow && exceptionRow.dataset.rowException && plain) {
         e.preventDefault();
+        openDrawerShell('Error group');
         window.Livewire?.dispatch('telemetry-ui:open-exception', { group: exceptionRow.dataset.rowException });
         return;
     }
@@ -226,12 +260,35 @@ function register() {
         },
     }));
 
-    window.Alpine.data('telemetryUiChart', (series, type = 'line', unit = null, annotations = [], window_ = {}) => ({
-        chart: null,
-        resizeHandler: null,
+    // The ECharts instance lives in this closure, NOT on the component:
+    // Alpine deep-proxies component state, and a proxied ECharts instance
+    // misbehaves (resize() no-ops, coordinate lookups fail) — which left
+    // charts stuck at whatever width they measured mid-morph.
+    window.Alpine.data('telemetryUiChart', (series, type = 'line', unit = null, annotations = [], window_ = {}) => {
+        let chart = null;
+        let resizeHandler = null;
+        let sizeObserver = null;
+
+        return {
+        // The annotation the user clicked, with the pixel position for the
+        // callout ({label, time, notes, traceId, color, px, py}), or null.
+        marker: null,
+
+        popStyle() {
+            if (!this.marker) return 'display: none';
+            const wrap = this.$el.getBoundingClientRect();
+            const x = Math.max(8, Math.min(this.marker.px + 10, wrap.width - 250));
+            const y = Math.max(8, Math.min(this.marker.py, Math.max(8, wrap.height - 120)));
+            return `left: ${x}px; top: ${y}px;`;
+        },
 
         init() {
-            this.chart = echarts.init(this.$el, null, { renderer: 'canvas' });
+            // Mount ECharts on the sized canvas div inside the wrapper (the
+            // wrapper also hosts the annotation callout). Component init()
+            // fires post-layout — a child x-init would run too early and
+            // ECharts would measure a 0-width container.
+            const el = this.$el.querySelector('.tui-chart') || this.$el;
+            chart = echarts.init(el, null, { renderer: 'canvas' });
 
             const base = baseOption(unit);
             // Pin the time axis to the queried window so sparse data doesn't
@@ -257,11 +314,18 @@ function register() {
             }));
 
             // Grafana-style annotations: vertical marker lines (deploys, …)
-            // attached to the first series so they share the time axis.
+            // attached to the first series so they share the time axis. Each
+            // line gets a colored dot handle at the top (a real hit target),
+            // a hover tooltip with the full detail, and a click-callout
+            // (state on this component, markup in chart.blade.php).
             if (annotations.length && mapped.length) {
+                const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
                 mapped[0].markLine = {
                     silent: false,
-                    symbol: ['none', 'none'],
+                    symbol: ['none', 'circle'],
+                    symbolSize: 9,
+                    emphasis: { lineStyle: { width: 2.5, type: 'solid' } },
                     label: {
                         show: true,
                         position: 'insideEndTop',
@@ -270,30 +334,55 @@ function register() {
                         fontFamily: 'ui-monospace, monospace',
                         formatter: (p) => p.data.markerLabel || '',
                     },
-                    lineStyle: { type: 'dashed', width: 1 },
+                    lineStyle: { type: 'dashed', width: 1.5 },
                     data: annotations.map((a) => ({
                         xAxis: a.xAxis,
-                        markerLabel: a.notes ? '⬤ ' + a.notes : '⬤',
+                        markerLabel: a.label || '',
+                        marker: a,
+                        label: { color: a.color || '#c084fc' },
+                        itemStyle: { color: a.color || '#c084fc' },
                         lineStyle: { color: a.color || '#c084fc' },
-                        tooltip: { show: true },
+                        tooltip: {
+                            show: true,
+                            trigger: 'item',
+                            formatter: () => `<strong>${esc(a.label || '')}</strong><br>`
+                                + `<span style="opacity:.75">${esc(a.time || '')}</span>`
+                                + (a.notes ? `<br>${esc(a.notes)}` : '')
+                                + '<br><span style="opacity:.55;font-size:11px">Click for details</span>',
+                        },
                     })),
                 };
             }
 
-            this.chart.setOption({
+            chart.setOption({
                 ...base,
                 color: palette,
                 series: mapped,
             });
 
-            this.resizeHandler = () => this.chart?.resize();
-            window.addEventListener('resize', this.resizeHandler);
+            // Livewire streams cards in, so the container can measure 0 wide
+            // at the exact init moment (and a next-frame retry still can).
+            // Track the element's real size instead — that also covers the
+            // sidebar drawer, orientation changes and window resizes.
+            sizeObserver = new ResizeObserver(() => chart?.resize());
+            sizeObserver.observe(el);
+
+            resizeHandler = () => chart?.resize();
+            window.addEventListener('resize', resizeHandler);
+
+            // Clicking a marker line (or its dot handle) opens the callout
+            // with the annotation's full detail (see chart.blade.php).
+            chart.on('click', (params) => {
+                if (params.componentType !== 'markLine' || !params.data || !params.data.marker) return;
+                const a = params.data.marker;
+                this.marker = { ...a, px: params.event?.offsetX ?? 20, py: params.event?.offsetY ?? 20 };
+            });
 
             // Grafana-style drag-to-zoom via raw zrender events instead of an
             // always-on dataZoom brush — the brush suppresses hover tooltips,
             // so we draw our own selection band and realign the whole dashboard
             // to the dragged window on release (min 5s so a click doesn't fire).
-            const zr = this.chart.getZr();
+            const zr = chart.getZr();
             let dragStart = null;
 
             const band = new echarts.graphic.Rect({
@@ -317,7 +406,7 @@ function register() {
                 if (dragStart == null) return;
                 const x0 = Math.min(dragStart, e.offsetX);
                 const x1 = Math.max(dragStart, e.offsetX);
-                band.attr({ invisible: false, shape: { x: x0, y: 0, width: x1 - x0, height: this.chart.getHeight() } });
+                band.attr({ invisible: false, shape: { x: x0, y: 0, width: x1 - x0, height: chart.getHeight() } });
             });
 
             zr.on('mouseup', (e) => {
@@ -328,8 +417,8 @@ function register() {
 
                 if (x1 - x0 < 6) return; // a click, not a drag
 
-                const t0 = this.chart.convertFromPixel({ xAxisIndex: 0 }, x0);
-                const t1 = this.chart.convertFromPixel({ xAxisIndex: 0 }, x1);
+                const t0 = chart.convertFromPixel({ xAxisIndex: 0 }, x0);
+                const t1 = chart.convertFromPixel({ xAxisIndex: 0 }, x1);
                 if (t0 != null && t1 != null && t1 - t0 > 5000) {
                     window.telemetryUiSetRange(t0, t1);
                 }
@@ -340,11 +429,14 @@ function register() {
         },
 
         destroy() {
-            window.removeEventListener('resize', this.resizeHandler);
-            this.chart?.dispose();
-            this.chart = null;
+            window.removeEventListener('resize', resizeHandler);
+            sizeObserver?.disconnect();
+            sizeObserver = null;
+            chart?.dispose();
+            chart = null;
         },
-    }));
+        };
+    });
 }
 
 if (window.Alpine) {

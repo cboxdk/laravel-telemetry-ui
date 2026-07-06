@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
@@ -54,6 +55,25 @@ it('reads deploy markers from loki within a range', function (): void {
             && str_contains($q, 'deployment') && str_contains($q, 'incident')
             && str_contains($q, 'service_name="telemetry-demo"');
     });
+});
+
+it('shapes markers for the chart tooltip/callout with time, kind and trace id', function (): void {
+    $annotation = new Annotation(
+        timestampMs: 1735689600000.0,
+        label: 'Deploy abc123',
+        notes: 'hotfix: cache TTL',
+        kind: 'app.deployment',
+        traceId: 'aaaabbbbccccddddeeeeffff00001111',
+    );
+
+    expect($annotation->toMarkLine())->toMatchArray([
+        'xAxis' => 1735689600000.0,
+        'label' => 'Deploy abc123',
+        'notes' => 'hotfix: cache TTL',
+        'kind' => 'app.deployment',
+        'traceId' => 'aaaabbbbccccddddeeeeffff00001111',
+        'color' => '#c084fc',
+    ])->toHaveKey('time');
 });
 
 it('reads statamic cache purges as cache purge markers', function (): void {

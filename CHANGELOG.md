@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Annotations are now interactive.** Each chart marker line carries a
+  colored dot handle, a hover tooltip with the full detail (label, exact
+  time, notes), and a click-callout with an "Open trace" button that jumps
+  straight into the emitting trace via the drawer.
+- **The drawer opens instantly.** Clicking a trace/issue/error row slides
+  the drawer in immediately with a shimmer skeleton; the content morphs in
+  when the backend queries land — no more click lag.
+
+### Fixed
+
+- **Charts no longer stick at the width they measured mid-render.** The
+  ECharts instance now lives outside Alpine's reactive proxy (a proxied
+  instance silently breaks `resize()`), and a `ResizeObserver` keeps the
+  layout in step with the container — Livewire streaming a card in at
+  zero width, sidebar/drawer toggles and orientation changes all heal.
+
 ## [0.1.0-alpha.3] - 2026-07-06
 
 ### Added

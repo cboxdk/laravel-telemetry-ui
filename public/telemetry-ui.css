@@ -418,6 +418,65 @@ html, body {
 }
 
 .tui-chart { width: 100%; }
+.tui-chart-wrap { position: relative; }
+
+/* Annotation click-callout: the detail a thin marker line can't carry. */
+
+.tui-annotation-pop {
+    position: absolute;
+    z-index: 40;
+    width: 240px;
+    padding: 10px 12px;
+    background: var(--tui-surface);
+    border: 1px solid var(--tui-border);
+    border-radius: 10px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+    font-size: 12px;
+}
+
+.tui-annotation-pop-head {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.tui-annotation-pop-head strong {
+    flex: 1;
+    font-size: 12px;
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tui-annotation-pop-close {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--tui-text-faint);
+    font-size: 11px;
+    padding: 2px 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.tui-annotation-pop-close:hover { color: var(--tui-text); }
+
+.tui-annotation-pop-time {
+    font-family: var(--tui-mono);
+    font-size: 11px;
+    color: var(--tui-text-faint);
+    margin-top: 2px;
+}
+
+.tui-annotation-pop-notes {
+    margin-top: 6px;
+    color: var(--tui-text-dim);
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.tui-annotation-pop-actions { margin-top: 8px; }
 
 /* Stats row */
 
@@ -1092,6 +1151,9 @@ html, body {
 .tui-skel-stat { width: 54px; height: 30px; }
 
 .tui-skel-chart { width: 100%; height: 150px; opacity: 0.6; }
+
+/* Drawer skeleton rows (instant slide-in while the content loads). */
+.tui-drawer-skel-row { height: 12px; margin-bottom: 9px; }
 
 /* Copy link */
 
