@@ -31,7 +31,7 @@ final class QueuesTable extends Card
             $columns = [
                 'pending' => 'sum by (connection, queue) ('.$this->metric('queue_metrics_queue_depth', 'state="pending"').')',
                 'oldest' => 'max by (connection, queue) ('.$this->metric('queue_metrics_queue_oldest_job_age_seconds').')',
-                'per_minute' => 'sum by (connection, queue) ('.$this->metric('queue_metrics_queue_throughput_per_minute').')',
+                'per_minute' => 'sum by (connection, queue) ('.$this->metric('queue_metrics_queue_throughput_per_min').')',
                 'failure' => 'max by (connection, queue) ('.$this->metric('queue_metrics_queue_failure_rate_percent').')',
                 'workers' => 'sum by (connection, queue) ('.$this->metric('queue_metrics_queue_active_workers').')',
             ];

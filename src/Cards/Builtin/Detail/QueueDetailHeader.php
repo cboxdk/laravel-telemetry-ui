@@ -25,7 +25,7 @@ final class QueueDetailHeader extends Card
         try {
             $pending = $this->total('sum('.$this->metric('queue_metrics_queue_depth', 'state="pending"').')');
             $oldest = $this->total('max('.$this->metric('queue_metrics_queue_oldest_job_age_seconds').')');
-            $perMinute = $this->total('sum('.$this->metric('queue_metrics_queue_throughput_per_minute').')');
+            $perMinute = $this->total('sum('.$this->metric('queue_metrics_queue_throughput_per_min').')');
             $failure = $this->total('max('.$this->metric('queue_metrics_queue_failure_rate_percent').')');
             $workers = $this->total('sum('.$this->metric('queue_metrics_queue_active_workers').')');
         } catch (SourceException $exception) {

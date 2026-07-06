@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-06
+
+### Fixed
+
+- Queue throughput cards queried `queue_metrics_queue_throughput_per_minute`;
+  the OTLP collector translates the `{jobs}/min` unit to a `_per_min` suffix
+  (verified against live data), so the Throughput card, the queues table's
+  Jobs/min column and the queue-detail header matched nothing. Now they
+  query `queue_metrics_queue_throughput_per_min`.
+
 ## [0.2.0] - 2026-07-06
 
 ### Added

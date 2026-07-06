@@ -82,7 +82,7 @@ it('charts per-queue throughput', function (): void {
     Http::assertSent(function ($request): bool {
         $q = rawurldecode(requestQuery($request)['query'] ?? '');
 
-        return str_contains($q, 'queue_metrics_queue_throughput_per_minute');
+        return str_contains($q, 'queue_metrics_queue_throughput_per_min');
     });
 });
 
