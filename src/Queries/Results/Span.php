@@ -8,6 +8,9 @@ final readonly class Span
 {
     /**
      * @param  array<string, mixed>  $attributes
+     * @param  list<array{traceId: string, spanId: string}>  $links  OTel span
+     *                                                               links — causal but non-hierarchical references to other spans
+     *                                                               (e.g. a queue retry linking back to the failed attempt)
      */
     public function __construct(
         public string $spanId,
@@ -19,6 +22,7 @@ final readonly class Span
         public int $endNano,
         public array $attributes,
         public bool $hasError,
+        public array $links = [],
     ) {}
 
     public function durationMs(): float

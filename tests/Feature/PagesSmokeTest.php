@@ -64,7 +64,8 @@ it('renders every built-in page', function (string $page): void {
     $this->get($path)->assertOk();
 })->with([
     'dashboard', 'traces', 'requests', 'jobs', 'commands', 'schedule',
-    'exceptions', 'queries', 'cache', 'outgoing', 'mail',
+    'exceptions', 'queries', 'cache', 'storage', 'livewire', 'features',
+    'horizon', 'reverb', 'outgoing', 'mail',
     'statamic-cache', 'statamic-stache', 'statamic-glide', 'statamic-forms',
     'statamic-content', 'statamic-inventory',
     'analytics', 'frontend', 'users', 'logs', 'system',

@@ -71,6 +71,20 @@
         </div>
     @endif
 
+    @if (! empty($profile))
+        {{-- CPU profile (excimer): where this trace's time went, by function. --}}
+        <div class="tui-profile">
+            <span class="tui-context-label" title="CPU profile captured for this trace (ext-excimer) — top functions by sample count">Profile</span>
+            @foreach (array_slice($profile, 0, 8) as $function)
+                <div class="tui-profile-row">
+                    <span class="tui-profile-fn">{{ $function['name'] }}</span>
+                    <span class="tui-profile-bar"><span style="width: {{ min(100, $function['percent']) }}%"></span></span>
+                    <span class="tui-profile-pct">{{ number_format($function['percent'], 1) }}%</span>
+                </div>
+            @endforeach
+        </div>
+    @endif
+
     <div class="tui-waterfall" x-data="{ collapsed: {} }">
         @foreach ($rows as $row)
             @php($span = $row['span'])
@@ -110,6 +124,13 @@
                     <table>
                         <tr><td>span.id</td><td>{{ $span->spanId }}</td></tr>
                         <tr><td>kind</td><td>{{ $span->kind->value }}</td></tr>
+                        @foreach ($span->links as $link)
+                            {{-- OTel span link: causal but non-hierarchical (e.g. a queue retry → the failed attempt). --}}
+                            <tr>
+                                <td>linked trace</td>
+                                <td><a class="tui-trace-link" data-trace-id="{{ $link['traceId'] }}" href="{{ route('telemetry-ui.trace', ['traceId' => $link['traceId']]) }}" title="Open the linked trace">⇄ {{ substr($link['traceId'], 0, 12) }}…</a></td>
+                            </tr>
+                        @endforeach
                         @foreach ($trace->services[$span->serviceName] ?? [] as $key => $value)
                             @if (in_array($key, ['telemetry.sdk.name', 'service.version', 'deployment.id', 'deployment.environment.name'], true))
                                 <tr>

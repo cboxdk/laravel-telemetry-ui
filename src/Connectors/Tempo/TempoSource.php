@@ -249,6 +249,34 @@ final readonly class TempoSource implements TracesSource
             endNano: (int) ($span['endTimeUnixNano'] ?? 0),
             attributes: OtlpAttributes::parse(is_array($span['attributes'] ?? null) ? $span['attributes'] : []),
             hasError: $statusCode === 'STATUS_CODE_ERROR' || $statusCode === 2,
+            links: $this->parseLinks(is_array($span['links'] ?? null) ? $span['links'] : []),
         );
+    }
+
+    /**
+     * OTel span links (causal, non-hierarchical references — e.g. a queue
+     * retry linking back to the failed attempt's span).
+     *
+     * @param  array<array-key, mixed>  $links
+     * @return list<array{traceId: string, spanId: string}>
+     */
+    private function parseLinks(array $links): array
+    {
+        $parsed = [];
+
+        foreach ($links as $link) {
+            if (! is_array($link)) {
+                continue;
+            }
+
+            $traceId = $link['traceId'] ?? '';
+            $spanId = $link['spanId'] ?? '';
+
+            if (is_string($traceId) && $traceId !== '' && is_string($spanId)) {
+                $parsed[] = ['traceId' => $traceId, 'spanId' => $spanId];
+            }
+        }
+
+        return $parsed;
     }
 }
