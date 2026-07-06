@@ -34,14 +34,21 @@
             </button>
             <div class="tui-range-panel" x-show="open" x-cloak x-on:click.outside="open = false"
                  x-data="{
-                     toggle(key) {
+                     apply(off) {
                          const url = new URL(window.location);
-                         let off = (url.searchParams.get('ann_off') || '').split(',').filter(Boolean);
-                         off = off.includes(key) ? off.filter(k => k !== key) : [...off, key];
                          if (off.length) { url.searchParams.set('ann_off', off.join(',')); } else { url.searchParams.delete('ann_off'); }
                          window.location = url;
+                     },
+                     toggle(key) {
+                         let off = (new URL(window.location).searchParams.get('ann_off') || '').split(',').filter(Boolean);
+                         this.apply(off.includes(key) ? off.filter(k => k !== key) : [...off, key]);
                      }
                  }">
+                {{-- Master switch: hide every type at once, or bring them all back. --}}
+                <label style="display: flex; gap: 8px; align-items: center; cursor: pointer; white-space: nowrap; padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                    <input type="checkbox" @checked($annOff === []) x-on:change="apply({{ $annOff === [] ? \Illuminate\Support\Js::from(array_keys($annMarkers)) : '[]' }})">
+                    <strong>All annotations</strong>
+                </label>
                 @foreach ($annMarkers as $annKey => $annMarker)
                     <label style="display: flex; gap: 8px; align-items: center; cursor: pointer; white-space: nowrap;">
                         <input type="checkbox" @checked(! in_array($annKey, $annOff, true)) x-on:change="toggle('{{ $annKey }}')">
