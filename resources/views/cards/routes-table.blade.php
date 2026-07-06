@@ -3,7 +3,9 @@
 <x-telemetry-ui::card title="Routes" subtitle="Per-route request volume, status mix and latency — click a route for its detail page" span="2">
     <x-slot:actions>
         <span class="tui-btn tui-btn-sm is-sort-active" style="cursor: default;">Routes</span>
-        <a class="tui-btn tui-btn-sm" href="{{ $logUrl }}" title="Individual requests, newest first — live-tail a user or IP">Request log</a>
+        <button type="button" class="tui-btn tui-btn-sm"
+                wire:click="$dispatch('telemetry-ui:request-view-changed', { view: 'log' })"
+                title="Individual requests, newest first — live-tail a user or IP">Request log</button>
     </x-slot:actions>
 
     @if ($error)

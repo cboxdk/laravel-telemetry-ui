@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Illuminate\Contracts\View\View;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 
 /**
@@ -36,9 +37,19 @@ final class RequestLog extends Card
     #[Url(as: 'log_status')]
     public string $statusCode = '';
 
-    /** Live tail: re-poll every few seconds, newest on top. */
+    /** Live tail: re-poll every few seconds, newest on top. On by default. */
     #[Url(as: 'live')]
-    public bool $live = false;
+    public bool $live = true;
+
+    /**
+     * The Routes/Request log toggle is a Livewire event (not a page link) so
+     * flipping views never reloads the page — both sibling cards listen.
+     */
+    #[On('telemetry-ui:request-view-changed')]
+    public function updateRequestView(string $view): void
+    {
+        $this->view = $view === 'log' ? 'log' : 'routes';
+    }
 
     public function render(): View
     {
@@ -106,7 +117,6 @@ final class RequestLog extends Card
         return view($view, [
             'rows' => $rows,
             'error' => $error,
-            'routesUrl' => $this->pageUrl('requests', ['req_view' => 'routes']),
         ]);
     }
 }

@@ -1,9 +1,12 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
-<div @if ($live) wire:poll.4s @endif>
+{{-- display:contents keeps the inner card a direct grid item, so its
+     tui-span-2 spans the full row despite this Livewire/poll wrapper. --}}
+<div style="display: contents" @if ($live) wire:poll.4s @endif>
 <x-telemetry-ui::card title="Request log" subtitle="Individual requests, newest first — filter to a user or IP and go live to tail production" span="2">
     <x-slot:actions>
-        <a class="tui-btn tui-btn-sm" href="{{ $routesUrl }}">Routes</a>
+        <button type="button" class="tui-btn tui-btn-sm"
+                wire:click="$dispatch('telemetry-ui:request-view-changed', { view: 'routes' })">Routes</button>
         <span class="tui-btn tui-btn-sm is-sort-active" style="cursor: default;">Request log</span>
         <button type="button" class="tui-btn tui-btn-sm {{ $live ? 'is-live' : '' }}"
                 wire:click="$set('live', {{ $live ? 'false' : 'true' }})"

@@ -16,6 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   period/service/env scope. On the card's own page the link is suppressed.
   Package cards opt in by setting `protected ?string $drillPage = 'my-page'`.
 
+### Fixed
+
+- **Routes ⇄ Request log toggle no longer reloads the page.** The toggle was
+  a plain link (full page load); it is now a Livewire event both sibling
+  cards listen to, so the swap is instant and keeps scroll/filter state.
+- **Request log renders full-width.** Its live-poll wrapper `<div>` was the
+  card's grid item, so the `span 2` on the inner card never reached the grid
+  and the log was squeezed into one column. The wrapper now uses
+  `display: contents`.
+- **Live tail is on by default** on the request log.
+
 ## [0.2.1] - 2026-07-06
 
 ### Fixed
