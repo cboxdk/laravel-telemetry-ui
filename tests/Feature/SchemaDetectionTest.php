@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Cbox\TelemetryUi\Support\SchemaDetector;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 
@@ -46,6 +47,47 @@ it('hides and 404s the statamic subpages when no statamic metrics exist', functi
     $this->get('/telemetry-ui')->assertOk()->assertDontSee('Statamic');
     $this->get('/telemetry-ui/statamic-cache')->assertNotFound();
     $this->get('/telemetry-ui/statamic-glide')->assertNotFound();
+});
+
+it('scopes detection to the selected service', function (): void {
+    Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
+
+    // The fake pretends only "has-statamic" emits statamic_* metrics: the
+    // detection count comes back non-empty unless it is scoped to another
+    // service. Non-statamic detection stays empty (those groups hide, fine).
+    Http::fake(function (Request $request) {
+        $query = requestQuery($request)['query'] ?? '';
+
+        if (str_contains($query, 'count(') && str_contains($query, 'statamic_')) {
+            $present = ! str_contains($query, 'service_name="no-statamic"');
+
+            return Http::response([
+                'status' => 'success',
+                'data' => [
+                    'resultType' => 'vector',
+                    'result' => $present ? [['metric' => [], 'value' => [1735689600, '5']]] : [],
+                ],
+            ]);
+        }
+
+        return Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'vector', 'result' => []],
+        ]);
+    });
+
+    // A service that emits statamic_* keeps the group…
+    $this->get('/telemetry-ui?service=has-statamic')->assertOk()->assertSee('Statamic');
+
+    // …a service that doesn't drops it, even though the fleet has it elsewhere.
+    $this->get('/telemetry-ui?service=no-statamic')->assertOk()->assertDontSee('Statamic');
+    $this->get('/telemetry-ui/statamic-cache?service=no-statamic')->assertNotFound();
+
+    // The scoped count query carries the service matcher.
+    Http::assertSent(fn ($request): bool => str_contains(
+        requestQuery($request)['query'] ?? '',
+        'service_name="no-statamic"',
+    ));
 });
 
 it('caches detection results', function (): void {

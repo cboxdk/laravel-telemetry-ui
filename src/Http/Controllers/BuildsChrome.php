@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Http\Controllers;
 
 use Cbox\TelemetryUi\Events\DashboardViewed;
+use Cbox\TelemetryUi\Support\MetricScope;
 use Cbox\TelemetryUi\Support\PaletteCommands;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\TelemetryUiManager;
@@ -27,8 +28,13 @@ trait BuildsChrome
      */
     protected function accessiblePages(TelemetryUiManager $manager, SchemaDetector $detector): array
     {
+        // Scope detection to the selected service/environment so an optional
+        // group (Statamic, Horizon, …) only shows when THAT service emits it —
+        // not because some other service in the fleet does.
+        $scope = app(MetricScope::class)->promMatchers($this->queryString('service'), $this->queryString('env'));
+
         return array_filter(
-            $manager->visiblePages($detector),
+            $manager->visiblePages($detector, $scope),
             static fn (array $meta, string $slug): bool => Gate::allows('viewTelemetryUi', [$slug]),
             ARRAY_FILTER_USE_BOTH,
         );

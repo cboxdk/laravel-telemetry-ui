@@ -2,12 +2,22 @@
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @else
-        @if ($canCreate && $draft !== null)
+        @if (($canCreate && $draft !== null) || $llm !== null)
             <div class="tui-sidebar-actions">
-                <button type="button" class="tui-btn tui-btn-primary" x-data
-                        x-on:click="window.Livewire.dispatch('telemetry-ui:compose-ticket', @js($draft))">
-                    + Create ticket
-                </button>
+                @if ($canCreate && $draft !== null)
+                    <button type="button" class="tui-btn tui-btn-primary" x-data
+                            x-on:click="window.Livewire.dispatch('telemetry-ui:compose-ticket', @js($draft))">
+                        + Create ticket
+                    </button>
+                @endif
+                @if ($llm !== null)
+                    <button type="button" class="tui-btn tui-copy-md" :class="{ 'is-copied': copied }"
+                            x-data="telemetryUiCopy(@js($llm))" x-on:click="copy()"
+                            title="Copy a Markdown brief of this issue to paste into an LLM">
+                        <span x-show="!copied">⧉ Copy for LLM</span>
+                        <span x-show="copied" x-cloak>✓ Copied</span>
+                    </button>
+                @endif
             </div>
         @endif
 

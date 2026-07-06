@@ -71,6 +71,33 @@ window.telemetryUiSetRange = (fromMs, toMs) => {
 
 const isHex32 = (s) => /^[0-9a-f]{32}$/i.test(s.trim());
 
+// Copy text to the clipboard, resolving to whether it landed. Prefer the async
+// Clipboard API (needs a secure context), and fall back to a hidden-textarea
+// execCommand for plain-http dashboards or when the API rejects — so the copy
+// buttons work regardless of how the dashboard is served.
+function fallbackCopy(text) {
+    try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none;';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    } catch {
+        return false;
+    }
+}
+
+function writeClipboard(text) {
+    if (navigator.clipboard?.writeText) {
+        return navigator.clipboard.writeText(text).then(() => true).catch(() => fallbackCopy(text));
+    }
+    return Promise.resolve(fallbackCopy(text));
+}
+
 // The drawer's content is server-rendered, so opening it costs a Livewire
 // round trip plus the backend queries behind it. Slide the shell open
 // instantly with a skeleton — the morph replaces it when the data lands.
@@ -236,7 +263,21 @@ function register() {
     window.Alpine.data('telemetryUiCopyLink', () => ({
         copied: false,
         copy() {
-            navigator.clipboard?.writeText(window.location.href).then(() => {
+            writeClipboard(window.location.href).then((ok) => {
+                if (!ok) return;
+                this.copied = true;
+                setTimeout(() => { this.copied = false; }, 1500);
+            });
+        },
+    }));
+
+    // Copy an arbitrary string (e.g. the LLM Markdown brief) to the clipboard,
+    // flashing a "copied" state the button can bind to.
+    window.Alpine.data('telemetryUiCopy', (text) => ({
+        copied: false,
+        copy() {
+            writeClipboard(text).then((ok) => {
+                if (!ok) return;
                 this.copied = true;
                 setTimeout(() => { this.copied = false; }, 1500);
             });

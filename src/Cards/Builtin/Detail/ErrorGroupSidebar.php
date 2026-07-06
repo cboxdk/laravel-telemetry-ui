@@ -61,6 +61,11 @@ final class ErrorGroupSidebar extends Card
             'related' => $related,
             'canCreate' => $canCreate,
             'draft' => $canCreate ? app(ErrorGroupReport::class)->draft($this->group, $report['stats'], $report['detail']) : null,
+            // Markdown brief for pasting into an LLM — available to anyone who
+            // can see the group, no issue-tracker write access required.
+            'llm' => ($report['stats'] !== null || $report['detail'] !== null)
+                ? app(ErrorGroupReport::class)->llmMarkdown($this->group, $report)
+                : null,
             'tracesUrl' => $this->pageUrl('traces'),
         ]);
     }

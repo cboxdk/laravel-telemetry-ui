@@ -312,15 +312,17 @@ final class TelemetryUiManager
     }
 
     /**
-     * Pages that should be visible given what the backends contain.
+     * Pages that should be visible given what the backends contain, within the
+     * given PromQL scope (empty = fleet-wide) — so an optional group hides for a
+     * selected service that doesn't emit its metrics.
      *
      * @return array<string, PageMeta>
      */
-    public function visiblePages(SchemaDetector $detector): array
+    public function visiblePages(SchemaDetector $detector, string $scope = ''): array
     {
         return array_filter(
             $this->pages,
-            static fn (array $meta): bool => $meta['detect'] === null || $detector->hasMetricsMatching($meta['detect']),
+            static fn (array $meta): bool => $meta['detect'] === null || $detector->hasMetricsMatching($meta['detect'], $scope),
         );
     }
 

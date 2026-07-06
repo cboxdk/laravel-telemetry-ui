@@ -354,6 +354,93 @@ final class ErrorGroupReport
     }
 
     /**
+     * A self-contained Markdown brief of the whole group for pasting into an
+     * LLM ("here's the error, help me fix it"): identity and stats, the
+     * request that triggered it, the suspect change, the releases it rode in
+     * on, and the freshest stacktrace — everything the page knows, in one
+     * block, so the model needs no follow-up context.
+     *
+     * @param  Report  $report
+     */
+    public function llmMarkdown(string $group, array $report): string
+    {
+        $stats = $report['stats'];
+        $detail = $report['detail'];
+        $request = $report['request'];
+        $suspect = $report['suspect'];
+
+        $type = $detail['type'] ?? '';
+        $message = $detail['message'] ?? '';
+
+        $heading = $type !== '' ? class_basename($type) : 'Error '.$group;
+        $lines = ['# '.rtrim($heading.($message !== '' ? ': '.Str::limit($message, 100) : ''), ': ')];
+
+        $overview = array_filter([
+            $type !== '' ? '- **Exception:** `'.$type.'`' : null,
+            $message !== '' ? '- **Message:** '.$message : null,
+            ($detail['file'] ?? '') !== '' ? '- **Location:** `'.$detail['file'].':'.($detail['line'] ?? 0).'`' : null,
+            '- **Group (fingerprint):** `'.$group.'`',
+            $stats !== null ? '- **Runtime:** '.$stats['source'] : null,
+            $stats !== null ? '- **Occurrences:** '.$stats['count'].($stats['sampled'] ? '+' : '').' in the last '.self::LOOKBACK_DAYS.' days' : null,
+            $stats !== null ? '- **First seen:** '.$stats['firstSeen'].' · **last seen:** '.$stats['lastSeen'] : null,
+            ($stats['users'] ?? 0) > 0 ? '- **Users affected:** '.$stats['users'].($stats['sampled'] ? '+' : '') : null,
+            ($detail['environment'] ?? '') !== '' ? '- **Environment:** '.$detail['environment'] : null,
+            ($detail['release'] ?? '') !== '' ? '- **Release:** '.$detail['release'] : null,
+            ($detail['host'] ?? '') !== '' ? '- **Host:** '.$detail['host'] : null,
+        ], static fn (?string $line): bool => $line !== null);
+
+        if ($overview !== []) {
+            $lines[] = '';
+            $lines[] = '## Overview';
+            $lines = array_merge($lines, $overview);
+        }
+
+        if ($request !== null) {
+            $endpoint = trim(($request['method'] !== '' ? $request['method'].' ' : '')
+                .($request['route'] !== '' ? $request['route'] : $request['origin']));
+            $reqLines = array_filter([
+                $endpoint !== '' ? '- **Endpoint:** '.$endpoint : null,
+                $request['status'] !== '' ? '- **Response status:** '.$request['status'] : null,
+                $request['user'] !== '' ? '- **User:** '.$request['user'] : null,
+            ], static fn (?string $line): bool => $line !== null);
+
+            if ($reqLines !== []) {
+                $lines[] = '';
+                $lines[] = '## Request that hit it';
+                $lines = array_merge($lines, $reqLines);
+            }
+        }
+
+        if ($suspect !== null) {
+            $lines[] = '';
+            $lines[] = '## Suspect change';
+            $lines[] = $suspect['label'].' ('.$suspect['kind'].') at '.$suspect['time']
+                .' — first seen '.$suspect['gap'].' later.';
+            if (($suspect['notes'] ?? '') !== '') {
+                $lines[] = (string) $suspect['notes'];
+            }
+        }
+
+        if ($report['releases'] !== []) {
+            $lines[] = '';
+            $lines[] = '## Releases seen';
+            foreach ($report['releases'] as $release) {
+                $lines[] = '- `'.$release['release'].'` — '.$release['count'];
+            }
+        }
+
+        if (($detail['stacktrace'] ?? '') !== '') {
+            $lines[] = '';
+            $lines[] = '## Stacktrace';
+            $lines[] = '```';
+            $lines[] = Str::limit((string) $detail['stacktrace'], 6000);
+            $lines[] = '```';
+        }
+
+        return implode("\n", $lines)."\n";
+    }
+
+    /**
      * A token-ish group id — never raw LogQL/TraceQL metacharacters.
      */
     public static function validId(string $group): bool

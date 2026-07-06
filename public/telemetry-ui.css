@@ -1450,9 +1450,13 @@ html, body {
 /* Drawer skeleton rows (instant slide-in while the content loads). */
 .tui-drawer-skel-row { height: 12px; margin-bottom: 9px; }
 
-/* Copy link */
+/* Copy link / copy-to-clipboard buttons */
 
-.tui-copy-link.is-copied { color: var(--tui-accent); border-color: rgba(52, 211, 153, 0.4); }
+.tui-copy-link.is-copied,
+.tui-copy-md.is-copied { color: var(--tui-accent); border-color: rgba(52, 211, 153, 0.4); }
+
+/* Actions wrap so "Create ticket" + "Copy for LLM" never overflow the sidebar. */
+.tui-sidebar-actions { flex-wrap: wrap; }
 
 /* Slide-in trace drawer. On narrow screens it overlays; on wide screens
    (≥1100px) it DOCKS: the page content is pushed aside (margin on .tui-main

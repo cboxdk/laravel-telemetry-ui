@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.6] - 2026-07-06
+
+### Added
+
+- **Copy an issue as Markdown for an LLM.** The issue page's Actions &
+  context sidebar gains a **⧉ Copy for LLM** button that puts a
+  self-contained Markdown brief on the clipboard — exception, message,
+  location, occurrences/users, environment/release/host, the request that
+  hit it, the suspect change, the releases it rode in on and the freshest
+  stacktrace — ready to paste into a model with "help me fix this". No
+  tracker write access required.
+
+### Changed
+
+- **Optional sidebar groups follow the selected service.** Schema detection
+  now scopes to the active service/environment, so a group like **Statamic**
+  (or Horizon, Reverb, …) only appears when *that* service emits its metrics —
+  not because some other service in the fleet does. "All services" still
+  detects fleet-wide, and the tenancy lock still bounds what a viewer can see.
+
 ## [0.1.0-alpha.5] - 2026-07-06
 
 ### Added
