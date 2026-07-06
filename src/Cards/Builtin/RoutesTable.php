@@ -18,8 +18,19 @@ final class RoutesTable extends Card
     #[Url(as: 'route_search')]
     public string $search = '';
 
+    /** Shared toggle with the RequestLog sibling: 'routes' | 'log'. */
+    #[Url(as: 'req_view')]
+    public string $view = 'routes';
+
     public function render(): View
     {
+        if ($this->view === 'log') {
+            /** @var view-string $hidden */
+            $hidden = 'telemetry-ui::cards.hidden';
+
+            return view($hidden);
+        }
+
         [$start, $end] = $this->range();
         $p = $this->promDuration();
 
@@ -120,6 +131,6 @@ final class RoutesTable extends Card
         /** @var view-string $view */
         $view = 'telemetry-ui::cards.routes-table';
 
-        return view($view, ['rows' => $rows, 'error' => $error]);
+        return view($view, ['rows' => $rows, 'error' => $error, 'logUrl' => $this->pageUrl('requests', ['req_view' => 'log'])]);
     }
 }

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Request log with live tail.** The Requests page's Routes card gains a
+  toggle sibling: a request LOG — individual requests, newest first, with
+  time, method+path, status badge, user, client IP and duration. Filter
+  by user id, client IP, path or status class (each user/IP cell is
+  click-to-tail), hit **● Live** and the list re-polls every few seconds —
+  production debugging for "what is this user hitting right now?". Every
+  row opens the readable request story in the pane.
 - **Traces read like requests now — the waterfall is the last resort.**
   Opening a trace (pane or full page) tells the story instead of dumping
   spans: request facts (method, route, path+query, status, client IP,

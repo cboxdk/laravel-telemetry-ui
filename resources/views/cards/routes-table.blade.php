@@ -1,6 +1,11 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
 <x-telemetry-ui::card title="Routes" subtitle="Per-route request volume, status mix and latency — click a route for its detail page" span="2">
+    <x-slot:actions>
+        <span class="tui-btn tui-btn-sm is-sort-active" style="cursor: default;">Routes</span>
+        <a class="tui-btn tui-btn-sm" href="{{ $logUrl }}" title="Individual requests, newest first — live-tail a user or IP">Request log</a>
+    </x-slot:actions>
+
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @else
