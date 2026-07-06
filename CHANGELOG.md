@@ -9,6 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Mobile-friendly layout** — below 768px the sidebar becomes an off-canvas
+  drawer behind a sticky topbar hamburger, header controls wrap, the trace
+  waterfall drops the per-row service chip so span names stay readable, the
+  custom-range popover anchors to the viewport, the trace drawer goes
+  full-width, and inputs are sized to avoid iOS focus zoom.
+- **laravel-telemetry v0.1.0-alpha.16 support** — five new auto-detected
+  sidebar pages plus cards, each appearing only when the fleet emits the
+  signals:
+  - **Horizon** (`horizon_*`): worker processes per supervisor with
+    paused/supervisor gauges, and an incidents chart (long waits, restarts,
+    OOM kills, migrated jobs).
+  - **Reverb** (`reverb_*`): active WebSocket connections per app with
+    subscribers by channel type and pruned-connection counts, plus message
+    throughput sent vs received.
+  - **Feature Flags** (`feature_*`, Pennant): checks by flag with active
+    share and per-result badges, and a warning strip for checks against
+    unregistered flags.
+  - **Storage** (`storage_operations_*`): Flysystem disk operations per
+    minute by type, with per-disk totals.
+  - **Livewire** (`livewire_*`): mounted vs hydrated components per minute,
+    and a slowest-components table off the render/update/call detail spans.
+  - **Rate limiting** card on the Requests page: 429s per minute by limiter.
+  - **Core Web Vitals** card on the Frontend page: real-user p75 LCP / CLS /
+    INP per path from the SDK's `web-vitals` spans, toned on Google's
+    thresholds.
+  - **Duplicate queries (N+1)** card on the Queries page, from the
+    `db.query.duplicate_detected` log events — query text, traces affected,
+    worst repeat count, trace link.
+  - **CPU profile strip** on the trace view: when excimer captured a profile
+    for the trace, the waterfall is headed by top functions by CPU share.
+  - **Span links** (queue retries): linked traces render as clickable rows in
+    a span's attribute panel.
+- **Error-group detail drawer (Sentry-style issue view)** — clicking a row on
+  the unified Errors card now opens a drawer with the exception's message,
+  occurrence stats (count, first/last seen, source), the latest occurrence's
+  **stacktrace and source context**, a prefilled "+ ticket" compose button and
+  a recent-occurrences table whose trace links stack onto the drawer.
+  Deep-linkable via `?exception=<group>`; searches are forced inside the
+  viewer's tenancy scope lock.
+- **Cache purge annotations** — two new built-in markers: `cache_purge`
+  (app-agnostic, emit via `php artisan telemetry-ui:annotate cache_purge
+  --id=redis`) and `statamic_cache_purge`, which matches the
+  `statamic.cache.purge` events cboxdk/statamic-telemetry emits on every
+  stache/static/glide clear — so Statamic purges show up as chart lines and
+  timeline events with no wiring.
+
 - **Issues across multiple repos** — `connections.issues` may now be a list of
   trackers (frontend, api, sidecar, …), each with a `label`. The Issues page
   aggregates them newest-first, tags each row with its repo, and adds a repo
@@ -38,6 +84,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The unified Errors card now works against real data.** It searched Tempo
+  for `span.exception.group`, but laravel-telemetry records backend exceptions
+  as span *events* (and as structured log records) — the attribute never
+  exists on spans, so the card was permanently empty in production. It now
+  reads the structured exception records from Loki (authoritative — present
+  even when the trace is sampled away) and merges in browser exception spans
+  from Tempo, fingerprinted read-side with the same algorithm the backend
+  uses (browser ingest doesn't stamp `exception.group`).
 - Deploy-marker annotations are fetched in a single Loki query instead of one
   per marker type (6+ round trips) — much cheaper on every chart card.
 - `TelemetryUi::setCards()` / `removeCard()` now affect the **dashboard** page's
