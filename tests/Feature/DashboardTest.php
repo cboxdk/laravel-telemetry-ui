@@ -83,6 +83,13 @@ it('serves the bundled assets without authorization', function (): void {
     $this->get('/telemetry-ui/assets/secrets.env')->assertNotFound();
 });
 
+it('exempts assets from the dashboard throttle (a 429 on the bundle kills every chart)', function (): void {
+    $routes = app('router')->getRoutes();
+
+    expect($routes->getByName('telemetry-ui.asset')->excludedMiddleware())->toContain('throttle:120,1')
+        ->and($routes->getByName('telemetry-ui.page')->middleware())->toContain('throttle:120,1');
+});
+
 it('registers cards from config and runtime, deduplicated and in order', function (): void {
     $manager = app(TelemetryUiManager::class);
 
