@@ -14,11 +14,43 @@
         <span><em>first seen</em> {{ $stats['firstSeen'] }}</span>
         <span><em>last seen</em> {{ $stats['lastSeen'] }}</span>
         <span><em>source</em> {{ $stats['source'] }}</span>
+        @if ($detail !== null && ($detail['environment'] ?? '') !== '')
+            <span><em>env</em> {{ $detail['environment'] }}</span>
+        @endif
+        @if ($detail !== null && ($detail['release'] ?? '') !== '')
+            <span><em>release</em> {{ $detail['release'] }}</span>
+        @endif
+        @if ($detail !== null && ($detail['host'] ?? '') !== '')
+            <span><em>host</em> <a class="tui-attr-filter" href="{{ route('telemetry-ui.page', ['page' => 'host-detail', 'host' => $detail['host']]) }}" title="Open this host's detail page">{{ $detail['host'] }}</a></span>
+        @endif
         @if ($detail !== null && $detail['file'] !== '')
             <span><em>at</em> {{ $detail['file'] }}:{{ $detail['line'] }}</span>
         @endif
         <span><em>group</em> {{ $group }}</span>
     </div>
+
+    {{-- The request/job that hit it (Sentry's "which request?" panel), off
+         the newest occurrence's trace root. Route links to its detail page;
+         the trace itself stacks onto the pane. --}}
+    @if ($request !== null)
+        <div class="tui-issue-relations">
+            <span class="tui-chain-label">Latest occurrence</span>
+            @if ($request['route'] !== '')
+                <a class="tui-chip" href="{{ route('telemetry-ui.page', ['page' => 'request-detail', 'route' => $request['route']]) }}" title="Open this route's detail page">
+                    <em>{{ $request['method'] !== '' ? $request['method'] : 'route' }}</em> <b>{{ $request['route'] }}</b>
+                </a>
+            @elseif ($request['origin'] !== '')
+                <span class="tui-chip"><em>origin</em> <b>{{ $request['origin'] }}</b></span>
+            @endif
+            @if ($request['status'] !== '')
+                <span class="tui-chip"><em>status</em> <b class="{{ str_starts_with($request['status'], '5') ? 'tui-tone-danger' : '' }}">{{ $request['status'] }}</b></span>
+            @endif
+            @if ($request['user'] !== '')
+                <span class="tui-chip"><em>user</em> <b>#{{ $request['user'] }}</b></span>
+            @endif
+            <a class="tui-chip tui-trace-link" data-trace-id="{{ $request['traceId'] }}" href="{{ route('telemetry-ui.trace', ['traceId' => $request['traceId']]) }}" title="Open the full request trace">⇄ {{ substr($request['traceId'], 0, 12) }}…</a>
+        </div>
+    @endif
 
     @if ($canCreate && $draft !== null)
         <div class="tui-issue-relations">
@@ -54,7 +86,7 @@
             </thead>
             <tbody>
                 @foreach ($occurrences as $occurrence)
-                    <tr>
+                    <tr @if ($occurrence['traceId'] !== '') data-row-trace="{{ $occurrence['traceId'] }}" title="Open this occurrence's trace" @endif>
                         <td>{{ $occurrence['at'] }}</td>
                         <td>
                             @if ($occurrence['frontend'])

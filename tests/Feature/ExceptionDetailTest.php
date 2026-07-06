@@ -28,6 +28,9 @@ function fakeExceptionRecords(): void
                         'exception_line' => '42',
                         'exception_stacktrace' => "#0 app/Services/Checkout.php(42): charge()\n#1 {main}",
                         'exception_source' => "  41| \$card = \$request->card();\n> 42| throw new PaymentDeclined();\n  43| return \$ok;",
+                        'deployment_environment_name' => 'production',
+                        'deployment_id' => 'v2.4.1',
+                        'host_name' => 'web-3',
                         'trace_id' => '1111111111111111aaaaaaaaaaaaaaaa',
                     ],
                     'values' => [
@@ -35,6 +38,20 @@ function fakeExceptionRecords(): void
                         ['1735603200000000000', 'exception'],
                     ],
                 ],
+            ]],
+        ]),
+        // The newest occurrence's trace: its root carries the request facts.
+        'tempo.test:3200/api/traces/*' => Http::response([
+            'batches' => [[
+                'resource' => ['attributes' => [['key' => 'service.name', 'value' => ['stringValue' => 'checkout']]]],
+                'scopeSpans' => [['spans' => [
+                    ['spanId' => 'a1', 'name' => 'POST /orders', 'kind' => 'SPAN_KIND_SERVER', 'startTimeUnixNano' => '1735689600000000000', 'endTimeUnixNano' => '1735689601000000000', 'attributes' => [
+                        ['key' => 'http.request.method', 'value' => ['stringValue' => 'POST']],
+                        ['key' => 'http.route', 'value' => ['stringValue' => '/orders']],
+                        ['key' => 'http.response.status_code', 'value' => ['intValue' => '500']],
+                        ['key' => 'enduser.id', 'value' => ['intValue' => '7']],
+                    ]],
+                ]]],
             ]],
         ]),
         'tempo.test:3200/*' => Http::response(['traces' => []]),
@@ -54,6 +71,14 @@ it('opens an exception group with stacktrace, source context and occurrences', f
         ->assertSee('throw new PaymentDeclined();')                    // source context
         ->assertSeeHtml('is-throw-line')                               // throw line highlighted
         ->assertSee('backend')
+        // Sentry-style context: env/release/host facts off the record…
+        ->assertSee('production')
+        ->assertSee('v2.4.1')
+        ->assertSee('web-3')
+        // …and the request strip off the newest occurrence's trace root.
+        ->assertSee('/orders')
+        ->assertSee('500')
+        ->assertSee('#7')
         // Occurrences link to their traces (stacking onto the drawer).
         ->assertSeeHtml('data-trace-id="1111111111111111aaaaaaaaaaaaaaaa"');
 });

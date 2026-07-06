@@ -331,6 +331,11 @@ final class TraceDrawer extends Component
             }
         }
 
+        // The request that hit it (Sentry's "which request?" panel): pulled
+        // from the newest occurrence's trace root. The trace may be sampled
+        // away — the record outlives it — so this degrades to null quietly.
+        $request = ($occurrences[0]['traceId'] ?? '') !== '' ? $this->exceptionRequest($occurrences[0]['traceId']) : null;
+
         $manager = app(ConnectionManager::class);
         $canCreate = Gate::allows('manageTelemetryUi')
             && $manager->hasIssues()
@@ -350,6 +355,7 @@ final class TraceDrawer extends Component
             'stats' => $stats,
             'occurrences' => array_slice($occurrences, 0, 20),
             'detail' => $detail,
+            'request' => $request,
             'canCreate' => $canCreate,
             'draft' => $canCreate ? $this->exceptionDraft($group, $stats, $detail) : null,
             'lookbackDays' => self::EXCEPTION_LOOKBACK_DAYS,
@@ -366,7 +372,7 @@ final class TraceDrawer extends Component
      * trace was sampled away) and complete (they carry the stacktrace and
      * optional source context). Newest first.
      *
-     * @return list<array{nano: int, at: string, traceId: string, service: string, message: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string}}>
+     * @return list<array{nano: int, at: string, traceId: string, service: string, message: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>
      */
     private function backendOccurrences(string $group): array
     {
@@ -402,6 +408,10 @@ final class TraceDrawer extends Component
                     'line' => (int) $label('exception_line'),
                     'stacktrace' => $label('exception_stacktrace'),
                     'source' => $label('exception_source'),
+                    // Sentry-style environment facts, straight off the record.
+                    'environment' => $label('deployment_environment_name'),
+                    'release' => $label('deployment_id'),
+                    'host' => $label('host_name'),
                 ],
             ];
         }
@@ -417,7 +427,7 @@ final class TraceDrawer extends Component
      * (same algorithm as the backend). Browser errors carry no stacktrace —
      * type/message/file:line is all the SDK ships. Newest first.
      *
-     * @return list<array{nano: int, at: string, traceId: string, service: string, message: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string}}>
+     * @return list<array{nano: int, at: string, traceId: string, service: string, message: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>
      */
     private function browserOccurrences(string $group): array
     {
@@ -457,6 +467,9 @@ final class TraceDrawer extends Component
                         'line' => $line,
                         'stacktrace' => '',
                         'source' => '',
+                        'environment' => '',
+                        'release' => '',
+                        'host' => '',
                     ],
                 ];
             }
@@ -465,6 +478,43 @@ final class TraceDrawer extends Component
         usort($occurrences, static fn (array $a, array $b): int => $b['nano'] <=> $a['nano']);
 
         return $occurrences;
+    }
+
+    /**
+     * The request/job behind the newest occurrence — origin (root span name),
+     * route, status and user off its trace root. Null when the trace was
+     * sampled away or can't be fetched; the panel just omits the strip.
+     *
+     * @return array{traceId: string, origin: string, method: string, route: string, status: string, user: string}|null
+     */
+    private function exceptionRequest(string $traceId): ?array
+    {
+        if (preg_match('/^[0-9a-f]{16,32}$/', $traceId) !== 1) {
+            return null;
+        }
+
+        try {
+            $trace = app(ConnectionManager::class)->traces()->trace($traceId);
+        } catch (SourceException) {
+            return null;
+        }
+
+        $root = $trace->root();
+
+        if ($root === null) {
+            return null;
+        }
+
+        $attr = static fn (string $key): string => is_scalar($value = $root->attributes[$key] ?? null) ? (string) $value : '';
+
+        return [
+            'traceId' => $traceId,
+            'origin' => $root->name,
+            'method' => $attr('http.request.method'),
+            'route' => $attr('http.route'),
+            'status' => $attr('http.response.status_code'),
+            'user' => $attr('enduser.id'),
+        ];
     }
 
     /**
@@ -478,7 +528,7 @@ final class TraceDrawer extends Component
     }
 
     /**
-     * @param  list<array{nano: int, at: string, traceId: string, service: string, message: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string}}>  $occurrences
+     * @param  list<array{nano: int, at: string, traceId: string, service: string, message: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>  $occurrences
      * @return array{count: int, sampled: bool, firstSeen: string, lastSeen: string, source: string}|null
      */
     private function exceptionStats(array $occurrences): ?array

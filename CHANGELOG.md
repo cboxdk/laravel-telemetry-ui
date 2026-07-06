@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   trace (linked to the Hosts page) and the service, or "all hosts" when
   the resource carries no host and the queries aggregate service-wide.
   `host.name` also joined the resource rows in the span attribute panel.
+- **Exception groups link back to the request.** The error-group panel now
+  shows env / release / host facts off the exception record (host links to
+  its detail page), and a "Latest occurrence" strip off the newest trace
+  root — method + route (linked to the route's detail page), status, user
+  and the request trace. Occurrence rows are whole-row click targets.
 - **The drawer is now a docked properties pane on wide screens.** At
   ≥1100px it pushes the page aside instead of covering it — no backdrop,
   the page stays fully interactive, and selecting another row simply swaps
