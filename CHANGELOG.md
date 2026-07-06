@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.5] - 2026-07-06
+
 ### Added
 
 - **Issue rows go straight to the issue page** — no drawer detour — and
@@ -69,6 +71,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   seen 18 minutes later"), and the panel shows which releases the sampled
   occurrences carry, with an "only this release" badge when every one
   points at a single release.
+
+### Fixed
+
+- **Annotation callout is anchored to its marker line again.** The deploy/
+  change callout now sits hard against the line it describes — flipping to
+  the line's other side near the chart edge (where deploys cluster) instead
+  of detaching to a fixed corner — with a caret pointing back at the line.
+  The raw axis tooltip no longer stacks on top of it: the series readout is
+  suppressed while the callout is open, and the callout renders above it
+  regardless. Hovering into the callout keeps it open to reach **Open
+  trace**, so the click-to-pin affordance is gone.
 
 ## [0.1.0-alpha.4] - 2026-07-06
 

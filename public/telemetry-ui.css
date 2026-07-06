@@ -424,7 +424,10 @@ html, body {
 
 .tui-annotation-pop {
     position: absolute;
-    z-index: 40;
+    /* Above the ECharts axis tooltip (z-index 9999999): the callout owns this
+       space, so even if a tooltip lingers it can never render over the callout
+       (it's also suppressed outright via .tui-marker-active below). */
+    z-index: 10000000;
     width: 240px;
     padding: 10px 12px;
     background: var(--tui-surface);
@@ -433,6 +436,39 @@ html, body {
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
     font-size: 12px;
 }
+
+/* Caret welding the callout to the marker line it describes: a bordered
+   diamond on the near edge, its two inward borders dropped so it merges
+   into the box. `data-side` names the edge the line sits on. */
+.tui-annotation-pop::before {
+    content: '';
+    position: absolute;
+    top: 13px;
+    width: 9px;
+    height: 9px;
+    background: var(--tui-surface);
+    border: 1px solid var(--tui-border);
+    transform: rotate(45deg);
+}
+
+.tui-annotation-pop[data-side="left"]::before {
+    left: -5px;
+    border-top-color: transparent;
+    border-right-color: transparent;
+}
+
+.tui-annotation-pop[data-side="right"]::before {
+    right: -5px;
+    border-bottom-color: transparent;
+    border-left-color: transparent;
+}
+
+.tui-annotation-pop[data-side="none"]::before { display: none; }
+
+/* While an annotation callout is open it owns the space beside the line —
+   suppress the axis tooltip (named `tui-ec-tip` in the ECharts config) so the
+   raw series readout doesn't stack on top of the callout. */
+.tui-marker-active .tui-ec-tip { display: none !important; }
 
 .tui-annotation-pop-head {
     display: flex;
@@ -449,19 +485,6 @@ html, body {
     white-space: nowrap;
 }
 
-.tui-annotation-pop-close {
-    appearance: none;
-    background: transparent;
-    border: 0;
-    color: var(--tui-text-faint);
-    font-size: 11px;
-    padding: 2px 4px;
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
-.tui-annotation-pop-close:hover { color: var(--tui-text); }
-
 .tui-annotation-pop-time {
     font-family: var(--tui-mono);
     font-size: 11px;
@@ -476,7 +499,7 @@ html, body {
     word-break: break-word;
 }
 
-.tui-annotation-pop-actions { margin-top: 8px; }
+.tui-annotation-pop-actions { margin-top: 10px; }
 
 .tui-annotation-pop-hosts {
     margin-top: 6px;
@@ -484,16 +507,6 @@ html, body {
     font-size: 10px;
     color: var(--tui-text-faint);
     word-break: break-word;
-}
-
-.tui-annotation-pop-hint {
-    margin-top: 7px;
-    font-family: var(--tui-mono);
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--tui-text-faint);
-    opacity: 0.7;
 }
 
 /* Stats row */

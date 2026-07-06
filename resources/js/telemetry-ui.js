@@ -32,6 +32,9 @@ const baseOption = (unit) => {
         grid: { left: 8, right: 8, top: 12, bottom: 4, containLabel: true },
         tooltip: {
             trigger: 'axis',
+            // Named so the wrapper can hide it via CSS while an annotation
+            // callout owns the space next to the line (see .tui-marker-active).
+            className: 'tui-ec-tip',
             backgroundColor: '#18181b',
             borderColor: '#27272a',
             textStyle: { color: '#e4e4e7', fontSize: 12, fontFamily: 'ui-monospace, monospace' },
@@ -295,40 +298,63 @@ function register() {
         let hideTimer = null;
 
         return {
-        // The annotation under the pointer (or pinned by click), plus the
-        // marker line's own pixel position — the callout is ANCHORED to the
-        // line, so hover and click show the exact same thing in the exact
-        // same place. Hover previews; click pins.
+        // The annotation under the pointer, plus the marker line's own pixel
+        // position — the callout is ANCHORED to the line. Hovering the line
+        // opens it; the pointer can move into it to reach its actions.
         marker: null,
-        pinned: false,
+
+        // Place the callout HARD AGAINST the marker line so the two read as one
+        // object: sit it to the right of the line, but flip to the left when the
+        // line is close enough to the right edge that the box would overflow (the
+        // common case — deploys cluster at "now"). A caret on the near edge (see
+        // `popSide`) points back at the line. Only when neither side fits (a very
+        // narrow chart) do we fall back to a clamped, caret-less position.
+        placement() {
+            const width = 240;
+            const gap = 12;
+            const edge = 8;
+            const wrap = this.$el.getBoundingClientRect();
+            const px = this.marker ? this.marker.px : 0;
+            if (px + gap + width + edge <= wrap.width) return { left: px + gap, side: 'left' };
+            if (px - gap - width - edge >= 0) return { left: px - gap - width, side: 'right' };
+            const left = Math.max(edge, Math.min(px - width / 2, wrap.width - width - edge));
+            return { left, side: 'none' };
+        },
 
         popStyle() {
             if (!this.marker) return 'display: none';
-            const wrap = this.$el.getBoundingClientRect();
-            const x = Math.max(8, Math.min(this.marker.px + 10, wrap.width - 256));
-            return `left: ${x}px; top: 6px;`;
+            return `left: ${Math.round(this.placement().left)}px; top: 6px;`;
+        },
+
+        popSide() {
+            return this.marker ? this.placement().side : 'none';
         },
 
         showMarker(a) {
             if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
             const px = chart ? chart.convertToPixel({ xAxisIndex: 0 }, a.xAxis) : 20;
             this.marker = { ...a, px: Number.isFinite(px) ? px : 20 };
+            // The callout now owns the space next to the line; drop any axis
+            // tooltip already on screen (CSS keeps it hidden while marker is set).
+            if (chart) chart.dispatchAction({ type: 'hideTip' });
         },
 
         cancelHide() {
             if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
         },
 
+        clearMarker() {
+            this.marker = null;
+        },
+
         scheduleHide() {
-            if (this.pinned) return;
             this.cancelHide();
-            hideTimer = setTimeout(() => { if (!this.pinned) this.marker = null; }, 250);
+            hideTimer = setTimeout(() => this.clearMarker(), 250);
         },
 
         closeMarker() {
             this.cancelHide();
-            this.pinned = false;
-            this.marker = null;
+            this.clearMarker();
         },
 
         init() {
@@ -409,13 +435,14 @@ function register() {
             resizeHandler = () => chart?.resize();
             window.addEventListener('resize', resizeHandler);
 
-            // One callout, two triggers: hovering a marker line previews it
-            // (and it survives moving the pointer INTO the callout); clicking
-            // pins it until ✕ / Escape / a click elsewhere.
+            // Hover a marker line to open the callout; the pointer can move into
+            // it (mouseenter cancels the hide) to reach its actions, and leaving
+            // both the line and the callout closes it. Click opens it too, for
+            // touch and click-first users.
             const isMarker = (params) => params.componentType === 'markLine' && params.data && params.data.marker;
 
             chart.on('mouseover', (params) => {
-                if (!isMarker(params) || this.pinned) return;
+                if (!isMarker(params)) return;
                 this.showMarker(params.data.marker);
             });
 
@@ -427,7 +454,6 @@ function register() {
             chart.on('click', (params) => {
                 if (!isMarker(params)) return;
                 this.showMarker(params.data.marker);
-                this.pinned = true;
             });
 
             // Grafana-style drag-to-zoom via raw zrender events instead of an

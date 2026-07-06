@@ -10,23 +10,23 @@
     wire:key="chart-{{ md5(json_encode([$series, $annotations, $min, $max])) }}"
     x-data="telemetryUiChart(@js($series), @js($type), @js($unit), @js($annotations), @js(['min' => $min, 'max' => $max]))"
     class="tui-chart-wrap"
+    :class="{ 'tui-marker-active': marker }"
 >
     <div class="tui-chart" style="height: {{ (int) $height }}px"></div>
 
-    {{-- The annotation callout, ANCHORED to the marker line: hovering the
-         line previews it (and the pointer can move into it), clicking pins
-         it — one shape, one place, both triggers. Clustered rollouts show
-         the count, the span (first → last) and the covered hosts. --}}
-    <div class="tui-annotation-pop" x-cloak x-show="marker"
+    {{-- The annotation callout, ANCHORED to the marker line: hovering the line
+         opens it and the pointer can move into it to reach its actions; leaving
+         both closes it. Clustered rollouts show the count, the span
+         (first → last) and the covered hosts. --}}
+    <div class="tui-annotation-pop" x-cloak x-show="marker" :data-side="popSide()"
          x-on:mouseenter="cancelHide()" x-on:mouseleave="scheduleHide()"
-         x-on:click.outside="pinned && closeMarker()" x-on:keydown.escape.window="closeMarker()"
+         x-on:keydown.escape.window="closeMarker()"
          :style="popStyle()">
         <template x-if="marker">
             <div>
                 <div class="tui-annotation-pop-head">
                     <span class="tui-annotation-dot" :style="'background:' + marker.color"></span>
                     <strong x-text="marker.label + (marker.count > 1 ? ' ×' + marker.count : '')"></strong>
-                    <button type="button" class="tui-annotation-pop-close" x-show="pinned" x-on:click="closeMarker()" title="Close">✕</button>
                 </div>
                 <div class="tui-annotation-pop-time"
                      x-text="marker.timeEnd ? marker.time + ' → ' + marker.timeEnd : marker.time"></div>
@@ -41,7 +41,6 @@
                         ⇄ Open trace
                     </button>
                 </div>
-                <div class="tui-annotation-pop-hint" x-show="!pinned">click to pin</div>
             </div>
         </template>
     </div>
