@@ -1,7 +1,7 @@
 ---
 title: Developer integrations
 description: Build custom cards, pages, widgets, drivers and tools on the card kit — reuse the query + chart engine, don't rebuild it
-weight: 1
+weight: 40
 ---
 
 # Developer integrations
