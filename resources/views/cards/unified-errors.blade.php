@@ -44,7 +44,7 @@
                 </thead>
                 <tbody>
                     @foreach ($rows as $row)
-                        <tr data-row-exception="{{ $row['group'] }}" title="Open the error detail — stacktrace, occurrences, root cause">
+                        <tr data-row-href="{{ $this->showUrl($row['group']) }}" title="Open this issue's page — trend, tags, stacktrace, root cause">
                             <td>
                                 @if ($row['source'] === 'frontend')
                                     <span class="tui-badge tui-badge-web" title="Browser (RUM) error">web</span>

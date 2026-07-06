@@ -27,7 +27,7 @@ final class ErrorGroupTrend extends Card
         try {
             $occurrences = $this->groupReport()['occurrences'];
         } catch (SourceException $exception) {
-            return $this->chartCard('Events', error: $exception->getMessage(), span: 2);
+            return $this->chartCard('Events', error: $exception->getMessage(), span: 1);
         }
 
         $fromNano = $start->getTimestamp() * 1_000_000_000;
@@ -58,7 +58,7 @@ final class ErrorGroupTrend extends Card
             series: [['name' => 'events', 'data' => $points, 'color' => '#f87171']],
             type: 'bar',
             unit: 'events',
-            span: 2,
+            span: 1,
             note: 'Bounded sample (last '.ErrorGroupReport::LOOKBACK_DAYS.' days, max '.ErrorGroupReport::SEARCH_LIMIT.' occurrences).',
         );
     }

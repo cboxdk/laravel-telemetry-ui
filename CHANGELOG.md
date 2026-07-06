@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Issue rows go straight to the issue page** — no drawer detour — and
+  the page gains a Sentry-style **Actions & context sidebar** next to the
+  trend: a prefilled "+ Create ticket" button, the tracker tickets that
+  already mention this exception (searched live), the key facts (first/
+  last seen, users, env, release, host → its page, throw site) and the
+  suspect change event.
 - **Request log with live tail.** The Requests page's Routes card gains a
   toggle sibling: a request LOG — individual requests, newest first, with
   time, method+path, status badge, user, client IP and duration. Filter
@@ -126,6 +132,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   when the backend queries land — no more click lag.
 
 ### Fixed
+
+- **The route page's Paths card leaked every path in the backend.** It
+  used Tempo's tagValues with a filter that v1 quietly ignores — a route
+  detail listed unrelated URLs from the whole fleet. Paths now aggregate
+  from the route's own spans with real numbers per path (requests, avg,
+  max, 4xx/5xx) — a row tails that path in the request log, and ⇄ opens
+  the newest request's story.
 
 - **Charts no longer stick at the width they measured mid-render.** The
   ECharts instance now lives outside Alpine's reactive proxy (a proxied

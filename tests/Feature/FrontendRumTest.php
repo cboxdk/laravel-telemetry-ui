@@ -75,7 +75,8 @@ it('unifies frontend and backend errors into one list grouped by fingerprint', f
         ->assertSee('TypeError')
         ->assertSee('RuntimeException')
         ->assertSeeHtml('full-stack')                          // shared fingerprint seen in both browser + backend
-        ->assertSeeHtml('data-row-exception="'.$shared.'"')    // row opens the error-group detail drawer
+        ->assertSeeHtml('error-detail')                        // row opens the issue's show page
+        ->assertSeeHtml('group='.$shared)
         ->assertSeeHtml('tui-badge-web');
 });
 

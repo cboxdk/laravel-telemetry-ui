@@ -790,6 +790,32 @@ html, body {
 .tui-host-service .tui-stats { padding: 0; gap: 16px; }
 .tui-host-service .tui-stat-value { font-size: 16px; }
 
+/* Issue sidebar (actions & context) */
+
+.tui-sidebar-actions { display: flex; gap: 8px; }
+
+.tui-related-issues { display: flex; flex-direction: column; gap: 6px; }
+
+.tui-related-issue {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--tui-border);
+    border-radius: 7px;
+    text-decoration: none;
+    color: var(--tui-text-dim);
+    font-size: 12px;
+}
+
+.tui-related-issue:hover { border-color: var(--tui-info); color: var(--tui-text); }
+
+.tui-related-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* Tag distributions (issue page) */
 
 .tui-tagdist {

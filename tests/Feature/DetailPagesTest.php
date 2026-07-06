@@ -65,13 +65,3 @@ it('renders the hosts overview page and filters by host', function (): void {
         ->assertSee('web-1')             // from the faked host_name label
         ->assertSee('host.name', false); // row links filter traces by host (percent-encoded in the href)
 });
-
-it('bounds the paths tagValues call with a time window and limit', function (): void {
-    $this->get('/telemetry-ui/request-detail?route=/orders&period=1h')->assertOk();
-
-    // The Paths card must not scan all retention: start/end/limit are sent.
-    Http::assertSent(fn ($r): bool => str_contains($r->url(), '/search/tag/')
-        && str_contains($r->url(), 'start=')
-        && str_contains($r->url(), 'end=')
-        && str_contains($r->url(), 'limit=100'));
-});

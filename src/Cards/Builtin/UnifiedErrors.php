@@ -223,6 +223,14 @@ final class UnifiedErrors extends Card
         $groups[$group] = $row;
     }
 
+    /**
+     * The group's own issue page.
+     */
+    public function showUrl(string $group): string
+    {
+        return $this->pageUrl('error-detail', ['group' => $group]);
+    }
+
     private function source(bool $frontend, bool $backend): string
     {
         return match (true) {
