@@ -338,6 +338,21 @@ return [
                 ['label' => 'Disk free', 'query' => 'sum(node_filesystem_avail_bytes{instance=~"{host}(:.*)?",mountpoint="/"})', 'unit' => 'bytes'],
             ],
         ],
+        // No exporter needed: what the app ITSELF measured about the
+        // database it queries from this host (laravel-telemetry's
+        // db.queries counter, alpha.17+). 'observed' kind: proves usage,
+        // not health.
+        'database-app' => [
+            'label' => 'Database (seen by app)',
+            'kind' => 'observed',
+            'up' => 'sum(rate(db_queries_total{host_name="{host}"}[10m])) > 0',
+            'note' => 'App-side view only. Point mysqld_exporter / postgres_exporter at this Prometheus for real health, connections and slow-query stats.',
+            'tiles' => [
+                ['label' => 'Queries/s', 'query' => 'sum(rate(db_queries_total{host_name="{host}"}[5m]))', 'unit' => 'raw'],
+                ['label' => 'Queries (1h)', 'query' => 'sum(increase(db_queries_total{host_name="{host}"}[1h]))'],
+                ['label' => 'N+1 detections (1h)', 'query' => 'sum(increase(db_queries_duplicated_total{host_name="{host}"}[1h]))'],
+            ],
+        ],
         // No exporter needed: what the app ITSELF measured about the Redis
         // it talks to from this host (laravel-telemetry's redis.commands,
         // TELEMETRY_INSTRUMENT_REDIS=true). 'observed' kind: this can never

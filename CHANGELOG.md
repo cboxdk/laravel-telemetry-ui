@@ -33,6 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the page stays fully interactive, and selecting another row simply swaps
   the pane's content (links *inside* the pane still stack with
   back-navigation). Narrow screens keep the overlay behavior.
+- **"Database (seen by app)" host section** — the host page now shows
+  database activity (queries/s, hourly volume, N+1 detections) from
+  laravel-telemetry's new `db.queries` counter, no exporter required.
+  MySQL/Postgres exporter probes remain the path to real health stats.
 - **Host services tell the truth about visibility.** App-side sections
   (like "Redis (seen by app)") carry an `observed` badge instead of
   up/down — traffic measured by the app proves usage, not health — plus a
