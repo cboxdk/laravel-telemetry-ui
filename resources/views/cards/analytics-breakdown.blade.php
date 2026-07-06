@@ -5,7 +5,7 @@
         <div class="tui-error">{{ $error }}</div>
     @else
         <div class="tui-analytics-cols">
-            @foreach ([['Referrers', $referrers, 'No referrer data yet.'], ['Countries', $countries, 'Enable geo in the emitter to see countries.'], ['Devices', $devices, 'Enable User-Agent parsing to see devices.']] as [$title, $rows, $emptyHint])
+            @foreach ([['Referrers', $referrers, 'No referrer data yet.'], ['Countries', $countries, 'Set TELEMETRY_ANALYTICS_GEO=true (+ a GeoLite2 db) in the emitter to see countries.'], ['Devices', $devices, 'Set TELEMETRY_ANALYTICS_UA=true in the emitter to see devices.']] as [$title, $rows, $emptyHint])
                 <div class="tui-analytics-col">
                     <h4 class="tui-analytics-col-title">{{ $title }}</h4>
                     @if ($rows === [])
