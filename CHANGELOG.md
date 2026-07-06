@@ -33,9 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (Prometheus never sees the 0→first-value jump). Cards now count series
   births too, so "Scale down: 1" shows up the moment the first scale-down
   ever happens.
-- **The Cluster card hides itself on single-host installs** instead of
+- **The Cluster card explains itself on single-host installs** instead of
   showing misleading "0 managers / 0%" stats — the `queue_autoscale_cluster_*`
-  gauges only exist in cluster mode.
+  gauges only exist in cluster mode, and the card now says so.
 - **Routes ⇄ Request log toggle no longer reloads the page.** The toggle was
   a plain link (full page load); it is now a Livewire event both sibling
   cards listen to, so the swap is instant and keeps scroll/filter state.

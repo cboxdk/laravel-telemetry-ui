@@ -47,13 +47,13 @@ final class AutoscaleCluster extends Card
         }
 
         // The cluster.* gauges only exist in cluster mode — on a single-host
-        // install, misleading zero-stats ("0 managers") would be worse than
-        // no card at all.
+        // install, say so instead of showing misleading "0 managers" stats.
         if ($series === [] && $managers === 0.0) {
-            /** @var view-string $hidden */
-            $hidden = 'telemetry-ui::cards.hidden';
-
-            return view($hidden);
+            return $this->chartCard(
+                title: 'Cluster',
+                subtitle: 'Spawned workers vs cluster-wide demand and capacity',
+                empty: 'No cluster gauges reported — the autoscaler is likely not running in cluster mode. Single-host installs never emit queue_autoscale_cluster_*.',
+            );
         }
 
         return $this->chartCard(

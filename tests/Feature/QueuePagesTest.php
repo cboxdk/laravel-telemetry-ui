@@ -245,8 +245,9 @@ it('shows SLA breach state with predicted pickup times', function (): void {
     });
 });
 
-it('hides the cluster card entirely on single-host installs', function (): void {
-    // queue_autoscale_cluster_* gauges only exist in cluster mode.
+it('explains the missing cluster gauges on single-host installs', function (): void {
+    // queue_autoscale_cluster_* gauges only exist in cluster mode — say so
+    // instead of showing misleading "0 managers" stats.
     Http::fake([
         'prometheus.test:9090/api/v1/query_range*' => Http::response(queuesMatrix([])),
         'prometheus.test:9090/api/v1/query?*' => Http::response(queuesVector([])),
@@ -254,7 +255,7 @@ it('hides the cluster card entirely on single-host installs', function (): void 
 
     Livewire::test(AutoscaleCluster::class)
         ->assertDontSee('Managers')
-        ->assertDontSee('No data in this period');
+        ->assertSee('not running in cluster mode');
 });
 
 it('charts cluster workers against demand and capacity', function (): void {

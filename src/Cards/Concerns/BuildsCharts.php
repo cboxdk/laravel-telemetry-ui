@@ -99,6 +99,7 @@ trait BuildsCharts
         int $height = 200,
         bool $annotate = true,
         ?string $subtitle = null,
+        ?string $empty = null,
     ): View {
         [$start, $end] = $this->range();
 
@@ -123,6 +124,7 @@ trait BuildsCharts
             'error' => $error,
             'span' => $span,
             'note' => $note,
+            'empty' => $empty,
             'height' => $height,
             'annotations' => $annotate && $series !== [] ? $this->annotationMarks() : [],
             'min' => $start->getTimestamp() * 1000,
