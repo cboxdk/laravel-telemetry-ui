@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Cards\Concerns\ScopesQueries;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\CreatesIssues;
+use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
 use Cbox\TelemetryUi\Support\TraceView;
 use DateTimeImmutable;
@@ -336,6 +337,11 @@ final class TraceDrawer extends Component
         // away — the record outlives it — so this degrades to null quietly.
         $request = ($occurrences[0]['traceId'] ?? '') !== '' ? $this->exceptionRequest($occurrences[0]['traceId']) : null;
 
+        // Root-cause hints: the change event (deploy, migration, flag, …)
+        // closest before first-seen, and which releases the error appears in.
+        $suspect = $occurrences !== [] ? $this->exceptionSuspect($occurrences[array_key_last($occurrences)]['nano']) : null;
+        $releases = $this->exceptionReleases($occurrences);
+
         $manager = app(ConnectionManager::class);
         $canCreate = Gate::allows('manageTelemetryUi')
             && $manager->hasIssues()
@@ -356,6 +362,8 @@ final class TraceDrawer extends Component
             'occurrences' => array_slice($occurrences, 0, 20),
             'detail' => $detail,
             'request' => $request,
+            'suspect' => $suspect,
+            'releases' => $releases,
             'canCreate' => $canCreate,
             'draft' => $canCreate ? $this->exceptionDraft($group, $stats, $detail) : null,
             'lookbackDays' => self::EXCEPTION_LOOKBACK_DAYS,
@@ -515,6 +523,71 @@ final class TraceDrawer extends Component
             'status' => $attr('http.response.status_code'),
             'user' => $attr('enduser.id'),
         ];
+    }
+
+    /**
+     * Sentry's "suspect commit", on open data: the change event (deploy,
+     * migration, feature flag, …) closest BEFORE the group's first
+     * occurrence, within 48h. An error born right after a change was very
+     * likely born because of it.
+     *
+     * @return array{label: string, kind: string, time: string, gap: string, notes: string|null, traceId: string|null, color: string}|null
+     */
+    private function exceptionSuspect(int $firstSeenNano): ?array
+    {
+        $firstSeenMs = intdiv($firstSeenNano, 1_000_000);
+
+        foreach (app(Annotations::class)->lookback($this->logSelector()) as $annotation) {
+            // Newest-first: the first marker at/before first-seen is the closest.
+            if ($annotation->timestampMs > $firstSeenMs) {
+                continue;
+            }
+
+            if ($firstSeenMs - $annotation->timestampMs > 48 * 3_600_000) {
+                return null; // too long before — not a credible suspect.
+            }
+
+            return [
+                'label' => $annotation->label,
+                'kind' => $annotation->kind,
+                'time' => date('d/m H:i', (int) ($annotation->timestampMs / 1000)),
+                'gap' => Carbon::createFromTimestampMs((int) $annotation->timestampMs)
+                    ->diffForHumans(Carbon::createFromTimestampMs($firstSeenMs), ['syntax' => Carbon::DIFF_ABSOLUTE, 'parts' => 1]),
+                'notes' => $annotation->notes,
+                'traceId' => $annotation->traceId,
+                'color' => $annotation->color,
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Which releases the sampled occurrences carry — "only in v2.4.1" is a
+     * strong regression signal.
+     *
+     * @param  list<array{nano: int, at: string, traceId: string, service: string, message: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>  $occurrences
+     * @return list<array{release: string, count: int}>
+     */
+    private function exceptionReleases(array $occurrences): array
+    {
+        $releases = [];
+
+        foreach ($occurrences as $occurrence) {
+            $release = $occurrence['detail']['release'];
+
+            if ($release !== '') {
+                $releases[$release] = ($releases[$release] ?? 0) + 1;
+            }
+        }
+
+        arsort($releases);
+
+        return array_map(
+            static fn (string $release, int $count): array => ['release' => $release, 'count' => $count],
+            array_keys(array_slice($releases, 0, 5, true)),
+            array_values(array_slice($releases, 0, 5, true)),
+        );
     }
 
     /**

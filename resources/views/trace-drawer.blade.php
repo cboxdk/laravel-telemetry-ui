@@ -47,7 +47,7 @@
                     @elseif ($mode === 'issue')
                         @include('telemetry-ui::partials.issue-detail', ['issue' => $issue, 'error' => $error])
                     @elseif ($mode === 'exception')
-                        @include('telemetry-ui::partials.exception-detail', ['error' => $error, 'group' => $group, 'stats' => $stats, 'occurrences' => $occurrences, 'detail' => $detail, 'request' => $request, 'canCreate' => $canCreate, 'draft' => $draft, 'lookbackDays' => $lookbackDays])
+                        @include('telemetry-ui::partials.exception-detail', ['error' => $error, 'group' => $group, 'stats' => $stats, 'occurrences' => $occurrences, 'detail' => $detail, 'request' => $request, 'suspect' => $suspect, 'releases' => $releases, 'canCreate' => $canCreate, 'draft' => $draft, 'lookbackDays' => $lookbackDays])
                     @else
                         @include('telemetry-ui::partials.trace-detail', ['trace' => $trace, 'rows' => $rows, 'chain' => $chain, 'identities' => $identities, 'error' => $error, 'context' => $context, 'profile' => $profile])
                     @endif

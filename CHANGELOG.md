@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Sentry-style errors list.** Every group row now carries its in-period
+  trend sparkline, first seen and last seen, a **NEW** badge for groups
+  born within 24 hours, and a sort control (events / last seen / first
+  seen). First-seen looks beyond the page period (min 7 days) so it means
+  what it says; counts and trends stay period-scoped.
+- **Root-cause hints on the error-group panel.** The change event (deploy,
+  migration, feature flag, …) closest before the group's first occurrence
+  — within 48h — is named as the suspect ("Deploy v9.1.0 at 14:02 — first
+  seen 18 minutes later"), and the panel shows which releases the sampled
+  occurrences carry, with an "only this release" badge when every one
+  points at a single release.
+
 ## [0.1.0-alpha.4] - 2026-07-06
 
 ### Added

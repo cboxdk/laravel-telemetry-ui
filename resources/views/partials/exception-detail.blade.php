@@ -52,6 +52,41 @@
         </div>
     @endif
 
+    {{-- Root-cause hints: the change event closest before first-seen (a
+         deploy/migration/flag the error was likely born from), and which
+         releases the sampled occurrences carry. --}}
+    @if ($suspect !== null || $releases !== [])
+        <div class="tui-suspect">
+            <span class="tui-chain-label">Root cause hints</span>
+            @if ($suspect !== null)
+                <div class="tui-suspect-row">
+                    <span class="tui-annotation-dot" style="background: {{ $suspect['color'] }}"></span>
+                    <span>
+                        <strong>{{ $suspect['label'] }}</strong>
+                        <span class="tui-tone-dim">at {{ $suspect['time'] }} — first seen {{ $suspect['gap'] }} later</span>
+                        @if ($suspect['notes'])
+                            <span class="tui-tone-dim">· {{ Str::limit($suspect['notes'], 80) }}</span>
+                        @endif
+                    </span>
+                    @if ($suspect['traceId'])
+                        <a class="tui-chip tui-trace-link" data-trace-id="{{ $suspect['traceId'] }}" href="{{ route('telemetry-ui.trace', ['traceId' => $suspect['traceId']]) }}">⇄ trace</a>
+                    @endif
+                </div>
+            @endif
+            @if ($releases !== [])
+                <div class="tui-suspect-row">
+                    <span class="tui-tone-dim" style="font-size: 11px;">Seen in:</span>
+                    @foreach ($releases as $release)
+                        <span class="tui-chip"><em>release</em> <b>{{ $release['release'] }}</b> · {{ $release['count'] }}</span>
+                    @endforeach
+                    @if (count($releases) === 1 && $stats['count'] > 1)
+                        <span class="tui-badge tui-badge-warn" title="Every sampled occurrence carries this release — likely introduced by it">only this release</span>
+                    @endif
+                </div>
+            @endif
+        </div>
+    @endif
+
     @if ($canCreate && $draft !== null)
         <div class="tui-issue-relations">
             <button type="button" class="tui-btn tui-btn-sm" x-data

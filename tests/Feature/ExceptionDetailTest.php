@@ -79,6 +79,9 @@ it('opens an exception group with stacktrace, source context and occurrences', f
         ->assertSee('/orders')
         ->assertSee('500')
         ->assertSee('#7')
+        // Root-cause hints: every sampled occurrence carries one release.
+        ->assertSee('Seen in:')
+        ->assertSee('only this release')
         // Occurrences link to their traces (stacking onto the drawer).
         ->assertSeeHtml('data-trace-id="1111111111111111aaaaaaaaaaaaaaaa"');
 });
@@ -129,6 +132,39 @@ it('falls back to browser exception spans for a frontend group', function (): vo
         ->assertSee('frontend')
         ->assertSee('Browser errors carry no stacktrace')
         ->assertSeeHtml('data-trace-id="2222222222222222bbbbbbbbbbbbbbbb"');
+});
+
+it('names the deploy closest before first-seen as the root-cause suspect', function (): void {
+    $firstSeen = time() - 3600;            // error born an hour ago…
+    $deployAt = $firstSeen - 18 * 60;      // …18 minutes after this deploy.
+
+    Http::fake([
+        'loki.test:3100/loki/api/v1/query_range*' => function ($request) use ($firstSeen, $deployAt) {
+            $q = rawurldecode(requestQuery($request)['query'] ?? '');
+
+            // The annotations reader matches marker events with a regex filter…
+            if (str_contains($q, '|~')) {
+                return Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => [
+                    ['stream' => ['service_name' => 'checkout', 'deployment_id' => 'v9.1.0', 'deployment_notes' => 'checkout rewrite'],
+                        'values' => [[(string) ($deployAt * 1_000_000_000), 'app.deployment']]],
+                ]]]);
+            }
+
+            // …the group detail filters on the fingerprint label.
+            return Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => [
+                ['stream' => ['service_name' => 'checkout', 'exception_group' => 'abc123def456', 'exception_type' => 'PaymentDeclined', 'exception_message' => 'boom'],
+                    'values' => [[(string) ($firstSeen * 1_000_000_000), 'exception']]],
+            ]]]);
+        },
+        'tempo.test:3200/*' => Http::response(['traces' => []]),
+    ]);
+
+    Livewire::test(TraceDrawer::class)
+        ->dispatch('telemetry-ui:open-exception', group: 'abc123def456')
+        ->assertSee('Root cause hints')
+        ->assertSee('Deploy v9.1.0')
+        ->assertSee('later')                // "first seen 18 minutes later"
+        ->assertSee('checkout rewrite');
 });
 
 it('forces the exception lookups inside the tenancy scope lock', function (): void {

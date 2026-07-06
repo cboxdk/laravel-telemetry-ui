@@ -45,6 +45,7 @@ it('unifies frontend and backend errors into one list grouped by fingerprint', f
     // same site collapse into one full-stack row, while a backend-only
     // RuntimeException stays its own row.
     $shared = ExceptionFingerprint::compute('TypeError', 'checkout.js', 10);
+    $now = time();
 
     Http::fake([
         'loki.test:3100/loki/api/v1/query_range*' => Http::response([
@@ -52,18 +53,18 @@ it('unifies frontend and backend errors into one list grouped by fingerprint', f
             'data' => ['resultType' => 'streams', 'result' => [
                 [
                     'stream' => ['service_name' => 'cbox-web', 'exception_group' => $shared, 'exception_type' => 'TypeError', 'exception_message' => 'Cannot read foo of undefined'],
-                    'values' => [['1735689500000000000', 'exception']],
+                    'values' => [[(string) (($now - 300) * 1_000_000_000), 'exception']],
                 ],
                 [
                     'stream' => ['service_name' => 'cbox-web', 'exception_group' => 'aaaa11112222', 'exception_type' => 'RuntimeException', 'exception_message' => 'boom'],
-                    'values' => [['1735689400000000000', 'exception']],
+                    'values' => [[(string) (($now - 400) * 1_000_000_000), 'exception']],
                 ],
             ]],
         ]),
         'tempo.test:3200/api/search*' => Http::response([
             'traces' => [
-                ['traceID' => '1111111111111111aaaaaaaaaaaaaaaa', 'rootServiceName' => 'cbox-web', 'rootTraceName' => 'load', 'startTimeUnixNano' => '1735689600000000000', 'durationMs' => 5,
-                    'spanSets' => [['spans' => [['spanID' => 'a1', 'name' => 'exception', 'startTimeUnixNano' => '1735689600000000000', 'durationNanos' => '0', 'attributes' => errorSpan('TypeError', 'Cannot read foo of undefined', 'checkout.js', 10)]]]]],
+                ['traceID' => '1111111111111111aaaaaaaaaaaaaaaa', 'rootServiceName' => 'cbox-web', 'rootTraceName' => 'load', 'startTimeUnixNano' => (string) (($now - 200) * 1_000_000_000), 'durationMs' => 5,
+                    'spanSets' => [['spans' => [['spanID' => 'a1', 'name' => 'exception', 'startTimeUnixNano' => (string) (($now - 200) * 1_000_000_000), 'durationNanos' => '0', 'attributes' => errorSpan('TypeError', 'Cannot read foo of undefined', 'checkout.js', 10)]]]]],
             ],
         ]),
     ]);

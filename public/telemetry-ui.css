@@ -790,6 +790,30 @@ html, body {
 .tui-host-service .tui-stats { padding: 0; gap: 16px; }
 .tui-host-service .tui-stat-value { font-size: 16px; }
 
+/* Root-cause hints (exception detail) */
+
+.tui-suspect {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: var(--tui-surface);
+    border: 1px solid var(--tui-border);
+    border-left: 2px solid var(--tui-warn);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.tui-suspect .tui-chain-label { margin-bottom: 1px; }
+
+.tui-suspect-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    font-size: 12px;
+}
+
 /* Exception-group detail (drawer) */
 
 .tui-exception-message {
@@ -875,6 +899,7 @@ html, body {
 .tui-btn.is-active { color: var(--tui-danger); border-color: rgba(248, 113, 113, 0.4); }
 
 .tui-btn-sm { padding: 3px 8px; font-size: 11px; }
+.tui-btn.is-sort-active { color: var(--tui-info); border-color: rgba(96, 165, 250, 0.4); }
 
 .tui-btn-primary {
     background: #1d4ed8;
