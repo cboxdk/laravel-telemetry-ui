@@ -106,27 +106,45 @@ trait ScopesQueries
     }
 
     /**
-     * A Loki stream selector for the current scope. Loki requires at least
-     * one non-empty matcher, so an unscoped selector matches any service.
+     * A Loki stream selector for the current scope, with the environment applied
+     * as a pipeline label filter rather than a stream-label matcher.
+     *
+     * Only `service_name` goes in the `{…}` stream selector: it is the one label
+     * a telemetry backend is guaranteed to index as a *stream label*. The
+     * environment is emitted as a trailing `| deployment_environment_name="…"`
+     * label filter instead — many Loki deployments (e.g. otel-lgtm) index only
+     * service_name as a stream label and carry `deployment_environment_name` as
+     * *structured metadata*. A stream-selector matcher on a non-indexed label
+     * silently matches nothing (so every env-scoped log card returns 0 rows),
+     * whereas a pipeline label filter matches whether the label is a stream label
+     * or structured metadata — correct in both cases.
+     *
+     * Callers append further pipeline stages (`|= "…"`, `| foo != ""`), which
+     * chain onto the env filter without change; the return is always a complete,
+     * appendable LogQL prefix. Loki requires at least one non-empty stream
+     * matcher, so an unscoped selector still matches any service.
      */
     protected function logSelector(string $extraMatchers = ''): string
     {
         $lock = app(ScopeLock::class);
 
-        $matchers = array_values(array_filter([
+        $stream = array_values(array_filter([
             $this->labelMatcher('service_name', $this->scopedServices(), $lock->servicesLocked()),
-            $this->labelMatcher('deployment_environment_name', $this->scopedEnvironments(), $lock->environmentsLocked()),
         ], static fn (?string $m): bool => $m !== null));
 
         if ($extraMatchers !== '') {
-            $matchers[] = $extraMatchers;
+            $stream[] = $extraMatchers;
         }
 
-        if ($matchers === []) {
-            $matchers[] = 'service_name=~".+"';
+        if ($stream === []) {
+            $stream[] = 'service_name=~".+"';
         }
 
-        return '{'.implode(',', $matchers).'}';
+        $selector = '{'.implode(',', $stream).'}';
+
+        $env = $this->labelMatcher('deployment_environment_name', $this->scopedEnvironments(), $lock->environmentsLocked());
+
+        return $env !== null ? $selector.' | '.$env : $selector;
     }
 
     protected function escapeLabelValue(string $value): string

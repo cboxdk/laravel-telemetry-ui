@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   into one row. The request log shows the component(s) behind each update
   inline, and the Livewire page gains the Requests page's grouping/live-tail
   pair: a per-component table and a scoped live request log.
+- **Collapsible sidebar navigation.** The nav groups (Activity, Monitoring,
+  Statamic, …) collapse to chevrons so a long page list fits on one screen;
+  only the active group opens by default and the choice persists in
+  localStorage. Top-level items (Dashboard, Traces, Issues) stay visible.
+- **Frontend page rows drill into their traces.** Core Web Vitals and Page
+  performance rows open the browser→backend traces for that URL path, matched
+  on `span.url.path`, carrying the active scope.
 
 ### Fixed
 
@@ -67,6 +74,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as are the rest of the autoscale names, including
   `queue_autoscale_sla_breach_ratio` and
   `queue_autoscale_sla_predicted_pickup_seconds`.
+- **Environment scope now works on every log-based card.** The scope put
+  `deployment_environment_name` in the Loki *stream selector*, but backends that
+  index only `service_name` as a stream label (e.g. otel-lgtm) carry the
+  environment as *structured metadata* — so a selected environment silently
+  matched nothing and Analytics, the log viewer, unified errors and annotations
+  all returned zero. The environment is now a pipeline label filter
+  (`{service_name="…"} | deployment_environment_name="…"`), correct whether the
+  backend indexes it as a stream label or not. The analytics Countries/Devices
+  empty states now name the emitter flags (`TELEMETRY_ANALYTICS_GEO` /
+  `TELEMETRY_ANALYTICS_UA`) that populate them.
+- **Rootless traces no longer read as a perpetual "Loading…".** An orphaned
+  browser page-view trace (no backend root span) showed "Loading…" forever in
+  the drawer; it is now labelled (the span name, "Unnamed trace" or "Trace not
+  found") since the fetch is already complete by render time.
 
 ## [0.2.1] - 2026-07-06
 

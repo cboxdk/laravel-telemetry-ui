@@ -52,7 +52,10 @@ it('formats fleet scope helpers on cards', function (): void {
     expect($card->probe())->toBe([
         'up{service_name="checkout",deployment_environment_name="prod"}',
         'resource.service.name = "checkout" && resource.deployment.environment.name = "prod" && status = error',
-        '{service_name="checkout",deployment_environment_name="prod"}',
+        // Environment is a pipeline label filter, not a stream-label matcher, so
+        // it works whether the backend indexes it or carries it as structured
+        // metadata (otel-lgtm indexes only service_name as a stream label).
+        '{service_name="checkout"} | deployment_environment_name="prod"',
     ]);
 
     $card->service = '';
