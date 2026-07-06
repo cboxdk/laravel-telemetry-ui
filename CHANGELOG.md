@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   toggling costs zero backend queries. The choice sits in the URL
   (`ann_off`), so it survives navigation and deep links.
 
+- **Grafana-style relative time ranges.** `?from=now-1h&to=now`,
+  `now-7d`, `now+30m` … (units s/m/h/d/w/M/y) work everywhere `from`/`to`
+  do — evaluated at view time, so a shared relative link always shows the
+  trailing window instead of a frozen one. Plain unix seconds still work,
+  and the header shows relative expressions verbatim.
 - **Livewire updates carry their component everywhere.** With
   `cboxdk/laravel-telemetry` ≥ 0.2.1, `POST /livewire/update` is named
   `livewire:{component}` (batched updates: `livewire:batch`), so the routes

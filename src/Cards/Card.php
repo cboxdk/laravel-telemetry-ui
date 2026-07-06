@@ -15,6 +15,7 @@ use Cbox\TelemetryUi\Queries\Results\Sample;
 use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Period;
+use Cbox\TelemetryUi\Support\TimeExpression;
 use DateTimeImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
@@ -154,13 +155,12 @@ abstract class Card extends Component
      */
     protected function range(): array
     {
-        if (ctype_digit($this->from) && ctype_digit($this->to)) {
-            $from = new DateTimeImmutable('@'.$this->from);
-            $to = new DateTimeImmutable('@'.$this->to);
+        // Unix seconds or Grafana-style expressions (now-1h, now-7d, now).
+        $from = TimeExpression::parse($this->from);
+        $to = TimeExpression::parse($this->to);
 
-            if ($from < $to) {
-                return [$from, $to];
-            }
+        if ($from !== null && $to !== null && $from < $to) {
+            return [$from, $to];
         }
 
         return $this->period()->range();

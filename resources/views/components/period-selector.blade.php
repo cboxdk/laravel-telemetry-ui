@@ -1,5 +1,7 @@
 @php($current = Cbox\TelemetryUi\Support\Period::tryFrom((string) request('period')) ?? Cbox\TelemetryUi\Support\Period::default())
-@php($hasCustomRange = ctype_digit((string) request('from')) && ctype_digit((string) request('to')))
+@php($rangeFrom = Cbox\TelemetryUi\Support\TimeExpression::parse((string) request('from')))
+@php($rangeTo = Cbox\TelemetryUi\Support\TimeExpression::parse((string) request('to')))
+@php($hasCustomRange = $rangeFrom !== null && $rangeTo !== null && $rangeFrom < $rangeTo)
 
 <div class="tui-header-controls">
     {{-- Copy deep-link to the current view (filters, range, scope) --}}
@@ -85,7 +87,7 @@
     <div class="tui-range" x-data="telemetryUiRange()">
         <button type="button" class="tui-btn {{ $hasCustomRange ? 'is-range-active' : '' }}" x-on:click="open = !open">
             @if ($hasCustomRange)
-                {{ date('d/m H:i', (int) request('from')) }} – {{ date('d/m H:i', (int) request('to')) }}
+                {{ Cbox\TelemetryUi\Support\TimeExpression::label((string) request('from')) }} – {{ Cbox\TelemetryUi\Support\TimeExpression::label((string) request('to')) }}
             @else
                 Custom
             @endif
