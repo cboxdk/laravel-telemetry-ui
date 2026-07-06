@@ -103,6 +103,17 @@ final class WebVitals extends Card
     /**
      * Web-vitals tone on Google's good/poor thresholds.
      */
+    /**
+     * Every trace for this path — the browser page view *and* the backend
+     * request behind it, in one waterfall (frontend → backend).
+     */
+    public function tracesUrl(string $path): string
+    {
+        return $this->pageUrl('traces', [
+            'q' => '{ '.$this->traceScope('span.url.path = "'.addcslashes($path, '"\\').'"').' }',
+        ]);
+    }
+
     public function tone(?float $value, float $good, float $poor): string
     {
         return match (true) {
