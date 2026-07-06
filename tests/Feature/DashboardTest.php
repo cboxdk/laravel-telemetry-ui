@@ -106,11 +106,11 @@ it('registers cards from config and runtime, deduplicated and in order', functio
         DummyCard::class,
     ]);
 
-    $manager->page('autoscale', 'Autoscale', group: 'Activity');
-    $manager->card(DummyCard::class, page: 'autoscale');
+    $manager->page('my-package', 'My Package', group: 'Activity');
+    $manager->card(DummyCard::class, page: 'my-package');
 
-    expect($manager->cards('autoscale'))->toBe([DummyCard::class])
-        ->and($manager->pages())->toHaveKeys(['dashboard', 'autoscale', 'requests', 'jobs', 'traces']);
+    expect($manager->cards('my-package'))->toBe([DummyCard::class])
+        ->and($manager->pages())->toHaveKeys(['dashboard', 'my-package', 'requests', 'jobs', 'traces']);
 });
 
 it('replaces, removes cards and removes whole pages (embed/white-label)', function (): void {

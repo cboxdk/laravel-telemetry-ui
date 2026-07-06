@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-06
+
+### Added
+
+- **Queues page** (autodetected via `queue_metrics_.*`) for fleets running
+  `cboxdk/laravel-queue-metrics`' OpenTelemetry integration: backlog by
+  state (pending/scheduled/reserved), per-queue throughput, oldest-job age,
+  busy/idle worker fleet with utilization, and a per-queue table with
+  backlog-trend sparklines. Each queue drills into a **queue-detail page**:
+  headline numbers, backlog and throughput for that queue, the autoscaler's
+  target-vs-active steering, and the job classes running on it (each linking
+  on to its job-detail page).
+- **Autoscale page** (autodetected via `queue_autoscale_.*`) for
+  `cboxdk/laravel-queue-autoscale` v3.11+: target vs active workers,
+  executed scaling actions by direction, SLA health (predicted pickup,
+  queues in breach, breach transitions) and cluster capacity
+  (workers/required/capacity, managers, utilization, recommended hosts).
+
+### Changed
+
+- Require `cboxdk/laravel-telemetry` `^0.2.0` — its first stable release
+  (was `^0.1.0-alpha.3`).
+
 ## [0.1.0-alpha.6] - 2026-07-06
 
 ### Added

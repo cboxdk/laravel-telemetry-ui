@@ -40,6 +40,12 @@ final class TelemetryUiManager
         'request-detail' => ['label' => 'Request', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
         'jobs' => ['label' => 'Jobs', 'group' => 'Activity', 'icon' => null, 'detect' => null],
         'job-detail' => ['label' => 'Job', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
+        // Queue infrastructure (cboxdk/laravel-queue-metrics) and the
+        // autoscaler (cboxdk/laravel-queue-autoscale) — separate metric
+        // families, so each page lights up independently.
+        'queues' => ['label' => 'Queues', 'group' => 'Activity', 'icon' => null, 'detect' => 'queue_metrics_.*'],
+        'queue-detail' => ['label' => 'Queue', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
+        'autoscale' => ['label' => 'Autoscale', 'group' => 'Activity', 'icon' => null, 'detect' => 'queue_autoscale_.*'],
         'horizon' => ['label' => 'Horizon', 'group' => 'Activity', 'icon' => null, 'detect' => 'horizon_.*'],
         'commands' => ['label' => 'Commands', 'group' => 'Activity', 'icon' => null, 'detect' => 'commands_.*'],
         'schedule' => ['label' => 'Scheduled Tasks', 'group' => 'Activity', 'icon' => null, 'detect' => null],
@@ -83,6 +89,9 @@ final class TelemetryUiManager
         'request-detail' => [Builtin\Detail\RequestDetailHeader::class, Builtin\Detail\RequestDetailActivity::class, Builtin\Detail\RequestDetailDuration::class, Builtin\Detail\RequestDetailStatus::class, Builtin\Detail\RequestDetailPaths::class, Builtin\Detail\RequestDetailTraces::class],
         'jobs' => [Builtin\JobsOverview::class, Builtin\QueueLag::class, Builtin\JobsTable::class],
         'job-detail' => [Builtin\Detail\JobDetailHeader::class, Builtin\Detail\JobDetailOutcomes::class, Builtin\Detail\JobDetailTraces::class],
+        'queues' => [Builtin\QueueBacklog::class, Builtin\QueueThroughput::class, Builtin\QueueOldestJob::class, Builtin\QueueWorkers::class, Builtin\QueuesTable::class],
+        'queue-detail' => [Builtin\Detail\QueueDetailHeader::class, Builtin\Detail\QueueDetailBacklog::class, Builtin\Detail\QueueDetailThroughput::class, Builtin\Detail\QueueDetailAutoscale::class, Builtin\Detail\QueueDetailJobs::class],
+        'autoscale' => [Builtin\AutoscaleWorkers::class, Builtin\AutoscaleActions::class, Builtin\AutoscaleSla::class, Builtin\AutoscaleCluster::class],
         'commands' => [Builtin\CommandsOverview::class, Builtin\CommandsTable::class],
         'schedule' => [Builtin\ScheduleOverview::class, Builtin\ScheduleTable::class],
         'exceptions' => [Builtin\UnifiedErrors::class, Builtin\ExceptionsOverview::class, Builtin\ExceptionsTable::class],

@@ -30,6 +30,15 @@ it('renders the job detail page scoped to the job', function (): void {
     Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'job_name="SendReport"'));
 });
 
+it('renders the queue detail page scoped to the queue', function (): void {
+    $this->get('/telemetry-ui/queue-detail?queue=high')
+        ->assertOk()
+        ->assertSee('high')
+        ->assertSee('All queues');
+
+    Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'queue="high"'));
+});
+
 it('renders the exception detail page scoped to the class', function (): void {
     $this->get('/telemetry-ui/exception-detail?exception=RuntimeException')
         ->assertOk()

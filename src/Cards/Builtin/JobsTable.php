@@ -12,7 +12,7 @@ use Livewire\Attributes\Url;
 /**
  * Per-job outcomes and durations, with drill-down to matching traces.
  */
-final class JobsTable extends Card
+class JobsTable extends Card
 {
     #[Url(as: 'job_search')]
     public string $search = '';
