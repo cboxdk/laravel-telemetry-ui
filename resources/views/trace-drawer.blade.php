@@ -24,7 +24,11 @@
                         @elseif ($mode === 'exception')
                             {{ ($detail['type'] ?? '') !== '' ? $detail['type'] : 'Error group '.$group }}
                         @else
-                            {{ $trace?->root()?->name ?: ($error ? 'Error' : 'Loading…') }}
+                            {{-- The fetch is synchronous, so by render time it's done, not
+                                 loading. A rootless/unnamed trace (e.g. an orphaned browser
+                                 page-view not linked to a backend root) must not read as a
+                                 perpetual "Loading…". --}}
+                            {{ $trace?->root()?->name ?: ($error ? 'Error' : ($rows === [] ? 'Trace not found' : 'Unnamed trace')) }}
                         @endif
                     </h2>
                 </div>
