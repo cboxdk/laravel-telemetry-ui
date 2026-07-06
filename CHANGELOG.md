@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Traces read like requests now — the waterfall is the last resort.**
+  Opening a trace (pane or full page) tells the story instead of dumping
+  spans: request facts (method, route, path+query, status, client IP,
+  user, user agent, body sizes), cost totals off the root tallies
+  (queries + query time, N+1 count, cache ops, redis commands, models
+  hydrated, views, CPU time, memory), then one readable section per
+  concern — **Database** (statements slowest-first, N+1 called out),
+  **Upstream calls** (URL + status + duration), **Cache** (hit/miss/write
+  summary + keys), **Redis**, **Dispatched jobs**, **Views**, **Storage**,
+  **captured Headers** (request/response) and **Logs written during the
+  request** (trace-correlated). The raw span waterfall collapses behind a
+  "Raw trace — N spans" toggle. Job/command traces adapt automatically.
+- **Purpose-built trace filters**: status-code class (2xx–5xx), path
+  contains and client IP join status/source/route/name/duration — all
+  URL-synced, all composing scoped TraceQL under the hood.
 - **Full issue page (Sentry-style show view).** Every error group now has
   its own page (`error-detail?group=…`, the drawer's "Full page" button):
   header with events / users / first seen / last seen, an events trend

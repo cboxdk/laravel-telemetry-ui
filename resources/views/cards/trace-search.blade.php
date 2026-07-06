@@ -29,8 +29,29 @@
         </label>
 
         <label class="tui-filter">
+            <span>Status code</span>
+            <select wire:model.live="statusCode">
+                <option value="">Any</option>
+                <option value="2xx">2xx</option>
+                <option value="3xx">3xx</option>
+                <option value="4xx">4xx</option>
+                <option value="5xx">5xx</option>
+            </select>
+        </label>
+
+        <label class="tui-filter">
             <span>Route</span>
             <input type="text" placeholder="/orders/{id}" wire:model.live.debounce.500ms="route" spellcheck="false">
+        </label>
+
+        <label class="tui-filter">
+            <span>Path contains</span>
+            <input type="text" placeholder="/checkout" wire:model.live.debounce.500ms="path" spellcheck="false">
+        </label>
+
+        <label class="tui-filter">
+            <span>Client IP</span>
+            <input type="text" placeholder="203.0.113.9" wire:model.live.debounce.500ms="ip" spellcheck="false">
         </label>
 
         <label class="tui-filter">

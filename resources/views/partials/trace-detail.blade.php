@@ -102,6 +102,18 @@
         </div>
     @endif
 
+    {{-- The readable story of the request: facts, cost, per-concern
+         sections. The raw waterfall below is the last-resort view. --}}
+    @if (! empty($report))
+        @include('telemetry-ui::partials.request-report', ['report' => $report, 'traceLogs' => $traceLogs ?? []])
+    @endif
+
+    <div x-data="{ raw: false }">
+        <button type="button" class="tui-btn tui-btn-sm tui-raw-toggle" x-on:click="raw = !raw">
+            <span x-text="raw ? '▾ Hide raw trace' : '▸ Raw trace — {{ count($rows) }} spans (waterfall)'"></span>
+        </button>
+
+        <div x-show="raw" x-cloak>
     <div class="tui-waterfall" x-data="{ collapsed: {} }">
         @foreach ($rows as $row)
             @php($span = $row['span'])
@@ -178,5 +190,7 @@
                 </div>
             </div>
         @endforeach
+    </div>
+        </div>
     </div>
 @endif

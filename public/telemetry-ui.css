@@ -1046,6 +1046,61 @@ html, body {
 .tui-log-meta td:first-child { color: var(--tui-text-faint); }
 .tui-log-meta a { color: var(--tui-info); text-decoration: none; }
 
+/* Request report (the readable story of a trace) */
+
+.tui-report-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    padding: 2px 0 12px;
+    font-size: 12px;
+}
+
+.tui-report-fact em {
+    font-style: normal;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--tui-text-faint);
+    margin-right: 5px;
+}
+
+.tui-report-fact b {
+    font-weight: 500;
+    font-family: var(--tui-mono);
+    color: var(--tui-text-dim);
+    word-break: break-all;
+}
+
+.tui-report-headers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 14px 22px;
+}
+
+.tui-headers-table {
+    border-collapse: collapse;
+    font-family: var(--tui-mono);
+    font-size: 11px;
+    width: 100%;
+}
+
+.tui-headers-table td {
+    padding: 2px 12px 2px 0;
+    vertical-align: top;
+    color: var(--tui-text-dim);
+    word-break: break-all;
+}
+
+.tui-headers-table td:first-child { color: var(--tui-text-faint); white-space: nowrap; }
+
+.tui-raw-toggle {
+    margin-top: 18px;
+    color: var(--tui-text-faint);
+}
+
+.tui-raw-toggle:hover { color: var(--tui-text); }
+
 /* Trace waterfall */
 
 .tui-trace-meta {

@@ -34,6 +34,16 @@ final class TraceSearch extends Card
     #[Url(as: 'route')]
     public string $route = '';
 
+    /** '' = any, or a status class: '2xx' | '3xx' | '4xx' | '5xx'. */
+    #[Url(as: 'status_code')]
+    public string $statusCode = '';
+
+    #[Url(as: 'path')]
+    public string $path = '';
+
+    #[Url(as: 'ip')]
+    public string $ip = '';
+
     #[Url(as: 'name')]
     public string $nameContains = '';
 
@@ -103,6 +113,21 @@ final class TraceSearch extends Card
     }
 
     public function updatedRoute(): void
+    {
+        $this->query = '';
+    }
+
+    public function updatedStatusCode(): void
+    {
+        $this->query = '';
+    }
+
+    public function updatedPath(): void
+    {
+        $this->query = '';
+    }
+
+    public function updatedIp(): void
     {
         $this->query = '';
     }
@@ -199,6 +224,19 @@ final class TraceSearch extends Card
 
         if ($this->route !== '') {
             $conditions[] = 'span.http.route = "'.addcslashes($this->route, '"\\').'"';
+        }
+
+        // A status CLASS (5xx) is what you actually hunt by.
+        if (preg_match('/^([1-5])xx$/', $this->statusCode, $m) === 1) {
+            $conditions[] = 'span.http.response.status_code >= '.$m[1].'00 && span.http.response.status_code < '.($m[1] + 1).'00';
+        }
+
+        if ($this->path !== '') {
+            $conditions[] = 'span.url.path =~ ".*'.addcslashes(preg_quote($this->path, '/'), '"\\').'.*"';
+        }
+
+        if ($this->ip !== '') {
+            $conditions[] = 'span.client.address = "'.addcslashes($this->ip, '"\\').'"';
         }
 
         if ($this->nameContains !== '') {

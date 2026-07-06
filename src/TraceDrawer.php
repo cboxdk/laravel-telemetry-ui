@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi;
 
 use Cbox\TelemetryUi\Analysis\ErrorGroupReport;
+use Cbox\TelemetryUi\Analysis\RequestReport;
 use Cbox\TelemetryUi\Analysis\SignalContext;
+use Cbox\TelemetryUi\Analysis\TraceLogs;
 use Cbox\TelemetryUi\Analysis\TraceProfile;
 use Cbox\TelemetryUi\Cards\Concerns\ScopesQueries;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
@@ -279,6 +281,8 @@ final class TraceDrawer extends Component
             'identities' => $trace !== null ? TraceView::identities($trace) : [],
             'context' => $trace !== null ? app(SignalContext::class)->forTrace($trace) : [],
             'profile' => $trace !== null ? app(TraceProfile::class)->forTrace($trace) : [],
+            'report' => $trace !== null ? RequestReport::from($trace) : null,
+            'traceLogs' => $trace !== null ? app(TraceLogs::class)->forTrace($trace) : [],
             'fullUrl' => $open ? route('telemetry-ui.trace', ['traceId' => $traceId]) : null,
         ]);
     }

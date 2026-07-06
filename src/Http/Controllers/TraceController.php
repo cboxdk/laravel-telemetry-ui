@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Http\Controllers;
 
+use Cbox\TelemetryUi\Analysis\RequestReport;
 use Cbox\TelemetryUi\Analysis\SignalContext;
+use Cbox\TelemetryUi\Analysis\TraceLogs;
 use Cbox\TelemetryUi\Analysis\TraceProfile;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
@@ -25,6 +27,7 @@ final class TraceController
         ConnectionManager $connections,
         SignalContext $context,
         TraceProfile $profile,
+        TraceLogs $traceLogs,
         string $traceId,
     ): View {
         $trace = null;
@@ -57,6 +60,8 @@ final class TraceController
             'identities' => $trace !== null ? TraceView::identities($trace) : [],
             'context' => $trace !== null ? $context->forTrace($trace) : [],
             'profile' => $trace !== null ? $profile->forTrace($trace) : [],
+            'report' => $trace !== null ? RequestReport::from($trace) : null,
+            'traceLogs' => $trace !== null ? $traceLogs->forTrace($trace) : [],
             ...$this->chrome($pages, $services, $environments, 'traces'),
         ]);
     }
