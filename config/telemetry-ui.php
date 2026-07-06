@@ -289,6 +289,70 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Host services
+    |--------------------------------------------------------------------------
+    |
+    | The services running ON a host, from their own Prometheus exporters,
+    | shown on the host-detail page. `{host}` expands to the escaped host
+    | name — exporters label instances differently (host:port, nodename, …),
+    | so the matcher lives in the query. A service whose `up` probe returns
+    | nothing simply doesn't render, so listing exporters you don't run is
+    | free. Add your own (queues, search, anything with an exporter).
+    |
+    */
+
+    'host-services' => [
+        'mysql' => [
+            'label' => 'MySQL',
+            'up' => 'mysql_up{instance=~"{host}(:.*)?"}',
+            'tiles' => [
+                ['label' => 'Connections', 'query' => 'sum(mysql_global_status_threads_connected{instance=~"{host}(:.*)?"})'],
+                ['label' => 'Queries/s', 'query' => 'sum(rate(mysql_global_status_queries{instance=~"{host}(:.*)?"}[5m]))', 'unit' => 'raw'],
+                ['label' => 'Slow queries', 'query' => 'sum(increase(mysql_global_status_slow_queries{instance=~"{host}(:.*)?"}[1h]))'],
+                ['label' => 'Uptime', 'query' => 'max(mysql_global_status_uptime{instance=~"{host}(:.*)?"}) / 86400', 'unit' => 'raw'],
+            ],
+        ],
+        'redis' => [
+            'label' => 'Redis',
+            'up' => 'redis_up{instance=~"{host}(:.*)?"}',
+            'tiles' => [
+                ['label' => 'Memory', 'query' => 'sum(redis_memory_used_bytes{instance=~"{host}(:.*)?"})', 'unit' => 'bytes'],
+                ['label' => 'Clients', 'query' => 'sum(redis_connected_clients{instance=~"{host}(:.*)?"})'],
+                ['label' => 'Ops/s', 'query' => 'sum(rate(redis_commands_processed_total{instance=~"{host}(:.*)?"}[5m]))', 'unit' => 'raw'],
+                ['label' => 'Hit ratio', 'query' => 'sum(rate(redis_keyspace_hits_total{instance=~"{host}(:.*)?"}[5m])) / (sum(rate(redis_keyspace_hits_total{instance=~"{host}(:.*)?"}[5m])) + sum(rate(redis_keyspace_misses_total{instance=~"{host}(:.*)?"}[5m])))', 'unit' => 'ratio'],
+            ],
+        ],
+        'postgres' => [
+            'label' => 'PostgreSQL',
+            'up' => 'pg_up{instance=~"{host}(:.*)?"}',
+            'tiles' => [
+                ['label' => 'Connections', 'query' => 'sum(pg_stat_activity_count{instance=~"{host}(:.*)?"})'],
+                ['label' => 'TPS', 'query' => 'sum(rate(pg_stat_database_xact_commit{instance=~"{host}(:.*)?"}[5m]))', 'unit' => 'raw'],
+            ],
+        ],
+        'node' => [
+            'label' => 'node_exporter',
+            'up' => 'node_exporter_build_info{instance=~"{host}(:.*)?"}',
+            'tiles' => [
+                ['label' => 'Uptime (days)', 'query' => '(max(node_time_seconds{instance=~"{host}(:.*)?"}) - max(node_boot_time_seconds{instance=~"{host}(:.*)?"})) / 86400', 'unit' => 'raw'],
+                ['label' => 'Disk free', 'query' => 'sum(node_filesystem_avail_bytes{instance=~"{host}(:.*)?",mountpoint="/"})', 'unit' => 'bytes'],
+            ],
+        ],
+        // No exporter needed: what the app ITSELF measured about the Redis
+        // it talks to from this host (laravel-telemetry's redis.commands,
+        // TELEMETRY_INSTRUMENT_REDIS=true).
+        'redis-app' => [
+            'label' => 'Redis (seen by app)',
+            'up' => 'sum(rate(redis_commands_total{host_name="{host}"}[10m])) > 0',
+            'tiles' => [
+                ['label' => 'Commands/s', 'query' => 'sum(rate(redis_commands_total{host_name="{host}"}[5m]))', 'unit' => 'raw'],
+                ['label' => 'Commands (1h)', 'query' => 'sum(increase(redis_commands_total{host_name="{host}"}[1h]))'],
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Annotations
     |--------------------------------------------------------------------------
     |

@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   colored dot handle, a hover tooltip with the full detail (label, exact
   time, notes), and a click-callout with an "Open trace" button that jumps
   straight into the emitting trace via the drawer.
+- **Host detail page** — clicking a host (from the Hosts list or the trace
+  context strip) opens its own page: headline CPU/memory/load/request stats,
+  host-scoped system charts (CPU load, memory, network, filesystem), and a
+  **Services on this host** card fed by the services' own Prometheus
+  exporters — mysqld_exporter, redis_exporter, postgres_exporter and
+  node_exporter probes ship as defaults, plus an app-side Redis section
+  that needs no exporter at all. Config-driven (`telemetry-ui.host-services`,
+  `{host}` token): a probe that returns nothing simply doesn't render, so
+  listing exporters you don't run is free — and adding your own is a
+  config entry, not code.
 - **The trace context strip names its scope.** The host/runtime tiles now
   say exactly whose signals they show — the `host.name` that served the
   trace (linked to the Hosts page) and the service, or "all hosts" when

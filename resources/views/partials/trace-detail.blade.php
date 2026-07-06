@@ -64,7 +64,7 @@
                 <span class="tui-context-label">Context</span>
                 <span class="tui-context-who">
                     @if (is_string($ctxHost) && $ctxHost !== '')
-                        <a href="{{ route('telemetry-ui.page', ['page' => 'hosts']) }}" title="Open the Hosts page">{{ $ctxHost }}</a>
+                        <a href="{{ route('telemetry-ui.page', array_filter(['page' => 'host-detail', 'host' => $ctxHost, 'period' => request('period')])) }}" title="Open this host's detail page">{{ $ctxHost }}</a>
                     @else
                         all hosts
                     @endif

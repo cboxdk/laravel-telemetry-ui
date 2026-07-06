@@ -55,6 +55,14 @@ final class HostsTable extends Card
     }
 
     /**
+     * The host's own detail page: system charts + the services it runs.
+     */
+    public function detailUrl(string $host): string
+    {
+        return $this->pageUrl('host-detail', ['host' => $host]);
+    }
+
+    /**
      * Requests from this host — a dimensional filter on the traces page.
      */
     public function tracesUrl(string $host): string

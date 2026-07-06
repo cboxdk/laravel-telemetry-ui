@@ -21,4 +21,9 @@
             <directory>src</directory>
         </include>
     </source>
+    <php>
+        <!-- The arch suite parses the whole codebase into ASTs; a default
+             128M CLI limit dies mid-parse as the package grows. -->
+        <ini name="memory_limit" value="512M"/>
+    </php>
 </phpunit>

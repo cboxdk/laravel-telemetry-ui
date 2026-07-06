@@ -1,6 +1,6 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
-<x-telemetry-ui::card title="Hosts" subtitle="Every host reporting telemetry — request volume, errors, CPU, memory. Click a host for its requests." span="2">
+<x-telemetry-ui::card title="Hosts" subtitle="Every host reporting telemetry — request volume, errors, CPU, memory. Click a host for its detail page." span="2">
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
     @elseif ($rows === [])
@@ -19,9 +19,9 @@
                 </thead>
                 <tbody>
                     @foreach ($rows as $row)
-                        <tr data-row-href="{{ $this->tracesUrl($row['host']) }}">
-                            <td class="is-primary"><a href="{{ $this->tracesUrl($row['host']) }}" title="Requests from this host">{{ $row['host'] }}</a></td>
-                            <td class="is-num is-primary">{{ Format::count($row['requests']) }}</td>
+                        <tr data-row-href="{{ $this->detailUrl($row['host']) }}">
+                            <td class="is-primary"><a href="{{ $this->detailUrl($row['host']) }}" title="Open this host's detail page">{{ $row['host'] }}</a></td>
+                            <td class="is-num is-primary"><a href="{{ $this->tracesUrl($row['host']) }}" x-on:click.stop title="Requests from this host">{{ Format::count($row['requests']) }}</a></td>
                             <td class="is-num {{ $row['errors'] > 0 ? 'tui-tone-danger' : '' }}">{{ Format::count($row['errors']) }}</td>
                             <td class="is-num">{{ $row['cpu'] !== null ? Format::percent($row['cpu']) : '—' }}</td>
                             <td class="is-num {{ ($row['memory'] ?? 0) > 0.9 ? 'tui-tone-warn' : '' }}">{{ $row['memory'] !== null ? Format::percent($row['memory']) : '—' }}</td>

@@ -693,6 +693,36 @@ html, body {
     color: var(--tui-text-faint);
 }
 
+/* Host detail: services from their own exporters */
+
+.tui-host-services {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+}
+
+.tui-host-service {
+    padding: 12px 14px;
+    background: var(--tui-surface-2);
+    border: 1px solid var(--tui-border);
+    border-radius: 8px;
+}
+
+.tui-host-service-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.tui-host-service-head strong {
+    font-size: 13px;
+    letter-spacing: -0.01em;
+}
+
+.tui-host-service .tui-stats { padding: 0; gap: 16px; }
+.tui-host-service .tui-stat-value { font-size: 16px; }
+
 /* Exception-group detail (drawer) */
 
 .tui-exception-message {

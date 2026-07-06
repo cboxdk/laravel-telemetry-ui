@@ -39,6 +39,17 @@ it('renders the exception detail page scoped to the class', function (): void {
     Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'exception="RuntimeException"'));
 });
 
+it('renders the machine detail page scoped to the host_name', function (): void {
+    $this->get('/telemetry-ui/host-detail?host=web-3')
+        ->assertOk()
+        ->assertSee('web-3')
+        ->assertSee('All hosts')
+        ->assertSee('CPU load average')
+        ->assertSee('Services on this host');
+
+    Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'host_name="web-3"'));
+});
+
 it('renders the outgoing host detail page scoped to the host', function (): void {
     $this->get('/telemetry-ui/outgoing-detail?host=api.stripe.com')
         ->assertOk()
