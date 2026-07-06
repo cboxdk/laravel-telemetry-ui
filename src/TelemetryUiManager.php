@@ -100,7 +100,7 @@ final class TelemetryUiManager
         'queries' => [Builtin\SlowQueries::class, Builtin\DuplicateQueries::class],
         'cache' => [Builtin\CacheOperations::class],
         'storage' => [Builtin\StorageOperations::class],
-        'livewire' => [Builtin\LivewireActivity::class, Builtin\LivewireSlow::class],
+        'livewire' => [Builtin\LivewireActivity::class, Builtin\LivewireSlow::class, Builtin\LivewireComponents::class, Builtin\LivewireRequestLog::class],
         'features' => [Builtin\FeatureChecks::class],
         'horizon' => [Builtin\HorizonOverview::class, Builtin\HorizonIncidents::class],
         'reverb' => [Builtin\ReverbConnections::class, Builtin\ReverbMessages::class],

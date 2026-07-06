@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Cbox\TelemetryUi\Cards\Builtin\LivewireComponents;
+use Cbox\TelemetryUi\Cards\Builtin\LivewireRequestLog;
 use Cbox\TelemetryUi\Cards\Builtin\RequestLog;
 use Cbox\TelemetryUi\Cards\Builtin\RoutesTable;
 use Illuminate\Support\Facades\Http;
@@ -122,4 +124,57 @@ it('the routes card links to the request log', function (): void {
     Livewire::test(RoutesTable::class)
         ->assertSee('Routes')
         ->assertSee('Request log'); // the toggle link
+});
+
+it('shows the livewire component instead of the anonymous update url', function (): void {
+    $now = time();
+
+    Http::fake([
+        'tempo.test:3200/api/search*' => Http::response([
+            'traces' => [
+                ['traceID' => '2222222222222222bbbbbbbbbbbbbbbb', 'rootServiceName' => 'demo', 'rootTraceName' => 'POST livewire:trace-drawer', 'startTimeUnixNano' => (string) (($now - 5) * 1_000_000_000), 'durationMs' => 80,
+                    'spanSets' => [['spans' => [['spanID' => 'b1', 'name' => 'POST livewire:trace-drawer', 'startTimeUnixNano' => (string) (($now - 5) * 1_000_000_000), 'durationNanos' => '80000000', 'attributes' => [
+                        ['key' => 'http.request.method', 'value' => ['stringValue' => 'POST']],
+                        ['key' => 'url.path', 'value' => ['stringValue' => '/livewire/update']],
+                        ['key' => 'http.route', 'value' => ['stringValue' => 'livewire:trace-drawer']],
+                        ['key' => 'livewire.components', 'value' => ['stringValue' => 'trace-drawer']],
+                        ['key' => 'http.response.status_code', 'value' => ['intValue' => '200']],
+                    ]]]]]],
+            ],
+        ]),
+        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
+        'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
+    ]);
+
+    Livewire::withQueryParams(['req_view' => 'log'])
+        ->test(RequestLog::class)
+        ->assertSee('livewire:trace-drawer')
+        ->assertDontSee('/livewire/update');
+});
+
+it('lists livewire components as a scoped routes table', function (): void {
+    fakeRequestLog();
+
+    Livewire::test(LivewireComponents::class)
+        ->assertSee('Components');
+
+    Http::assertSent(function ($request): bool {
+        $q = rawurldecode(requestQuery($request)['query'] ?? '');
+
+        return str_contains($q, 'http_route=~"livewire:.*"');
+    });
+});
+
+it('narrows the livewire request log to livewire routes', function (): void {
+    fakeRequestLog();
+
+    Livewire::withQueryParams(['req_view' => 'log'])
+        ->test(LivewireRequestLog::class)
+        ->assertSee('Request log');
+
+    Http::assertSent(function ($request): bool {
+        $q = rawurldecode(requestQuery($request)['q'] ?? '');
+
+        return str_contains($q, 'span.http.route =~ "livewire:.*"');
+    });
 });

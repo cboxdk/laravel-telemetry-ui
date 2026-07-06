@@ -24,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   toggling costs zero backend queries. The choice sits in the URL
   (`ann_off`), so it survives navigation and deep links.
 
+- **Livewire updates carry their component everywhere.** With
+  `cboxdk/laravel-telemetry` ≥ 0.2.1, `POST /livewire/update` is named
+  `livewire:{component}` (batched updates: `livewire:batch`), so the routes
+  table groups per component instead of lumping thousands of opaque updates
+  into one row. The request log shows the component(s) behind each update
+  inline, and the Livewire page gains the Requests page's grouping/live-tail
+  pair: a per-component table and a scoped live request log.
+
 ### Fixed
 
 - **Drill links no longer appear on a card's own page.** Cards lazy-load in

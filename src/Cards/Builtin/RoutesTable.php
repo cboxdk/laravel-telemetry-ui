@@ -14,7 +14,7 @@ use Livewire\Attributes\Url;
  * Per-route request table: status classes, totals, avg and p95, with
  * drill-down links to matching traces.
  */
-final class RoutesTable extends Card
+class RoutesTable extends Card
 {
     #[Url(as: 'route_search')]
     public string $search = '';
@@ -142,6 +142,21 @@ final class RoutesTable extends Card
         /** @var view-string $view */
         $view = 'telemetry-ui::cards.routes-table';
 
-        return view($view, ['rows' => $rows, 'error' => $error]);
+        return view($view, [
+            'rows' => $rows,
+            'error' => $error,
+            'title' => $this->tableTitle(),
+            'subtitle' => $this->tableSubtitle(),
+        ]);
+    }
+
+    protected function tableTitle(): string
+    {
+        return 'Routes';
+    }
+
+    protected function tableSubtitle(): string
+    {
+        return 'Per-route request volume, status mix and latency — click a route for its detail page';
     }
 }

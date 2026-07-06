@@ -1,6 +1,6 @@
 @use('Cbox\TelemetryUi\Support\Format')
 
-<x-telemetry-ui::card title="Routes" subtitle="Per-route request volume, status mix and latency — click a route for its detail page" span="2">
+<x-telemetry-ui::card :title="$title" :subtitle="$subtitle" span="2">
     <x-slot:actions>
         <span class="tui-btn tui-btn-sm is-sort-active" style="cursor: default;">Routes</span>
         <button type="button" class="tui-btn tui-btn-sm"

@@ -18,7 +18,7 @@ use Livewire\Attributes\Url;
  * request story in the pane. The Routes card is the grouped sibling; the
  * shared `req_view` toggle swaps between them.
  */
-final class RequestLog extends Card
+class RequestLog extends Card
 {
     use CoercesAttributes;
 
@@ -69,7 +69,7 @@ final class RequestLog extends Card
             // kind=server alone excludes browser/RUM spans (they are client/
             // internal) — and `span.browser != true` would wrongly drop every
             // backend span too, since TraceQL can't evaluate a missing attr.
-            $conditions = ['kind = server'];
+            $conditions = ['kind = server', ...$this->extraTraceConditions()];
 
             if ($this->ip !== '') {
                 $conditions[] = 'span.client.address = "'.$this->escapeLabelValue($this->ip).'"';
@@ -88,10 +88,21 @@ final class RequestLog extends Card
             }
 
             $traceql = '{ '.$this->traceScope(implode(' && ', $conditions))
-                .' } | select(span.http.request.method, span.url.path, span.http.route, span.http.response.status_code, span.client.address, span.enduser.id)';
+                .' } | select(span.http.request.method, span.url.path, span.http.route, span.http.response.status_code, span.client.address, span.enduser.id, span.livewire.components)';
 
             foreach ($this->traces()->search($traceql, $start, $end, limit: 50) as $summary) {
                 $attributes = isset($summary->matchedSpans[0]) ? $summary->matchedSpans[0]->attributes : [];
+
+                $path = $this->str($attributes['url.path'] ?? $attributes['http.route'] ?? null) ?? $summary->rootTraceName;
+                $route = $this->str($attributes['http.route'] ?? null) ?? '';
+
+                // A Livewire update URL identifies nothing — show the
+                // component(s) the request actually touched instead.
+                if (($livewire = $this->str($attributes['livewire.components'] ?? null)) !== null && $livewire !== '') {
+                    $path = 'livewire:'.$livewire;
+                } elseif (str_starts_with($route, 'livewire:')) {
+                    $path = $route;
+                }
 
                 $rows[] = [
                     'traceId' => $summary->traceId,
@@ -99,7 +110,7 @@ final class RequestLog extends Card
                     'durationMs' => $summary->durationMs,
                     'service' => $summary->rootServiceName,
                     'method' => $this->str($attributes['http.request.method'] ?? null) ?? '',
-                    'path' => $this->str($attributes['url.path'] ?? $attributes['http.route'] ?? null) ?? $summary->rootTraceName,
+                    'path' => $path,
                     'status' => $this->str($attributes['http.response.status_code'] ?? null) ?? '',
                     'ip' => $this->str($attributes['client.address'] ?? null) ?? '',
                     'user' => $this->str($attributes['enduser.id'] ?? null) ?? '',
@@ -118,5 +129,16 @@ final class RequestLog extends Card
             'rows' => $rows,
             'error' => $error,
         ]);
+    }
+
+    /**
+     * Extra TraceQL span conditions AND-ed into the search — a subclass
+     * narrows the log to its slice (e.g. Livewire update requests only).
+     *
+     * @return list<string>
+     */
+    protected function extraTraceConditions(): array
+    {
+        return [];
     }
 }
