@@ -33,13 +33,15 @@ final class AutoscaleActions extends Card
         try {
             $totals = [];
 
-            foreach ($this->metrics()->query('sum by (direction) (increase('.$metric.'['.$this->promDuration().']))') as $sample) {
+            // counterIncrease(), not increase(): scaling actions are sparse,
+            // and a counter born mid-window would otherwise read as zero.
+            foreach ($this->metrics()->query('sum by (direction) ('.$this->counterIncrease($metric).')') as $sample) {
                 $direction = $sample->labels['direction'] ?? '';
                 $totals[$direction] = ($totals[$direction] ?? 0.0) + $sample->value;
             }
 
             $range = $this->metrics()->queryRange(
-                'sum by (direction) (increase('.$metric.'['.$this->rateWindow().']))',
+                'sum by (direction) ('.$this->counterIncrease($metric, $this->rateWindow()).')',
                 $start,
                 $end,
             );

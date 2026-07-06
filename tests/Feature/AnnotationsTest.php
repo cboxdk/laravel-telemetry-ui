@@ -2,10 +2,12 @@
 
 declare(strict_types=1);
 
+use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
 use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
+use Livewire\Livewire;
 
 function fakeDeployMarkers(): void
 {
@@ -208,4 +210,34 @@ it('draws deploy annotation lines on dashboard charts', function (): void {
         ->assertOk()
         ->assertSee('Deploys')
         ->assertSee('hotfix');
+});
+
+it('hides annotation types toggled off via ann_off', function (): void {
+    Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
+
+    Http::fake([
+        'prometheus.test:9090/api/v1/query_range*' => Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'matrix', 'result' => [
+                ['metric' => [], 'values' => [[1735689600, '5']]],
+            ]],
+        ]),
+        'prometheus.test:9090/*' => Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'vector', 'result' => []],
+        ]),
+        'loki.test:3100/loki/api/v1/query_range*' => Http::response([
+            'status' => 'success',
+            'data' => ['resultType' => 'streams', 'result' => [
+                ['stream' => ['deployment_id' => 'abc123'], 'values' => [[(string) (time() * 1_000_000_000), 'app.deployment']]],
+            ]],
+        ]),
+    ]);
+
+    // Drawn by default…
+    expect(Livewire::test(JobsOverview::class)->html())->toContain('abc123');
+
+    // …and gone when the deploy marker type is toggled off in the header.
+    expect(Livewire::withQueryParams(['ann_off' => 'deploy'])->test(JobsOverview::class)->html())
+        ->not->toContain('abc123');
 });

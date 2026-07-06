@@ -88,9 +88,10 @@ it('links dashboard cards through to their dedicated pages', function (): void {
     Livewire::test(RequestsActivity::class)
         ->assertSee('Requests →');
 
-    // …but on its own page the link is suppressed.
-    Livewire::test(JobsOverview::class)
-        ->set('onPage', 'jobs')
+    // …but on its own page the link is suppressed. onPage arrives as a
+    // mount param (the page view passes it; lazy cards mount in a later
+    // request with no page route param).
+    Livewire::test(JobsOverview::class, ['onPage' => 'jobs'])
         ->assertDontSee('Jobs →');
 });
 

@@ -16,8 +16,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   period/service/env scope. On the card's own page the link is suppressed.
   Package cards opt in by setting `protected ?string $drillPage = 'my-page'`.
 
+- **Hide chart annotations per type.** The header gains a ⚑ toggle listing
+  the configured marker types (Deploy, Incident, …) with a checkbox each —
+  uncheck the noisy ones and every chart drops those lines. The choice sits
+  in the URL (`ann_off`), so it survives navigation and deep links.
+
 ### Fixed
 
+- **Drill links no longer appear on a card's own page.** Cards lazy-load in
+  a follow-up Livewire request where the page route param is gone, so every
+  card thought it was on the dashboard and grew a self-referencing
+  "Autoscale →" link. The page view now passes the page slug into each card
+  at mount.
+- **Sparse counters no longer read as zero.** Scaling actions and SLA
+  breaches born inside the selected window were invisible to `increase()`
+  (Prometheus never sees the 0→first-value jump). Cards now count series
+  births too, so "Scale down: 1" shows up the moment the first scale-down
+  ever happens.
+- **The Cluster card hides itself on single-host installs** instead of
+  showing misleading "0 managers / 0%" stats — the `queue_autoscale_cluster_*`
+  gauges only exist in cluster mode.
 - **Routes ⇄ Request log toggle no longer reloads the page.** The toggle was
   a plain link (full page load); it is now a Livewire event both sibling
   cards listen to, so the swap is instant and keeps scroll/filter state.

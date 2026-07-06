@@ -61,6 +61,14 @@ abstract class Card extends Component
     #[Url(as: 'env')]
     public string $environment = '';
 
+    /**
+     * Marker types hidden from charts (csv of marker keys from
+     * telemetry-ui.annotations.markers, e.g. "deploy,incident") — set by the
+     * header's annotations toggle, shared by every card via the URL.
+     */
+    #[Url(as: 'ann_off')]
+    public string $annotationsOff = '';
+
     /** True when the card is embedded on a host page (not the built-in dashboard). */
     public bool $embedded = false;
 
@@ -92,6 +100,7 @@ abstract class Card extends Component
         ?string $from = null,
         ?string $to = null,
         ?bool $embedded = null,
+        ?string $onPage = null,
     ): void {
         $this->embedded = $embedded ?? ($service !== null || $environment !== null || $period !== null || $from !== null || $to !== null);
 
@@ -108,8 +117,12 @@ abstract class Card extends Component
         $this->from = $from ?? $this->from;
         $this->to = $to ?? $this->to;
 
-        $page = request()->route()?->parameter('page');
-        $this->onPage = is_string($page) && $page !== '' ? $page : 'dashboard';
+        // The page view passes $onPage explicitly — lazy cards mount in a
+        // later Livewire request where the page route param is long gone,
+        // so reading the route here would misreport every lazy card as
+        // being on the dashboard.
+        $routePage = request()->route()?->parameter('page');
+        $this->onPage = $onPage ?? (is_string($routePage) && $routePage !== '' ? $routePage : 'dashboard');
     }
 
     #[On('telemetry-ui:period-changed')]
@@ -215,7 +228,30 @@ abstract class Card extends Component
         // Reuse the same scoped Loki selector every log query uses, so deploy
         // markers respect the exact service/env scope (single, multi-value
         // alternation, or a fail-closed lock) — not a single-value special case.
-        return app(Annotations::class)->between($start, $end, $this->logSelector());
+        $annotations = app(Annotations::class)->between($start, $end, $this->logSelector());
+
+        $hidden = array_filter(explode(',', $this->annotationsOff));
+
+        if ($hidden === []) {
+            return $annotations;
+        }
+
+        // Marker keys → the event names annotations carry as their kind.
+        /** @var array<string, array{event?: string}> $markers */
+        $markers = (array) config('telemetry-ui.annotations.markers', []);
+
+        $hiddenEvents = [];
+
+        foreach ($hidden as $key) {
+            if (($markers[$key]['event'] ?? '') !== '') {
+                $hiddenEvents[] = $markers[$key]['event'];
+            }
+        }
+
+        return array_values(array_filter(
+            $annotations,
+            static fn (Annotation $annotation): bool => ! in_array($annotation->kind, $hiddenEvents, true),
+        ));
     }
 
     /**
@@ -277,6 +313,24 @@ abstract class Card extends Component
     protected function total(string $promql): float
     {
         return $this->sumSamples($this->metrics()->query($promql));
+    }
+
+    /**
+     * PromQL for a counter's total increase over a window, INCLUDING series
+     * born inside it. increase() interpolates between samples, so a counter
+     * that first appeared mid-window contributes nothing — which zeroes out
+     * sparse event counters (scaling actions, SLA breaches). Series absent
+     * at the window start fall back to their own zero ($selector * 0), so
+     * the birth jump counts; clamp_min guards counter resets.
+     *
+     * @param  string  $selector  a full metric selector (already scoped)
+     * @param  string|null  $window  PromQL duration; defaults to the period
+     */
+    protected function counterIncrease(string $selector, ?string $window = null): string
+    {
+        $window ??= $this->promDuration();
+
+        return 'clamp_min('.$selector.' - ('.$selector.' offset '.$window.' or '.$selector.' * 0), 0)';
     }
 
     /**

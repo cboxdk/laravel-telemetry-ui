@@ -46,6 +46,16 @@ final class AutoscaleCluster extends Card
             return $this->chartCard('Cluster', error: $exception->getMessage());
         }
 
+        // The cluster.* gauges only exist in cluster mode — on a single-host
+        // install, misleading zero-stats ("0 managers") would be worse than
+        // no card at all.
+        if ($series === [] && $managers === 0.0) {
+            /** @var view-string $hidden */
+            $hidden = 'telemetry-ui::cards.hidden';
+
+            return view($hidden);
+        }
+
         return $this->chartCard(
             title: 'Cluster',
             subtitle: 'Spawned workers vs cluster-wide demand and capacity',

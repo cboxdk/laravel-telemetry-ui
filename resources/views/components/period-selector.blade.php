@@ -23,6 +23,35 @@
         </select>
     </div>
 
+    {{-- Chart annotations: hide noisy marker types per type (ann_off csv) --}}
+    @php($annMarkers = (array) config('telemetry-ui.annotations.markers', []))
+    @php($annOff = array_values(array_filter(explode(',', (string) request('ann_off')))))
+    @if ((bool) config('telemetry-ui.annotations.enabled', true) && $annMarkers !== [])
+        <div class="tui-range" title="Chart annotations" x-data="{ open: false }">
+            <button type="button" class="tui-btn {{ $annOff !== [] ? 'is-range-active' : '' }}"
+                    x-on:click="open = !open">
+                ⚑{{ $annOff !== [] ? ' '.count($annOff).' off' : '' }}
+            </button>
+            <div class="tui-range-panel" x-show="open" x-cloak x-on:click.outside="open = false"
+                 x-data="{
+                     toggle(key) {
+                         const url = new URL(window.location);
+                         let off = (url.searchParams.get('ann_off') || '').split(',').filter(Boolean);
+                         off = off.includes(key) ? off.filter(k => k !== key) : [...off, key];
+                         if (off.length) { url.searchParams.set('ann_off', off.join(',')); } else { url.searchParams.delete('ann_off'); }
+                         window.location = url;
+                     }
+                 }">
+                @foreach ($annMarkers as $annKey => $annMarker)
+                    <label style="display: flex; gap: 8px; align-items: center; cursor: pointer; white-space: nowrap;">
+                        <input type="checkbox" @checked(! in_array($annKey, $annOff, true)) x-on:change="toggle('{{ $annKey }}')">
+                        <span style="color: {{ $annMarker['color'] ?? '#c084fc' }};">▎</span>{{ $annMarker['label'] ?? $annKey }}
+                    </label>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     {{-- Reset zoom: only shown while a custom (zoomed/absolute) range is active --}}
     @if ($hasCustomRange)
         <button type="button" class="tui-btn tui-reset-zoom" title="Reset zoom"

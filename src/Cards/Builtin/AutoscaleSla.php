@@ -26,8 +26,10 @@ final class AutoscaleSla extends Card
 
         try {
             $inBreach = $this->total('sum('.$this->metric('queue_autoscale_sla_breach_ratio').')');
+            // counterIncrease(), not increase(): breaches are rare, and a
+            // counter born mid-window would otherwise read as zero.
             $breaches = $this->total(
-                'sum(increase('.$this->metric('queue_autoscale_sla_breaches_total').'['.$this->promDuration().']))',
+                'sum('.$this->counterIncrease($this->metric('queue_autoscale_sla_breaches_total')).')',
             );
 
             $range = $this->metrics()->queryRange('max by (queue) ('.$predicted.')', $start, $end);
