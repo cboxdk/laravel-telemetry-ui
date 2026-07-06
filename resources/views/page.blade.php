@@ -1,7 +1,10 @@
 <x-telemetry-ui::layout :pages="$pages" :active="$page" :services="$services" :environments="$environments" :title="$pages[$page]['label']" :commands="$commands" :traceBase="$traceBase" :traceSentinel="$traceSentinel">
     <header class="tui-header">
         <h1>{{ $pages[$page]['label'] }}</h1>
-        <x-telemetry-ui::period-selector />
+        <div class="tui-header-right">
+            <x-telemetry-ui::scope-switcher :services="$services" :environments="$environments" />
+            <x-telemetry-ui::period-selector />
+        </div>
     </header>
 
     <div class="tui-grid">

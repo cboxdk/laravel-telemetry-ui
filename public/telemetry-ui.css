@@ -103,39 +103,39 @@ html, body {
     margin-bottom: 6px;
 }
 
-/* Scope switcher */
+/* Scope switcher (top header, Sentry-style: service + env + period) */
 
 .tui-scope {
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--tui-border);
-    margin-bottom: 8px;
-}
-
-.tui-scope-field {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 4px 8px;
+    align-items: center;
+    gap: 6px;
 }
 
-.tui-scope-field > span {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--tui-text-faint);
+.tui-scope-field { display: flex; }
+
+.tui-header-right {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
 }
 
 .tui-scope-field select {
     appearance: none;
-    width: 100%;
+    max-width: 180px;
     background: var(--tui-surface-2) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2371717a'/%3E%3C/svg%3E") no-repeat right 8px center;
     border: 1px solid var(--tui-border);
-    border-radius: 6px;
+    border-radius: 8px;
     color: var(--tui-text);
     font-family: var(--tui-mono);
-    font-size: 12px;
-    padding: 5px 22px 5px 8px;
+    font-size: 11px;
+    padding: 5px 22px 5px 9px;
     cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .tui-scope-field select:hover { border-color: #3a3a3f; }
@@ -796,8 +796,7 @@ html, body {
     margin-top: 12px;
     padding: 10px 12px;
     background: var(--tui-surface);
-    border: 1px solid var(--tui-border);
-    border-left: 2px solid var(--tui-warn);
+    border: 1px solid rgba(251, 191, 36, 0.4);
     border-radius: 8px;
     display: flex;
     flex-direction: column;
@@ -1066,18 +1065,16 @@ html, body {
     max-width: 180px;
     padding: 8px 10px;
     border: 1px solid var(--tui-border);
-    border-left: 2px solid var(--tui-text-faint);
-    border-radius: 6px;
+    border-radius: 8px;
     background: var(--tui-surface-2);
 }
 
-.tui-context-tile.tui-ctx-host { border-left-color: #60a5fa; }
-.tui-context-tile.tui-ctx-runtime { border-left-color: #c084fc; }
-.tui-context-tile.tui-ctx-db { border-left-color: #34d399; }
-.tui-context-tile.tui-ctx-cache { border-left-color: #fbbf24; }
+.tui-context-tile.tui-ctx-host { border-color: rgba(96, 165, 250, 0.4); }
+.tui-context-tile.tui-ctx-runtime { border-color: rgba(192, 132, 252, 0.4); }
+.tui-context-tile.tui-ctx-db { border-color: rgba(52, 211, 153, 0.4); }
+.tui-context-tile.tui-ctx-cache { border-color: rgba(251, 191, 36, 0.4); }
 .tui-context-tile.is-outlier {
-    border-color: rgba(248, 113, 113, 0.5);
-    border-left-color: #f87171;
+    border-color: rgba(248, 113, 113, 0.6);
     background: rgba(248, 113, 113, 0.06);
 }
 

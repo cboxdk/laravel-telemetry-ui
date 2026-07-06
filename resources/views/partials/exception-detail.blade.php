@@ -14,6 +14,9 @@
         <span><em>first seen</em> {{ $stats['firstSeen'] }}</span>
         <span><em>last seen</em> {{ $stats['lastSeen'] }}</span>
         <span><em>source</em> {{ $stats['source'] }}</span>
+        @if (($stats['users'] ?? 0) > 0)
+            <span><em>users affected</em> {{ $stats['users'] }}{{ $stats['sampled'] ? '+' : '' }}</span>
+        @endif
         @if ($detail !== null && ($detail['environment'] ?? '') !== '')
             <span><em>env</em> {{ $detail['environment'] }}</span>
         @endif

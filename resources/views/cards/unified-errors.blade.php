@@ -3,10 +3,18 @@
 <x-telemetry-ui::card title="Errors" subtitle="Every exception — frontend and backend — grouped by fingerprint. Click a row for stacktrace, occurrences and root-cause hints." span="2">
     @if ($error)
         <div class="tui-error">{{ $error }}</div>
-    @elseif ($rows === [])
+    @elseif ($rows === [] && $search === '' && $sourceFilter === '')
         <div class="tui-empty">No errors in this period. 🎉</div>
     @else
         <div class="tui-toolbar">
+            <input type="search" class="tui-input tui-input-grow" placeholder="Filter by type or message…"
+                   wire:model.live.debounce.400ms="search">
+            <select class="tui-input" style="min-width: 110px;" wire:model.live="sourceFilter" title="Source">
+                <option value="">All sources</option>
+                <option value="backend">Server</option>
+                <option value="frontend">Web</option>
+                <option value="full-stack">Full-stack</option>
+            </select>
             <span class="tui-chain-label">Sort</span>
             @foreach (['count' => 'Events', 'last' => 'Last seen', 'new' => 'First seen'] as $key => $label)
                 <button type="button" class="tui-btn tui-btn-sm {{ $sort === $key ? 'is-sort-active' : '' }}"
@@ -17,7 +25,11 @@
             @endif
         </div>
 
-        <div class="tui-table-wrap">
+        @if ($rows === [])
+            <div class="tui-empty">No errors match the filter.</div>
+        @endif
+
+        <div class="tui-table-wrap" @if ($rows === []) style="display: none" @endif>
             <table class="tui-table">
                 <thead>
                     <tr>
@@ -25,6 +37,7 @@
                         <th>Error</th>
                         <th>Trend</th>
                         <th class="is-num">Events</th>
+                        <th class="is-num">Users</th>
                         <th class="is-num">First seen</th>
                         <th class="is-num">Last seen</th>
                     </tr>
@@ -54,6 +67,7 @@
                             </td>
                             <td><x-telemetry-ui::sparkline :points="$row['buckets']" color="#f87171" /></td>
                             <td class="is-num tui-tone-danger">{{ Format::count($row['count']) }}</td>
+                            <td class="is-num">{{ $row['users'] > 0 ? Format::count($row['users']) : '—' }}</td>
                             <td class="is-num tui-tone-dim">{{ $row['firstSeen'] }}</td>
                             <td class="is-num tui-tone-dim">{{ $row['lastSeen'] }}</td>
                         </tr>

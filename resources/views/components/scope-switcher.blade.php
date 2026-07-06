@@ -3,6 +3,8 @@
 @php($currentService = (string) request('service'))
 @php($currentEnv = (string) request('env'))
 
+{{-- Sentry-style top-bar scope: service + environment side by side, next to
+     the period picker. Changing either reloads with the new scope. --}}
 <div class="tui-scope"
      x-data
      x-on:change="
@@ -12,16 +14,8 @@
         else { url.searchParams.set($event.target.name, value); }
         window.location = url;
      ">
-    <div class="tui-brand">
-        @if ($logo = config('telemetry-ui.brand.logo'))
-            <img class="tui-brand-logo" src="{{ $logo }}" alt="">
-        @endif
-        <span class="tui-brand-name">{{ config('telemetry-ui.brand.name') ?: config('app.name') }}</span>
-    </div>
-
     <label class="tui-scope-field">
-        <span>Service</span>
-        <select name="service">
+        <select name="service" aria-label="Service" title="Service">
             <option value="">All services</option>
             @foreach ($services as $service)
                 <option value="{{ $service }}" @selected($service === $currentService)>{{ $service }}</option>
@@ -30,9 +24,8 @@
     </label>
 
     <label class="tui-scope-field">
-        <span>Environment</span>
-        <select name="env">
-            <option value="">All environments</option>
+        <select name="env" aria-label="Environment" title="Environment">
+            <option value="">All envs</option>
             @foreach ($environments as $environment)
                 <option value="{{ $environment }}" @selected($environment === $currentEnv)>{{ $environment }}</option>
             @endforeach

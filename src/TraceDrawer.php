@@ -380,7 +380,7 @@ final class TraceDrawer extends Component
      * trace was sampled away) and complete (they carry the stacktrace and
      * optional source context). Newest first.
      *
-     * @return list<array{nano: int, at: string, traceId: string, service: string, message: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>
+     * @return list<array{nano: int, at: string, traceId: string, service: string, message: string, user: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>
      */
     private function backendOccurrences(string $group): array
     {
@@ -408,6 +408,7 @@ final class TraceDrawer extends Component
                 'traceId' => $label('trace_id'),
                 'service' => $label('service_name'),
                 'message' => $label('exception_message'),
+                'user' => $label('enduser_id'),
                 'frontend' => false,
                 'detail' => [
                     'type' => $label('exception_type'),
@@ -435,7 +436,7 @@ final class TraceDrawer extends Component
      * (same algorithm as the backend). Browser errors carry no stacktrace —
      * type/message/file:line is all the SDK ships. Newest first.
      *
-     * @return list<array{nano: int, at: string, traceId: string, service: string, message: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>
+     * @return list<array{nano: int, at: string, traceId: string, service: string, message: string, user: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>
      */
     private function browserOccurrences(string $group): array
     {
@@ -467,6 +468,7 @@ final class TraceDrawer extends Component
                     'traceId' => $summary->traceId,
                     'service' => $summary->rootServiceName,
                     'message' => $attr('exception.message'),
+                    'user' => $attr('enduser.id'),
                     'frontend' => true,
                     'detail' => [
                         'type' => $type,
@@ -566,7 +568,7 @@ final class TraceDrawer extends Component
      * Which releases the sampled occurrences carry — "only in v2.4.1" is a
      * strong regression signal.
      *
-     * @param  list<array{nano: int, at: string, traceId: string, service: string, message: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>  $occurrences
+     * @param  list<array{nano: int, at: string, traceId: string, service: string, message: string, user: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>  $occurrences
      * @return list<array{release: string, count: int}>
      */
     private function exceptionReleases(array $occurrences): array
@@ -601,13 +603,21 @@ final class TraceDrawer extends Component
     }
 
     /**
-     * @param  list<array{nano: int, at: string, traceId: string, service: string, message: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>  $occurrences
-     * @return array{count: int, sampled: bool, firstSeen: string, lastSeen: string, source: string}|null
+     * @param  list<array{nano: int, at: string, traceId: string, service: string, message: string, user: string, frontend: bool, detail: array{type: string, message: string, file: string, line: int, stacktrace: string, source: string, environment: string, release: string, host: string}}>  $occurrences
+     * @return array{count: int, sampled: bool, firstSeen: string, lastSeen: string, source: string, users: int}|null
      */
     private function exceptionStats(array $occurrences): ?array
     {
         if ($occurrences === []) {
             return null;
+        }
+
+        $users = [];
+
+        foreach ($occurrences as $occurrence) {
+            if ($occurrence['user'] !== '') {
+                $users[$occurrence['user']] = true;
+            }
         }
 
         return [
@@ -616,6 +626,7 @@ final class TraceDrawer extends Component
             'firstSeen' => Carbon::createFromTimestamp(intdiv($occurrences[array_key_last($occurrences)]['nano'], 1_000_000_000))->diffForHumans(),
             'lastSeen' => Carbon::createFromTimestamp(intdiv($occurrences[0]['nano'], 1_000_000_000))->diffForHumans(),
             'source' => $occurrences[0]['frontend'] ? 'frontend' : 'backend',
+            'users' => count($users),
         ];
     }
 

@@ -30,7 +30,12 @@
         <div class="tui-sidebar-overlay" x-show="nav" x-cloak x-on:click="nav = false" x-transition.opacity></div>
 
         <aside class="tui-sidebar" id="tui-sidebar" x-bind:class="{ 'is-open': nav }">
-            <x-telemetry-ui::scope-switcher :services="$services" :environments="$environments" />
+            <div class="tui-brand">
+                @if ($logo = config('telemetry-ui.brand.logo'))
+                    <img class="tui-brand-logo" src="{{ $logo }}" alt="">
+                @endif
+                <span class="tui-brand-name">{{ config('telemetry-ui.brand.name') ?: config('app.name') }}</span>
+            </div>
 
             <nav class="tui-nav">
                 @php($groups = collect($pages)->reject(fn ($meta) => $meta['hidden'] ?? false)->groupBy(fn ($meta) => $meta['group'] ?? '', preserveKeys: true))

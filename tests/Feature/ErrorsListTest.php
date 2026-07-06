@@ -28,12 +28,19 @@ function fakeErrorRecords(): void
                         [(string) (($now - 120) * 1_000_000_000), 'exception'],
                     ],
                 ],
-                // A NEW group: born two hours ago, still failing in-period.
+                // A NEW group: born two hours ago, still failing in-period —
+                // and hitting two distinct users.
                 [
-                    'stream' => ['service_name' => 'demo', 'exception_group' => 'bbbb33334444', 'exception_type' => 'PaymentDeclined', 'exception_message' => 'fresh regression'],
+                    'stream' => ['service_name' => 'demo', 'exception_group' => 'bbbb33334444', 'exception_type' => 'PaymentDeclined', 'exception_message' => 'fresh regression', 'enduser_id' => '7'],
                     'values' => [
                         [(string) (($now - 7200) * 1_000_000_000), 'exception'],
                         [(string) (($now - 60) * 1_000_000_000), 'exception'],
+                    ],
+                ],
+                [
+                    'stream' => ['service_name' => 'demo', 'exception_group' => 'bbbb33334444', 'exception_type' => 'PaymentDeclined', 'exception_message' => 'fresh regression', 'enduser_id' => '9'],
+                    'values' => [
+                        [(string) (($now - 30) * 1_000_000_000), 'exception'],
                     ],
                 ],
             ]],
@@ -70,6 +77,30 @@ it('does not mark an old group as NEW', function (): void {
 
     // NEW appears exactly once — only on the fresh group.
     expect(substr_count($html, '>NEW<'))->toBe(1);
+});
+
+it('counts distinct affected users per group', function (): void {
+    fakeErrorRecords();
+
+    $html = Livewire::withQueryParams(['period' => '1h'])->test(UnifiedErrors::class)->html();
+
+    // PaymentDeclined hit users 7 and 9; the old group carries no user.
+    expect($html)->toContain('Users');
+    // Two distinct users on the fresh group.
+    expect(preg_match('/PaymentDeclined.*?<td class="is-num">2<\/td>/s', $html))->toBe(1);
+});
+
+it('filters by text and source', function (): void {
+    fakeErrorRecords();
+
+    Livewire::withQueryParams(['period' => '1h'])
+        ->test(UnifiedErrors::class)
+        ->set('search', 'fresh regression')
+        ->assertSee('PaymentDeclined')
+        ->assertDontSee('RuntimeException')
+        ->set('search', '')
+        ->set('sourceFilter', 'frontend')
+        ->assertSee('No errors match the filter');
 });
 
 it('sorts by first-seen when asked', function (): void {

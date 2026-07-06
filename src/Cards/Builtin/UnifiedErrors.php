@@ -49,6 +49,12 @@ final class UnifiedErrors extends Card
     #[Url(as: 'err_sort')]
     public string $sort = 'count';
 
+    #[Url(as: 'err_q')]
+    public string $search = '';
+
+    #[Url(as: 'err_source')]
+    public string $sourceFilter = '';
+
     public function render(): View
     {
         [$start, $end] = $this->range();
@@ -67,7 +73,7 @@ final class UnifiedErrors extends Card
         $truncated = false;
 
         try {
-            /** @var array<string, array{group: string, type: string, message: string, count: int, frontend: bool, backend: bool, firstNano: int, lastNano: int, buckets: array<int, int>}> $groups */
+            /** @var array<string, array{group: string, type: string, message: string, count: int, frontend: bool, backend: bool, firstNano: int, lastNano: int, buckets: array<int, int>, users: array<string, true>}> $groups */
             $groups = [];
 
             // Backend: structured exception records in Loki. The fingerprint
@@ -92,7 +98,7 @@ final class UnifiedErrors extends Card
                 $this->fold($groups, $group, $entry->timestampNano, $fromNano, $toNano, frontend: false, attributes: [
                     'type' => $entry->labels['exception_type'] ?? '',
                     'message' => $entry->labels['exception_message'] ?? '',
-                ]);
+                ], user: $entry->labels['enduser_id'] ?? '');
             }
 
             // Frontend: browser exception spans, grouped by the computed
@@ -129,17 +135,33 @@ final class UnifiedErrors extends Card
             // window exists purely so first-seen isn't clipped.
             $rows = array_values(array_filter($groups, static fn (array $row): bool => $row['count'] > 0));
 
+            if ($this->search !== '') {
+                $needle = mb_strtolower($this->search);
+                $rows = array_values(array_filter(
+                    $rows,
+                    static fn (array $row): bool => str_contains(mb_strtolower($row['type'].' '.$row['message']), $needle),
+                ));
+            }
+
             $newCutoffNano = (time() - 86_400) * 1_000_000_000;
 
             $rows = array_map(fn (array $row): array => [
                 ...$row,
                 'source' => $this->source($row['frontend'], $row['backend']),
+                'users' => count($row['users']),
                 'firstSeen' => Carbon::createFromTimestamp(intdiv($row['firstNano'], 1_000_000_000))->diffForHumans(),
                 'lastSeen' => Carbon::createFromTimestamp(intdiv($row['lastNano'], 1_000_000_000))->diffForHumans(),
                 // NEW = born within 24h — suppressed when the sample was
                 // truncated (the real first occurrence may be older).
                 'isNew' => ! $truncated && $row['firstNano'] >= $newCutoffNano,
             ], $rows);
+
+            if ($this->sourceFilter !== '') {
+                $rows = array_values(array_filter(
+                    $rows,
+                    fn (array $row): bool => $row['source'] === $this->sourceFilter,
+                ));
+            }
 
             usort($rows, match ($this->sort) {
                 'last' => static fn (array $a, array $b): int => $b['lastNano'] <=> $a['lastNano'],
@@ -164,17 +186,22 @@ final class UnifiedErrors extends Card
      * Merge one occurrence into its group. The wider search window feeds
      * first/last seen; only in-period occurrences feed count + trend.
      *
-     * @param  array<string, array{group: string, type: string, message: string, count: int, frontend: bool, backend: bool, firstNano: int, lastNano: int, buckets: array<int, int>}>  $groups
+     * @param  array<string, array{group: string, type: string, message: string, count: int, frontend: bool, backend: bool, firstNano: int, lastNano: int, buckets: array<int, int>, users: array<string, true>}>  $groups
      * @param  array{type: string, message: string}  $attributes
      */
-    private function fold(array &$groups, string $group, int $nano, int $fromNano, int $toNano, bool $frontend, array $attributes): void
+    private function fold(array &$groups, string $group, int $nano, int $fromNano, int $toNano, bool $frontend, array $attributes, string $user = ''): void
     {
         $row = $groups[$group] ?? [
             'group' => $group, 'type' => '', 'message' => '', 'count' => 0,
             'frontend' => false, 'backend' => false,
             'firstNano' => PHP_INT_MAX, 'lastNano' => 0,
             'buckets' => array_fill(0, self::BUCKETS, 0),
+            'users' => [],
         ];
+
+        if ($user !== '') {
+            $row['users'][$user] = true;
+        }
 
         $frontend ? $row['frontend'] = true : $row['backend'] = true;
         $row['firstNano'] = min($row['firstNano'], $nano);

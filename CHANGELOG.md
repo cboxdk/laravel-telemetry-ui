@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Users affected.** Error groups now count distinct users (from the
+  `enduser.id` laravel-telemetry ≥ alpha.18 stamps on exception records):
+  a Users column on the errors list and a "users affected" fact on the
+  group panel.
+- **Errors list filters.** Free-text filter over type/message and a
+  source selector (server / web / full-stack), both URL-synced.
+- **Scope moved to the top header.** Service and environment now sit
+  next to the period picker on every page — Sentry's top-bar pattern —
+  and the sidebar is pure navigation.
+- **Full-color card borders.** The context tiles and root-cause box wear
+  their accent color as a full border instead of a left edge.
 - **Sentry-style errors list.** Every group row now carries its in-period
   trend sparkline, first seen and last seen, a **NEW** badge for groups
   born within 24 hours, and a sort control (events / last seen / first
