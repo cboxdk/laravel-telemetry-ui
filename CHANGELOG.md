@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.3] - 2026-07-06
+
 ### Added
 
 - **Mobile-friendly layout** — below 768px the sidebar becomes an off-canvas
@@ -84,6 +86,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Assets are exempt from the dashboard throttle.** The JS/CSS bundle sat
+  behind the same `telemetry-ui.throttle` (120/min per IP) as the pages, so
+  a busy dashboard — auto-refresh, several tabs, a shared office IP — could
+  429 the bundle itself and take every chart down
+  (`telemetryUiChart is not defined`). Version-stamped immutable assets now
+  skip the throttle, the same way they already skip the auth gate.
 - **The unified Errors card now works against real data.** It searched Tempo
   for `span.exception.group`, but laravel-telemetry records backend exceptions
   as span *events* (and as structured log records) — the attribute never
