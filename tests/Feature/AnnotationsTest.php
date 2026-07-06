@@ -237,7 +237,17 @@ it('hides annotation types toggled off via ann_off', function (): void {
     // Drawn by default…
     expect(Livewire::test(JobsOverview::class)->html())->toContain('abc123');
 
-    // …and gone when the deploy marker type is toggled off in the header.
+    // …gone when the deploy marker type arrives hidden via the URL…
     expect(Livewire::withQueryParams(['ann_off' => 'deploy'])->test(JobsOverview::class)->html())
         ->not->toContain('abc123');
+
+    // …and the header toggle applies in place via a Livewire event, no reload.
+    $card = Livewire::test(JobsOverview::class)
+        ->dispatch('telemetry-ui:annotations-changed', off: 'deploy');
+
+    expect($card->html())->not->toContain('abc123');
+
+    $card->dispatch('telemetry-ui:annotations-changed', off: '');
+
+    expect($card->html())->toContain('abc123');
 });

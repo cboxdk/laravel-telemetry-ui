@@ -134,6 +134,16 @@ abstract class Card extends Component
     }
 
     /**
+     * The header's ⚑ annotations toggle broadcasts the hidden marker types
+     * so every chart re-renders in place — no page reload.
+     */
+    #[On('telemetry-ui:annotations-changed')]
+    public function updateAnnotations(string $off): void
+    {
+        $this->annotationsOff = $off;
+    }
+
+    /**
      * Skeleton rendered instantly in the page shell while the card streams in
      * its own request (lazy 'on-load'), so one slow backend query never blocks
      * the whole page. Cards with heavy layout may override to match.
