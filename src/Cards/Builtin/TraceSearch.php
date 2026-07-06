@@ -219,7 +219,10 @@ final class TraceSearch extends Card
         if ($this->source === 'frontend') {
             $conditions[] = 'span.browser = true';
         } elseif ($this->source === 'backend') {
-            $conditions[] = 'span.browser != true';
+            // NOT `span.browser != true`: TraceQL cannot evaluate a missing
+            // attribute, so that would silently exclude every backend span.
+            // Server-kind spans are backend by definition.
+            $conditions[] = 'kind = server';
         }
 
         if ($this->route !== '') {

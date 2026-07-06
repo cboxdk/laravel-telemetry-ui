@@ -35,7 +35,9 @@ it('excludes browser spans when the source is backend', function (): void {
 
     Livewire::test(TraceSearch::class)->set('source', 'backend');
 
-    Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'span.browser != true'));
+    // Not span.browser != true — TraceQL can't evaluate missing attributes,
+    // so that filter silently matched nothing on real data.
+    Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'kind = server'));
 });
 
 it('unifies frontend and backend errors into one list grouped by fingerprint', function (): void {
