@@ -150,11 +150,42 @@ html, body {
 }
 
 .tui-nav-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--tui-text-faint);
-    padding: 14px 8px 4px;
+    padding: 12px 8px 4px;
+}
+
+.tui-nav-group:hover {
+    color: var(--tui-text-dim);
+}
+
+.tui-nav-chevron {
+    flex-shrink: 0;
+    opacity: 0.7;
+    transform: rotate(-90deg);
+    transition: transform 0.15s ease;
+}
+
+.tui-nav-group[aria-expanded="true"] .tui-nav-chevron {
+    transform: rotate(0deg);
+}
+
+.tui-nav-sub {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
 }
 
 .tui-nav-item {

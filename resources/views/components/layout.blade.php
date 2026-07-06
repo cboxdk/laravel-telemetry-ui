@@ -37,18 +37,47 @@
                 <span class="tui-brand-name">{{ config('telemetry-ui.brand.name') ?: config('app.name') }}</span>
             </div>
 
-            <nav class="tui-nav">
-                @php($groups = collect($pages)->reject(fn ($meta) => $meta['hidden'] ?? false)->groupBy(fn ($meta) => $meta['group'] ?? '', preserveKeys: true))
+            @php($groups = collect($pages)->reject(fn ($meta) => $meta['hidden'] ?? false)->groupBy(fn ($meta) => $meta['group'] ?? '', preserveKeys: true))
+            @php($activeGroup = $pages[$active]['group'] ?? '')
+            {{-- Collapsible nav groups (Linear-style): only the active group opens
+                 by default; user's expand/collapse state persists in localStorage. --}}
+            @php($defaultOpen = $groups->keys()->filter(fn ($g) => $g !== '')->mapWithKeys(fn ($g) => [$g => $g === $activeGroup])->all())
+            <nav class="tui-nav" x-data="{
+                    open: {},
+                    init() {
+                        this.open = Object.assign(@js($defaultOpen), JSON.parse(localStorage.getItem('tui-nav-groups') || '{}'));
+                    },
+                    toggle(g) {
+                        this.open[g] = ! this.open[g];
+                        localStorage.setItem('tui-nav-groups', JSON.stringify(this.open));
+                    },
+                }">
                 @foreach ($groups as $group => $items)
                     @if ($group !== '')
-                        <div class="tui-nav-group">{{ $group }}</div>
+                        <button type="button" class="tui-nav-group"
+                                x-on:click="toggle(@js($group))"
+                                x-bind:aria-expanded="open[@js($group)] ? 'true' : 'false'">
+                            <span>{{ $group }}</span>
+                            <svg class="tui-nav-chevron" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                                <path d="M2 3.5L5 6.5L8 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                        <div class="tui-nav-sub" x-show="open[@js($group)]" x-cloak>
+                            @foreach ($items as $slug => $meta)
+                                <a href="{{ route('telemetry-ui.page', array_filter(['page' => $slug === 'dashboard' ? null : $slug, 'period' => request('period'), 'service' => request('service'), 'env' => request('env')])) }}"
+                                   class="tui-nav-item {{ $slug === $active ? 'is-active' : '' }}">
+                                    {{ $meta['label'] }}
+                                </a>
+                            @endforeach
+                        </div>
+                    @else
+                        @foreach ($items as $slug => $meta)
+                            <a href="{{ route('telemetry-ui.page', array_filter(['page' => $slug === 'dashboard' ? null : $slug, 'period' => request('period'), 'service' => request('service'), 'env' => request('env')])) }}"
+                               class="tui-nav-item {{ $slug === $active ? 'is-active' : '' }}">
+                                {{ $meta['label'] }}
+                            </a>
+                        @endforeach
                     @endif
-                    @foreach ($items as $slug => $meta)
-                        <a href="{{ route('telemetry-ui.page', array_filter(['page' => $slug === 'dashboard' ? null : $slug, 'period' => request('period'), 'service' => request('service'), 'env' => request('env')])) }}"
-                           class="tui-nav-item {{ $slug === $active ? 'is-active' : '' }}">
-                            {{ $meta['label'] }}
-                        </a>
-                    @endforeach
                 @endforeach
             </nav>
         </aside>
