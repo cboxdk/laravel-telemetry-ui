@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-07
+
+Backend-neutral query IR — the read side no longer speaks PromQL/TraceQL/LogQL
+strings directly, which opens the dashboard to non-LGTM backends (see the
+companion `cboxdk/laravel-telemetry-store` for a native ClickHouse store).
+
+### Changed
+
+- **BREAKING:** the `MetricsSource` / `TracesSource` / `LogsSource` contracts now
+  take typed query objects (`MetricQuery` / `TraceQuery` / `LogQuery`) instead of
+  dialect strings. Result DTOs are unchanged. Custom drivers must implement the
+  new signatures — see [UPGRADE.md](UPGRADE.md).
+
+### Added
+
+- `Queries\Ir\*` (query objects, matchers, conditions) and `Queries\Compilers\*`
+  (`Promql`/`Traceql`/`Logql` compilers). Cards build the IR; each driver
+  compiles it to its dialect. A `*::raw()` escape hatch covers the few
+  dialect-only cases (nested aggregation, config-driven exporter queries).
+- Everything in 0.4.0 (below) also ships in this release.
+
 ## [0.4.0] - 2026-07-07
 
 ### Added
