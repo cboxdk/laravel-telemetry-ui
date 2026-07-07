@@ -57,14 +57,17 @@
             </button>
             <div class="tui-range-panel" x-show="open" x-cloak x-on:click.outside="open = false">
                 {{-- Master switch: hide every type at once, or bring them all back. --}}
-                <label style="display: flex; gap: 8px; align-items: center; cursor: pointer; white-space: nowrap; padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+                <label style="display: flex; justify-content: flex-start; gap: 8px; align-items: center; cursor: pointer; white-space: nowrap; padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
                     <input type="checkbox" :checked="off.length === 0" x-on:change="apply(off.length === 0 ? [...keys] : [])">
+                    {{-- spacer to align the header label with the swatched rows below --}}
+                    <span style="flex: none; width: 3px; height: 12px;"></span>
                     <strong>All annotations</strong>
                 </label>
                 @foreach ($annMarkers as $annKey => $annMarker)
-                    <label style="display: flex; gap: 8px; align-items: center; cursor: pointer; white-space: nowrap;">
+                    <label style="display: flex; justify-content: flex-start; gap: 8px; align-items: center; cursor: pointer; white-space: nowrap;">
                         <input type="checkbox" :checked="!off.includes('{{ $annKey }}')" x-on:change="toggle('{{ $annKey }}')">
-                        <span style="color: {{ $annMarker['color'] ?? '#c084fc' }};">▎</span>{{ $annMarker['label'] ?? $annKey }}
+                        <span style="flex: none; width: 3px; height: 12px; border-radius: 2px; background: {{ $annMarker['color'] ?? '#c084fc' }};"></span>
+                        <span>{{ $annMarker['label'] ?? $annKey }}</span>
                     </label>
                 @endforeach
             </div>

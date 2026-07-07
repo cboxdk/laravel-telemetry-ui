@@ -153,10 +153,10 @@ it('reads statamic cache purges as cache purge markers', function (): void {
     );
 
     expect($annotations)->toHaveCount(1)
-        ->and($annotations[0]->label)->toBe('Cache purge static')
+        ->and($annotations[0]->label)->toBe('Statamic cache purge static')
         ->and($annotations[0]->notes)->toBe('http')
         ->and($annotations[0]->kind)->toBe('statamic.cache.purge')
-        ->and($annotations[0]->color)->toBe('#fb923c');
+        ->and($annotations[0]->color)->toBe('#f472b6');
 });
 
 it('filters markers to the requested window', function (): void {

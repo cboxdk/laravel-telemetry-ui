@@ -44,7 +44,10 @@ it('hides and 404s the statamic subpages when no statamic metrics exist', functi
     Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
     fakeMetricCount(0);
 
-    $this->get('/telemetry-ui')->assertOk()->assertDontSee('Statamic');
+    // Assert on the Statamic subpage labels, not the bare word "Statamic" —
+    // the always-on "Statamic cache purge" annotation marker legitimately
+    // carries it in the header regardless of detection.
+    $this->get('/telemetry-ui')->assertOk()->assertDontSee('Static Cache')->assertDontSee('Stache');
     $this->get('/telemetry-ui/statamic-cache')->assertNotFound();
     $this->get('/telemetry-ui/statamic-glide')->assertNotFound();
 });
@@ -80,7 +83,8 @@ it('scopes detection to the selected service', function (): void {
     $this->get('/telemetry-ui?service=has-statamic')->assertOk()->assertSee('Statamic');
 
     // …a service that doesn't drops it, even though the fleet has it elsewhere.
-    $this->get('/telemetry-ui?service=no-statamic')->assertOk()->assertDontSee('Statamic');
+    // (Check the subpage labels, not "Statamic": the annotation marker carries it.)
+    $this->get('/telemetry-ui?service=no-statamic')->assertOk()->assertDontSee('Static Cache')->assertDontSee('Stache');
     $this->get('/telemetry-ui/statamic-cache?service=no-statamic')->assertNotFound();
 
     // The scoped count query carries the service matcher.
