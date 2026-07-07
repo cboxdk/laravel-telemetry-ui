@@ -9,6 +9,7 @@ use Cbox\TelemetryUi\Cards\Builtin\WebVitals;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Contracts\View\View;
 
@@ -44,8 +45,8 @@ final class PageDetailPerformance extends Card
                 // (that's only on the backend span), so scope by service/env and
                 // filter to this path in PHP — like WebVitals/FrontendPages.
                 $vitalsResults = $this->traces()->search(
-                    '{ '.$this->traceScope('name = "web-vitals"')
-                        .' } | select(span.http.url, span.web_vitals.lcp_ms, span.web_vitals.cls, span.web_vitals.inp_ms)',
+                    $this->traceQuery(TraceCondition::eq('name', 'web-vitals'))
+                        ->select('span.http.url', 'span.web_vitals.lcp_ms', 'span.web_vitals.cls', 'span.web_vitals.inp_ms'),
                     $start,
                     $end,
                     limit: self::SEARCH_LIMIT,
@@ -79,8 +80,8 @@ final class PageDetailPerformance extends Card
 
                 // Navigation timings — the document.load span carries them.
                 $loadResults = $this->traces()->search(
-                    '{ '.$this->traceScope('span.browser.ttfb_ms != nil')
-                        .' } | select(span.http.url, span.browser.ttfb_ms, span.browser.dom_interactive_ms)',
+                    $this->traceQuery(TraceCondition::nil('span.browser.ttfb_ms'))
+                        ->select('span.http.url', 'span.browser.ttfb_ms', 'span.browser.dom_interactive_ms'),
                     $start,
                     $end,
                     limit: self::SEARCH_LIMIT,

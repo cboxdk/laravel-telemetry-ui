@@ -26,7 +26,7 @@ final class RequestDetailTraces extends Card
         if ($this->route !== '') {
             try {
                 $results = $this->traces()->search(
-                    '{ '.$this->traceScope($this->routeTraceScope()).' }',
+                    $this->traceQuery(...$this->routeTraceConditions()),
                     $start,
                     $end,
                     limit: 25,

@@ -6,6 +6,9 @@ namespace Cbox\TelemetryUi\Support;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
+use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use DateTimeImmutable;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Config\Repository as Config;
@@ -33,11 +36,12 @@ final readonly class Annotations
     /**
      * Markers within [$start, $end] for the given scope, newest first.
      *
-     * @param  string  $selector  a Loki stream selector, already scoped to the
-     *                            viewer's service/env (from Card::logSelector())
+     * @param  LogQuery|null  $selector  a log selector already scoped to the
+     *                                   viewer's service/env (from Card::logSelector());
+     *                                   null matches any service
      * @return list<Annotation>
      */
-    public function between(DateTimeImmutable $start, DateTimeImmutable $end, string $selector = '{service_name=~".+"}'): array
+    public function between(DateTimeImmutable $start, DateTimeImmutable $end, ?LogQuery $selector = null): array
     {
         $all = $this->lookback($selector);
 
@@ -55,14 +59,16 @@ final readonly class Annotations
      *
      * @return list<Annotation>
      */
-    public function lookback(string $selector = '{service_name=~".+"}'): array
+    public function lookback(?LogQuery $selector = null): array
     {
+        $selector ??= LogQuery::stream(new LabelMatcher('service_name', MatchOp::Re, '.+'));
+
         if (! (bool) $this->config->get('telemetry-ui.annotations.enabled', true)) {
             return [];
         }
 
         // v2: cluster fields (count/end/hosts) joined the row shape.
-        $key = 'telemetry-ui:annotations:v2:'.md5($selector);
+        $key = 'telemetry-ui:annotations:v2:'.md5($selector->key());
 
         // Cache primitive rows, not Annotation objects — file/database/redis
         // cache stores serialize, and cross-request unserialize of a package
@@ -89,7 +95,7 @@ final readonly class Annotations
     /**
      * @return list<array{ts: float, label: string, notes: string|null, kind: string, traceId: string|null, color: string, count: int, end: float|null, hosts: list<string>}>
      */
-    private function fetch(string $selector): array
+    private function fetch(LogQuery $selector): array
     {
         /** @var array<string, array{event: string, label: string, color: string, notes_label?: string, id_label?: string}> $markers */
         $markers = (array) $this->config->get('telemetry-ui.annotations.markers', []);
@@ -123,7 +129,7 @@ final readonly class Annotations
 
         try {
             $entries = $this->connections->logs()->query(
-                $selector.' |~ "'.addcslashes($pattern, '"\\').'"',
+                $selector->lineMatches($pattern),
                 $start,
                 $end,
                 limit: 500,

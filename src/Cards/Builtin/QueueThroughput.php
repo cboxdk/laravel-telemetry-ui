@@ -19,7 +19,7 @@ class QueueThroughput extends Card
     {
         return $this->promChart(
             title: 'Throughput',
-            promql: 'sum by (queue) ('.$this->metric('queue_metrics_queue_throughput_per_min').')',
+            promql: $this->metric('queue_metrics_queue_throughput_per_min')->sumBy('queue'),
             subtitle: 'Jobs processed per minute, per queue (60s window)',
             seriesLabel: 'queue',
             unit: 'jobs/min',

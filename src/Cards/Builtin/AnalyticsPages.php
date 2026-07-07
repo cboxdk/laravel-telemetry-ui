@@ -26,7 +26,7 @@ final class AnalyticsPages extends Card
 
         try {
             $entries = $this->logs()->query(
-                $this->logSelector().Analytics::PAGE_VIEW_FILTER,
+                $this->logSelector()->pipe(Analytics::pageViewFilter()),
                 $start,
                 $end,
                 limit: self::SAMPLE_LIMIT,

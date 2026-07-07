@@ -22,8 +22,8 @@ final class StaticCacheOverview extends Card
         $metric = $this->metric('statamic_static_cache_operations_total');
 
         try {
-            $totals = $this->metrics()->query('sum by (operation) (increase('.$metric.'['.$this->promDuration().']))');
-            $range = $this->metrics()->queryRange('sum by (operation) (rate('.$metric.'['.$this->rateWindow().'])) * 60', $start, $end);
+            $totals = $this->metrics()->query($metric->increase($this->promDuration())->sumBy('operation'));
+            $range = $this->metrics()->queryRange($metric->rate($this->rateWindow())->sumBy('operation')->times(60), $start, $end);
         } catch (SourceException $exception) {
             return $this->chartCard('Static Cache', error: $exception->getMessage());
         }

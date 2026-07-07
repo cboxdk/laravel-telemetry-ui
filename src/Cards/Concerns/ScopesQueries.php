@@ -5,6 +5,13 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Cards\Concerns;
 
 use Cbox\TelemetryUi\Cards\Card;
+use Cbox\TelemetryUi\Queries\Ir\LabelFilter;
+use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
+use Cbox\TelemetryUi\Queries\Ir\MatchOp;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Support\ScopeLock;
 
 /**
@@ -33,32 +40,38 @@ trait ScopesQueries
     }
 
     /**
-     * A metric reference with the current scope (and any extra matchers)
-     * applied: `metric{service_name="checkout",deployment_environment_name="prod"}`.
+     * A scoped {@see MetricQuery} for a metric — the current scope (plus any
+     * entity {@see scopeMatchers()} and extra matchers) as the selector, ready
+     * for the fluent rate/increase/quantile/aggregation helpers. Compiles to
+     * `metric{service_name="checkout",deployment_environment_name="prod"}`.
      */
-    protected function metric(string $name, string $extraMatchers = ''): string
+    protected function metric(string $name, string $extraMatchers = ''): MetricQuery
     {
         $lock = app(ScopeLock::class);
 
         $matchers = array_values(array_filter([
-            $this->labelMatcher('service_name', $this->scopedServices(), $lock->servicesLocked()),
-            $this->labelMatcher('deployment_environment_name', $this->scopedEnvironments(), $lock->environmentsLocked()),
-        ], static fn (?string $m): bool => $m !== null));
+            $this->scopeLabelMatcher('service_name', $this->scopedServices(), $lock->servicesLocked()),
+            $this->scopeLabelMatcher('deployment_environment_name', $this->scopedEnvironments(), $lock->environmentsLocked()),
+        ], static fn (?LabelMatcher $m): bool => $m !== null));
+
+        $raw = [];
 
         if (($scope = $this->scopeMatchers()) !== '') {
-            $matchers[] = $scope;
+            $raw[] = $scope;
         }
 
         if ($extraMatchers !== '') {
-            $matchers[] = $extraMatchers;
+            $raw[] = $extraMatchers;
         }
 
-        return $matchers === [] ? $name : $name.'{'.implode(',', $matchers).'}';
+        return new MetricQuery($name, $matchers, $raw);
     }
 
     /**
      * TraceQL conditions for the current scope, AND-joined with any extra
-     * conditions: `resource.service.name = "checkout" && <extra>`.
+     * conditions: `resource.service.name = "checkout" && <extra>`. String form,
+     * kept for {@see enforceScope()} and hand-built raw queries; structured
+     * cards use {@see TraceQuery()} instead.
      */
     protected function traceScope(string $extraConditions = ''): string
     {
@@ -74,6 +87,45 @@ trait ScopesQueries
         }
 
         return implode(' && ', $conditions);
+    }
+
+    /**
+     * A scoped {@see TraceQuery} for the current service/environment, with any
+     * extra conditions AND-joined after the scope — the structured replacement
+     * for `'{ '.traceScope($extra).' }'`.
+     */
+    protected function traceQuery(TraceCondition ...$conditions): TraceQuery
+    {
+        return new TraceQuery([...$this->traceConditions(), ...array_values($conditions)]);
+    }
+
+    /**
+     * The current scope as TraceQL conditions.
+     *
+     * @return list<TraceCondition>
+     */
+    protected function traceConditions(): array
+    {
+        $lock = app(ScopeLock::class);
+
+        return array_values(array_filter([
+            $this->traceScopeMatcher('resource.service.name', $this->scopedServices(), $lock->servicesLocked()),
+            $this->traceScopeMatcher('resource.deployment.environment.name', $this->scopedEnvironments(), $lock->environmentsLocked()),
+        ], static fn (?TraceCondition $c): bool => $c !== null));
+    }
+
+    /**
+     * A {@see TraceCondition} for a scoped dimension (see {@see traceMatcher()}).
+     *
+     * @param  list<string>  $values
+     */
+    private function traceScopeMatcher(string $key, array $values, bool $locked): ?TraceCondition
+    {
+        return match (count($values)) {
+            0 => $locked ? TraceCondition::eq($key, self::NO_SCOPE) : null,
+            1 => TraceCondition::eq($key, $values[0]),
+            default => TraceCondition::re($key, $this->alternation($values)),
+        };
     }
 
     /**
@@ -106,11 +158,12 @@ trait ScopesQueries
     }
 
     /**
-     * A Loki stream selector for the current scope, with the environment applied
-     * as a pipeline label filter rather than a stream-label matcher.
+     * A scoped {@see LogQuery} for the current service/environment: the
+     * environment is applied as a pipeline label filter rather than a
+     * stream-label matcher.
      *
-     * Only `service_name` goes in the `{…}` stream selector: it is the one label
-     * a telemetry backend is guaranteed to index as a *stream label*. The
+     * Only `service_name` goes in the stream selector: it is the one label a
+     * telemetry backend is guaranteed to index as a *stream label*. The
      * environment is emitted as a trailing `| deployment_environment_name="…"`
      * label filter instead — many Loki deployments (e.g. otel-lgtm) index only
      * service_name as a stream label and carry `deployment_environment_name` as
@@ -119,32 +172,40 @@ trait ScopesQueries
      * whereas a pipeline label filter matches whether the label is a stream label
      * or structured metadata — correct in both cases.
      *
-     * Callers append further pipeline stages (`|= "…"`, `| foo != ""`), which
-     * chain onto the env filter without change; the return is always a complete,
-     * appendable LogQL prefix. Loki requires at least one non-empty stream
-     * matcher, so an unscoped selector still matches any service.
+     * Callers append further pipeline stages via the fluent {@see LogQuery}
+     * helpers, which chain onto the env filter. Loki requires at least one
+     * non-empty stream matcher, so an unscoped selector still matches any
+     * service (the compiler falls back to `{service_name=~".+"}`).
      */
-    protected function logSelector(string $extraMatchers = ''): string
+    protected function logSelector(): LogQuery
     {
         $lock = app(ScopeLock::class);
 
         $stream = array_values(array_filter([
-            $this->labelMatcher('service_name', $this->scopedServices(), $lock->servicesLocked()),
-        ], static fn (?string $m): bool => $m !== null));
+            $this->scopeLabelMatcher('service_name', $this->scopedServices(), $lock->servicesLocked()),
+        ], static fn (?LabelMatcher $m): bool => $m !== null));
 
-        if ($extraMatchers !== '') {
-            $stream[] = $extraMatchers;
-        }
+        $query = LogQuery::stream(...$stream);
 
-        if ($stream === []) {
-            $stream[] = 'service_name=~".+"';
-        }
+        $env = $this->scopeLabelMatcher('deployment_environment_name', $this->scopedEnvironments(), $lock->environmentsLocked());
 
-        $selector = '{'.implode(',', $stream).'}';
+        return $env !== null ? $query->pipe(new LabelFilter([$env])) : $query;
+    }
 
-        $env = $this->labelMatcher('deployment_environment_name', $this->scopedEnvironments(), $lock->environmentsLocked());
-
-        return $env !== null ? $selector.' | '.$env : $selector;
+    /**
+     * A {@see LabelMatcher} for a scoped dimension (PromQL/LogQL): exact for one
+     * value, an RE2 alternation for several, a matches-nothing sentinel when
+     * locked to an empty set, or null when unrestricted.
+     *
+     * @param  list<string>  $values
+     */
+    private function scopeLabelMatcher(string $label, array $values, bool $locked): ?LabelMatcher
+    {
+        return match (count($values)) {
+            0 => $locked ? new LabelMatcher($label, MatchOp::Eq, self::NO_SCOPE) : null,
+            1 => new LabelMatcher($label, MatchOp::Eq, $values[0]),
+            default => new LabelMatcher($label, MatchOp::Re, $this->alternation($values)),
+        };
     }
 
     protected function escapeLabelValue(string $value): string
@@ -197,23 +258,7 @@ trait ScopesQueries
     }
 
     /**
-     * A PromQL/Loki label matcher for a set of values: exact for one, an RE2
-     * alternation for several. For none: nothing when unrestricted, or a
-     * matches-nothing sentinel when the dimension is locked to an empty set.
-     *
-     * @param  list<string>  $values
-     */
-    private function labelMatcher(string $label, array $values, bool $locked = false): ?string
-    {
-        return match (count($values)) {
-            0 => $locked ? $label.'="'.self::NO_SCOPE.'"' : null,
-            1 => $label.'="'.$this->escapeLabelValue($values[0]).'"',
-            default => $label.'=~"'.$this->escapeLabelValue($this->alternation($values)).'"',
-        };
-    }
-
-    /**
-     * A TraceQL scope condition for a set of values (see {@see labelMatcher()}).
+     * A TraceQL scope condition for a set of values (see {@see LabelMatcher()}).
      *
      * @param  list<string>  $values
      */

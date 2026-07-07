@@ -14,7 +14,7 @@ final class HostDetailNetwork extends SystemCharts
     {
         return [
             'title' => 'Network I/O',
-            'query' => 'sum by (direction) (rate('.$this->metric('system_network_io_bytes').'['.$this->rateWindow().']))',
+            'query' => $this->metric('system_network_io_bytes')->rate($this->rateWindow())->sumBy('direction'),
             'label' => 'direction',
             'unit' => 'bytes',
             'type' => 'area',

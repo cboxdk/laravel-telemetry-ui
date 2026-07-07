@@ -48,7 +48,7 @@ final class AnalyticsCampaigns extends Card
 
         try {
             $rows = Analytics::rows($this->logs()->query(
-                $this->logSelector().Analytics::PAGE_VIEW_FILTER,
+                $this->logSelector()->pipe(Analytics::pageViewFilter()),
                 $start,
                 $end,
                 limit: self::SAMPLE_LIMIT,

@@ -7,6 +7,8 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
@@ -69,28 +71,32 @@ class RequestLog extends Card
             // kind=server alone excludes browser/RUM spans (they are client/
             // internal) — and `span.browser != true` would wrongly drop every
             // backend span too, since TraceQL can't evaluate a missing attr.
-            $conditions = ['kind = server', ...$this->extraTraceConditions()];
+            $conditions = [
+                TraceCondition::token('kind', TraceOp::Eq, 'server'),
+                ...$this->extraTraceConditions(),
+            ];
 
             if ($this->ip !== '') {
-                $conditions[] = 'span.client.address = "'.$this->escapeLabelValue($this->ip).'"';
+                $conditions[] = TraceCondition::eq('span.client.address', $this->ip);
             }
 
             if ($this->user !== '') {
-                $conditions[] = 'span.enduser.id = "'.$this->escapeLabelValue($this->user).'"';
+                $conditions[] = TraceCondition::eq('span.enduser.id', $this->user);
             }
 
             if ($this->path !== '') {
-                $conditions[] = 'span.url.path =~ ".*'.$this->escapeLabelValue(preg_quote($this->path, '/')).'.*"';
+                $conditions[] = TraceCondition::re('span.url.path', '.*'.preg_quote($this->path, '/').'.*');
             }
 
             if (preg_match('/^([1-5])xx$/', $this->statusCode, $m) === 1) {
-                $conditions[] = 'span.http.response.status_code >= '.$m[1].'00 && span.http.response.status_code < '.((int) $m[1] + 1).'00';
+                $conditions[] = TraceCondition::token('span.http.response.status_code', TraceOp::Gte, $m[1].'00');
+                $conditions[] = TraceCondition::token('span.http.response.status_code', TraceOp::Lt, ((int) $m[1] + 1).'00');
             }
 
-            $traceql = '{ '.$this->traceScope(implode(' && ', $conditions))
-                .' } | select(span.http.request.method, span.url.path, span.http.route, span.http.response.status_code, span.client.address, span.enduser.id, span.livewire.components)';
+            $query = $this->traceQuery(...$conditions)
+                ->select('span.http.request.method', 'span.url.path', 'span.http.route', 'span.http.response.status_code', 'span.client.address', 'span.enduser.id', 'span.livewire.components');
 
-            foreach ($this->traces()->search($traceql, $start, $end, limit: 50) as $summary) {
+            foreach ($this->traces()->search($query, $start, $end, limit: 50) as $summary) {
                 $attributes = isset($summary->matchedSpans[0]) ? $summary->matchedSpans[0]->attributes : [];
 
                 $path = $this->str($attributes['url.path'] ?? $attributes['http.route'] ?? null) ?? $summary->rootTraceName;
@@ -132,10 +138,10 @@ class RequestLog extends Card
     }
 
     /**
-     * Extra TraceQL span conditions AND-ed into the search — a subclass
-     * narrows the log to its slice (e.g. Livewire update requests only).
+     * Extra span conditions AND-ed into the search — a subclass narrows the
+     * log to its slice (e.g. Livewire update requests only).
      *
-     * @return list<string>
+     * @return list<TraceCondition>
      */
     protected function extraTraceConditions(): array
     {

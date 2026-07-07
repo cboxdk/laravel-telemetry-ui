@@ -7,6 +7,8 @@ namespace Cbox\TelemetryUi\Connectors\Prometheus;
 use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
+use Cbox\TelemetryUi\Queries\Compilers\PromqlCompiler;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\DataPoint;
 use Cbox\TelemetryUi\Queries\Results\Sample;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
@@ -28,9 +30,9 @@ class PrometheusSource implements MetricsSource
         protected readonly string $prefix = '',
     ) {}
 
-    public function query(string $promql, ?DateTimeInterface $at = null): array
+    public function query(MetricQuery $query, ?DateTimeInterface $at = null): array
     {
-        $params = ['query' => $promql];
+        $params = ['query' => (new PromqlCompiler)->compile($query)];
 
         if ($at !== null) {
             $params['time'] = $at->getTimestamp();
@@ -42,7 +44,7 @@ class PrometheusSource implements MetricsSource
     }
 
     public function queryRange(
-        string $promql,
+        MetricQuery $query,
         DateTimeInterface $start,
         DateTimeInterface $end,
         ?int $step = null,
@@ -50,7 +52,7 @@ class PrometheusSource implements MetricsSource
         $step ??= $this->deriveStep($start, $end);
 
         $data = $this->data($this->path('/api/v1/query_range'), [
-            'query' => $promql,
+            'query' => (new PromqlCompiler)->compile($query),
             'start' => $start->getTimestamp(),
             'end' => $end->getTimestamp(),
             'step' => $step,

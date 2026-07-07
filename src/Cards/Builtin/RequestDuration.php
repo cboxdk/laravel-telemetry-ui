@@ -6,6 +6,8 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Compilers\PromqlCompiler;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Contracts\View\View;
 
@@ -28,18 +30,22 @@ class RequestDuration extends Card
         $bucket = $this->metric('http_server_request_duration_milliseconds_bucket');
 
         try {
-            $totalTime = $this->total('sum(increase('.$sum.'['.$p.']))');
-            $totalCount = $this->total('sum(increase('.$count.'['.$p.']))');
-            $p95Now = $this->total('histogram_quantile(0.95, sum by (le) (rate('.$bucket.'['.$p.'])))');
+            $totalTime = $this->total($sum->increase($p)->sumBy());
+            $totalCount = $this->total($count->increase($p)->sumBy());
+            $p95Now = $this->total($bucket->quantile(0.95, $p));
+
+            $compiler = new PromqlCompiler;
+            $sumSelector = $compiler->compile($sum);
+            $countSelector = $compiler->compile($count);
 
             $avgRange = $this->metrics()->queryRange(
-                'sum(rate('.$sum.'['.$w.'])) / sum(rate('.$count.'['.$w.']))',
+                MetricQuery::raw('sum(rate('.$sumSelector.'['.$w.'])) / sum(rate('.$countSelector.'['.$w.']))'),
                 $start,
                 $end,
             );
 
             $p95Range = $this->metrics()->queryRange(
-                'histogram_quantile(0.95, sum by (le) (rate('.$bucket.'['.$w.'])))',
+                $bucket->quantile(0.95, $w),
                 $start,
                 $end,
             );

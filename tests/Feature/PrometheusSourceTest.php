@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\Prometheus\PrometheusSource;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\Sample;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Illuminate\Support\Facades\Http;
@@ -34,7 +35,7 @@ it('parses instant vector queries', function (): void {
         ]),
     ]);
 
-    $samples = prometheus()->query('sum by (service_name) (rate(http_server_request_duration_milliseconds_count[5m]))');
+    $samples = prometheus()->query(MetricQuery::raw('sum by (service_name) (rate(http_server_request_duration_milliseconds_count[5m]))'));
 
     expect($samples)->toHaveCount(2)
         ->and($samples[0])->toBeInstanceOf(Sample::class)
@@ -65,7 +66,7 @@ it('parses range queries into time series with a derived step', function (): voi
     $start = new DateTimeImmutable('@1735686000');
     $end = new DateTimeImmutable('@1735689600');
 
-    $series = prometheus()->queryRange('up', $start, $end);
+    $series = prometheus()->queryRange(MetricQuery::raw('up'), $start, $end);
 
     expect($series)->toHaveCount(1)
         ->and($series[0])->toBeInstanceOf(TimeSeries::class)
@@ -106,7 +107,7 @@ it('throws on error envelopes', function (): void {
         ]),
     ]);
 
-    prometheus()->query('sum by (');
+    prometheus()->query(MetricQuery::raw('sum by ('));
 })->throws(SourceException::class, 'parse error');
 
 it('throws on http failures', function (): void {
@@ -114,7 +115,7 @@ it('throws on http failures', function (): void {
         'prometheus.test:9090/*' => Http::response('upstream unavailable', 502),
     ]);
 
-    prometheus()->query('up');
+    prometheus()->query(MetricQuery::raw('up'));
 })->throws(SourceException::class, 'status 502');
 
 it('drops non-finite vector samples instead of rendering false zeros', function (): void {
@@ -131,7 +132,7 @@ it('drops non-finite vector samples instead of rendering false zeros', function 
         ]),
     ]);
 
-    $samples = prometheus()->query('some_ratio');
+    $samples = prometheus()->query(MetricQuery::raw('some_ratio'));
 
     expect($samples)->toHaveCount(1)
         ->and($samples[0]->labels['service_name'])->toBe('checkout')
@@ -146,7 +147,7 @@ it('parses a scalar result', function (): void {
         ]),
     ]);
 
-    expect(prometheus()->query('scalar(x)')[0]->value)->toBe(7.0);
+    expect(prometheus()->query(MetricQuery::raw('scalar(x)'))[0]->value)->toBe(7.0);
 });
 
 it('drops a non-finite scalar result', function (): void {
@@ -157,7 +158,7 @@ it('drops a non-finite scalar result', function (): void {
         ]),
     ]);
 
-    expect(prometheus()->query('scalar(y)'))->toBe([]);
+    expect(prometheus()->query(MetricQuery::raw('scalar(y)')))->toBe([]);
 });
 
 it('drops non-finite points from range series', function (): void {
@@ -172,7 +173,7 @@ it('drops non-finite points from range series', function (): void {
         ]),
     ]);
 
-    $series = prometheus()->queryRange('rate(x[1m])', new DateTimeImmutable('@1735686000'), new DateTimeImmutable('@1735689600'));
+    $series = prometheus()->queryRange(MetricQuery::raw('rate(x[1m])'), new DateTimeImmutable('@1735686000'), new DateTimeImmutable('@1735689600'));
 
     expect($series[0]->points)->toHaveCount(2)
         ->and($series[0]->points[0]->value)->toBe(1.0)

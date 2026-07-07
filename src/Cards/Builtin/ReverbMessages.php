@@ -18,14 +18,14 @@ final class ReverbMessages extends Card
 
         return $this->promChart(
             title: 'Reverb messages',
-            promql: 'sum by (direction) (rate('.$metric.'['.$this->rateWindow().'])) * 60',
+            promql: $metric->rate($this->rateWindow())->sumBy('direction')->times(60),
             subtitle: 'WebSocket messages per minute, sent vs received',
             seriesLabel: 'direction',
             type: 'area',
             unit: 'msg/min',
             span: 2,
             stat: 'Messages',
-            statQuery: 'sum(increase('.$metric.'['.$this->promDuration().']))',
+            statQuery: $metric->increase($this->promDuration())->sumBy(),
         );
     }
 }

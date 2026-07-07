@@ -23,7 +23,7 @@ final class ExceptionsTable extends Card
 
         try {
             $samples = $this->metrics()->query(
-                'sum by (exception) (increase('.$this->metric('exceptions_reported_total').'['.$this->promDuration().']))',
+                $this->metric('exceptions_reported_total')->increase($this->promDuration())->sumBy('exception'),
             );
 
             foreach ($samples as $sample) {

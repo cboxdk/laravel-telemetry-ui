@@ -24,11 +24,9 @@ class RequestsActivity extends Card
 
         $count = $this->metric('http_server_request_duration_milliseconds_count');
 
-        $byClass = static fn (string $inner): string => 'sum by (class) (label_replace('.$inner.', "class", "${1}xx", "http_response_status_code", "([0-9]).."))';
-
         try {
-            $totals = $this->metrics()->query($byClass('increase('.$count.'['.$this->promDuration().'])'));
-            $range = $this->metrics()->queryRange($byClass('rate('.$count.'['.$this->rateWindow().'])').' * 60', $start, $end);
+            $totals = $this->metrics()->query($count->increase($this->promDuration())->sumBy('http_response_status_code'));
+            $range = $this->metrics()->queryRange($count->rate($this->rateWindow())->sumBy('http_response_status_code')->times(60), $start, $end);
         } catch (SourceException $exception) {
             return $this->chartCard('Requests', error: $exception->getMessage());
         }
@@ -36,7 +34,7 @@ class RequestsActivity extends Card
         $classTotals = ['ok' => 0.0, '4xx' => 0.0, '5xx' => 0.0];
 
         foreach ($totals as $sample) {
-            $classTotals[$this->bucket($sample->labels['class'] ?? '')] += $sample->value;
+            $classTotals[$this->bucket($sample->labels['http_response_status_code'] ?? '')] += $sample->value;
         }
 
         return $this->chartCard(
@@ -66,7 +64,7 @@ class RequestsActivity extends Card
         $buckets = [];
 
         foreach ($range as $series) {
-            $bucket = $this->bucket($series->labels['class'] ?? '');
+            $bucket = $this->bucket($series->labels['http_response_status_code'] ?? '');
 
             foreach ($series->points as $point) {
                 $key = (int) $point->timestamp;
@@ -101,9 +99,9 @@ class RequestsActivity extends Card
         return $result;
     }
 
-    private function bucket(string $class): string
+    private function bucket(string $code): string
     {
-        return match ($class) {
+        return match ($code === '' ? '' : $code[0].'xx') {
             '4xx' => '4xx',
             '5xx' => '5xx',
             default => 'ok',

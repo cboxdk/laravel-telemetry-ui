@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Mcp\Tools;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\JsonSchema as JsonSchemaFactory;
 use Laravel\Mcp\Request;
@@ -36,7 +37,7 @@ final class QueryRangeTool extends TelemetryTool
 
         try {
             $rows = [];
-            foreach ($this->connections->metrics()->queryRange((string) $request->get('query', ''), $start, $end) as $series) {
+            foreach ($this->connections->metrics()->queryRange(MetricQuery::raw((string) $request->get('query', '')), $start, $end) as $series) {
                 $values = array_map(static fn ($point): float => $point->value, $series->points);
                 $rows[] = [
                     'labels' => $series->labels,

@@ -31,10 +31,10 @@ final class RequestDetailPaths extends Card
                 // Aggregate from the route's spans — NOT tagValues(), whose
                 // filter Tempo quietly ignores on v1, leaking every path in
                 // the backend into this card.
-                $traceql = '{ '.$this->traceScope($this->routeTraceScope())
-                    .' } | select(span.url.path, span.http.response.status_code)';
+                $query = $this->traceQuery(...$this->routeTraceConditions())
+                    ->select('span.url.path', 'span.http.response.status_code');
 
-                $results = $this->traces()->search($traceql, $start, $end, limit: 100);
+                $results = $this->traces()->search($query, $start, $end, limit: 100);
 
                 /** @var array<string, array{path: string, count: int, sumMs: float, maxMs: float, errors: int, lastNano: int, traceId: string}> $paths */
                 $paths = [];

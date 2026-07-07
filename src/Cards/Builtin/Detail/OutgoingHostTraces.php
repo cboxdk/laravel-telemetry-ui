@@ -26,7 +26,7 @@ final class OutgoingHostTraces extends Card
         if ($this->host !== '') {
             try {
                 $results = $this->traces()->search(
-                    '{ '.$this->traceScope($this->hostTraceScope()).' }',
+                    $this->traceQuery(...$this->hostTraceConditions()),
                     $start,
                     $end,
                     limit: 25,

@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Illuminate\Contracts\View\View;
 
 /**
@@ -27,7 +28,7 @@ final class DuplicateQueries extends Card
 
         try {
             $entries = $this->logs()->query(
-                $this->logSelector().' | db_query_text != ""',
+                $this->logSelector()->whereLabel('db_query_text', MatchOp::Neq, ''),
                 $start,
                 $end,
                 limit: self::SEARCH_LIMIT,

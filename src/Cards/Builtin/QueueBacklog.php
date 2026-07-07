@@ -33,11 +33,11 @@ class QueueBacklog extends Card
         try {
             $now = [];
 
-            foreach ($this->metrics()->query('sum by (state) ('.$depth.')') as $sample) {
+            foreach ($this->metrics()->query($depth->sumBy('state')) as $sample) {
                 $now[$sample->labels['state'] ?? ''] = $sample->value;
             }
 
-            $range = $this->metrics()->queryRange('sum by (state) ('.$depth.')', $start, $end);
+            $range = $this->metrics()->queryRange($depth->sumBy('state'), $start, $end);
         } catch (SourceException $exception) {
             return $this->chartCard('Backlog', error: $exception->getMessage());
         }

@@ -23,10 +23,10 @@ final class CacheOperations extends Card
         $p = $this->promDuration();
 
         try {
-            $totals = $this->metrics()->query('sum by (operation) (increase('.$metric.'['.$p.']))');
+            $totals = $this->metrics()->query($metric->increase($p)->sumBy('operation'));
 
             $range = $this->metrics()->queryRange(
-                'sum by (operation) (rate('.$metric.'['.$this->rateWindow().'])) * 60',
+                $metric->rate($this->rateWindow())->sumBy('operation')->times(60),
                 $start,
                 $end,
             );

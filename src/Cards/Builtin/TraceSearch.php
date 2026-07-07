@@ -7,6 +7,10 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
+use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Queries\Results\Span;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
 use Illuminate\Contracts\View\View;
@@ -62,20 +66,24 @@ final class TraceSearch extends Card
         // hand-typed) is forced into the viewer's scope lock — the builder path
         // is already scoped — and enriched with the same select() unless it
         // carries its own.
-        $select = ' | select(span.http.request.method, span.http.route, span.http.response.status_code, span.url.path, span.browser)';
+        $selectFields = ['span.http.request.method', 'span.http.route', 'span.http.response.status_code', 'span.url.path', 'span.browser'];
 
         if ($this->query !== '') {
             $raw = $this->enforceScope($this->query);
-            $traceql = str_contains($raw, '| select(') ? $raw : $raw.$select;
+            $query = TraceQuery::raw(str_contains($raw, '| select(')
+                ? $raw
+                : $raw.' | select('.implode(', ', $selectFields).')');
         } else {
-            $traceql = $this->buildQuery().$select;
+            $query = $this->buildQuery()->select(...$selectFields);
         }
+
+        $effectiveQuery = (new TraceqlCompiler)->compile($query);
 
         $results = [];
         $error = null;
 
         try {
-            foreach ($this->traces()->search($traceql, $start, $end, limit: 50) as $summary) {
+            foreach ($this->traces()->search($query, $start, $end, limit: 50) as $summary) {
                 $results[] = [
                     'traceId' => $summary->traceId,
                     'service' => $summary->rootServiceName,
@@ -95,7 +103,7 @@ final class TraceSearch extends Card
         return view($view, [
             'results' => $results,
             'error' => $error,
-            'effectiveQuery' => $traceql,
+            'effectiveQuery' => $effectiveQuery,
             'usingRaw' => $this->query !== '',
         ]);
     }
@@ -204,54 +212,59 @@ final class TraceSearch extends Card
         return $summary->matchedSpans[0]->attributes ?? [];
     }
 
-    private function buildQuery(): string
+    private function buildQuery(): TraceQuery
     {
         $conditions = [];
 
         if ($this->status === 'error') {
-            $conditions[] = 'status = error';
+            $conditions[] = TraceCondition::token('status', TraceOp::Eq, 'error');
         } elseif ($this->status === 'ok') {
-            $conditions[] = 'status != error';
+            $conditions[] = TraceCondition::token('status', TraceOp::Neq, 'error');
         }
 
         // Frontend vs backend: browser/RUM spans carry the server-stamped
         // `browser=true` attribute (they share the backend's service.name).
         if ($this->source === 'frontend') {
-            $conditions[] = 'span.browser = true';
+            $conditions[] = TraceCondition::token('span.browser', TraceOp::Eq, 'true');
         } elseif ($this->source === 'backend') {
             // NOT `span.browser != true`: TraceQL cannot evaluate a missing
             // attribute, so that would silently exclude every backend span.
             // Server-kind spans are backend by definition.
-            $conditions[] = 'kind = server';
+            $conditions[] = TraceCondition::token('kind', TraceOp::Eq, 'server');
         }
 
         if ($this->route !== '') {
-            $conditions[] = 'span.http.route = "'.addcslashes($this->route, '"\\').'"';
+            $conditions[] = TraceCondition::eq('span.http.route', $this->route);
         }
 
         // A status CLASS (5xx) is what you actually hunt by.
         if (preg_match('/^([1-5])xx$/', $this->statusCode, $m) === 1) {
-            $conditions[] = 'span.http.response.status_code >= '.$m[1].'00 && span.http.response.status_code < '.($m[1] + 1).'00';
+            $conditions[] = TraceCondition::token('span.http.response.status_code', TraceOp::Gte, $m[1].'00');
+            $conditions[] = TraceCondition::token('span.http.response.status_code', TraceOp::Lt, ($m[1] + 1).'00');
         }
 
         if ($this->path !== '') {
-            $conditions[] = 'span.url.path =~ ".*'.addcslashes(preg_quote($this->path, '/'), '"\\').'.*"';
+            $conditions[] = TraceCondition::re('span.url.path', '.*'.preg_quote($this->path, '/').'.*');
         }
 
         if ($this->ip !== '') {
-            $conditions[] = 'span.client.address = "'.addcslashes($this->ip, '"\\').'"';
+            $conditions[] = TraceCondition::eq('span.client.address', $this->ip);
         }
 
         if ($this->nameContains !== '') {
-            $conditions[] = 'name =~ ".*'.addcslashes($this->nameContains, '"\\').'.*"';
+            $conditions[] = TraceCondition::re('name', '.*'.$this->nameContains.'.*');
         }
 
         if ($this->minDurationMs > 0) {
-            $conditions[] = 'duration > '.$this->minDurationMs.'ms';
+            $conditions[] = TraceCondition::token('duration', TraceOp::Gt, $this->minDurationMs.'ms');
         }
 
-        $scope = $this->traceScope(implode(' && ', $conditions));
+        $query = $this->traceQuery(...$conditions);
 
-        return '{ '.($scope === '' ? 'kind = server' : $scope).' }';
+        // Never emit `{}` (matches every span in retention): with no scope and
+        // no filter, fall back to server spans — the request-shaped default.
+        return $query->conditions === []
+            ? $this->traceQuery(TraceCondition::token('kind', TraceOp::Eq, 'server'))
+            : $query;
     }
 }

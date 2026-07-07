@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Events\BackendQueried;
 use Cbox\TelemetryUi\Events\DashboardViewed;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
@@ -46,7 +47,7 @@ it('fires BackendQueried for each real backend hit (load metering)', function ()
 
     Http::fake(['prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]])]);
 
-    app(ConnectionManager::class)->metrics()->query('up');
+    app(ConnectionManager::class)->metrics()->query(MetricQuery::raw('up'));
 
     Event::assertDispatched(BackendQueried::class, fn (BackendQueried $e): bool => str_contains($e->url, 'prometheus.test:9090')
         && $e->method === 'GET'

@@ -6,6 +6,9 @@ namespace Cbox\TelemetryUi\Analysis;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
+use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Results\Trace;
 use DateTimeImmutable;
 use Illuminate\Support\Carbon;
@@ -35,7 +38,8 @@ final readonly class TraceLogs
 
         try {
             $entries = $this->connections->logs()->query(
-                '{service_name=~".+"} | trace_id="'.$trace->traceId.'"',
+                LogQuery::stream(new LabelMatcher('service_name', MatchOp::Re, '.+'))
+                    ->whereLabel('trace_id', MatchOp::Eq, $trace->traceId),
                 $start,
                 $end,
                 limit: 20,

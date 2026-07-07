@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Analysis;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Queries\Results\Trace;
 use DateTimeImmutable;
@@ -104,7 +105,7 @@ final readonly class SignalContext
         $query = $this->expand((string) $signal['query'], $selector);
 
         try {
-            $series = $this->connections->metrics()->queryRange($query, $start, $end);
+            $series = $this->connections->metrics()->queryRange(MetricQuery::raw($query), $start, $end);
         } catch (SourceException) {
             return null; // fail-open: a missing signal is one fewer tile.
         }
@@ -144,7 +145,7 @@ final readonly class SignalContext
 
         return $this->cache->store()->remember($key, $ttl, function () use ($query, $start, $end): ?float {
             try {
-                $points = $this->points($this->connections->metrics()->queryRange($query, $start, $end));
+                $points = $this->points($this->connections->metrics()->queryRange(MetricQuery::raw($query), $start, $end));
             } catch (SourceException) {
                 return null;
             }

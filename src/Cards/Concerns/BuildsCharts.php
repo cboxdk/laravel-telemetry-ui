@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Cards\Concerns;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Support\Format;
 use Cbox\TelemetryUi\TelemetryUiManager;
@@ -58,14 +59,14 @@ trait BuildsCharts
      */
     protected function promChart(
         string $title,
-        string $promql,
+        MetricQuery $promql,
         ?string $subtitle = null,
         ?string $seriesLabel = null,
         string $type = 'line',
         ?string $unit = null,
         int $span = 1,
         ?string $stat = null,
-        ?string $statQuery = null,
+        ?MetricQuery $statQuery = null,
     ): View {
         [$start, $end] = $this->range();
 

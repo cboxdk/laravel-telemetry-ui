@@ -23,10 +23,10 @@ final class HostDetailHeader extends Card
         $cpu = $memory = $load = $requests = null;
 
         try {
-            $cpu = $this->total('avg('.$this->metric('system_cpu_utilization_ratio').')');
-            $memory = $this->total('avg('.$this->metric('system_memory_utilization_ratio', 'state="used"').')');
-            $load = $this->total('avg('.$this->metric('', '__name__=~"system_cpu_load_average(_ratio)?", period="1m"').')');
-            $requests = $this->total('sum(increase('.$this->metric('http_server_request_duration_milliseconds_count').'['.$this->promDuration().']))');
+            $cpu = $this->total($this->metric('system_cpu_utilization_ratio')->avgBy());
+            $memory = $this->total($this->metric('system_memory_utilization_ratio', 'state="used"')->avgBy());
+            $load = $this->total($this->metric('', '__name__=~"system_cpu_load_average(_ratio)?", period="1m"')->avgBy());
+            $requests = $this->total($this->metric('http_server_request_duration_milliseconds_count')->increase($this->promDuration())->sumBy());
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
         }

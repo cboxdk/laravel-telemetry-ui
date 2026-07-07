@@ -27,7 +27,7 @@ class JobsTable extends Card
 
         try {
             $trends = $this->trendByKey(
-                'sum by (job_name, queue) (rate('.$this->metric('queue_jobs_processed_total').'['.$this->rateWindow().'])) * 60',
+                $this->metric('queue_jobs_processed_total')->rate($this->rateWindow())->sumBy('job_name', 'queue')->times(60),
                 $start,
                 $end,
                 fn (array $labels): string => ($labels['job_name'] ?? '?').'|'.($labels['queue'] ?? '?'),
@@ -35,7 +35,7 @@ class JobsTable extends Card
 
             foreach (['processed', 'failed', 'released'] as $outcome) {
                 $samples = $this->metrics()->query(
-                    'sum by (job_name, queue) (increase('.$this->metric('queue_jobs_'.$outcome.'_total').'['.$p.']))',
+                    $this->metric('queue_jobs_'.$outcome.'_total')->increase($p)->sumBy('job_name', 'queue'),
                 );
 
                 foreach ($samples as $sample) {
@@ -54,15 +54,15 @@ class JobsTable extends Card
             }
 
             $times = $this->metrics()->query(
-                'sum by (job_name, queue) (increase('.$this->metric('queue_job_duration_milliseconds_sum').'['.$p.']))',
+                $this->metric('queue_job_duration_milliseconds_sum')->increase($p)->sumBy('job_name', 'queue'),
             );
 
             $counts = $this->metrics()->query(
-                'sum by (job_name, queue) (increase('.$this->metric('queue_job_duration_milliseconds_count').'['.$p.']))',
+                $this->metric('queue_job_duration_milliseconds_count')->increase($p)->sumBy('job_name', 'queue'),
             );
 
             $p95s = $this->metrics()->query(
-                'histogram_quantile(0.95, sum by (job_name, queue, le) (rate('.$this->metric('queue_job_duration_milliseconds_bucket').'['.$p.'])))',
+                $this->metric('queue_job_duration_milliseconds_bucket')->quantile(0.95, $p, 'job_name', 'queue'),
             );
         } catch (SourceException $exception) {
             return $this->view([], $exception->getMessage());

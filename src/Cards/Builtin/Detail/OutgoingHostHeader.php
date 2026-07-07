@@ -29,10 +29,10 @@ final class OutgoingHostHeader extends Card
         $total = $err = $fail = $time = 0.0;
 
         try {
-            $total = $this->total('sum(increase('.$count.'['.$p.']))');
-            $err = $this->total('sum(increase('.$errors.'['.$p.']))');
-            $fail = $this->total('sum(increase('.$failures.'['.$p.']))');
-            $time = $this->total('sum(increase('.$sum.'['.$p.']))');
+            $total = $this->total($count->increase($p)->sumBy());
+            $err = $this->total($errors->increase($p)->sumBy());
+            $fail = $this->total($failures->increase($p)->sumBy());
+            $time = $this->total($sum->increase($p)->sumBy());
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
         }

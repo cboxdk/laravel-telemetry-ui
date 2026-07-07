@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Cards\Builtin\Detail;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Contracts\View\View;
 
@@ -40,7 +41,7 @@ final class HostServices extends Card
                     continue;
                 }
 
-                $up = $this->metrics()->query($this->expand($service['up']));
+                $up = $this->metrics()->query(MetricQuery::raw($this->expand($service['up'])));
 
                 if ($up === []) {
                     continue; // exporter absent for this host — no section.
@@ -54,7 +55,7 @@ final class HostServices extends Card
                     }
 
                     try {
-                        $value = $this->total($this->expand($tile['query']));
+                        $value = $this->total(MetricQuery::raw($this->expand($tile['query'])));
                     } catch (SourceException) {
                         continue; // one missing stat is one fewer tile.
                     }

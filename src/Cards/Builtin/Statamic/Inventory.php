@@ -21,10 +21,10 @@ final class Inventory extends Card
         $error = null;
 
         try {
-            $entries = $this->total('sum('.$this->metric('statamic_entries_count').')');
-            $assets = $this->total('sum('.$this->metric('statamic_assets_count').')');
-            $users = $this->total('sum('.$this->metric('statamic_users_count').')');
-            $collections = count($this->metrics()->query('count by (collection) ('.$this->metric('statamic_entries_count').')'));
+            $entries = $this->total($this->metric('statamic_entries_count')->sumBy());
+            $assets = $this->total($this->metric('statamic_assets_count')->sumBy());
+            $users = $this->total($this->metric('statamic_users_count')->sumBy());
+            $collections = count($this->metrics()->query($this->metric('statamic_entries_count')->countBy('collection')));
 
             $stats = [
                 $this->stat('Entries', Format::count($entries), 'info'),

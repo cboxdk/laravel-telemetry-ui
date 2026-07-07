@@ -26,13 +26,13 @@ final class LivewireActivity extends Card
             $series = [];
 
             foreach (['Mounted' => [$mounted, '#34d399'], 'Hydrated' => [$hydrated, '#60a5fa']] as $label => [$metric, $color]) {
-                foreach ($this->metrics()->queryRange('sum(rate('.$metric.'['.$this->rateWindow().'])) * 60', $start, $end) as $timeSeries) {
+                foreach ($this->metrics()->queryRange($metric->rate($this->rateWindow())->sumBy()->times(60), $start, $end) as $timeSeries) {
                     $series[] = ['name' => $label, 'data' => $timeSeries->toChartData(), 'color' => $color];
                 }
             }
 
-            $totalMounted = $this->total('sum(increase('.$mounted.'['.$this->promDuration().']))');
-            $totalHydrated = $this->total('sum(increase('.$hydrated.'['.$this->promDuration().']))');
+            $totalMounted = $this->total($mounted->increase($this->promDuration())->sumBy());
+            $totalHydrated = $this->total($hydrated->increase($this->promDuration())->sumBy());
         } catch (SourceException $exception) {
             return $this->chartCard('Livewire activity', error: $exception->getMessage(), span: 2);
         }

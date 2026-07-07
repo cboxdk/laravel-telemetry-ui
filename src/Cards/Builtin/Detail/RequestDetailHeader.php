@@ -32,10 +32,10 @@ final class RequestDetailHeader extends Card
         $p95 = null;
 
         try {
-            $total = $this->total('sum(increase('.$count.'['.$p.']))');
-            $errCount = $this->total('sum(increase('.$errors.'['.$p.']))');
-            $time = $this->total('sum(increase('.$sum.'['.$p.']))');
-            $p95value = $this->total('histogram_quantile(0.95, sum by (le) (rate('.$bucket.'['.$p.'])))');
+            $total = $this->total($count->increase($p)->sumBy());
+            $errCount = $this->total($errors->increase($p)->sumBy());
+            $time = $this->total($sum->increase($p)->sumBy());
+            $p95value = $this->total($bucket->quantile(0.95, $p));
             $p95 = is_nan($p95value) ? null : $p95value;
         } catch (SourceException $exception) {
             $error = $exception->getMessage();

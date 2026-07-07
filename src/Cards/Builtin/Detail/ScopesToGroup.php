@@ -6,6 +6,8 @@ namespace Cbox\TelemetryUi\Cards\Builtin\Detail;
 
 use Cbox\TelemetryUi\Analysis\ErrorGroupReport;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Livewire\Attributes\Url;
 
 /**
@@ -33,7 +35,10 @@ trait ScopesToGroup
         return app(ErrorGroupReport::class)->for(
             $this->group,
             $this->logSelector(),
-            $this->traceScope('span.browser = true && span.exception.type != nil'),
+            $this->traceQuery(
+                TraceCondition::token('span.browser', TraceOp::Eq, 'true'),
+                TraceCondition::nil('span.exception.type'),
+            ),
         );
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Cards\Builtin\Detail;
 
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Livewire\Attributes\Url;
 
 /**
@@ -20,8 +22,14 @@ trait ScopesToHost
         return $this->host === '' ? '' : 'server_address="'.addcslashes($this->host, '"\\').'"';
     }
 
-    protected function hostTraceScope(): string
+    /**
+     * @return list<TraceCondition>
+     */
+    protected function hostTraceConditions(): array
     {
-        return 'span.server.address = "'.addcslashes($this->host, '"\\').'" && kind = client';
+        return [
+            TraceCondition::eq('span.server.address', $this->host),
+            TraceCondition::token('kind', TraceOp::Eq, 'client'),
+        ];
     }
 }

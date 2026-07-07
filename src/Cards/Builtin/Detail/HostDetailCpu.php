@@ -14,7 +14,7 @@ final class HostDetailCpu extends SystemCharts
     {
         return [
             'title' => 'CPU load average',
-            'query' => 'avg by (period) ('.$this->metric('', '__name__=~"system_cpu_load_average(_ratio)?"').')',
+            'query' => $this->metric('', '__name__=~"system_cpu_load_average(_ratio)?"')->avgBy('period'),
             'label' => 'period',
             'unit' => '',
             'type' => 'line',

@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Illuminate\Contracts\View\View;
 
 /**
@@ -25,7 +26,7 @@ final class HostsTable extends Card
         $rows = [];
         $error = null;
 
-        $collect = function (string $query, string $field) use (&$rows): void {
+        $collect = function (MetricQuery $query, string $field) use (&$rows): void {
             foreach ($this->metrics()->query($query) as $sample) {
                 $host = $sample->labels['host_name'] ?? '';
                 if ($host === '') {
@@ -37,10 +38,10 @@ final class HostsTable extends Card
         };
 
         try {
-            $collect('sum by (host_name) (increase('.$count.'['.$p.']))', 'requests');
-            $collect('sum by (host_name) (increase('.$errors.'['.$p.']))', 'errors');
-            $collect('avg by (host_name) ('.$this->metric('system_cpu_utilization_ratio').')', 'cpu');
-            $collect('avg by (host_name) ('.$this->metric('system_memory_utilization_ratio', 'state="used"').')', 'memory');
+            $collect($count->increase($p)->sumBy('host_name'), 'requests');
+            $collect($errors->increase($p)->sumBy('host_name'), 'errors');
+            $collect($this->metric('system_cpu_utilization_ratio')->avgBy('host_name'), 'cpu');
+            $collect($this->metric('system_memory_utilization_ratio', 'state="used"')->avgBy('host_name'), 'memory');
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
         }

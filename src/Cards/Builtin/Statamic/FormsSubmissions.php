@@ -21,8 +21,8 @@ final class FormsSubmissions extends Card
         $metric = $this->metric('statamic_forms_submissions_total');
 
         try {
-            $total = $this->total('sum(increase('.$metric.'['.$this->promDuration().']))');
-            $range = $this->metrics()->queryRange('sum by (form) (rate('.$metric.'['.$this->rateWindow().'])) * 60', $start, $end);
+            $total = $this->total($metric->increase($this->promDuration())->sumBy());
+            $range = $this->metrics()->queryRange($metric->rate($this->rateWindow())->sumBy('form')->times(60), $start, $end);
         } catch (SourceException $exception) {
             return $this->chartCard('Forms', error: $exception->getMessage());
         }

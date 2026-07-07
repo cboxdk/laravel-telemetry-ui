@@ -6,6 +6,8 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
@@ -44,17 +46,18 @@ final class TrafficByFacet extends Card
             $error = 'Enter a span attribute, e.g. team.id or statamic.site.';
         } else {
             try {
-                $select = ' | select(span.'.$attribute.')';
-
                 $all = $this->traces()->search(
-                    '{ '.$this->traceScope('span.'.$attribute.' != nil').' }'.$select,
+                    $this->traceQuery(TraceCondition::nil('span.'.$attribute))->select('span.'.$attribute),
                     $start,
                     $end,
                     limit: 100,
                 );
 
                 $failed = $this->traces()->search(
-                    '{ '.$this->traceScope('span.'.$attribute.' != nil && status = error').' }'.$select,
+                    $this->traceQuery(
+                        TraceCondition::nil('span.'.$attribute),
+                        TraceCondition::token('status', TraceOp::Eq, 'error'),
+                    )->select('span.'.$attribute),
                     $start,
                     $end,
                     limit: 100,

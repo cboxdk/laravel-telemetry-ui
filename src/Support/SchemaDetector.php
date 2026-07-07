@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Support;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 
 /**
@@ -48,7 +49,7 @@ final readonly class SchemaDetector
 
         try {
             $samples = $this->connections->metrics($connection)->query(
-                sprintf('count({%s})', $selector),
+                MetricQuery::raw(sprintf('count({%s})', $selector)),
             );
         } catch (SourceException) {
             return true;

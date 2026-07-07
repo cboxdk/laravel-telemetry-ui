@@ -25,14 +25,14 @@ final class AutoscaleSla extends Card
         $predicted = $this->metric('queue_autoscale_sla_predicted_pickup_seconds');
 
         try {
-            $inBreach = $this->total('sum('.$this->metric('queue_autoscale_sla_breach_ratio').')');
+            $inBreach = $this->total($this->metric('queue_autoscale_sla_breach_ratio')->sumBy());
             // counterIncrease(), not increase(): breaches are rare, and a
             // counter born mid-window would otherwise read as zero.
             $breaches = $this->total(
-                'sum('.$this->counterIncrease($this->metric('queue_autoscale_sla_breaches_total')).')',
+                $this->counterIncrease($this->metric('queue_autoscale_sla_breaches_total'))->sumBy(),
             );
 
-            $range = $this->metrics()->queryRange('max by (queue) ('.$predicted.')', $start, $end);
+            $range = $this->metrics()->queryRange($predicted->maxBy('queue'), $start, $end);
         } catch (SourceException $exception) {
             return $this->chartCard('SLA', error: $exception->getMessage());
         }

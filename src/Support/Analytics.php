@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Support;
 
+use Cbox\TelemetryUi\Queries\Ir\LineFilter;
+use Cbox\TelemetryUi\Queries\Ir\LineOp;
 use Cbox\TelemetryUi\Queries\Results\LogEntry;
 
 /**
@@ -22,11 +24,23 @@ use Cbox\TelemetryUi\Queries\Results\LogEntry;
  */
 final class Analytics
 {
-    /** The LogQL line filter that selects page-view events on a scope selector. */
-    public const PAGE_VIEW_FILTER = ' |= "analytics.page_view"';
+    /** The event name the emitter writes for a page view. */
+    public const PAGE_VIEW_EVENT = 'analytics.page_view';
 
-    /** The LogQL line filter that selects engagement events (visible time, scroll). */
-    public const ENGAGEMENT_FILTER = ' |= "analytics.engagement"';
+    /** The event name the emitter writes for an engagement (visible time, scroll). */
+    public const ENGAGEMENT_EVENT = 'analytics.engagement';
+
+    /** A pipeline stage selecting page-view events (append after logSelector()). */
+    public static function pageViewFilter(): LineFilter
+    {
+        return new LineFilter(LineOp::Contains, self::PAGE_VIEW_EVENT);
+    }
+
+    /** A pipeline stage selecting engagement events (append after logSelector()). */
+    public static function engagementFilter(): LineFilter
+    {
+        return new LineFilter(LineOp::Contains, self::ENGAGEMENT_EVENT);
+    }
 
     /**
      * Normalise raw page-view log entries into flat visit rows.

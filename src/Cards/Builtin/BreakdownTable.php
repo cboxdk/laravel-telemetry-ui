@@ -31,7 +31,7 @@ abstract class BreakdownTable extends Card
         try {
             foreach ($spec['outcomes'] as $outcome => $metricName) {
                 $samples = $this->metrics()->query(
-                    'sum by ('.$key.') (increase('.$this->metric($metricName).'['.$p.']))',
+                    $this->metric($metricName)->increase($p)->sumBy($key),
                 );
 
                 foreach ($samples as $sample) {
@@ -47,7 +47,7 @@ abstract class BreakdownTable extends Card
                 }
             }
 
-            foreach ($this->metrics()->query('sum by ('.$key.') (increase('.$this->metric($spec['durationMetric'].'_sum').'['.$p.']))') as $sample) {
+            foreach ($this->metrics()->query($this->metric($spec['durationMetric'].'_sum')->increase($p)->sumBy($key)) as $sample) {
                 $name = $sample->labels[$key] ?? '?';
 
                 if (isset($rows[$name])) {
@@ -55,7 +55,7 @@ abstract class BreakdownTable extends Card
                 }
             }
 
-            foreach ($this->metrics()->query('sum by ('.$key.') (increase('.$this->metric($spec['durationMetric'].'_count').'['.$p.']))') as $sample) {
+            foreach ($this->metrics()->query($this->metric($spec['durationMetric'].'_count')->increase($p)->sumBy($key)) as $sample) {
                 $name = $sample->labels[$key] ?? '?';
 
                 if (isset($rows[$name])) {
@@ -63,7 +63,7 @@ abstract class BreakdownTable extends Card
                 }
             }
 
-            foreach ($this->metrics()->query('histogram_quantile(0.95, sum by ('.$key.', le) (rate('.$this->metric($spec['durationMetric'].'_bucket').'['.$p.'])))') as $sample) {
+            foreach ($this->metrics()->query($this->metric($spec['durationMetric'].'_bucket')->quantile(0.95, $p, $key)) as $sample) {
                 $name = $sample->labels[$key] ?? '?';
 
                 if (isset($rows[$name]) && ! is_nan($sample->value)) {

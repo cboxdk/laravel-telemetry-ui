@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Cards\Builtin\Detail;
 
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Livewire\Attributes\Url;
 
 /**
@@ -21,10 +23,15 @@ trait ScopesToRoute
     }
 
     /**
-     * The trace-scope condition for this route (TraceQL, server spans).
+     * The trace-scope conditions for this route (TraceQL, server spans).
+     *
+     * @return list<TraceCondition>
      */
-    protected function routeTraceScope(): string
+    protected function routeTraceConditions(): array
     {
-        return 'span.http.route = "'.addcslashes($this->route, '"\\').'" && kind = server';
+        return [
+            TraceCondition::eq('span.http.route', $this->route),
+            TraceCondition::token('kind', TraceOp::Eq, 'server'),
+        ];
     }
 }

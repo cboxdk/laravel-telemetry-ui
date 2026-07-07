@@ -33,7 +33,7 @@ final class HorizonIncidents extends Card
         try {
             foreach (self::SIGNALS as $metric => [$label, $color]) {
                 $range = $this->metrics()->queryRange(
-                    'sum(rate('.$this->metric($metric).'['.$this->rateWindow().'])) * 60',
+                    $this->metric($metric)->rate($this->rateWindow())->sumBy()->times(60),
                     $start,
                     $end,
                 );
@@ -42,7 +42,7 @@ final class HorizonIncidents extends Card
                     $series[] = ['name' => $label, 'data' => $timeSeries->toChartData(), 'color' => $color];
                 }
 
-                $total = $this->total('sum(increase('.$this->metric($metric).'['.$this->promDuration().']))');
+                $total = $this->total($this->metric($metric)->increase($this->promDuration())->sumBy());
                 $stats[] = $this->stat($label, Format::count($total), $total > 0 && $label !== 'Migrated jobs' ? 'warn' : 'dim');
             }
         } catch (SourceException $exception) {

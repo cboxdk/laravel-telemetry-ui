@@ -28,7 +28,7 @@ final class RequestDetailStatus extends Card
 
         try {
             $samples = $this->metrics()->query(
-                'sum by (http_response_status_code) (increase('.$count.'['.$p.']))',
+                $count->increase($p)->sumBy('http_response_status_code'),
             );
 
             foreach ($samples as $sample) {

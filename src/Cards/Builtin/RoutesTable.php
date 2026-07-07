@@ -55,19 +55,19 @@ class RoutesTable extends Card
 
         try {
             $counts = $this->metrics()->query(
-                'sum by (http_route, http_request_method, class) (label_replace(increase('.$count.'['.$p.']), "class", "${1}xx", "http_response_status_code", "([0-9]).."))',
+                $count->increase($p)->sumBy('http_route', 'http_request_method', 'http_response_status_code'),
             );
 
             $times = $this->metrics()->query(
-                'sum by (http_route, http_request_method) (increase('.$sum.'['.$p.']))',
+                $sum->increase($p)->sumBy('http_route', 'http_request_method'),
             );
 
             $p95s = $this->metrics()->query(
-                'histogram_quantile(0.95, sum by (http_route, http_request_method, le) (rate('.$bucket.'['.$p.'])))',
+                $bucket->quantile(0.95, $p, 'http_route', 'http_request_method'),
             );
 
             $trends = $this->trendByKey(
-                'sum by (http_route, http_request_method) (rate('.$count.'['.$this->rateWindow().'])) * 60',
+                $count->rate($this->rateWindow())->sumBy('http_route', 'http_request_method')->times(60),
                 $start,
                 $end,
                 fn (array $labels): string => ($labels['http_request_method'] ?? '?').' '.($labels['http_route'] ?? '?'),
@@ -87,7 +87,8 @@ class RoutesTable extends Card
                 'spark' => $trends[$key] ?? [],
             ];
 
-            $class = match ($sample->labels['class'] ?? '') {
+            $code = $sample->labels['http_response_status_code'] ?? '';
+            $class = match ($code === '' ? '' : $code[0].'xx') {
                 '4xx' => '4xx',
                 '5xx' => '5xx',
                 default => 'ok',

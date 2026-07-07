@@ -31,15 +31,15 @@ final class QueueWorkers extends Card
         try {
             $now = [];
 
-            foreach ($this->metrics()->query('sum by (state) ('.$count.')') as $sample) {
+            foreach ($this->metrics()->query($count->sumBy('state')) as $sample) {
                 $now[$sample->labels['state'] ?? ''] = $sample->value;
             }
 
             $utilization = $this->total(
-                'avg('.$this->metric('queue_metrics_workers_utilization_percent', 'window="current"').')',
+                $this->metric('queue_metrics_workers_utilization_percent', 'window="current"')->avgBy(),
             );
 
-            $range = $this->metrics()->queryRange('sum by (state) ('.$count.')', $start, $end);
+            $range = $this->metrics()->queryRange($count->sumBy('state'), $start, $end);
         } catch (SourceException $exception) {
             return $this->chartCard('Workers', error: $exception->getMessage());
         }

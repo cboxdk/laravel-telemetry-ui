@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Cards\Builtin;
 
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+
 /**
  * The live request log narrowed to Livewire update requests — rows show the
  * component(s) behind each update, and the Components card is the grouped
@@ -13,6 +15,6 @@ final class LivewireRequestLog extends RequestLog
 {
     protected function extraTraceConditions(): array
     {
-        return ['span.http.route =~ "livewire:.*"'];
+        return [TraceCondition::re('span.http.route', 'livewire:.*')];
     }
 }

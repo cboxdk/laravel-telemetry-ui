@@ -6,6 +6,9 @@ namespace Cbox\TelemetryUi\Analysis;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
+use Cbox\TelemetryUi\Queries\Ir\MatchOp;
+use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
 use DateTimeImmutable;
@@ -38,15 +41,15 @@ final class ErrorGroupReport
     public function __construct(private readonly ConnectionManager $connections) {}
 
     /**
-     * @param  string  $logSelector  scoped Loki stream selector
-     * @param  string  $browserScope  scoped TraceQL conditions for browser exception spans
+     * @param  LogQuery  $logSelector  scoped log selector for the exception records
+     * @param  TraceQuery  $browserQuery  scoped query for browser exception spans
      * @return Report
      *
      * @throws SourceException
      */
-    public function for(string $group, string $logSelector, string $browserScope): array
+    public function for(string $group, LogQuery $logSelector, TraceQuery $browserQuery): array
     {
-        $key = $group.'|'.$logSelector.'|'.$browserScope;
+        $key = $group.'|'.$logSelector->key().'|'.$browserQuery->key();
 
         if (isset($this->memo[$key])) {
             return $this->memo[$key];
@@ -57,7 +60,7 @@ final class ErrorGroupReport
         // A group is one throw site in one runtime — when Loki has no
         // records for it, it can only be a frontend group.
         if ($occurrences === []) {
-            $occurrences = $this->browserOccurrences($group, $browserScope);
+            $occurrences = $this->browserOccurrences($group, $browserQuery);
         }
 
         $stats = $this->stats($occurrences);
@@ -86,12 +89,12 @@ final class ErrorGroupReport
      *
      * @throws SourceException
      */
-    private function backendOccurrences(string $group, string $logSelector): array
+    private function backendOccurrences(string $group, LogQuery $logSelector): array
     {
         [$start, $end] = $this->window();
 
         $entries = $this->connections->logs()->query(
-            $logSelector.' | exception_group="'.addcslashes($group, '"\\').'"',
+            $logSelector->whereLabel('exception_group', MatchOp::Eq, $group),
             $start,
             $end,
             limit: self::SEARCH_LIMIT,
@@ -143,14 +146,13 @@ final class ErrorGroupReport
      *
      * @throws SourceException
      */
-    private function browserOccurrences(string $group, string $browserScope): array
+    private function browserOccurrences(string $group, TraceQuery $browserQuery): array
     {
         [$start, $end] = $this->window();
 
-        $traceql = '{ '.$browserScope
-            .' } | select(span.exception.type, span.exception.message, span.exception.file, span.exception.line)';
+        $query = $browserQuery->select('span.exception.type', 'span.exception.message', 'span.exception.file', 'span.exception.line');
 
-        $results = $this->connections->traces()->search($traceql, $start, $end, limit: self::SEARCH_LIMIT);
+        $results = $this->connections->traces()->search($query, $start, $end, limit: self::SEARCH_LIMIT);
 
         $occurrences = [];
 
@@ -258,7 +260,7 @@ final class ErrorGroupReport
     /**
      * @return array{label: string, kind: string, time: string, gap: string, notes: string|null, traceId: string|null, color: string}|null
      */
-    private function suspect(int $firstSeenNano, string $logSelector): ?array
+    private function suspect(int $firstSeenNano, LogQuery $logSelector): ?array
     {
         $firstSeenMs = intdiv($firstSeenNano, 1_000_000);
 

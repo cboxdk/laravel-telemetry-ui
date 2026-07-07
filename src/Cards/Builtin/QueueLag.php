@@ -25,11 +25,11 @@ final class QueueLag extends Card
 
         try {
             $p95Now = $this->total(
-                'histogram_quantile(0.95, sum by (le) (rate('.$bucket.'['.$this->promDuration().'])))',
+                $bucket->quantile(0.95, $this->promDuration()),
             );
 
             $range = $this->metrics()->queryRange(
-                'histogram_quantile(0.95, sum by (queue, le) (rate('.$bucket.'['.$this->rateWindow().'])))',
+                $bucket->quantile(0.95, $this->rateWindow(), 'queue'),
                 $start,
                 $end,
             );

@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Contracts\View\View;
 
@@ -21,7 +22,7 @@ final class HorizonOverview extends Card
 
         try {
             $range = $this->metrics()->queryRange(
-                'sum by (supervisor) ('.$this->metric('horizon_supervisor_processes').')',
+                $this->metric('horizon_supervisor_processes')->sumBy('supervisor'),
                 $start,
                 $end,
             );
@@ -48,8 +49,8 @@ final class HorizonOverview extends Card
         );
     }
 
-    private function sumQuery(string $metric): string
+    private function sumQuery(string $metric): MetricQuery
     {
-        return 'sum('.$this->metric($metric).')';
+        return $this->metric($metric)->sumBy();
     }
 }

@@ -21,10 +21,10 @@ final class NotificationsOverview extends Card
         $metric = $this->metric('notifications_sent_total');
 
         try {
-            $total = $this->total('sum(increase('.$metric.'['.$this->promDuration().']))');
+            $total = $this->total($metric->increase($this->promDuration())->sumBy());
 
             $range = $this->metrics()->queryRange(
-                'sum by (channel) (rate('.$metric.'['.$this->rateWindow().'])) * 60',
+                $metric->rate($this->rateWindow())->sumBy('channel')->times(60),
                 $start,
                 $end,
             );

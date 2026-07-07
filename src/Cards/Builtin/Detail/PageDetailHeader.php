@@ -6,6 +6,8 @@ namespace Cbox\TelemetryUi\Cards\Builtin\Detail;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Support\Analytics;
 use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Contracts\View\View;
@@ -36,7 +38,7 @@ final class PageDetailHeader extends Card
         if ($this->page !== '') {
             try {
                 $rows = Analytics::rows($this->logs()->query(
-                    $this->logSelector().$this->pageLogFilter().Analytics::PAGE_VIEW_FILTER,
+                    $this->logSelector()->pipe(...$this->pageLogFilter())->pipe(Analytics::pageViewFilter()),
                     $start,
                     $end,
                     limit: self::SAMPLE_LIMIT,
@@ -50,7 +52,7 @@ final class PageDetailHeader extends Card
                 // spans key on `http.url`, not the backend-only `url.path`, so
                 // scope by service/env and match the path in PHP.
                 $loads = $this->traces()->search(
-                    '{ '.$this->traceScope('span.browser.ttfb_ms != nil').' } | select(span.http.url)',
+                    $this->traceQuery(TraceCondition::nil('span.browser.ttfb_ms'))->select('span.http.url'),
                     $start,
                     $end,
                     limit: self::SEARCH_LIMIT,
@@ -74,7 +76,10 @@ final class PageDetailHeader extends Card
 
                 // Errors: browser exception spans stamped with this page's URL.
                 $errorResults = $this->traces()->search(
-                    '{ '.$this->traceScope('span.browser = true && span.exception.type != nil').' } | select(span.http.url)',
+                    $this->traceQuery(
+                        TraceCondition::token('span.browser', TraceOp::Eq, 'true'),
+                        TraceCondition::nil('span.exception.type'),
+                    )->select('span.http.url'),
                     $start,
                     $end,
                     limit: self::SEARCH_LIMIT,

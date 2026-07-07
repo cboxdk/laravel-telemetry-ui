@@ -21,7 +21,7 @@ final class ContentChanges extends Card
         $error = null;
 
         try {
-            foreach ($this->metrics()->query('sum by (type, action) (increase('.$metric.'['.$this->promDuration().']))') as $sample) {
+            foreach ($this->metrics()->query($metric->increase($this->promDuration())->sumBy('type', 'action')) as $sample) {
                 if ($sample->value < 0.5) {
                     continue;
                 }

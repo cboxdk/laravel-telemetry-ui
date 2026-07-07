@@ -25,12 +25,12 @@ final class StacheActivity extends Card
         $p = $this->promDuration();
 
         try {
-            $totalWarms = $this->total('sum(increase('.$warms.'['.$p.']))');
-            $totalClears = $this->total('sum(increase('.$clears.'['.$p.']))');
-            $p95 = $this->total('histogram_quantile(0.95, sum by (le) (rate('.$bucket.'['.$p.'])))');
+            $totalWarms = $this->total($warms->increase($p)->sumBy());
+            $totalClears = $this->total($clears->increase($p)->sumBy());
+            $p95 = $this->total($bucket->quantile(0.95, $p));
 
-            $warmRange = $this->metrics()->queryRange('sum(rate('.$warms.'['.$w.'])) * 60', $start, $end);
-            $clearRange = $this->metrics()->queryRange('sum(rate('.$clears.'['.$w.'])) * 60', $start, $end);
+            $warmRange = $this->metrics()->queryRange($warms->rate($w)->sumBy()->times(60), $start, $end);
+            $clearRange = $this->metrics()->queryRange($clears->rate($w)->sumBy()->times(60), $start, $end);
         } catch (SourceException $exception) {
             return $this->chartCard('Stache', error: $exception->getMessage());
         }

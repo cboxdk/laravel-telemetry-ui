@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
 use Cbox\TelemetryUi\Contracts\TracesSource;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\Sample;
 use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
@@ -282,27 +283,22 @@ abstract class Card extends Component
     /**
      * Evaluate an instant query and sum all its samples.
      */
-    protected function total(string $promql): float
+    protected function total(MetricQuery $query): float
     {
-        return $this->sumSamples($this->metrics()->query($promql));
+        return $this->sumSamples($this->metrics()->query($query));
     }
 
     /**
-     * PromQL for a counter's total increase over a window, INCLUDING series
-     * born inside it. increase() interpolates between samples, so a counter
-     * that first appeared mid-window contributes nothing — which zeroes out
-     * sparse event counters (scaling actions, SLA breaches). Series absent
-     * at the window start fall back to their own zero ($selector * 0), so
-     * the birth jump counts; clamp_min guards counter resets.
-     *
-     * @param  string  $selector  a full metric selector (already scoped)
-     * @param  string|null  $window  PromQL duration; defaults to the period
+     * A counter's total increase over a window, INCLUDING series born inside
+     * it. increase() interpolates between samples, so a counter that first
+     * appeared mid-window contributes nothing — which zeroes out sparse event
+     * counters (scaling actions, SLA breaches). Series absent at the window
+     * start fall back to their own zero, so the birth jump counts; a clamp
+     * guards counter resets. Defaults the window to the whole period.
      */
-    protected function counterIncrease(string $selector, ?string $window = null): string
+    protected function counterIncrease(MetricQuery $query, ?string $window = null): MetricQuery
     {
-        $window ??= $this->promDuration();
-
-        return 'clamp_min('.$selector.' - ('.$selector.' offset '.$window.' or '.$selector.' * 0), 0)';
+        return $query->counterIncrease($window ?? $this->promDuration());
     }
 
     /**
@@ -313,11 +309,11 @@ abstract class Card extends Component
      * @param  callable(array<string, string>): string  $key
      * @return array<string, list<float>>
      */
-    protected function trendByKey(string $promql, DateTimeImmutable $start, DateTimeImmutable $end, callable $key): array
+    protected function trendByKey(MetricQuery $query, DateTimeImmutable $start, DateTimeImmutable $end, callable $key): array
     {
         $trends = [];
 
-        foreach ($this->metrics()->queryRange($promql, $start, $end) as $series) {
+        foreach ($this->metrics()->queryRange($query, $start, $end) as $series) {
             $trends[$key($series->labels)] = array_map(
                 static fn ($point): float => $point->value,
                 $series->points,

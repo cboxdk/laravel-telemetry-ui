@@ -7,6 +7,8 @@ namespace Cbox\TelemetryUi\Connectors\Tempo;
 use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\TracesSource;
+use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
+use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Queries\Results\MatchedSpan;
 use Cbox\TelemetryUi\Queries\Results\Span;
 use Cbox\TelemetryUi\Queries\Results\SpanKind;
@@ -23,13 +25,13 @@ final readonly class TempoSource implements TracesSource
     public function __construct(private ApiClient $client) {}
 
     public function search(
-        string $traceql,
+        TraceQuery $query,
         DateTimeInterface $start,
         DateTimeInterface $end,
         int $limit = 20,
     ): array {
         $response = $this->client->get('/api/search', [
-            'q' => $traceql,
+            'q' => (new TraceqlCompiler)->compile($query),
             'start' => $start->getTimestamp(),
             'end' => $end->getTimestamp(),
             'limit' => $limit,
@@ -103,15 +105,15 @@ final readonly class TempoSource implements TracesSource
 
     public function tagValues(
         string $tag,
-        ?string $traceql = null,
+        ?TraceQuery $filter = null,
         ?DateTimeInterface $start = null,
         ?DateTimeInterface $end = null,
         int $limit = 0,
     ): array {
         $params = [];
 
-        if ($traceql !== null) {
-            $params['q'] = $traceql;
+        if ($filter !== null) {
+            $params['q'] = (new TraceqlCompiler)->compile($filter);
         }
 
         // Bound the scan to a time window + limit so it doesn't enumerate the

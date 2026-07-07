@@ -23,8 +23,8 @@ class AutoscaleWorkers extends Card
     {
         [$start, $end] = $this->range();
 
-        $target = 'sum('.$this->metric('queue_autoscale_workers_target').')';
-        $active = 'sum('.$this->metric('queue_metrics_queue_active_workers').')';
+        $target = $this->metric('queue_autoscale_workers_target')->sumBy();
+        $active = $this->metric('queue_metrics_queue_active_workers')->sumBy();
 
         try {
             $targetNow = $this->total($target);

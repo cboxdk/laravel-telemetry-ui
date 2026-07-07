@@ -32,10 +32,10 @@ final class ScheduleOverview extends Card
             ] as $outcome => [$label, $color, $tone]) {
                 $metric = $this->metric('schedule_tasks_'.$outcome.'_total');
 
-                $total = $this->total('sum(increase('.$metric.'['.$p.']))');
+                $total = $this->total($metric->increase($p)->sumBy());
                 $stats[] = $this->stat($label, Format::count($total), $total > 0 ? $tone : 'dim');
 
-                $range = $this->metrics()->queryRange('sum(rate('.$metric.'['.$w.'])) * 60', $start, $end);
+                $range = $this->metrics()->queryRange($metric->rate($w)->sumBy()->times(60), $start, $end);
 
                 if (isset($range[0])) {
                     $series[] = ['name' => $label, 'data' => $range[0]->toChartData(), 'color' => $color];

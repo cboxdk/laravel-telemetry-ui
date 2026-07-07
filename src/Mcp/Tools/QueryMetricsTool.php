@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Mcp\Tools;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\JsonSchema as JsonSchemaFactory;
 use Laravel\Mcp\Request;
@@ -33,7 +34,7 @@ final class QueryMetricsTool extends TelemetryTool
     {
         try {
             $rows = [];
-            foreach ($this->connections->metrics()->query((string) $request->get('query', '')) as $sample) {
+            foreach ($this->connections->metrics()->query(MetricQuery::raw((string) $request->get('query', ''))) as $sample) {
                 $rows[] = ['labels' => $sample->labels, 'value' => $sample->value];
                 if (count($rows) >= self::MAX_LIMIT) {
                     break; // don't materialize an unbounded series set

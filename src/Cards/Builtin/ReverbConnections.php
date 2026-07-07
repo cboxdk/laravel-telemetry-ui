@@ -21,14 +21,14 @@ final class ReverbConnections extends Card
 
         try {
             $range = $this->metrics()->queryRange(
-                'sum by (app) ('.$this->metric('reverb_connections_active').')',
+                $this->metric('reverb_connections_active')->sumBy('app'),
                 $start,
                 $end,
             );
 
-            $active = $this->total('sum('.$this->metric('reverb_connections_active').')');
-            $pruned = $this->total('sum(increase('.$this->metric('reverb_connections_pruned_total').'['.$this->promDuration().']))');
-            $subscribers = $this->metrics()->query('sum by (type) ('.$this->metric('reverb_channels_subscribers').')');
+            $active = $this->total($this->metric('reverb_connections_active')->sumBy());
+            $pruned = $this->total($this->metric('reverb_connections_pruned_total')->increase($this->promDuration())->sumBy());
+            $subscribers = $this->metrics()->query($this->metric('reverb_channels_subscribers')->sumBy('type'));
         } catch (SourceException $exception) {
             return $this->chartCard('Reverb connections', error: $exception->getMessage(), span: 2);
         }

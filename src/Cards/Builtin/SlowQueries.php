@@ -6,6 +6,8 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
 
@@ -29,11 +31,12 @@ final class SlowQueries extends Card
         $error = null;
 
         try {
-            $traceql = '{ '.$this->traceScope(
-                'span.db.query.text != nil && duration > '.$this->minMs.'ms',
-            ).' } | select(span.db.query.text, span.db.system.name)';
+            $query = $this->traceQuery(
+                TraceCondition::nil('span.db.query.text'),
+                TraceCondition::token('duration', TraceOp::Gt, $this->minMs.'ms'),
+            )->select('span.db.query.text', 'span.db.system.name');
 
-            $results = $this->traces()->search($traceql, $start, $end, limit: 50);
+            $results = $this->traces()->search($query, $start, $end, limit: 50);
 
             foreach ($results as $summary) {
                 foreach ($summary->matchedSpans as $span) {

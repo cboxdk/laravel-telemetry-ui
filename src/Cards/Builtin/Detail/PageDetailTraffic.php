@@ -37,7 +37,7 @@ final class PageDetailTraffic extends Card
         if ($this->page !== '') {
             try {
                 $rows = Analytics::rows($this->logs()->query(
-                    $this->logSelector().$this->pageLogFilter().Analytics::PAGE_VIEW_FILTER,
+                    $this->logSelector()->pipe(...$this->pageLogFilter())->pipe(Analytics::pageViewFilter()),
                     $start,
                     $end,
                     limit: self::SAMPLE_LIMIT,

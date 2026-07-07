@@ -23,10 +23,10 @@ class ExceptionsOverview extends Card
         $metric = $this->metric('exceptions_reported_total');
 
         try {
-            $total = $this->total('sum(increase('.$metric.'['.$this->promDuration().']))');
+            $total = $this->total($metric->increase($this->promDuration())->sumBy());
 
             $range = $this->metrics()->queryRange(
-                'sum(rate('.$metric.'['.$this->rateWindow().'])) * 60',
+                $metric->rate($this->rateWindow())->sumBy()->times(60),
                 $start,
                 $end,
             );

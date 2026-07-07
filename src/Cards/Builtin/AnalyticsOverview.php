@@ -31,11 +31,11 @@ final class AnalyticsOverview extends Card
             $selector = $this->logSelector();
 
             $rows = Analytics::rows($this->logs()->query(
-                $selector.Analytics::PAGE_VIEW_FILTER, $start, $end, limit: self::SAMPLE_LIMIT,
+                $selector->pipe(Analytics::pageViewFilter()), $start, $end, limit: self::SAMPLE_LIMIT,
             ));
 
             $engagementMs = Analytics::avgEngagementMs($this->logs()->query(
-                $selector.Analytics::ENGAGEMENT_FILTER, $start, $end, limit: self::SAMPLE_LIMIT,
+                $selector->pipe(Analytics::engagementFilter()), $start, $end, limit: self::SAMPLE_LIMIT,
             ));
 
             $views = count($rows);

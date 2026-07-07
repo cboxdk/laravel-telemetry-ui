@@ -19,13 +19,13 @@ final class RateLimits extends Card
 
         return $this->promChart(
             title: 'Rate limiting',
-            promql: 'sum by (limiter) (rate('.$metric.'['.$this->rateWindow().'])) * 60',
+            promql: $metric->rate($this->rateWindow())->sumBy('limiter')->times(60),
             subtitle: 'Requests rejected with 429 per minute, by throttle limiter',
             seriesLabel: 'limiter',
             type: 'area',
             unit: 'req/min',
             stat: 'Rejected',
-            statQuery: 'sum(increase('.$metric.'['.$this->promDuration().']))',
+            statQuery: $metric->increase($this->promDuration())->sumBy(),
         );
     }
 }

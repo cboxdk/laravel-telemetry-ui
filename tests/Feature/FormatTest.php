@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\Cards\Card;
+use Cbox\TelemetryUi\Queries\Compilers\LogqlCompiler;
+use Cbox\TelemetryUi\Queries\Compilers\PromqlCompiler;
 use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Contracts\View\View;
 
@@ -39,9 +41,9 @@ it('formats fleet scope helpers on cards', function (): void {
         public function probe(): array
         {
             return [
-                $this->metric('up'),
+                (new PromqlCompiler)->compile($this->metric('up')),
                 $this->traceScope('status = error'),
-                $this->logSelector(),
+                (new LogqlCompiler)->compile($this->logSelector()),
             ];
         }
     };
@@ -75,9 +77,9 @@ it('escapes quotes and backslashes in scope values so they cannot break the quer
         public function probe(): array
         {
             return [
-                $this->metric('up'),
+                (new PromqlCompiler)->compile($this->metric('up')),
                 $this->traceScope('status = error'),
-                $this->logSelector(),
+                (new LogqlCompiler)->compile($this->logSelector()),
             ];
         }
     };

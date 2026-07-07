@@ -21,8 +21,8 @@ final class GlideGenerations extends Card
         $metric = $this->metric('statamic_glide_generations_total');
 
         try {
-            $total = $this->total('sum(increase('.$metric.'['.$this->promDuration().']))');
-            $range = $this->metrics()->queryRange('sum by (preset) (rate('.$metric.'['.$this->rateWindow().'])) * 60', $start, $end);
+            $total = $this->total($metric->increase($this->promDuration())->sumBy());
+            $range = $this->metrics()->queryRange($metric->rate($this->rateWindow())->sumBy('preset')->times(60), $start, $end);
         } catch (SourceException $exception) {
             return $this->chartCard('Glide', error: $exception->getMessage());
         }

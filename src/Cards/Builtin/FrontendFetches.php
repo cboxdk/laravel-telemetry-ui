@@ -7,6 +7,8 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 
@@ -31,10 +33,13 @@ final class FrontendFetches extends Card
         $error = null;
 
         try {
-            $traceql = '{ '.$this->traceScope('span.browser = true && name =~ "fetch.*" && status = error')
-                .' } | select(span.http.url, span.http.response.status_code)';
+            $query = $this->traceQuery(
+                TraceCondition::token('span.browser', TraceOp::Eq, 'true'),
+                TraceCondition::re('name', 'fetch.*'),
+                TraceCondition::token('status', TraceOp::Eq, 'error'),
+            )->select('span.http.url', 'span.http.response.status_code');
 
-            $results = $this->traces()->search($traceql, $start, $end, limit: self::SEARCH_LIMIT);
+            $results = $this->traces()->search($query, $start, $end, limit: self::SEARCH_LIMIT);
 
             /** @var array<string, array{url: string, status: string, count: int, lastNano: int, traceId: string}> $calls */
             $calls = [];

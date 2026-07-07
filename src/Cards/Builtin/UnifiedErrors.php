@@ -7,6 +7,9 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MatchOp;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
 use DateTimeImmutable;
 use Illuminate\Contracts\View\View;
@@ -80,7 +83,7 @@ final class UnifiedErrors extends Card
             // lives in structured metadata, so filter on the label — a
             // missing label reads as "", which also skips ordinary log lines.
             $entries = $this->logs()->query(
-                $this->logSelector().' | exception_group != ""',
+                $this->logSelector()->whereLabel('exception_group', MatchOp::Neq, ''),
                 $searchStart,
                 $end,
                 limit: self::SEARCH_LIMIT,
@@ -103,10 +106,12 @@ final class UnifiedErrors extends Card
 
             // Frontend: browser exception spans, grouped by the computed
             // fingerprint (the ingest doesn't stamp one).
-            $traceql = '{ '.$this->traceScope('span.browser = true && span.exception.type != nil')
-                .' } | select(span.exception.type, span.exception.message, span.exception.file, span.exception.line)';
+            $query = $this->traceQuery(
+                TraceCondition::token('span.browser', TraceOp::Eq, 'true'),
+                TraceCondition::nil('span.exception.type'),
+            )->select('span.exception.type', 'span.exception.message', 'span.exception.file', 'span.exception.line');
 
-            $results = $this->traces()->search($traceql, $searchStart, $end, limit: self::TRACE_SEARCH_LIMIT);
+            $results = $this->traces()->search($query, $searchStart, $end, limit: self::TRACE_SEARCH_LIMIT);
 
             $truncated = $truncated || count($results) >= self::TRACE_SEARCH_LIMIT;
 

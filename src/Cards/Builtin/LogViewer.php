@@ -6,6 +6,9 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\LabelFilter;
+use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
+use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Results\LogEntry;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
@@ -34,18 +37,22 @@ final class LogViewer extends Card
         $error = null;
 
         try {
-            $logql = $this->logSelector();
+            $query = $this->logSelector();
 
             if ($this->level !== '') {
                 // Loki keeps the severity as either `level` or `detected_level`.
-                $logql .= ' | level=~"(?i)'.$this->levelPattern().'" or detected_level=~"(?i)'.$this->levelPattern().'"';
+                $pattern = '(?i)'.$this->levelPattern();
+                $query = $query->pipe(new LabelFilter([
+                    new LabelMatcher('level', MatchOp::Re, $pattern),
+                    new LabelMatcher('detected_level', MatchOp::Re, $pattern),
+                ], or: true));
             }
 
             if ($this->search !== '') {
-                $logql .= ' |= "'.addcslashes($this->search, '"\\').'"';
+                $query = $query->lineContains($this->search);
             }
 
-            $entries = $this->logs()->query($logql, $start, $end, limit: 200);
+            $entries = $this->logs()->query($query, $start, $end, limit: 200);
 
             $rows = array_map(fn (LogEntry $entry): array => $this->row($entry), array_reverse($entries));
         } catch (SourceException $exception) {

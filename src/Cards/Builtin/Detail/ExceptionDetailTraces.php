@@ -6,6 +6,8 @@ namespace Cbox\TelemetryUi\Cards\Builtin\Detail;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Illuminate\Contracts\View\View;
 
 /**
@@ -25,7 +27,7 @@ final class ExceptionDetailTraces extends Card
 
         try {
             $results = $this->traces()->search(
-                '{ '.$this->traceScope('status = error').' }',
+                $this->traceQuery(TraceCondition::token('status', TraceOp::Eq, 'error')),
                 $start,
                 $end,
                 limit: 25,

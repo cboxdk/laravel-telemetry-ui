@@ -23,7 +23,7 @@ final class FeatureChecks extends Card
 
         try {
             $checks = $this->metrics()->query(
-                'sum by (feature, result) (increase('.$this->metric('feature_checks_total').'['.$this->promDuration().']))',
+                $this->metric('feature_checks_total')->increase($this->promDuration())->sumBy('feature', 'result'),
             );
 
             /** @var array<string, array{feature: string, checks: float, results: array<string, float>}> $features */
@@ -46,7 +46,7 @@ final class FeatureChecks extends Card
             $rows = array_values($features);
             usort($rows, static fn (array $a, array $b): int => $b['checks'] <=> $a['checks']);
 
-            foreach ($this->metrics()->query('sum by (feature) (increase('.$this->metric('feature_unknown_total').'['.$this->promDuration().']))') as $sample) {
+            foreach ($this->metrics()->query($this->metric('feature_unknown_total')->increase($this->promDuration())->sumBy('feature')) as $sample) {
                 if ($sample->value >= 0.5) {
                     $unknown[] = ['feature' => $sample->labels['feature'] ?? '?', 'checks' => $sample->value];
                 }

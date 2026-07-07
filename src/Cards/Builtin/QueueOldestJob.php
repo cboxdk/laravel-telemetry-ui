@@ -26,11 +26,11 @@ final class QueueOldestJob extends Card
         try {
             $oldest = 0.0;
 
-            foreach ($this->metrics()->query('max by (queue) ('.$age.')') as $sample) {
+            foreach ($this->metrics()->query($age->maxBy('queue')) as $sample) {
                 $oldest = max($oldest, $sample->value);
             }
 
-            $range = $this->metrics()->queryRange('max by (queue) ('.$age.')', $start, $end);
+            $range = $this->metrics()->queryRange($age->maxBy('queue'), $start, $end);
         } catch (SourceException $exception) {
             return $this->chartCard('Oldest job', error: $exception->getMessage());
         }

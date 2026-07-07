@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Contracts\View\View;
 
@@ -33,10 +34,10 @@ final class FrontendPages extends Card
 
         try {
             // document.load spans are the ones carrying the navigation timings.
-            $traceql = '{ '.$this->traceScope('span.browser.ttfb_ms != nil')
-                .' } | select(span.http.url, span.browser.ttfb_ms, span.browser.dom_interactive_ms)';
+            $query = $this->traceQuery(TraceCondition::nil('span.browser.ttfb_ms'))
+                ->select('span.http.url', 'span.browser.ttfb_ms', 'span.browser.dom_interactive_ms');
 
-            $results = $this->traces()->search($traceql, $start, $end, limit: self::SEARCH_LIMIT);
+            $results = $this->traces()->search($query, $start, $end, limit: self::SEARCH_LIMIT);
 
             /** @var array<string, array{path: string, loads: int, loadMs: float, ttfb: float, dom: float}> $pages */
             $pages = [];

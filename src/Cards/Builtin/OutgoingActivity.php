@@ -23,12 +23,12 @@ class OutgoingActivity extends Card
         $p = $this->promDuration();
 
         try {
-            $total = $this->total('sum(increase('.$count.'['.$p.']))');
-            $failed = $this->total('sum(increase('.$failures.'['.$p.']))');
-            $serverErrors = $this->total('sum(increase('.$this->metric('http_client_request_duration_milliseconds_count', 'http_response_status_code=~"5.."').'['.$p.']))');
+            $total = $this->total($count->increase($p)->sumBy());
+            $failed = $this->total($failures->increase($p)->sumBy());
+            $serverErrors = $this->total($this->metric('http_client_request_duration_milliseconds_count', 'http_response_status_code=~"5.."')->increase($p)->sumBy());
 
             $range = $this->metrics()->queryRange(
-                'sum by (server_address) (rate('.$count.'['.$this->rateWindow().'])) * 60',
+                $count->rate($this->rateWindow())->sumBy('server_address')->times(60),
                 $start,
                 $end,
             );

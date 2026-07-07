@@ -7,6 +7,8 @@ namespace Cbox\TelemetryUi\Cards\Builtin\Detail;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -45,10 +47,12 @@ final class PageDetailErrors extends Card
                 /** @var array<string, array{group: string, type: string, message: string, count: int, lastNano: int, buckets: array<int, int>}> $groups */
                 $groups = [];
 
-                $traceql = '{ '.$this->traceScope('span.browser = true && span.exception.type != nil')
-                    .' } | select(span.http.url, span.exception.type, span.exception.message, span.exception.file, span.exception.line)';
+                $query = $this->traceQuery(
+                    TraceCondition::token('span.browser', TraceOp::Eq, 'true'),
+                    TraceCondition::nil('span.exception.type'),
+                )->select('span.http.url', 'span.exception.type', 'span.exception.message', 'span.exception.file', 'span.exception.line');
 
-                $results = $this->traces()->search($traceql, $start, $end, limit: self::TRACE_SEARCH_LIMIT);
+                $results = $this->traces()->search($query, $start, $end, limit: self::TRACE_SEARCH_LIMIT);
 
                 $truncated = count($results) >= self::TRACE_SEARCH_LIMIT;
 

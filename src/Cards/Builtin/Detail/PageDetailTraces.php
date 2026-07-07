@@ -28,7 +28,7 @@ final class PageDetailTraces extends Card
         if ($this->page !== '') {
             try {
                 $results = $this->traces()->search(
-                    '{ '.$this->pageTraceScope().' }',
+                    $this->traceQuery(...$this->pageTraceConditions()),
                     $start,
                     $end,
                     limit: 25,

@@ -13,6 +13,8 @@ use Cbox\TelemetryUi\Cards\Concerns\ScopesQueries;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\CreatesIssues;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Support\TraceView;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
@@ -304,7 +306,10 @@ final class TraceDrawer extends Component
                 $report = app(ErrorGroupReport::class)->for(
                     $group,
                     $this->logSelector(),
-                    $this->traceScope('span.browser = true && span.exception.type != nil'),
+                    $this->traceQuery(
+                        TraceCondition::token('span.browser', TraceOp::Eq, 'true'),
+                        TraceCondition::nil('span.exception.type'),
+                    ),
                 );
             } catch (SourceException $exception) {
                 $error = $exception->getMessage();

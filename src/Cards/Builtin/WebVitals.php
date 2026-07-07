@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Cards\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Contracts\View\View;
 
@@ -31,10 +32,10 @@ final class WebVitals extends Card
         $error = null;
 
         try {
-            $traceql = '{ '.$this->traceScope('name = "web-vitals"')
-                .' } | select(span.http.url, span.web_vitals.lcp_ms, span.web_vitals.cls, span.web_vitals.inp_ms)';
+            $query = $this->traceQuery(TraceCondition::eq('name', 'web-vitals'))
+                ->select('span.http.url', 'span.web_vitals.lcp_ms', 'span.web_vitals.cls', 'span.web_vitals.inp_ms');
 
-            $results = $this->traces()->search($traceql, $start, $end, limit: self::SEARCH_LIMIT);
+            $results = $this->traces()->search($query, $start, $end, limit: self::SEARCH_LIMIT);
 
             /** @var array<string, array{path: string, views: int, lcp: list<float>, cls: list<float>, inp: list<float>}> $pages */
             $pages = [];

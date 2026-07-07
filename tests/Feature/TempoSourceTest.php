@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\Tempo\TempoSource;
+use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Queries\Results\SpanKind;
 use Illuminate\Support\Facades\Http;
 
@@ -29,7 +30,7 @@ it('searches traces with traceql', function (): void {
     ]);
 
     $results = tempo()->search(
-        '{ resource.service.name = "checkout" && duration > 500ms }',
+        TraceQuery::raw('{ resource.service.name = "checkout" && duration > 500ms }'),
         new DateTimeImmutable('@1735686000'),
         new DateTimeImmutable('@1735689600'),
         limit: 5,

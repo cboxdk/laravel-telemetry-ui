@@ -6,7 +6,12 @@ namespace Cbox\TelemetryUi\Cards\Builtin\Detail;
 
 use Cbox\TelemetryUi\Cards\Builtin\FrontendPages;
 use Cbox\TelemetryUi\Cards\Builtin\WebVitals;
-use Cbox\TelemetryUi\Cards\Concerns\ScopesQueries;
+use Cbox\TelemetryUi\Queries\Ir\LabelFilter;
+use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
+use Cbox\TelemetryUi\Queries\Ir\LogStage;
+use Cbox\TelemetryUi\Queries\Ir\MatchOp;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Livewire\Attributes\Url;
 
 /**
@@ -24,30 +29,36 @@ trait ScopesToPage
     public string $page = '';
 
     /**
-     * The trace-scope condition for this page (TraceQL) — matches spans on
+     * The trace-scope conditions for this page (TraceQL) — matches spans on
      * both sides of the trace (the browser page load and the backend request
-     * it triggered) by the concrete `url.path`. AND-joins any extra condition.
+     * it triggered) by the concrete `url.path`. AND-joins any extra conditions.
+     *
+     * @return list<TraceCondition>
      */
-    protected function pageTraceScope(string $extra = ''): string
+    protected function pageTraceConditions(TraceCondition ...$extra): array
     {
-        return $this->traceScope('span.url.path = "'.addcslashes($this->page, '"\\').'"'.($extra !== '' ? ' && '.$extra : ''));
+        return [TraceCondition::eq('span.url.path', $this->page), ...array_values($extra)];
     }
 
     /**
-     * A LogQL pipeline stage that narrows the analytics event stream to this
-     * page — the emitter stamps the concrete path as a `url_path` label. Append
-     * AFTER {@see ScopesQueries::logSelector()}
-     * (which already ends in a pipeline). Empty when no page is selected.
+     * LogQL pipeline stages that narrow the analytics event stream to this
+     * page — the emitter stamps the concrete path as a `url_path` label. Spread
+     * into {@see LogQuery::pipe()}. Empty when no
+     * page is selected.
+     *
+     * @return list<LogStage>
      */
-    protected function pageLogFilter(): string
+    protected function pageLogFilter(): array
     {
-        return $this->page === '' ? '' : ' | url_path="'.addcslashes($this->page, '"\\').'"';
+        return $this->page === ''
+            ? []
+            : [new LabelFilter([new LabelMatcher('url_path', MatchOp::Eq, $this->page)])];
     }
 
     /**
      * Whether a browser span's `http.url` resolves to this page's path.
      *
-     * `url.path` only exists on the *backend* server span, so {@see pageTraceScope()}
+     * `url.path` only exists on the *backend* server span, so {@see pageTraceConditions()}
      * scopes a trace but never matches a browser span (`web-vitals`,
      * `document.load`, `exception`) — those carry the full `http.url`. RUM cards
      * therefore select `span.http.url` and filter in PHP, exactly like

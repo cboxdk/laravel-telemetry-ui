@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
+use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Auth\GenericUser;
 use Illuminate\Support\Facades\Http;
@@ -23,7 +25,7 @@ it('resolves connection config per viewer, overriding the static config', functi
 
     Http::fake(['tenant-a:9009/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]])]);
 
-    app(ConnectionManager::class)->metrics()->query('up');
+    app(ConnectionManager::class)->metrics()->query(MetricQuery::raw('up'));
 
     Http::assertSent(fn ($request): bool => str_contains($request->url(), 'tenant-a:9009')
         && ($request->header('X-Scope-OrgID')[0] ?? null) === 'team-a');
@@ -51,7 +53,7 @@ it('falls back to the static config for connections the resolver omits', functio
 
     Http::fake(['static-tempo:3200/*' => Http::response(['traces' => []])]);
 
-    app(ConnectionManager::class)->traces()->search('{}', new DateTimeImmutable('-1 hour'), new DateTimeImmutable);
+    app(ConnectionManager::class)->traces()->search(TraceQuery::raw('{}'), new DateTimeImmutable('-1 hour'), new DateTimeImmutable);
 
     Http::assertSent(fn ($request): bool => str_contains($request->url(), 'static-tempo:3200'));
 });
@@ -74,11 +76,11 @@ it('does not hand one tenant another tenant\'s cached driver', function (): void
     $manager = app(ConnectionManager::class);
 
     $GLOBALS['tenant'] = 'a';
-    $manager->metrics()->query('up');
+    $manager->metrics()->query(MetricQuery::raw('up'));
 
     app()->forgetScopedInstances(); // next request: the per-viewer memo resets
     $GLOBALS['tenant'] = 'b';
-    $manager->metrics()->query('up');
+    $manager->metrics()->query(MetricQuery::raw('up'));
 
     // Each tenant's query hit its own backend — the config-keyed cache didn't
     // reuse tenant a's driver for tenant b.

@@ -22,18 +22,18 @@ final class QueuesTable extends Card
 
         try {
             $trends = $this->trendByKey(
-                'sum by (connection, queue) ('.$this->metric('queue_metrics_queue_depth', 'state="pending"').')',
+                $this->metric('queue_metrics_queue_depth', 'state="pending"')->sumBy('connection', 'queue'),
                 $start,
                 $end,
                 fn (array $labels): string => ($labels['connection'] ?? '?').'|'.($labels['queue'] ?? '?'),
             );
 
             $columns = [
-                'pending' => 'sum by (connection, queue) ('.$this->metric('queue_metrics_queue_depth', 'state="pending"').')',
-                'oldest' => 'max by (connection, queue) ('.$this->metric('queue_metrics_queue_oldest_job_age_seconds').')',
-                'per_minute' => 'sum by (connection, queue) ('.$this->metric('queue_metrics_queue_throughput_per_min').')',
-                'failure' => 'max by (connection, queue) ('.$this->metric('queue_metrics_queue_failure_rate_percent').')',
-                'workers' => 'sum by (connection, queue) ('.$this->metric('queue_metrics_queue_active_workers').')',
+                'pending' => $this->metric('queue_metrics_queue_depth', 'state="pending"')->sumBy('connection', 'queue'),
+                'oldest' => $this->metric('queue_metrics_queue_oldest_job_age_seconds')->maxBy('connection', 'queue'),
+                'per_minute' => $this->metric('queue_metrics_queue_throughput_per_min')->sumBy('connection', 'queue'),
+                'failure' => $this->metric('queue_metrics_queue_failure_rate_percent')->maxBy('connection', 'queue'),
+                'workers' => $this->metric('queue_metrics_queue_active_workers')->sumBy('connection', 'queue'),
             ];
 
             foreach ($columns as $column => $promql) {

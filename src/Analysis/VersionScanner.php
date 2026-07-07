@@ -6,6 +6,10 @@ namespace Cbox\TelemetryUi\Analysis;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
+use Cbox\TelemetryUi\Queries\Ir\MatchOp;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Support\AnnotationWriter;
 use DateTimeImmutable;
 use Illuminate\Contracts\Config\Repository as Config;
@@ -70,7 +74,7 @@ final readonly class VersionScanner
     {
         try {
             $samples = $this->connections->metrics()->query(
-                'count by (laravel_version, service_name) ('.$metric.')',
+                MetricQuery::raw('count by (laravel_version, service_name) ('.$metric.')'),
             );
         } catch (SourceException) {
             return [];
@@ -106,7 +110,7 @@ final readonly class VersionScanner
 
         try {
             $entries = $this->connections->logs()->query(
-                '{event="'.$config['event'].'"}',
+                LogQuery::stream(new LabelMatcher('event', MatchOp::Eq, $config['event'])),
                 new DateTimeImmutable('-'.$days.' days'),
                 new DateTimeImmutable,
                 limit: 1000,

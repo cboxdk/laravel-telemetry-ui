@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
+use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
 use Illuminate\Support\Facades\Gate;
@@ -38,7 +40,7 @@ it('reads deploy markers from loki within a range', function (): void {
     $annotations = app(Annotations::class)->between(
         new DateTimeImmutable('@1735689000'),
         new DateTimeImmutable('@1735690000'),
-        '{service_name="telemetry-demo"}',
+        LogQuery::stream(LabelMatcher::eq('service_name', 'telemetry-demo')),
     );
 
     // Only the exact "app.deployment" line becomes a marker; the inline
@@ -181,7 +183,7 @@ it('can be disabled', function (): void {
 it('fails open when the logs backend is down', function (): void {
     Http::fake(['loki.test:3100/*' => Http::response('down', 503)]);
 
-    expect(app(Annotations::class)->lookback('{service_name="x"}'))->toBe([]);
+    expect(app(Annotations::class)->lookback(LogQuery::stream(LabelMatcher::eq('service_name', 'x'))))->toBe([]);
 });
 
 it('draws deploy annotation lines on dashboard charts', function (): void {

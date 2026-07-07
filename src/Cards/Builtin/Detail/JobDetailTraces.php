@@ -25,7 +25,7 @@ final class JobDetailTraces extends Card
         if ($this->job !== '') {
             try {
                 $results = $this->traces()->search(
-                    '{ '.$this->traceScope($this->jobTraceScope()).' }',
+                    $this->traceQuery(...$this->jobTraceConditions()),
                     $start,
                     $end,
                     limit: 25,

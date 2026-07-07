@@ -23,10 +23,10 @@ final class StorageOperations extends Card
         $p = $this->promDuration();
 
         try {
-            $byDisk = $this->metrics()->query('sum by (disk) (increase('.$metric.'['.$p.']))');
+            $byDisk = $this->metrics()->query($metric->increase($p)->sumBy('disk'));
 
             $range = $this->metrics()->queryRange(
-                'sum by (operation) (rate('.$metric.'['.$this->rateWindow().'])) * 60',
+                $metric->rate($this->rateWindow())->sumBy('operation')->times(60),
                 $start,
                 $end,
             );

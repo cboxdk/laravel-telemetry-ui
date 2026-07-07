@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Cards\Builtin;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Illuminate\Contracts\View\View;
 
 /**
@@ -14,7 +15,7 @@ use Illuminate\Contracts\View\View;
 abstract class SystemCharts extends Card
 {
     /**
-     * @return array{title: string, query: string, label: string|null, unit: string, type: string}
+     * @return array{title: string, query: MetricQuery, label: string|null, unit: string, type: string}
      */
     abstract protected function spec(): array;
 

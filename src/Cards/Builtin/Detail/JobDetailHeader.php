@@ -29,10 +29,10 @@ final class JobDetailHeader extends Card
         $proc = $fail = $time = $cnt = 0.0;
 
         try {
-            $proc = $this->total('sum(increase('.$processed.'['.$p.']))');
-            $fail = $this->total('sum(increase('.$failed.'['.$p.']))');
-            $time = $this->total('sum(increase('.$durSum.'['.$p.']))');
-            $cnt = $this->total('sum(increase('.$durCount.'['.$p.']))');
+            $proc = $this->total($processed->increase($p)->sumBy());
+            $fail = $this->total($failed->increase($p)->sumBy());
+            $time = $this->total($durSum->increase($p)->sumBy());
+            $cnt = $this->total($durCount->increase($p)->sumBy());
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
         }

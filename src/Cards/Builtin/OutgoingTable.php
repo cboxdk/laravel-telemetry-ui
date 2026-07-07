@@ -29,18 +29,19 @@ final class OutgoingTable extends Card
 
         try {
             $trends = $this->trendByKey(
-                'sum by (server_address) (rate('.$count.'['.$this->rateWindow().'])) * 60',
+                $count->rate($this->rateWindow())->sumBy('server_address')->times(60),
                 $start,
                 $end,
                 fn (array $labels): string => $labels['server_address'] ?? '?',
             );
 
-            foreach ($this->metrics()->query('sum by (server_address, class) (label_replace(increase('.$count.'['.$p.']), "class", "${1}xx", "http_response_status_code", "([0-9]).."))') as $sample) {
+            foreach ($this->metrics()->query($count->increase($p)->sumBy('server_address', 'http_response_status_code')) as $sample) {
                 $host = $sample->labels['server_address'] ?? '?';
 
                 $rows[$host] ??= ['host' => $host, 'ok' => 0.0, '4xx' => 0.0, '5xx' => 0.0, 'total' => 0.0, 'failures' => 0.0, 'time' => 0.0, 'p95' => null, 'spark' => $trends[$host] ?? []];
 
-                $class = match ($sample->labels['class'] ?? '') {
+                $code = $sample->labels['http_response_status_code'] ?? '';
+                $class = match ($code === '' ? '' : $code[0].'xx') {
                     '4xx' => '4xx',
                     '5xx' => '5xx',
                     default => 'ok',
@@ -50,7 +51,7 @@ final class OutgoingTable extends Card
                 $rows[$host]['total'] += $sample->value;
             }
 
-            foreach ($this->metrics()->query('sum by (server_address) (increase('.$sum.'['.$p.']))') as $sample) {
+            foreach ($this->metrics()->query($sum->increase($p)->sumBy('server_address')) as $sample) {
                 $host = $sample->labels['server_address'] ?? '?';
 
                 if (isset($rows[$host])) {
@@ -58,7 +59,7 @@ final class OutgoingTable extends Card
                 }
             }
 
-            foreach ($this->metrics()->query('histogram_quantile(0.95, sum by (server_address, le) (rate('.$bucket.'['.$p.'])))') as $sample) {
+            foreach ($this->metrics()->query($bucket->quantile(0.95, $p, 'server_address')) as $sample) {
                 $host = $sample->labels['server_address'] ?? '?';
 
                 if (isset($rows[$host]) && ! is_nan($sample->value)) {
@@ -66,7 +67,7 @@ final class OutgoingTable extends Card
                 }
             }
 
-            foreach ($this->metrics()->query('sum by (server_address) (increase('.$failures.'['.$p.']))') as $sample) {
+            foreach ($this->metrics()->query($failures->increase($p)->sumBy('server_address')) as $sample) {
                 $host = $sample->labels['server_address'] ?? '?';
 
                 $rows[$host] ??= ['host' => $host, 'ok' => 0.0, '4xx' => 0.0, '5xx' => 0.0, 'total' => 0.0, 'failures' => 0.0, 'time' => 0.0, 'p95' => null];

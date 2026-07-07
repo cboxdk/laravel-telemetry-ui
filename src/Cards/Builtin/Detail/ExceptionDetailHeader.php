@@ -25,7 +25,7 @@ final class ExceptionDetailHeader extends Card
         $total = 0.0;
 
         try {
-            $total = $this->total('sum(increase('.$metric.'['.$this->promDuration().']))');
+            $total = $this->total($metric->increase($this->promDuration())->sumBy());
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
         }

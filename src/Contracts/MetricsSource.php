@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Contracts;
 
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\Sample;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use DateTimeInterface;
 
 /**
- * A PromQL-capable metrics backend (Prometheus, Mimir, ...).
+ * A metrics backend (Prometheus, Mimir, a ClickHouse store, ...).
  *
  * @api Implement to add a metrics driver; cards depend only on this contract.
+ *      Each driver compiles the backend-neutral {@see MetricQuery} to its own
+ *      dialect.
  */
 interface MetricsSource
 {
@@ -20,7 +23,7 @@ interface MetricsSource
      *
      * @return list<Sample>
      */
-    public function query(string $promql, ?DateTimeInterface $at = null): array;
+    public function query(MetricQuery $query, ?DateTimeInterface $at = null): array;
 
     /**
      * Evaluate a range query. When $step is null a sensible step is derived
@@ -29,7 +32,7 @@ interface MetricsSource
      * @return list<TimeSeries>
      */
     public function queryRange(
-        string $promql,
+        MetricQuery $query,
         DateTimeInterface $start,
         DateTimeInterface $end,
         ?int $step = null,

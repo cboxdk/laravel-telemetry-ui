@@ -5,6 +5,8 @@ declare(strict_types=1);
 use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\Loki\LokiSource;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Illuminate\Support\Facades\Http;
 
 function loki(): LokiSource
@@ -38,7 +40,7 @@ it('queries log streams and returns entries in ascending order', function (): vo
     ]);
 
     $entries = loki()->query(
-        '{service_name="checkout"}',
+        LogQuery::stream(LabelMatcher::eq('service_name', 'checkout')),
         new DateTimeImmutable('@1735686000'),
         new DateTimeImmutable('@1735689600'),
         limit: 50,
@@ -70,7 +72,7 @@ it('rejects metric-style logql results', function (): void {
         ]),
     ]);
 
-    loki()->query('rate({service_name="checkout"}[5m])', new DateTimeImmutable('-1 hour'), new DateTimeImmutable);
+    loki()->query(LogQuery::stream(LabelMatcher::eq('service_name', 'checkout')), new DateTimeImmutable('-1 hour'), new DateTimeImmutable);
 })->throws(SourceException::class);
 
 it('lists label values', function (): void {

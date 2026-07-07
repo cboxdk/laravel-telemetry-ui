@@ -7,6 +7,8 @@ namespace Cbox\TelemetryUi\Connectors\Loki;
 use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\LogsSource;
+use Cbox\TelemetryUi\Queries\Compilers\LogqlCompiler;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Results\LogEntry;
 use DateTimeInterface;
 
@@ -18,7 +20,7 @@ final readonly class LokiSource implements LogsSource
     public function __construct(private ApiClient $client) {}
 
     public function query(
-        string $logql,
+        LogQuery $query,
         DateTimeInterface $start,
         DateTimeInterface $end,
         int $limit = 100,
@@ -26,7 +28,7 @@ final readonly class LokiSource implements LogsSource
         $path = '/loki/api/v1/query_range';
 
         $response = $this->client->get($path, [
-            'query' => $logql,
+            'query' => (new LogqlCompiler)->compile($query),
             'start' => $start->getTimestamp() * 1_000_000_000,
             'end' => $end->getTimestamp() * 1_000_000_000,
             'limit' => $limit,

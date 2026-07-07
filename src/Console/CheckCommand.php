@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Console;
 
 use Cbox\Telemetry\TelemetryManager;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository as Config;
 use Throwable;
@@ -113,7 +114,7 @@ final class CheckCommand extends Command
     private function probeMetrics(ConnectionManager $manager): string
     {
         // vector(1) is a trivial instant query every Prometheus/Mimir answers.
-        $samples = $manager->metrics()->query('vector(1)');
+        $samples = $manager->metrics()->query(MetricQuery::raw('vector(1)'));
 
         return count($samples).' sample(s) returned';
     }

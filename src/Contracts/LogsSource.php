@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Contracts;
 
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Results\LogEntry;
 use DateTimeInterface;
 
 /**
- * A LogQL-capable log backend (Loki, ...).
+ * A log backend (Loki, a ClickHouse store, ...).
  *
  * @api Implement to add a logs driver; cards depend only on this contract.
+ *      Each driver compiles the backend-neutral {@see LogQuery} to its own
+ *      dialect.
  */
 interface LogsSource
 {
@@ -21,7 +24,7 @@ interface LogsSource
      * @return list<LogEntry>
      */
     public function query(
-        string $logql,
+        LogQuery $query,
         DateTimeInterface $start,
         DateTimeInterface $end,
         int $limit = 100,

@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\Prometheus\MimirSource;
 use Cbox\TelemetryUi\Connectors\Prometheus\PrometheusSource;
 use Cbox\TelemetryUi\Connectors\Tempo\TempoSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
+use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Illuminate\Support\Facades\Http;
 
 it('resolves the default connections lazily from config', function (): void {
@@ -39,7 +40,7 @@ it('resolves the mimir driver with its prometheus path prefix', function (): voi
 
     expect($metrics)->toBeInstanceOf(MimirSource::class);
 
-    $metrics->query('up');
+    $metrics->query(MetricQuery::raw('up'));
 
     Http::assertSent(fn ($request): bool => str_contains($request->url(), '/prometheus/api/v1/query')
         && $request->hasHeader('X-Scope-OrgID', 'team-apps'));
@@ -61,12 +62,12 @@ it('supports custom drivers via extend', function (): void {
 
     $manager->extend('victoriametrics', fn (array $config): MetricsSource => new class implements MetricsSource
     {
-        public function query(string $promql, ?DateTimeInterface $at = null): array
+        public function query(MetricQuery $query, ?DateTimeInterface $at = null): array
         {
             return [];
         }
 
-        public function queryRange(string $promql, DateTimeInterface $start, DateTimeInterface $end, ?int $step = null): array
+        public function queryRange(MetricQuery $query, DateTimeInterface $start, DateTimeInterface $end, ?int $step = null): array
         {
             return [];
         }
