@@ -32,11 +32,17 @@ final class Analytics
      * Normalise raw page-view log entries into flat visit rows.
      *
      * @param  iterable<LogEntry>  $entries
-     * @return list<array{ts: int, session: string, path: string, referrer: string, country: string, device: string, browser: string, source: string}>
+     * @return list<array{ts: int, session: string, path: string, referrer: string, channel: string, utm_source: string, utm_medium: string, utm_campaign: string, utm_content: string, utm_term: string, country: string, region: string, city: string, device: string, os: string, browser: string, source: string}>
      */
     public static function rows(iterable $entries): array
     {
         $rows = [];
+
+        /** @var list<string> $internalHosts */
+        $internalHosts = array_values(array_filter(
+            (array) config('telemetry-ui.analytics.internal_hosts', []),
+            'is_string',
+        ));
 
         foreach ($entries as $entry) {
             if (trim($entry->line) !== 'analytics.page_view') {
@@ -45,13 +51,33 @@ final class Analytics
 
             $l = $entry->labels;
 
+            $referrer = self::referrerDomain(self::label($l, 'http.request.header.referer', 'http_request_header_referer', 'document.referrer', 'document_referrer'));
+            $utmMedium = self::label($l, 'analytics.utm.medium', 'analytics_utm_medium');
+
             $rows[] = [
                 'ts' => intdiv($entry->timestampNano, 1_000_000),
                 'session' => self::label($l, 'session.id', 'session_id'),
                 'path' => self::label($l, 'url.path', 'url_path', 'http.route', 'http_route') ?: '(unknown)',
-                'referrer' => self::referrerDomain(self::label($l, 'http.request.header.referer', 'http_request_header_referer', 'document.referrer', 'document_referrer')),
+                'referrer' => $referrer,
+                // Derived, low-cardinality marketing channel — enriched to Paid/
+                // Email/… by the UTM medium + paid click-id when the emitter
+                // (telemetry.analytics.utm) captures them; referrer-only otherwise.
+                'channel' => Channel::classify(
+                    $referrer,
+                    $utmMedium,
+                    self::label($l, 'analytics.click_id', 'analytics_click_id') !== '',
+                    $internalHosts,
+                ),
+                'utm_source' => self::label($l, 'analytics.utm.source', 'analytics_utm_source'),
+                'utm_medium' => $utmMedium,
+                'utm_campaign' => self::label($l, 'analytics.utm.campaign', 'analytics_utm_campaign'),
+                'utm_content' => self::label($l, 'analytics.utm.content', 'analytics_utm_content'),
+                'utm_term' => self::label($l, 'analytics.utm.term', 'analytics_utm_term'),
                 'country' => self::label($l, 'client.geo.country', 'client_geo_country'),
+                'region' => self::label($l, 'client.geo.region', 'client_geo_region'),
+                'city' => self::label($l, 'client.geo.city', 'client_geo_city'),
                 'device' => self::label($l, 'device.type', 'device_type'),
+                'os' => self::label($l, 'os.name', 'os_name'),
                 'browser' => self::label($l, 'user_agent.name', 'user_agent_name'),
                 'source' => self::label($l, 'analytics.source', 'analytics_source'),
             ];

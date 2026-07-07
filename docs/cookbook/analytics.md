@@ -101,11 +101,49 @@ and a PHP exception that are the same issue collapse into one row.
 The dashboard reads and aggregates these events from Loki/Tempo. That is:
 
 - **Exact for low-traffic sites** — the query covers every event.
-- **A bounded recent sample at scale** — the UI caps how many events it scans,
-  and this LGTM promotes each event's attributes to Loki stream labels, so
-  high-cardinality fields (`session_id`, `url_path`) get expensive fast.
+- **A bounded recent sample at scale** — the UI caps how many events it scans.
 
-For real volume, analytics wants a columnar store, not the LGTM stack: point the
-emitter's analytics stream at a **ClickHouse** sink (exact `uniq`/HLL, funnels,
-long retention) — the same dashboard cards read it. LGTM stays perfect for
-low-traffic sites and for validating the pipeline.
+### The cardinality bomb — read before enabling every dimension
+
+Loki (and Prometheus) index by **stream labels**, and every *distinct
+combination of label values* is a separate stream. This LGTM promotes each
+analytics attribute to a stream label, so a dimension's cost is its
+**cardinality** — how many distinct values it takes. Low-cardinality dimensions
+are cheap; unbounded ones (a per-visitor id, a full URL, a city) multiply the
+stream count and make Loki slow and memory-hungry.
+
+Cardinality is created **at ingest, in the emitter** — not by the UI. Hiding a
+column in `telemetry-ui.analytics.dimensions` stops the dashboard rendering it,
+but the label was already written. So there are two control layers:
+
+| Layer | Controls | Where |
+|---|---|---|
+| **Capture** (cardinality) | whether the attribute is written at all | emitter — `telemetry.analytics.*` |
+| **Surface** (cosmetic) | whether the dashboard shows it | UI — `telemetry-ui.analytics.dimensions` |
+
+Per-dimension cardinality and the capture flag that gates it:
+
+| Dimension | Cardinality | Emitter flag |
+|---|---|---|
+| **channel** (Direct/Organic/Social/Paid/…) | **none** — derived at read time from the referrer (+ UTM), never stored | — |
+| source, device, os, browser, country | **low** (bounded set) | `user_agent`, `geo` |
+| referrer (domain), region | **medium** | always on / `geo` |
+| **url_path** | **high** (one per page) | always on — inherent |
+| **utm_\*** | **high** (one per campaign string) | `utm` |
+| **city** | **high** | `geo` (Enterprise CF / MaxMind city db) |
+| **session_id** | **very high** (one per visitor-day) | inherent to uniques |
+
+Rule of thumb on the LGTM stack: keep the **low/medium** dimensions on freely;
+turn the **high**-cardinality ones (`city`, `utm_*`) on only at low traffic or
+behind a short retention. `url_path` and `session_id` are inherent to
+"top pages" and "unique visitors", so they set a practical ceiling — which is
+exactly why the next step is a columnar store.
+
+### At real volume: ClickHouse
+
+For real traffic, analytics wants a columnar store, not the LGTM stack: point
+the emitter's analytics stream (already tagged `telemetry.stream=analytics` for
+exactly this) at a **ClickHouse** sink — exact `uniq`/HLL, funnels, every
+dimension without a cardinality penalty, long retention. The same dashboard
+cards read it. LGTM stays perfect for low-traffic sites and for validating the
+pipeline before the sink exists.

@@ -5,15 +5,15 @@
         <div class="tui-error">{{ $error }}</div>
     @else
         <div class="tui-analytics-cols">
-            @foreach ([['Referrers', $referrers, 'No referrer data yet.'], ['Countries', $countries, 'Set TELEMETRY_ANALYTICS_GEO=true (+ a GeoLite2 db) in the emitter to see countries.'], ['Devices', $devices, 'Set TELEMETRY_ANALYTICS_UA=true in the emitter to see devices.']] as [$title, $rows, $emptyHint])
+            @forelse ($sections as $section)
                 <div class="tui-analytics-col">
-                    <h4 class="tui-analytics-col-title">{{ $title }}</h4>
-                    @if ($rows === [])
-                        <p class="tui-tone-dim tui-analytics-empty">{{ $emptyHint }}</p>
+                    <h4 class="tui-analytics-col-title">{{ $section['title'] }}</h4>
+                    @if ($section['rows'] === [])
+                        <p class="tui-tone-dim tui-analytics-empty">{{ $section['hint'] }}</p>
                     @else
                         <table class="tui-table">
                             <tbody>
-                                @foreach ($rows as $row)
+                                @foreach ($section['rows'] as $row)
                                     <tr>
                                         <td class="is-primary">{{ $row['key'] }}</td>
                                         <td class="is-num">{{ Format::count($row['views']) }}</td>
@@ -23,7 +23,9 @@
                         </table>
                     @endif
                 </div>
-            @endforeach
+            @empty
+                <p class="tui-tone-dim tui-analytics-empty">No analytics dimensions enabled — see <code>telemetry-ui.analytics.dimensions</code>.</p>
+            @endforelse
         </div>
     @endif
 </x-telemetry-ui::card>

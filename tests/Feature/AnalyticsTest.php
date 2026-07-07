@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\Cards\Builtin\AnalyticsBreakdown;
+use Cbox\TelemetryUi\Cards\Builtin\AnalyticsCampaigns;
 use Cbox\TelemetryUi\Cards\Builtin\AnalyticsOverview;
 use Cbox\TelemetryUi\Cards\Builtin\AnalyticsPages;
 use Illuminate\Support\Facades\Http;
@@ -84,5 +85,28 @@ it('breaks visits down by referrer, country and device', function (): void {
         ->assertSee('DK')
         ->assertSee('US')
         ->assertSee('mobile')
-        ->assertSee('desktop');
+        ->assertSee('desktop')
+        ->assertSee('Channels')        // derived, first-class dimension
+        ->assertSee('Organic search'); // google referrer → Organic
+});
+
+it('shows a single empty state on Campaigns until UTM capture is on', function (): void {
+    fakePageViews(); // no utm_* labels
+
+    Livewire::test(AnalyticsCampaigns::class)
+        ->assertSee('TELEMETRY_ANALYTICS_UTM')
+        ->assertDontSee('Campaigns</h4>', false); // no per-dimension columns
+});
+
+it('breaks visits down by campaign, source and medium when UTM is captured', function (): void {
+    Http::fake(['loki.test:3100/loki/api/v1/query_range*' => Http::response(lokiStream([
+        ['1735689600000000000', 'analytics.page_view', ['session_id' => 's1', 'url_path' => '/', 'analytics_utm_campaign' => 'spring-sale', 'analytics_utm_source' => 'newsletter', 'analytics_utm_medium' => 'email']],
+        ['1735689601000000000', 'analytics.page_view', ['session_id' => 's2', 'url_path' => '/', 'analytics_utm_campaign' => 'spring-sale', 'analytics_utm_source' => 'google', 'analytics_utm_medium' => 'cpc']],
+    ]))]);
+
+    Livewire::test(AnalyticsCampaigns::class)
+        ->assertDontSee('TELEMETRY_ANALYTICS_UTM')
+        ->assertSee('spring-sale')
+        ->assertSee('newsletter')
+        ->assertSee('cpc');
 });

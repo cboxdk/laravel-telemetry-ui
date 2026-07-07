@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-07
+
+### Added
+
+- **Scope lock (tenancy).** Constrain the whole dashboard to a fixed set of
+  services / environments — dynamically per user via
+  `TelemetryUi::restrictScopeUsing()`, or statically with no code via
+  `telemetry-ui.scope.lock` / `TELEMETRY_UI_LOCK_SERVICES` /
+  `TELEMETRY_UI_LOCK_ENVIRONMENTS`. The picker now reflects the lock: it offers
+  only allowed values, drops "All" for a locked dimension, and hides a picker
+  locked to a single value entirely. Enforcement stays at query time.
+- **Page-detail show pages.** Analytics and Frontend rows now open a dedicated
+  page-detail scoped to that one URL path — traffic (views, visitors,
+  referrers, countries, devices), real-user performance (Core Web Vitals + load
+  timings), the page's browser→backend traces, and its browser errors — instead
+  of dumping into a pre-filtered trace search.
+- **Richer visitor breakdowns.** The analytics "Sources & audience" card gains
+  Sources, Regions, Cities, Operating systems and Browsers alongside Referrers,
+  Countries and Devices, each toggleable via `telemetry-ui.analytics.dimensions`.
+- **Marketing channel — a first-class, zero-cardinality dimension.** Visits are
+  classified into Direct / Organic search / Social / Email / Paid / Referral /
+  Internal, derived at read time from the referrer (and UTM medium + paid
+  click-id once the emitter captures them), so it costs no ingest cardinality.
+  Configure your own hosts with `telemetry-ui.analytics.internal_hosts`.
+- **Campaigns card.** UTM campaign attribution (campaign / source / medium, and
+  higher-cardinality content / term) from the emitter's
+  `telemetry.analytics.utm` capture — with a single empty state until it's on.
+- **Cardinality guide** in the analytics cookbook: per-dimension high/low
+  classification, the capture-vs-surface control split, and the ClickHouse path.
+
+### Fixed
+
+- **Chart-annotation toggle** no longer shows a duplicate "Cache purge" (the
+  Statamic marker is now its own labelled, distinctly-coloured entry) and its
+  rows/labels align in one clean column.
+
+### Changed
+
+- **Requires `cboxdk/laravel-telemetry` ^0.3.0** for the UTM / campaign capture
+  the Campaigns card and channel enrichment read.
+
 ## [0.3.0] - 2026-07-07
 
 ### Added

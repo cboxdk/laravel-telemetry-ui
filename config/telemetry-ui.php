@@ -40,6 +40,89 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Scope lock (tenancy)
+    |--------------------------------------------------------------------------
+    |
+    | Constrain the whole dashboard to a fixed set of services / environments —
+    | every query is forced into them and the scope picker only offers them (a
+    | dimension with a single forced value hides its picker entirely). This is
+    | the static, no-code path; for a per-user/tenant lock use the dynamic
+    | TelemetryUi::restrictScopeUsing() hook, which takes precedence when set.
+    |
+    | Per dimension: null (or absent) = not locked; a list = locked to exactly
+    | those values; an empty list [] = locked to nothing (matches nothing —
+    | fail closed). Env vars take a comma-separated list.
+    |
+    */
+
+    'scope' => [
+        'lock' => [
+            'services' => filled(env('TELEMETRY_UI_LOCK_SERVICES'))
+                ? array_values(array_filter(array_map('trim', explode(',', (string) env('TELEMETRY_UI_LOCK_SERVICES')))))
+                : null,
+            'environments' => filled(env('TELEMETRY_UI_LOCK_ENVIRONMENTS'))
+                ? array_values(array_filter(array_map('trim', explode(',', (string) env('TELEMETRY_UI_LOCK_ENVIRONMENTS')))))
+                : null,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Analytics
+    |--------------------------------------------------------------------------
+    |
+    | Which visitor dimensions the "Sources & audience" breakdown surfaces.
+    | Turning one off HIDES its column — it does NOT reduce ingest cardinality:
+    | that is controlled in the emitter (telemetry.analytics.*), because the cost
+    | is paid when an attribute becomes a Loki stream label, not when the UI
+    | reads it. See the cardinality guide in docs/cookbook/analytics.md.
+    |
+    | Each dimension also needs its emitter capture flag on to carry any data:
+    |   country / region / city → telemetry.analytics.geo.*
+    |   device / os / browser   → telemetry.analytics.user_agent
+    |   referrer / source        → always on
+    |
+    | Cardinality per dimension (Loki stream-label cost): referrer, source,
+    | country, device, os, browser are LOW; region is MEDIUM; city is HIGH — so
+    | city defaults OFF. Enable the high-cardinality ones only at low traffic, or
+    | once a ClickHouse sink sits behind these cards.
+    |
+    */
+
+    'analytics' => [
+        // Referrer hosts that are your own site: a self-referral (your domain
+        // linking to itself) then classifies as the "Internal" channel instead
+        // of polluting "Referral". Subdomains count. Comma-separated env, or an
+        // array here. Empty = off (self-referrals stay "Referral").
+        'internal_hosts' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('TELEMETRY_UI_INTERNAL_HOSTS', ''))
+        ))),
+
+        'dimensions' => [
+            // Derived at read time from the referrer (+ UTM/click-id once the
+            // emitter captures them) — low-cardinality, no ingest cost.
+            'channels' => true,
+            'referrers' => true,
+            'sources' => true,
+            'countries' => true,
+            'regions' => true,
+            'cities' => false,
+            'devices' => true,
+            'os' => true,
+            'browsers' => true,
+            // Campaign attribution (needs the emitter's telemetry.analytics.utm).
+            // content/term are higher-cardinality than campaign/source/medium.
+            'campaigns' => true,
+            'utm_sources' => true,
+            'utm_mediums' => true,
+            'utm_contents' => false,
+            'utm_terms' => false,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Middleware
     |--------------------------------------------------------------------------
     |
@@ -448,8 +531,8 @@ return [
             // so Statamic purges land on charts with no wiring.
             'statamic_cache_purge' => [
                 'event' => 'statamic.cache.purge',
-                'label' => 'Cache purge',
-                'color' => '#fb923c',
+                'label' => 'Statamic cache purge',
+                'color' => '#f472b6',
                 'id_label' => 'cache_type',
                 'notes_label' => 'cache_trigger',
             ],
