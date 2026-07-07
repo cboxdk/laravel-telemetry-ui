@@ -93,32 +93,67 @@ is still re-checked on them.
 ## Tenancy: lock a viewer to services / environments
 
 When the dashboard is embedded in an app, you often want a viewer to see only
-their own service(s) — a lightweight tenancy lock. Register a resolver that
-returns the allowed services and/or environments for the current user:
+their own service(s) — a lightweight tenancy lock. There are two ways to set it,
+in precedence order.
+
+**1. Dynamic, per user — a code hook** (the right tool for real multi-tenancy).
+Register a resolver that returns the allowed services and/or environments for the
+current user:
 
 ```php
 use Cbox\TelemetryUi\Facades\TelemetryUi;
 
 TelemetryUi::restrictScopeUsing(fn ($user) => [
     'services' => $user->allowedServices(),   // e.g. ['cbox-web']
-    'environments' => ['production'],          // optional; omit/[] = all envs
+    'environments' => ['production'],          // omit the key to leave envs open
 ]);
 ```
 
-An empty or absent key means *unrestricted* for that dimension. With a lock in
-place:
+The resolver receives the authenticated user and runs per request (request-scoped,
+so nothing leaks between users under Octane).
 
-- The **scope switcher only offers the allowed values** (the discovered fleet is
-  intersected with the lock).
+**2. Static, no code — config / env.** For a fixed lock (one app or tenant), set
+it in `config/telemetry-ui.php`:
+
+```php
+'scope' => [
+    'lock' => [
+        'services' => ['cbox-web'],
+        'environments' => ['production'],
+    ],
+],
+```
+
+or via env (comma-separated):
+
+```dotenv
+TELEMETRY_UI_LOCK_SERVICES=cbox-web
+TELEMETRY_UI_LOCK_ENVIRONMENTS=production
+```
+
+The `restrictScopeUsing` hook, when set, **takes precedence** over the config
+lock.
+
+**Semantics** (same for both), per dimension:
+
+- a **value present** locks it — `['cbox-web']` to that set, or `[]` to
+  *nothing* (matches nothing — a hard fail-closed lock, **not** "all");
+- **absent / `null`** leaves it open.
+
+With a lock in place:
+
+- The **picker only offers the allowed values** (the discovered fleet is
+  intersected with the lock), and it **drops the "All" option**. A dimension
+  locked to a single value has no choice to make, so its picker is **hidden
+  entirely**.
 - **Every query is forced into the lock** — a blank `?service=` (which normally
-  means "all services") and a hand-edited `?service=someone-else` are both
-  coerced back to the allowed set, across metrics, traces and logs. A single
-  allowed service scopes to `service_name="x"`; several scope to a
-  `service_name=~"a|b"` alternation.
+  means "all services"), a hand-edited `?service=someone-else`, and a raw
+  deep-linked TraceQL `?q=` are all coerced back to the allowed set, across
+  metrics, traces and logs. A single allowed service scopes to
+  `service_name="x"`; several scope to a `service_name=~"a|b"` alternation.
 
-The resolver runs per request (request-scoped, so nothing leaks between users
-under Octane). It's enforced server-side in the query scope, not just the UI, so
-it can't be bypassed from the URL.
+It's enforced server-side in the query scope, not just the UI, so it can't be
+bypassed from the URL.
 
 > Note: chart **deploy-marker annotations** are scoped when the effective scope
 > is a single service; a multi-service lock leaves the markers unscoped (they

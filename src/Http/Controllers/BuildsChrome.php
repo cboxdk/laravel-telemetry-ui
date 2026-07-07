@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Http\Controllers;
 
 use Cbox\TelemetryUi\Events\DashboardViewed;
+use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\MetricScope;
 use Cbox\TelemetryUi\Support\PaletteCommands;
 use Cbox\TelemetryUi\Support\SchemaDetector;
+use Cbox\TelemetryUi\Support\ScopeLock;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -38,6 +40,28 @@ trait BuildsChrome
             static fn (array $meta, string $slug): bool => Gate::allows('viewTelemetryUi', [$slug]),
             ARRAY_FILTER_USE_BOTH,
         );
+    }
+
+    /**
+     * Scope-picker options plus the per-dimension lock flags. {@see Fleet}
+     * already constrains the discovered values to the tenancy lock; the flags
+     * let the switcher drop the "All" option for a locked dimension and hide the
+     * picker entirely when a dimension is locked to a single forced value.
+     * Enforcement still happens at query time via {@see ScopesQueries} — this is
+     * purely so the picker never advertises a scope the viewer can't reach.
+     *
+     * @return array{services: list<string>, environments: list<string>, servicesLocked: bool, environmentsLocked: bool}
+     */
+    protected function scopeOptions(Fleet $fleet): array
+    {
+        $lock = app(ScopeLock::class);
+
+        return [
+            'services' => $fleet->services(),
+            'environments' => $fleet->environments(),
+            'servicesLocked' => $lock->servicesLocked(),
+            'environmentsLocked' => $lock->environmentsLocked(),
+        ];
     }
 
     /**

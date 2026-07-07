@@ -43,8 +43,9 @@ final class TraceController
         $view = 'telemetry-ui::trace';
 
         $pages = $this->accessiblePages($manager, $detector);
-        $services = $fleet->services();
-        $environments = $fleet->environments();
+        $scope = $this->scopeOptions($fleet);
+        $services = $scope['services'];
+        $environments = $scope['environments'];
 
         $this->recordView('traces');
 
@@ -52,6 +53,8 @@ final class TraceController
             'pages' => $pages,
             'services' => $services,
             'environments' => $environments,
+            'servicesLocked' => $scope['servicesLocked'],
+            'environmentsLocked' => $scope['environmentsLocked'],
             'traceId' => $traceId,
             'trace' => $trace,
             'error' => $error,

@@ -1,7 +1,12 @@
-@props(['services' => [], 'environments' => []])
+@props(['services' => [], 'environments' => [], 'servicesLocked' => false, 'environmentsLocked' => false])
 
 @php($currentService = (string) request('service'))
 @php($currentEnv = (string) request('env'))
+
+{{-- A dimension locked to a single value has no choice to offer, so its picker
+     is hidden entirely; the scope is enforced at query time regardless. --}}
+@php($showService = ! ($servicesLocked && count($services) <= 1))
+@php($showEnv = ! ($environmentsLocked && count($environments) <= 1))
 
 {{-- Sentry-style top-bar scope: service + environment side by side, next to
      the period picker. Changing either reloads with the new scope. --}}
@@ -14,21 +19,29 @@
         else { url.searchParams.set($event.target.name, value); }
         window.location = url;
      ">
-    <label class="tui-scope-field">
-        <select name="service" aria-label="Service" title="Service">
-            <option value="">All services</option>
-            @foreach ($services as $service)
-                <option value="{{ $service }}" @selected($service === $currentService)>{{ $service }}</option>
-            @endforeach
-        </select>
-    </label>
+    @if ($showService)
+        <label class="tui-scope-field">
+            <select name="service" aria-label="Service" title="Service">
+                @unless ($servicesLocked)
+                    <option value="">All services</option>
+                @endunless
+                @foreach ($services as $service)
+                    <option value="{{ $service }}" @selected($service === $currentService)>{{ $service }}</option>
+                @endforeach
+            </select>
+        </label>
+    @endif
 
-    <label class="tui-scope-field">
-        <select name="env" aria-label="Environment" title="Environment">
-            <option value="">All envs</option>
-            @foreach ($environments as $environment)
-                <option value="{{ $environment }}" @selected($environment === $currentEnv)>{{ $environment }}</option>
-            @endforeach
-        </select>
-    </label>
+    @if ($showEnv)
+        <label class="tui-scope-field">
+            <select name="env" aria-label="Environment" title="Environment">
+                @unless ($environmentsLocked)
+                    <option value="">All envs</option>
+                @endunless
+                @foreach ($environments as $environment)
+                    <option value="{{ $environment }}" @selected($environment === $currentEnv)>{{ $environment }}</option>
+                @endforeach
+            </select>
+        </label>
+    @endif
 </div>

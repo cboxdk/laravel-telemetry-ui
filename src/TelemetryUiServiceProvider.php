@@ -67,6 +67,7 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         // requests (users) under a persistent runtime like Octane.
         $this->app->scoped(ScopeLock::class, static fn (Application $app): ScopeLock => new ScopeLock(
             $app->make(TelemetryUiManager::class),
+            $app->make('config'),
         ));
 
         // Same reason for the per-viewer connection resolver's memo.

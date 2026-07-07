@@ -23,8 +23,9 @@ final class PageController
 
         abort_unless(isset($pages[$page]), 404);
 
-        $services = $fleet->services();
-        $environments = $fleet->environments();
+        $scope = $this->scopeOptions($fleet);
+        $services = $scope['services'];
+        $environments = $scope['environments'];
 
         $this->recordView($page);
 
@@ -37,6 +38,8 @@ final class PageController
             'cards' => $manager->cards($page),
             'services' => $services,
             'environments' => $environments,
+            'servicesLocked' => $scope['servicesLocked'],
+            'environmentsLocked' => $scope['environmentsLocked'],
             ...$this->chrome($pages, $services, $environments, $page),
         ]);
     }

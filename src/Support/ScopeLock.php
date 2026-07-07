@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Support;
 
 use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\TelemetryUiManager;
+use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -30,7 +31,10 @@ final class ScopeLock
     /** @var array{services: list<string>, environments: list<string>, servicesLocked: bool, environmentsLocked: bool}|null */
     private ?array $resolved = null;
 
-    public function __construct(private readonly TelemetryUiManager $manager) {}
+    public function __construct(
+        private readonly TelemetryUiManager $manager,
+        private readonly Repository $config,
+    ) {}
 
     /**
      * Allowed services, or [] when unrestricted (see {@see servicesLocked()} to
@@ -87,8 +91,11 @@ final class ScopeLock
             return $this->resolved;
         }
 
+        // A dynamic per-user hook takes precedence; otherwise fall back to the
+        // static config lock. Either way the shape is the same: a key present
+        // (even with an empty list) means that dimension is locked.
         $resolver = $this->manager->scopeResolver();
-        $raw = $resolver !== null ? (array) $resolver(Auth::user()) : [];
+        $raw = $resolver !== null ? (array) $resolver(Auth::user()) : $this->configLock();
 
         return $this->resolved = [
             'services' => $this->strings($raw['services'] ?? []),
@@ -96,6 +103,29 @@ final class ScopeLock
             'servicesLocked' => array_key_exists('services', $raw),
             'environmentsLocked' => array_key_exists('environments', $raw),
         ];
+    }
+
+    /**
+     * The static config lock (`telemetry-ui.scope.lock`), shaped like a
+     * resolver's return: a dimension key is present only when it is locked
+     * (a non-null value), so `null`/absent stays open and `[]` locks to nothing.
+     *
+     * @return array{services?: mixed, environments?: mixed}
+     */
+    private function configLock(): array
+    {
+        /** @var array<string, mixed> $lock */
+        $lock = (array) $this->config->get('telemetry-ui.scope.lock', []);
+
+        $raw = [];
+
+        foreach (['services', 'environments'] as $dimension) {
+            if (($lock[$dimension] ?? null) !== null) {
+                $raw[$dimension] = $lock[$dimension];
+            }
+        }
+
+        return $raw;
     }
 
     /**

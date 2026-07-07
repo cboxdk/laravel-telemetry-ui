@@ -164,3 +164,40 @@ it('falls back to the allowed set when discovery is empty for a locked viewer', 
     // Switcher offers the lock's own set rather than rendering empty.
     expect(app(Fleet::class)->services())->toBe(['cbox-web', 'billing']);
 });
+
+it('locks scope from config when no resolver is set', function (): void {
+    config()->set('telemetry-ui.scope.lock.services', ['billing']);
+
+    $this->get('/telemetry-ui/requests')->assertOk(); // no ?service=, no hook
+
+    expect(scopedPromQueries())->not->toBeEmpty()->each->toContain('service_name="billing"');
+    expect(app(Fleet::class)->services())->toBe(['billing']); // switcher constrained too
+});
+
+it('lets a restrictScopeUsing closure take precedence over the config lock', function (): void {
+    config()->set('telemetry-ui.scope.lock.services', ['billing']);
+    lockScope(['services' => ['cbox-web']]); // the dynamic hook wins
+
+    $this->get('/telemetry-ui/requests')->assertOk();
+
+    expect(scopedPromQueries())->not->toBeEmpty()->each->toContain('service_name="cbox-web"');
+});
+
+it('treats an empty config lock as no lock', function (): void {
+    config()->set('telemetry-ui.scope.lock.services', null); // the default
+
+    $this->get('/telemetry-ui/requests')->assertOk();
+
+    // No lock → the full fleet, no forced service matcher.
+    expect(app(Fleet::class)->services())->toContain('billing')->toContain('internal');
+});
+
+it('hides the scope picker for a dimension locked to a single value', function (): void {
+    lockScope(['services' => ['cbox-web'], 'environments' => ['production', 'staging']]);
+
+    $this->get('/telemetry-ui/requests')
+        ->assertOk()
+        ->assertDontSee('aria-label="Service"', false)  // single value → picker gone
+        ->assertSee('aria-label="Environment"', false)  // two values → picker stays
+        ->assertDontSee('All envs');                    // but "All" is dropped when locked
+});
