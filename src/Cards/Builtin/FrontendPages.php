@@ -98,14 +98,12 @@ final class FrontendPages extends Card
     }
 
     /**
-     * Every trace for this path — the browser page load *and* the backend
-     * request it triggered, in one waterfall (frontend → backend).
+     * This page's own detail page — traffic, performance, traces and errors
+     * scoped to the one URL path, not a pre-filtered trace search.
      */
-    public function tracesUrl(string $path): string
+    public function pageDetailUrl(string $path): string
     {
-        return $this->pageUrl('traces', [
-            'q' => '{ '.$this->traceScope('span.url.path = "'.addcslashes($path, '"\\').'"').' }',
-        ]);
+        return $this->pageUrl('page-detail', ['path' => $path]);
     }
 
     /**

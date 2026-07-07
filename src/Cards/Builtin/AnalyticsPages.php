@@ -47,13 +47,11 @@ final class AnalyticsPages extends Card
     }
 
     /**
-     * Every trace touching this path — spans the browser page load and the
-     * backend request it triggered (they share one trace).
+     * This page's own detail page — traffic, performance, traces and errors
+     * scoped to the one URL path, not a pre-filtered trace search.
      */
-    public function tracesUrl(string $path): string
+    public function pageDetailUrl(string $path): string
     {
-        return $this->pageUrl('traces', [
-            'q' => '{ '.$this->traceScope('span.url.path = "'.addcslashes($path, '"\\').'"').' }',
-        ]);
+        return $this->pageUrl('page-detail', ['path' => $path]);
     }
 }

@@ -21,7 +21,7 @@
                 </thead>
                 <tbody>
                     @foreach ($rows as $row)
-                        <tr data-row-href="{{ $this->tracesUrl($row['path']) }}" title="Traces for this page (browser → backend)">
+                        <tr data-row-href="{{ $this->pageDetailUrl($row['path']) }}" title="Open this page's detail">
                             <td class="is-primary is-wide">{{ $row['path'] }}</td>
                             <td class="is-num">{{ Format::count($row['loads']) }}</td>
                             <td class="is-num">{{ Format::ms($row['loadMs']) }}</td>

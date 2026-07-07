@@ -22,7 +22,7 @@
                 </thead>
                 <tbody>
                     @foreach ($rows as $row)
-                        <tr data-row-href="{{ $this->tracesUrl($row['path']) }}" title="Traces for this page (browser → backend)">
+                        <tr data-row-href="{{ $this->pageDetailUrl($row['path']) }}" title="Open this page's detail">
                             <td class="is-primary is-wide">{{ $row['path'] }}</td>
                             <td class="is-num">{{ $row['views'] }}</td>
                             <td class="is-num tui-tone-{{ $this->tone($row['lcp'], 2500, 4000) }}">{{ $this->fmt($row['lcp'], 'ms') }}</td>

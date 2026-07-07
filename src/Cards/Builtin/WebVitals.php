@@ -101,19 +101,17 @@ final class WebVitals extends Card
     }
 
     /**
-     * Web-vitals tone on Google's good/poor thresholds.
+     * This page's own detail page — traffic, performance, traces and errors
+     * scoped to the one URL path, not a pre-filtered trace search.
      */
-    /**
-     * Every trace for this path — the browser page view *and* the backend
-     * request behind it, in one waterfall (frontend → backend).
-     */
-    public function tracesUrl(string $path): string
+    public function pageDetailUrl(string $path): string
     {
-        return $this->pageUrl('traces', [
-            'q' => '{ '.$this->traceScope('span.url.path = "'.addcslashes($path, '"\\').'"').' }',
-        ]);
+        return $this->pageUrl('page-detail', ['path' => $path]);
     }
 
+    /**
+     * Web-vitals tone on Google's good/poor thresholds.
+     */
     public function tone(?float $value, float $good, float $poor): string
     {
         return match (true) {
