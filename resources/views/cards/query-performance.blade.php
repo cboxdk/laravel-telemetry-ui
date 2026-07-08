@@ -52,9 +52,9 @@
                     </thead>
                     <tbody>
                         @foreach ($rows as $row)
-                            <tr data-row-href="{{ $this->tracesUrl($row['query']) }}">
+                            <tr data-row-href="{{ $this->detailUrl($row['query']) }}">
                                 <td class="is-primary is-wide">
-                                    <a href="{{ $this->tracesUrl($row['query']) }}" title="{{ $row['query'] }}">{{ Str::limit($row['query'], 140) }}</a>
+                                    <a href="{{ $this->detailUrl($row['query']) }}" title="{{ $row['query'] }}">{{ Str::limit($row['query'], 140) }}</a>
                                 </td>
                                 <td>{{ $row['system'] }}</td>
                                 <td class="is-num">{{ Format::count($row['calls']) }}</td>
@@ -69,7 +69,14 @@
                     </tbody>
                 </table>
             </div>
-            <div class="tui-note">Sampled from the most recent matching traces — representative, not exact (a ClickHouse store aggregates every span). Total DB time in sample: {{ Format::ms($totalDbMs) }}. Query text is parameterised and redacted at emit time.</div>
+            <div class="tui-note">
+                @if ($exact)
+                    Exact aggregation over every matching span (ClickHouse store).
+                @else
+                    Sampled from the most recent matching traces — representative, not exact (a ClickHouse store aggregates every span).
+                @endif
+                Ranked by total DB time consumed; query text is parameterised and redacted at emit time.
+            </div>
         @endif
     @endif
 </x-telemetry-ui::card>
