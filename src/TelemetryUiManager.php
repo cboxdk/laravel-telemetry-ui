@@ -98,7 +98,7 @@ final class TelemetryUiManager
         'exceptions' => [Builtin\UnifiedErrors::class, Builtin\ExceptionsOverview::class, Builtin\ExceptionsTable::class],
         'exception-detail' => [Builtin\Detail\ExceptionDetailHeader::class, Builtin\Detail\ExceptionDetailTrend::class, Builtin\Detail\ExceptionDetailTraces::class],
         'error-detail' => [Builtin\Detail\ErrorGroupHeader::class, Builtin\Detail\ErrorGroupTrend::class, Builtin\Detail\ErrorGroupSidebar::class, Builtin\Detail\ErrorGroupTags::class, Builtin\Detail\ErrorGroupDetail::class],
-        'queries' => [Builtin\SlowQueries::class, Builtin\DuplicateQueries::class],
+        'queries' => [Builtin\QueryPerformance::class, Builtin\SlowQueries::class, Builtin\DuplicateQueries::class],
         'cache' => [Builtin\CacheOperations::class],
         'storage' => [Builtin\StorageOperations::class],
         'livewire' => [Builtin\LivewireActivity::class, Builtin\LivewireSlow::class, Builtin\LivewireComponents::class, Builtin\LivewireRequestLog::class],
