@@ -153,7 +153,7 @@ html, body {
     width: 56px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px;
     padding: 8px; box-sizing: border-box; overflow: hidden;
     background: var(--sidebar); border-right: 1px solid var(--sidebar-border);
-    transition: width 180ms var(--ease), left 180ms var(--ease), box-shadow 180ms var(--ease);
+    transition: width 180ms var(--ease), left 180ms var(--ease), box-shadow 180ms var(--ease), border-color 180ms var(--ease);
 }
 .tui-rail-hd { display: flex; align-items: center; justify-content: space-between; height: 34px; margin-bottom: 6px; flex-shrink: 0; }
 .tui-rail-brand {
@@ -194,8 +194,16 @@ html, body {
     background: var(--accent-soft); color: var(--primary); font-size: 9px; font-weight: 600;
 }
 .tui-rail.open { width: 210px; }
-.tui-rail.unpinned { position: fixed; left: 0; top: 0; bottom: 0; z-index: 70; }
-.tui-rail.unpinned.open { left: 6px; top: 6px; bottom: 6px; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 16px 48px rgba(0,0,0,0.18); }
+/* Unpinned rail floats as an overlay card. The collapsed and open states share
+   the SAME geometry — 6px inset + 1px border + radius — so opening only changes
+   cosmetics (border colour, shadow, width). That keeps the nav links pixel-fixed
+   across open/closed; a bare border would otherwise shift them 7px on open.
+   The transparent border also overrides the base border-right divider. */
+.tui-rail.unpinned {
+    position: fixed; left: 6px; top: 6px; bottom: 6px; z-index: 70;
+    border: 1px solid transparent; border-radius: 12px;
+}
+.tui-rail.unpinned.open { border-color: var(--border); box-shadow: 0 16px 48px rgba(0,0,0,0.18); }
 /* When unpinned the rail floats, so a spacer holds its 56px slot in the flow. */
 .tui-rail-spacer { width: 56px; flex-shrink: 0; }
 /* Theme toggle shows the icon of the mode you'd switch TO. */
