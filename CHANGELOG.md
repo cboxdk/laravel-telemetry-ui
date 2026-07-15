@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-15
+
+### Changed
+
+- **Require `cboxdk/laravel-telemetry ^1.0`** (was `^0.3.0`). Aligns the dashboard
+  with the now-stable telemetry 1.0 line — the old `^0.3.0` constraint excluded
+  telemetry 0.4 and 1.0, so a fresh install pinned an older telemetry. No
+  dashboard code changes; verified against telemetry 1.0.0 (326 tests green).
+
 ## [1.1.0] - 2026-07-15
 
 A visual overhaul plus New-Relic-style database dashboards. No PHP API changes —
