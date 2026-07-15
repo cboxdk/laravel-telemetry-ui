@@ -144,51 +144,82 @@ html, body {
     min-height: 100vh;
 }
 
-/* ── Two-tier app shell (Cbox): 56px icon rail + contextual subnav. ── */
+/* ── Two-tier app shell (Cbox, Intercom model): 3-state icon rail + collapsible subnav. ── */
 .tui-navwrap { display: flex; position: sticky; top: 0; height: 100vh; flex-shrink: 0; }
 
+/* TIER 1 rail — 3 states: (1) minimised 56px icon rail, (2) unpinned+hover
+   floats out as an overlay card with labels + pin, (3) pinned 210px in flow. */
 .tui-rail {
-    width: 56px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
-    gap: 4px; padding: 10px 8px; box-sizing: border-box;
+    width: 56px; flex-shrink: 0; display: flex; flex-direction: column; gap: 2px;
+    padding: 8px; box-sizing: border-box; overflow: hidden;
     background: var(--sidebar); border-right: 1px solid var(--sidebar-border);
+    transition: width 180ms var(--ease), left 180ms var(--ease), box-shadow 180ms var(--ease);
 }
+.tui-rail-hd { display: flex; align-items: center; justify-content: space-between; height: 34px; margin-bottom: 6px; flex-shrink: 0; }
 .tui-rail-brand {
     display: flex; align-items: center; justify-content: center;
-    width: 32px; height: 32px; border-radius: 8px; margin-bottom: 6px; overflow: hidden; flex-shrink: 0;
+    width: 32px; height: 32px; border-radius: 8px; overflow: hidden; flex-shrink: 0;
     background: var(--primary); color: var(--primary-foreground);
     font-family: var(--font-display); font-weight: 700; font-size: 15px;
 }
 .tui-rail-brand img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.tui-rail-nav { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; }
+.tui-pin {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border: 0; background: transparent; border-radius: 6px;
+    color: var(--sidebar-muted); cursor: pointer; opacity: 0;
+    transition: opacity 120ms var(--ease), background-color var(--dur-hover) var(--ease);
+}
+.tui-rail.open .tui-pin { opacity: 1; }
+.tui-pin:hover { background: var(--sidebar-accent); color: var(--foreground); }
+.tui-pin.set { color: var(--primary); }
+.tui-rail-nav { display: flex; flex-direction: column; gap: 2px; }
 .tui-rail-item {
-    display: flex; align-items: center; justify-content: center;
-    width: 40px; height: 40px; border-radius: var(--radius-md);
-    color: var(--sidebar-muted); text-decoration: none; cursor: pointer;
-    background: transparent; border: 0;
+    display: flex; align-items: center; gap: 11px; height: 34px; padding: 0 7px;
+    border-radius: var(--radius-md); white-space: nowrap; box-sizing: border-box;
+    color: color-mix(in oklch, var(--sidebar-foreground) 85%, transparent);
+    text-decoration: none; cursor: pointer; background: transparent; border: 0;
     transition: background-color var(--dur-hover) var(--ease), color var(--dur-hover) var(--ease);
 }
+.tui-rail-item svg { flex-shrink: 0; color: var(--sidebar-muted); }
+.tui-rail-item .lbl { font-size: 13px; font-weight: 500; opacity: 0; transition: opacity 120ms var(--ease); }
+.tui-rail.open .lbl { opacity: 1; }
 .tui-rail-item:hover { background: var(--sidebar-accent); color: var(--foreground); }
-.tui-rail-item.is-active { background: var(--accent-soft); color: var(--primary); }
-.tui-rail-foot { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tui-rail-item:hover svg { color: var(--foreground); }
+.tui-rail-item.is-active { background: var(--accent-soft); color: var(--primary); font-weight: 600; }
+.tui-rail-item.is-active svg { color: var(--primary); }
+.tui-rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 2px; padding-top: 8px; }
 .tui-rail-avatar {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border-radius: 9999px;
-    background: var(--accent-soft); color: var(--primary);
-    font-size: 10px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 22px; height: 22px; margin-left: 1px; border-radius: 9999px;
+    background: var(--accent-soft); color: var(--primary); font-size: 9px; font-weight: 600;
 }
+.tui-rail.open { width: 210px; }
+.tui-rail.unpinned { position: fixed; left: 0; top: 0; bottom: 0; z-index: 70; }
+.tui-rail.unpinned.open { left: 6px; top: 6px; bottom: 6px; border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 16px 48px rgba(0,0,0,0.18); }
+/* When unpinned the rail floats, so a spacer holds its 56px slot in the flow. */
+.tui-rail-spacer { width: 56px; flex-shrink: 0; }
 /* Theme toggle shows the icon of the mode you'd switch TO. */
 .tui-icon-moon { display: none; }
 .dark .tui-icon-sun { display: none; }
 .dark .tui-icon-moon { display: block; }
 
+/* TIER 2 subnav — collapsible to a 26px vertical-label strip (⌘. / click). */
 .tui-subnav {
     width: 220px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;
     background: var(--sidebar); border-right: 1px solid var(--sidebar-border);
+    transition: width 180ms var(--ease);
 }
 .tui-subnav-hd {
-    padding: 15px 14px 8px; font-family: var(--font-display);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 12px 8px; font-family: var(--font-display);
     font-size: 14px; font-weight: 650; letter-spacing: -0.005em; color: var(--foreground);
 }
+.tui-subnav-toggle {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border: 0; background: transparent; border-radius: 6px;
+    color: var(--muted-foreground); cursor: pointer;
+}
+.tui-subnav-toggle:hover { background: var(--sidebar-accent); color: var(--foreground); }
 .tui-subnav-search {
     display: flex; align-items: center; gap: 7px; margin: 0 10px 10px; padding: 6px 9px;
     border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--card);
@@ -212,6 +243,14 @@ html, body {
 .tui-subnav-item:hover { background: var(--sidebar-accent); color: var(--foreground); }
 .tui-subnav-item.is-active { background: var(--accent-soft); color: var(--primary); font-weight: 600; }
 .tui-subnav-item .cnt { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+/* Collapsed = 26px strip; whole strip is the click target to expand. */
+.tui-subnav.collapsed { width: 26px; cursor: pointer; }
+.tui-subnav.collapsed > *:not(.tui-strip) { display: none; }
+.tui-subnav.collapsed:hover { background: var(--sidebar-accent); }
+.tui-strip { display: none; }
+.tui-subnav.collapsed .tui-strip { display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%; padding: 10px 0; width: 100%; }
+.tui-strip .vlabel { writing-mode: vertical-rl; font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground); }
+.tui-strip button { border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; font-size: 12px; padding: 4px; border-radius: 5px; }
 
 /* Mobile topbar + off-canvas drawer chrome. Hidden on desktop; the media
    query at the bottom of this file turns the sidebar into the drawer. */

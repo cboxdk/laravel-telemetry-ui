@@ -56,7 +56,17 @@
     @livewireStyles
 </head>
 <body>
-    <div class="tui-shell" x-data="{ nav: false }" x-on:keydown.window.escape="nav = false">
+    <div class="tui-shell" x-data="{
+            nav: false,
+            pinned: JSON.parse(localStorage.getItem('tui-rail-pinned') || 'false'),
+            hover: false,
+            sub: JSON.parse(localStorage.getItem('tui-sub-collapsed') || 'false'),
+            togglePin() { this.pinned = ! this.pinned; localStorage.setItem('tui-rail-pinned', JSON.stringify(this.pinned)); },
+            toggleSub() { this.sub = ! this.sub; localStorage.setItem('tui-sub-collapsed', JSON.stringify(this.sub)); },
+         }"
+         x-on:keydown.window.escape="nav = false"
+         x-on:keydown.window.period.cmd.prevent="toggleSub()"
+         x-on:keydown.window.period.ctrl.prevent="toggleSub()">
         {{-- Mobile topbar: brand + hamburger opens the rail+subnav as a drawer. --}}
         <header class="tui-topbar">
             <button type="button" class="tui-topbar-menu" x-on:click="nav = true"
@@ -68,39 +78,59 @@
 
         <div class="tui-sidebar-overlay" x-show="nav" x-cloak x-on:click="nav = false" x-transition.opacity></div>
 
-        <div class="tui-navwrap" id="tui-nav" x-bind:class="{ 'is-open': nav }">
-            {{-- TIER 1 — icon rail: brand, one icon per area, settings + theme + avatar bottom. --}}
-            <aside class="tui-rail">
-                <div class="tui-rail-brand" title="{{ $brand }}">
-                    @if ($logo = config('telemetry-ui.brand.logo'))
-                        <img src="{{ $logo }}" alt="{{ $brand }}">
-                    @else
-                        <span>{{ Str::upper(Str::substr($brand, 0, 1)) }}</span>
-                    @endif
+        <div class="tui-navwrap" id="tui-nav" x-bind:class="{ 'is-open': nav, 'rail-pinned': pinned }">
+            {{-- TIER 1 — icon rail. 3 states (Intercom): minimised / hover-overlay / pinned.
+                 Hover expands it (unpinned only) as a floating card with labels + pin. --}}
+            <aside class="tui-rail" x-bind:class="{ open: pinned || hover, unpinned: ! pinned }"
+                   x-on:mouseenter="hover = true" x-on:mouseleave="hover = false">
+                <div class="tui-rail-hd">
+                    <div class="tui-rail-brand" title="{{ $brand }}">
+                        @if ($logo = config('telemetry-ui.brand.logo'))
+                            <img src="{{ $logo }}" alt="{{ $brand }}">
+                        @else
+                            <span>{{ Str::upper(Str::substr($brand, 0, 1)) }}</span>
+                        @endif
+                    </div>
+                    <button type="button" class="tui-pin" x-bind:class="{ set: pinned }" x-on:click="togglePin()"
+                            x-bind:title="pinned ? 'Unpin sidebar' : 'Pin sidebar'" aria-label="Pin sidebar">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.8V6a3 3 0 1 1 6 0v4.8l2.7 2.7a1 1 0 0 1-.7 1.7H7a1 1 0 0 1-.7-1.7Z"/></svg>
+                    </button>
                 </div>
                 <nav class="tui-rail-nav">
                     @foreach ($areas as $area)
                         <a href="{{ $pageUrl($area['first']) }}" title="{{ $area['label'] }}"
                            class="tui-rail-item {{ $area['key'] === $activeAreaKey ? 'is-active' : '' }}">
                             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">{!! $areaIcon($area['group']) !!}</svg>
+                            <span class="lbl">{{ $area['label'] }}</span>
                         </a>
                     @endforeach
                 </nav>
                 <div class="tui-rail-foot">
                     <button type="button" class="tui-rail-item tui-theme-toggle" title="Toggle theme"
-                            x-data x-on:click="const d=document.documentElement.classList.toggle('dark');localStorage.setItem('tui-theme',d?'dark':'light')">
+                            x-on:click="const d=document.documentElement.classList.toggle('dark');localStorage.setItem('tui-theme',d?'dark':'light')">
                         <svg class="tui-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
                         <svg class="tui-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                        <span class="lbl">Theme</span>
                     </button>
-                    <span class="tui-rail-avatar" title="{{ $brand }}">{{ Str::upper(Str::substr($brand, 0, 2)) }}</span>
+                    <span class="tui-rail-item" title="{{ $brand }}" style="cursor:default">
+                        <span class="tui-rail-avatar">{{ Str::upper(Str::substr($brand, 0, 2)) }}</span>
+                        <span class="lbl">{{ $brand }}</span>
+                    </span>
                 </div>
             </aside>
+            {{-- Floating overlay needs a spacer to hold the rail's 56px slot in flow. --}}
+            <div class="tui-rail-spacer" x-show="! pinned" x-cloak></div>
 
-            {{-- TIER 2 — contextual subnav: the active area's pages. --}}
+            {{-- TIER 2 — contextual subnav; collapses to a vertical-label strip (⌘.). --}}
             @if ($activeArea)
-                <aside class="tui-subnav">
-                    <div class="tui-subnav-hd">{{ $activeArea['label'] }}</div>
-                    <button type="button" class="tui-subnav-search" x-data
+                <aside class="tui-subnav" x-bind:class="{ collapsed: sub }">
+                    <div class="tui-subnav-hd">
+                        <span>{{ $activeArea['label'] }}</span>
+                        <button type="button" class="tui-subnav-toggle" x-on:click="toggleSub()" title="Collapse panel (⌘.)" aria-label="Collapse panel">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/></svg>
+                        </button>
+                    </div>
+                    <button type="button" class="tui-subnav-search"
                             x-on:click="window.dispatchEvent(new KeyboardEvent('keydown',{key:'k',metaKey:true}))">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
                         <span>Search</span><kbd>⌘K</kbd>
@@ -113,6 +143,11 @@
                             </a>
                         @endforeach
                     </nav>
+                    {{-- Collapsed strip: whole thing is the expand target. --}}
+                    <div class="tui-strip" x-on:click="toggleSub()">
+                        <span class="vlabel">{{ $activeArea['label'] }}</span>
+                        <button type="button" x-on:click.stop="toggleSub()" title="Expand (⌘.)" aria-label="Expand panel">»</button>
+                    </div>
                 </aside>
             @endif
         </div>
