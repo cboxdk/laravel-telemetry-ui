@@ -321,7 +321,7 @@ html, body {
     white-space: nowrap;
 }
 
-.tui-scope-field select:hover { border-color: #3a3a3f; }
+.tui-scope-field select:hover { border-color: var(--border-strong); }
 .tui-scope-field select:focus { outline: none; border-color: var(--tui-info); }
 
 /* Nav */
@@ -456,8 +456,8 @@ html, body {
 
 .tui-btn.is-range-active {
     color: #fff;
-    background: #1d4ed8;
-    border-color: #1d4ed8;
+    background: var(--primary);
+    border-color: var(--primary);
 }
 
 .tui-reset-zoom {
@@ -528,7 +528,7 @@ html, body {
 .tui-period:hover { color: var(--tui-text); }
 
 .tui-period.is-active {
-    background: #1d4ed8;
+    background: var(--primary);
     color: #fff;
 }
 
@@ -814,7 +814,7 @@ html, body {
 
 .tui-table td {
     padding: 7px 10px;
-    border-bottom: 1px solid #1a1a1d;
+    border-bottom: 1px solid var(--border);
     font-family: var(--tui-mono);
     color: var(--tui-text-dim);
     white-space: nowrap;
@@ -996,7 +996,7 @@ html, body {
 
 .tui-profile-bar {
     height: 8px;
-    background: #131316;
+    background: var(--secondary);
     border-radius: 3px;
     overflow: hidden;
 }
@@ -1004,7 +1004,7 @@ html, body {
 .tui-profile-bar > span {
     display: block;
     height: 100%;
-    background: #c084fc;
+    background: var(--primary);
     opacity: 0.75;
     border-radius: 3px;
 }
@@ -1105,7 +1105,7 @@ html, body {
 
 .tui-tagdist-bar {
     height: 7px;
-    background: #131316;
+    background: var(--secondary);
     border-radius: 3px;
     overflow: hidden;
 }
@@ -1224,7 +1224,7 @@ html, body {
     cursor: pointer;
 }
 
-.tui-btn:hover { color: var(--tui-text); border-color: #3a3a3f; }
+.tui-btn:hover { color: var(--tui-text); border-color: var(--border-strong); }
 .tui-btn.is-active { color: var(--tui-danger); border-color: rgba(248, 113, 113, 0.4); }
 
 .tui-btn-sm { padding: 3px 8px; font-size: 11px; }
@@ -1237,12 +1237,12 @@ html, body {
 }
 
 .tui-btn-primary {
-    background: #1d4ed8;
-    border-color: #1d4ed8;
+    background: var(--primary);
+    border-color: var(--primary);
     color: #fff;
 }
 
-.tui-btn-primary:hover { background: #1e40af; border-color: #1e40af; color: #fff; }
+.tui-btn-primary:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 .tui-btn-primary[disabled] { opacity: 0.6; cursor: default; }
 
 /* Compose ticket form */
@@ -1597,7 +1597,7 @@ html, body {
 .tui-wf-track {
     position: relative;
     height: 14px;
-    background: #131316;
+    background: var(--secondary);
     border-radius: 3px;
     overflow: hidden;
 }
@@ -1614,8 +1614,8 @@ html, body {
 
 .tui-wf-bar.is-error { background: var(--tui-danger); }
 .tui-wf-bar.is-client { background: var(--tui-info); }
-.tui-wf-bar.is-internal { background: #52525b; }
-.tui-wf-bar.is-producer, .tui-wf-bar.is-consumer { background: #c084fc; }
+.tui-wf-bar.is-internal { background: var(--muted-foreground); }
+.tui-wf-bar.is-producer, .tui-wf-bar.is-consumer { background: var(--primary); }
 
 .tui-wf-duration {
     text-align: right;
@@ -1665,9 +1665,9 @@ html, body {
 .tui-card-skel { opacity: 0.85; }
 
 .tui-skel {
-    background: linear-gradient(90deg, #161618 25%, #1f1f22 37%, #161618 63%);
+    background: linear-gradient(90deg, var(--secondary) 25%, var(--border) 37%, var(--secondary) 63%);
     background-size: 400% 100%;
-    border-radius: 5px;
+    border-radius: var(--radius-sm);
     animation: tui-shimmer 1.4s ease infinite;
 }
 
@@ -1778,7 +1778,7 @@ html, body {
     cursor: pointer;
 }
 
-.tui-drawer-back:hover { color: var(--tui-text); border-color: #3a3a3f; }
+.tui-drawer-back:hover { color: var(--tui-text); border-color: var(--border-strong); }
 
 .tui-drawer-crumbs {
     display: flex;
