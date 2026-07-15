@@ -383,24 +383,8 @@ html, body {
     min-width: 0;
 }
 
-.tui-scope-field select {
-    appearance: none;
-    max-width: 180px;
-    background: var(--tui-surface-2) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%2371717a'/%3E%3C/svg%3E") no-repeat right 8px center;
-    border: 1px solid var(--tui-border);
-    border-radius: 8px;
-    color: var(--tui-text);
-    font-family: var(--tui-mono);
-    font-size: 11px;
-    padding: 5px 22px 5px 9px;
-    cursor: pointer;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tui-scope-field select:hover { border-color: var(--border-strong); }
-.tui-scope-field select:focus { outline: none; border-color: var(--tui-info); }
+/* Scope pickers are searchable comboboxes (the native <select> is hidden);
+   the visible control styling lives under .tui-combobox-btn. */
 
 /* Nav */
 
@@ -515,20 +499,6 @@ html, body {
     align-items: center;
     gap: 8px;
 }
-
-.tui-refresh select {
-    appearance: none;
-    background: var(--tui-surface);
-    border: 1px solid var(--tui-border);
-    border-radius: 8px;
-    color: var(--tui-text-faint);
-    font-family: var(--tui-mono);
-    font-size: 11px;
-    padding: 5px 8px;
-    cursor: pointer;
-}
-
-.tui-refresh select:hover { color: var(--tui-text); }
 
 .tui-range { position: relative; }
 
@@ -646,7 +616,6 @@ html, body {
     color: var(--tui-text-faint);
 }
 
-.tui-filter select,
 .tui-filter input {
     background: var(--tui-surface-2);
     border: 1px solid var(--tui-border);
@@ -658,7 +627,6 @@ html, body {
     min-width: 130px;
 }
 
-.tui-filter select:focus,
 .tui-filter input:focus { outline: none; border-color: var(--tui-info); }
 
 .tui-advanced-toggle { align-self: flex-end; }
@@ -2018,7 +1986,7 @@ code {
 
     /* Roomier touch targets in the drawer. */
     .tui-nav-item { padding: 9px 10px; font-size: 14px; }
-    .tui-scope-field select { padding-top: 8px; padding-bottom: 8px; }
+    .tui-scope-field .tui-combobox-btn { padding-top: 8px; padding-bottom: 8px; }
 
     .tui-main { padding: 16px 14px 40px; }
 
@@ -2056,17 +2024,16 @@ code {
 
     .tui-filters { gap: 8px 10px; }
     .tui-filter { flex: 1 1 140px; }
-    .tui-filter select,
-    .tui-filter input { width: 100%; min-width: 0; }
+    .tui-filter input,
+    .tui-filter .tui-combobox-btn { width: 100%; min-width: 0; }
 
     .tui-toolbar { flex-wrap: wrap; }
     .tui-input { min-width: 0; flex: 1 1 160px; }
 
     /* iOS zooms into any focused field whose font-size is below 16px. */
     .tui-input,
-    .tui-filter select,
     .tui-filter input,
-    .tui-scope-field select,
+    .tui-combobox-search,
     .tui-range-panel input,
     .tui-palette-input,
     .tui-compose-body { font-size: 16px; }

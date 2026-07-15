@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-15
+
+A visual overhaul plus New-Relic-style database dashboards. No PHP API changes —
+the `MetricsSource` / `TracesSource` / `LogsSource` contracts and every result
+DTO are unchanged from 1.0.0, so drivers built for 1.0 keep working untouched.
+
+### Added
+
+- **Query performance dashboards** (New-Relic style): DB queries aggregated by
+  normalised statement and ranked by the total DB time they consume (not just
+  the single slowest run), with calls / avg / p95 / max / share, N+1 detection,
+  a per-minute throughput chart, and a query-detail drawer.
+- **Searchable comboboxes** replace every native `<select>` (scope, period,
+  auto-refresh, and all per-card filters). Type-ahead filtering, full keyboard
+  navigation (↑/↓/Enter/Esc), and a selected-state check. Each wraps a hidden
+  native `<select>` so `wire:model.live`, `x-model`, and form navigation keep
+  working unchanged.
+
+### Changed
+
+- **Full reskin to the Cbox design system**: warm-neutral oklch tokens, a
+  **light theme by default** with a dark toggle (persisted, no flash-of-theme),
+  Plus Jakarta Sans display + JetBrains Mono for data/IDs/numbers, and clear
+  1px borders. Charts (ECharts) now read the design tokens, so they follow
+  light/dark automatically.
+- **Two-tier app shell** (Intercom model): a 56px icon rail — three states
+  (minimised / hover-overlay-with-labels / pinned in-flow) — plus a collapsible
+  contextual subnav (header toggle or `⌘.`). Both states persist in
+  localStorage.
+
+### Notes
+
+- Cosmetic-only heads-up for downstream customisation: the legacy `--tui-*` CSS
+  variables are now **remapped onto Cbox tokens**, and the filter/scope pickers
+  no longer render a *visible* native `<select>` (a hidden one is retained for
+  binding). If you overrode `--tui-*` values or styled those selects directly,
+  review your overrides — no code migration is required.
+
 ## [1.0.0] - 2026-07-07
 
 Backend-neutral query IR — the read side no longer speaks PromQL/TraceQL/LogQL
