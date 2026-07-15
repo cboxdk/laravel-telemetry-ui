@@ -144,6 +144,75 @@ html, body {
     min-height: 100vh;
 }
 
+/* ── Two-tier app shell (Cbox): 56px icon rail + contextual subnav. ── */
+.tui-navwrap { display: flex; position: sticky; top: 0; height: 100vh; flex-shrink: 0; }
+
+.tui-rail {
+    width: 56px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+    gap: 4px; padding: 10px 8px; box-sizing: border-box;
+    background: var(--sidebar); border-right: 1px solid var(--sidebar-border);
+}
+.tui-rail-brand {
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 8px; margin-bottom: 6px; overflow: hidden; flex-shrink: 0;
+    background: var(--primary); color: var(--primary-foreground);
+    font-family: var(--font-display); font-weight: 700; font-size: 15px;
+}
+.tui-rail-brand img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tui-rail-nav { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; }
+.tui-rail-item {
+    display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: var(--radius-md);
+    color: var(--sidebar-muted); text-decoration: none; cursor: pointer;
+    background: transparent; border: 0;
+    transition: background-color var(--dur-hover) var(--ease), color var(--dur-hover) var(--ease);
+}
+.tui-rail-item:hover { background: var(--sidebar-accent); color: var(--foreground); }
+.tui-rail-item.is-active { background: var(--accent-soft); color: var(--primary); }
+.tui-rail-foot { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tui-rail-avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; border-radius: 9999px;
+    background: var(--accent-soft); color: var(--primary);
+    font-size: 10px; font-weight: 600;
+}
+/* Theme toggle shows the icon of the mode you'd switch TO. */
+.tui-icon-moon { display: none; }
+.dark .tui-icon-sun { display: none; }
+.dark .tui-icon-moon { display: block; }
+
+.tui-subnav {
+    width: 220px; flex-shrink: 0; display: flex; flex-direction: column; overflow: hidden;
+    background: var(--sidebar); border-right: 1px solid var(--sidebar-border);
+}
+.tui-subnav-hd {
+    padding: 15px 14px 8px; font-family: var(--font-display);
+    font-size: 14px; font-weight: 650; letter-spacing: -0.005em; color: var(--foreground);
+}
+.tui-subnav-search {
+    display: flex; align-items: center; gap: 7px; margin: 0 10px 10px; padding: 6px 9px;
+    border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--card);
+    color: var(--muted-foreground); font-family: var(--font-sans); font-size: 12px; cursor: pointer;
+    transition: border-color var(--dur-hover) var(--ease);
+}
+.tui-subnav-search:hover { border-color: var(--border-strong); }
+.tui-subnav-search span { flex: 1; text-align: left; }
+.tui-subnav-search kbd {
+    font-family: var(--font-mono); font-size: 10px; border: 1px solid var(--border);
+    border-radius: var(--radius-sm); background: var(--secondary); padding: 1px 4px;
+}
+.tui-subnav-nav { flex: 1; overflow-y: auto; padding: 0 10px 12px; display: flex; flex-direction: column; gap: 1px; }
+.tui-subnav-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 0 8px; height: 30px; border-radius: var(--radius-sm);
+    color: color-mix(in oklch, var(--sidebar-foreground) 82%, transparent);
+    text-decoration: none; font-size: 13px;
+    transition: background-color var(--dur-hover) var(--ease), color var(--dur-hover) var(--ease);
+}
+.tui-subnav-item:hover { background: var(--sidebar-accent); color: var(--foreground); }
+.tui-subnav-item.is-active { background: var(--accent-soft); color: var(--primary); font-weight: 600; }
+.tui-subnav-item .cnt { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+
 /* Mobile topbar + off-canvas drawer chrome. Hidden on desktop; the media
    query at the bottom of this file turns the sidebar into the drawer. */
 
@@ -1844,25 +1913,22 @@ code {
         z-index: 60;
         padding: 10px 14px;
         padding-top: calc(10px + env(safe-area-inset-top));
-        background: rgba(9, 9, 11, 0.92);
+        background: color-mix(in oklch, var(--background) 88%, transparent);
         backdrop-filter: blur(8px);
-        border-bottom: 1px solid var(--tui-border);
+        border-bottom: 1px solid var(--border);
     }
 
-    .tui-sidebar {
+    .tui-navwrap {
         position: fixed;
         z-index: 75;
         top: 0;
         left: 0;
         height: 100dvh;
-        width: min(280px, 84vw);
-        background: var(--tui-bg);
         transform: translateX(-100%);
         transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-        padding-bottom: calc(16px + env(safe-area-inset-bottom));
     }
 
-    .tui-sidebar.is-open { transform: translateX(0); }
+    .tui-navwrap.is-open { transform: translateX(0); }
 
     .tui-sidebar-overlay {
         display: block;
