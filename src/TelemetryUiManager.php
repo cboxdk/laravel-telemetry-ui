@@ -43,10 +43,10 @@ final class TelemetryUiManager
         // Queue infrastructure (cboxdk/laravel-queue-metrics) and the
         // autoscaler (cboxdk/laravel-queue-autoscale) — separate metric
         // families, so each page lights up independently.
-        'queues' => ['label' => 'Queues', 'group' => 'Activity', 'icon' => null, 'detect' => 'queue_metrics_.*'],
+        'queues' => ['label' => 'Queues', 'group' => 'Queues', 'icon' => null, 'detect' => 'queue_metrics_.*'],
         'queue-detail' => ['label' => 'Queue', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
-        'autoscale' => ['label' => 'Autoscale', 'group' => 'Activity', 'icon' => null, 'detect' => 'queue_autoscale_.*'],
-        'horizon' => ['label' => 'Horizon', 'group' => 'Activity', 'icon' => null, 'detect' => 'horizon_.*'],
+        'autoscale' => ['label' => 'Autoscale', 'group' => 'Queues', 'icon' => null, 'detect' => 'queue_autoscale_.*'],
+        'horizon' => ['label' => 'Horizon', 'group' => 'Queues', 'icon' => null, 'detect' => 'horizon_.*'],
         'commands' => ['label' => 'Commands', 'group' => 'Activity', 'icon' => null, 'detect' => 'commands_.*'],
         'schedule' => ['label' => 'Scheduled Tasks', 'group' => 'Activity', 'icon' => null, 'detect' => null],
         'exceptions' => ['label' => 'Exceptions', 'group' => 'Activity', 'icon' => null, 'detect' => null],
@@ -62,14 +62,14 @@ final class TelemetryUiManager
         'outgoing' => ['label' => 'Outgoing Requests', 'group' => 'Activity', 'icon' => null, 'detect' => null],
         'outgoing-detail' => ['label' => 'Host', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
         'mail' => ['label' => 'Mail & Notifications', 'group' => 'Activity', 'icon' => null, 'detect' => null],
-        'analytics' => ['label' => 'Analytics', 'group' => 'Monitoring', 'icon' => null, 'detect' => null],
+        'analytics' => ['label' => 'Analytics', 'group' => 'Frontend', 'icon' => null, 'detect' => null],
         'page-detail' => ['label' => 'Page', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
-        'frontend' => ['label' => 'Frontend', 'group' => 'Monitoring', 'icon' => null, 'detect' => null],
-        'hosts' => ['label' => 'Hosts', 'group' => 'Monitoring', 'icon' => null, 'detect' => null],
+        'frontend' => ['label' => 'Web Vitals', 'group' => 'Frontend', 'icon' => null, 'detect' => null],
+        'hosts' => ['label' => 'Hosts', 'group' => 'Infrastructure', 'icon' => null, 'detect' => null],
         'host-detail' => ['label' => 'Host', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
-        'users' => ['label' => 'Users', 'group' => 'Monitoring', 'icon' => null, 'detect' => null],
-        'logs' => ['label' => 'Logs', 'group' => 'Monitoring', 'icon' => null, 'detect' => null],
-        'system' => ['label' => 'System', 'group' => 'Monitoring', 'icon' => null, 'detect' => 'system_.*'],
+        'users' => ['label' => 'Users', 'group' => 'Frontend', 'icon' => null, 'detect' => null],
+        'logs' => ['label' => 'Logs', 'group' => 'Infrastructure', 'icon' => null, 'detect' => null],
+        'system' => ['label' => 'System', 'group' => 'Infrastructure', 'icon' => null, 'detect' => 'system_.*'],
 
         // The Statamic overlay (cboxdk/statamic-telemetry) gets its own
         // sidebar group; each subpage detects its own metric family, so a

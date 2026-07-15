@@ -31,9 +31,9 @@ it('registers the queues and autoscale pages with their metric-family detection'
     $pages = app(TelemetryUiManager::class)->pages();
 
     expect($pages['queues']['detect'])->toBe('queue_metrics_.*')
-        ->and($pages['queues']['group'])->toBe('Activity')
+        ->and($pages['queues']['group'])->toBe('Queues')
         ->and($pages['autoscale']['detect'])->toBe('queue_autoscale_.*')
-        ->and($pages['autoscale']['group'])->toBe('Activity');
+        ->and($pages['autoscale']['group'])->toBe('Queues');
 
     expect(app(TelemetryUiManager::class)->cards('queues'))->toContain(QueueBacklog::class, QueuesTable::class)
         ->and(app(TelemetryUiManager::class)->cards('autoscale'))->toContain(AutoscaleWorkers::class, AutoscaleCluster::class);
