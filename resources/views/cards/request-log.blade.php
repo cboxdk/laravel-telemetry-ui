@@ -25,13 +25,13 @@
                    wire:model.live.debounce.400ms="ip" spellcheck="false">
             <input type="text" class="tui-input tui-input-grow" placeholder="Path contains…"
                    wire:model.live.debounce.400ms="path" spellcheck="false">
-            <select class="tui-input" style="min-width: 90px;" wire:model.live="statusCode" title="Status class">
+            <x-telemetry-ui::combobox class="tui-input" style="min-width: 90px;" wire:model.live="statusCode" title="Status class">
                 <option value="">Any</option>
                 <option value="2xx">2xx</option>
                 <option value="3xx">3xx</option>
                 <option value="4xx">4xx</option>
                 <option value="5xx">5xx</option>
-            </select>
+            </x-telemetry-ui::combobox>
         </div>
 
         @if ($rows === [])

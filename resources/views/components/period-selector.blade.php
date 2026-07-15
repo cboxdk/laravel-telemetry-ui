@@ -17,12 +17,12 @@
 
     {{-- Auto refresh --}}
     <div class="tui-refresh" x-data="telemetryUiRefresh()" title="Auto refresh">
-        <select x-model="value" x-on:change="apply()">
+        <x-telemetry-ui::combobox x-model="value" x-on:change="apply()">
             <option value="0">⟳ off</option>
             <option value="10">⟳ 10s</option>
             <option value="30">⟳ 30s</option>
             <option value="60">⟳ 60s</option>
-        </select>
+        </x-telemetry-ui::combobox>
     </div>
 
     {{-- Chart annotations: hide noisy marker types per type (ann_off csv).

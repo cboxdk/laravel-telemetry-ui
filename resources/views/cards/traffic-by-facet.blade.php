@@ -2,12 +2,12 @@
     <div class="tui-toolbar">
         <label class="tui-scope-field" style="padding: 0; flex-direction: row; align-items: center; gap: 8px;">
             <span>Facet</span>
-            <select wire:model.live="facet">
+            <x-telemetry-ui::combobox wire:model.live="facet">
                 @foreach ($facets as $key => $label)
                     <option value="{{ $key }}">{{ $label }}</option>
                 @endforeach
                 <option value="custom">Custom attribute…</option>
-            </select>
+            </x-telemetry-ui::combobox>
         </label>
 
         @if ($facet === 'custom')

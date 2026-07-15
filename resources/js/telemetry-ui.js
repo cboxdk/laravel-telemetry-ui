@@ -296,6 +296,48 @@ function register() {
         },
     }));
 
+    // Combobox: a searchable dropdown that DRIVES a hidden native <select>, so
+    // every existing binding on that select (wire:model.live, x-model, form
+    // navigation) keeps working — we just set .value and dispatch input+change.
+    // State names are cb-prefixed to never collide with a wrapped x-model="value".
+    window.Alpine.data('telemetryUiCombobox', () => ({
+        cbOpen: false, cbQuery: '', cbCursor: 0, cbOpts: [], cbValue: '', cbLabel: '', cbNative: null,
+        cbInit(select) {
+            this.cbNative = select;
+            this.cbSync();
+            // Reflect external (Livewire) value changes + option re-renders.
+            select.addEventListener('change', () => this.cbSync());
+            new MutationObserver(() => this.cbSync()).observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['value'] });
+        },
+        cbSync() {
+            this.cbOpts = Array.from(this.cbNative.options).map((o) => ({ value: o.value, label: o.textContent.trim() }));
+            this.cbValue = this.cbNative.value;
+            const sel = this.cbOpts.find((o) => o.value === this.cbValue);
+            this.cbLabel = sel ? sel.label : (this.cbOpts[0] ? this.cbOpts[0].label : '');
+        },
+        get cbFiltered() {
+            const q = this.cbQuery.trim().toLowerCase();
+            return q ? this.cbOpts.filter((o) => o.label.toLowerCase().includes(q)) : this.cbOpts;
+        },
+        cbToggle() {
+            this.cbOpen = !this.cbOpen;
+            if (this.cbOpen) {
+                this.cbQuery = '';
+                this.cbCursor = Math.max(0, this.cbFiltered.findIndex((o) => o.value === this.cbValue));
+                this.$nextTick(() => this.$refs.cbSearch && this.$refs.cbSearch.focus());
+            }
+        },
+        cbClose() { this.cbOpen = false; },
+        cbMove(d) { const n = this.cbFiltered.length; if (n) this.cbCursor = (this.cbCursor + d + n) % n; },
+        cbEnter() { const o = this.cbFiltered[this.cbCursor]; if (o) this.cbPick(o); },
+        cbPick(o) {
+            this.cbNative.value = o.value;
+            this.cbNative.dispatchEvent(new Event('input', { bubbles: true }));
+            this.cbNative.dispatchEvent(new Event('change', { bubbles: true }));
+            this.cbValue = o.value; this.cbLabel = o.label; this.cbClose();
+        },
+    }));
+
     window.Alpine.data('telemetryUiRefresh', () => ({
         value: sessionStorage.getItem('telemetry-ui:refresh') || '0',
         timer: null,

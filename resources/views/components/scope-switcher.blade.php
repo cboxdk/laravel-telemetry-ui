@@ -21,27 +21,27 @@
      ">
     @if ($showService)
         <label class="tui-scope-field">
-            <select name="service" aria-label="Service" title="Service">
+            <x-telemetry-ui::combobox name="service" aria-label="Service" title="Service">
                 @unless ($servicesLocked)
                     <option value="">All services</option>
                 @endunless
                 @foreach ($services as $service)
                     <option value="{{ $service }}" @selected($service === $currentService)>{{ $service }}</option>
                 @endforeach
-            </select>
+            </x-telemetry-ui::combobox>
         </label>
     @endif
 
     @if ($showEnv)
         <label class="tui-scope-field">
-            <select name="env" aria-label="Environment" title="Environment">
+            <x-telemetry-ui::combobox name="env" aria-label="Environment" title="Environment">
                 @unless ($environmentsLocked)
                     <option value="">All envs</option>
                 @endunless
                 @foreach ($environments as $environment)
                     <option value="{{ $environment }}" @selected($environment === $currentEnv)>{{ $environment }}</option>
                 @endforeach
-            </select>
+            </x-telemetry-ui::combobox>
         </label>
     @endif
 </div>

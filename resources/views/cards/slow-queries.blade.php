@@ -7,11 +7,11 @@
         <div class="tui-toolbar">
             <label class="tui-scope-field" style="padding: 0; flex-direction: row; align-items: center; gap: 8px;">
                 <span>Slower than</span>
-                <select wire:model.live="minMs">
+                <x-telemetry-ui::combobox wire:model.live="minMs">
                     @foreach ($thresholds as $threshold)
                         <option value="{{ $threshold }}">{{ $threshold }}ms</option>
                     @endforeach
-                </select>
+                </x-telemetry-ui::combobox>
             </label>
         </div>
 

@@ -13,22 +13,22 @@
 
             <label class="tui-scope-field" style="padding: 0; flex-direction: row; align-items: center; gap: 8px;">
                 <span>Slower than</span>
-                <select wire:model.live="minMs">
+                <x-telemetry-ui::combobox wire:model.live="minMs">
                     @foreach ($thresholds as $threshold)
                         <option value="{{ $threshold }}">{{ $threshold === 0 ? 'All' : $threshold.'ms' }}</option>
                     @endforeach
-                </select>
+                </x-telemetry-ui::combobox>
             </label>
 
             <label class="tui-scope-field" style="padding: 0; flex-direction: row; align-items: center; gap: 8px;">
                 <span>Rank by</span>
-                <select wire:model.live="sort">
+                <x-telemetry-ui::combobox wire:model.live="sort">
                     <option value="total">Total time</option>
                     <option value="avg">Avg</option>
                     <option value="p95">p95</option>
                     <option value="max">Max</option>
                     <option value="calls">Calls</option>
-                </select>
+                </x-telemetry-ui::combobox>
             </label>
         </div>
 

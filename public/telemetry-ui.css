@@ -252,6 +252,45 @@ html, body {
 .tui-strip .vlabel { writing-mode: vertical-rl; font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted-foreground); }
 .tui-strip button { border: 0; background: transparent; color: var(--muted-foreground); cursor: pointer; font-size: 12px; padding: 4px; border-radius: 5px; }
 
+/* ── Combobox (Cbox — replaces native <select>). Button drives a hidden select. */
+.tui-combobox { position: relative; display: inline-flex; }
+.tui-combobox-native { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
+.tui-combobox-btn {
+    display: inline-flex; align-items: center; justify-content: space-between; gap: 8px;
+    height: 32px; min-width: 92px; padding: 0 10px; box-sizing: border-box;
+    border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--card);
+    color: var(--foreground); font-family: var(--font-mono); font-size: 12px; cursor: pointer;
+    transition: border-color var(--dur-hover) var(--ease);
+}
+.tui-combobox-btn:hover { border-color: var(--border-strong); }
+.tui-combobox-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.tui-combobox-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tui-combobox-chev { flex-shrink: 0; color: var(--muted-foreground); }
+.tui-combobox-pop {
+    position: absolute; z-index: 80; top: calc(100% + 4px); left: 0; min-width: 100%; width: max-content; max-width: 340px;
+    background: var(--popover); border: 1px solid var(--border); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-popover); padding: 4px; box-sizing: border-box;
+}
+.tui-combobox-searchwrap { padding: 2px 2px 4px; }
+.tui-combobox-search {
+    width: 100%; height: 28px; box-sizing: border-box; padding: 0 8px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--card); color: var(--foreground);
+    font-family: var(--font-sans); font-size: 12px;
+}
+.tui-combobox-search::placeholder { color: var(--muted-foreground); }
+.tui-combobox-search:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0 2px var(--accent-soft); }
+.tui-combobox-list { max-height: 264px; overflow-y: auto; display: flex; flex-direction: column; gap: 1px; }
+.tui-combobox-opt {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+    padding: 6px 8px; border: 0; background: transparent; border-radius: var(--radius-sm);
+    color: var(--foreground); font-family: var(--font-mono); font-size: 12px; text-align: left; cursor: pointer;
+    white-space: nowrap;
+}
+.tui-combobox-opt.is-cursor { background: var(--secondary); }
+.tui-combobox-opt.is-on { color: var(--primary); font-weight: 600; }
+.tui-combobox-check { flex-shrink: 0; color: var(--primary); }
+.tui-combobox-empty { padding: 10px 8px; font-size: 12px; color: var(--muted-foreground); text-align: center; }
+
 /* Mobile topbar + off-canvas drawer chrome. Hidden on desktop; the media
    query at the bottom of this file turns the sidebar into the drawer. */
 

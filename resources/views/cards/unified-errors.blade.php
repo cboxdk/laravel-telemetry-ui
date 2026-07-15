@@ -9,12 +9,12 @@
         <div class="tui-toolbar">
             <input type="search" class="tui-input tui-input-grow" placeholder="Filter by type or message…"
                    wire:model.live.debounce.400ms="search">
-            <select class="tui-input" style="min-width: 110px;" wire:model.live="sourceFilter" title="Source">
+            <x-telemetry-ui::combobox class="tui-input" style="min-width: 110px;" wire:model.live="sourceFilter" title="Source">
                 <option value="">All sources</option>
                 <option value="backend">Server</option>
                 <option value="frontend">Web</option>
                 <option value="full-stack">Full-stack</option>
-            </select>
+            </x-telemetry-ui::combobox>
             <span class="tui-chain-label">Sort</span>
             @foreach (['count' => 'Events', 'last' => 'Last seen', 'new' => 'First seen'] as $key => $label)
                 <button type="button" class="tui-btn tui-btn-sm {{ $sort === $key ? 'is-sort-active' : '' }}"

@@ -12,31 +12,31 @@
     <div class="tui-filters" x-data="{ advanced: @js($usingRaw) }">
         <label class="tui-filter">
             <span>Status</span>
-            <select wire:model.live="status">
+            <x-telemetry-ui::combobox wire:model.live="status">
                 <option value="">Any</option>
                 <option value="error">Errors</option>
                 <option value="ok">OK</option>
-            </select>
+            </x-telemetry-ui::combobox>
         </label>
 
         <label class="tui-filter">
             <span>Source</span>
-            <select wire:model.live="source">
+            <x-telemetry-ui::combobox wire:model.live="source">
                 <option value="">Any</option>
                 <option value="frontend">Frontend (browser)</option>
                 <option value="backend">Backend</option>
-            </select>
+            </x-telemetry-ui::combobox>
         </label>
 
         <label class="tui-filter">
             <span>Status code</span>
-            <select wire:model.live="statusCode">
+            <x-telemetry-ui::combobox wire:model.live="statusCode">
                 <option value="">Any</option>
                 <option value="2xx">2xx</option>
                 <option value="3xx">3xx</option>
                 <option value="4xx">4xx</option>
                 <option value="5xx">5xx</option>
-            </select>
+            </x-telemetry-ui::combobox>
         </label>
 
         <label class="tui-filter">
@@ -61,11 +61,11 @@
 
         <label class="tui-filter">
             <span>Min duration</span>
-            <select wire:model.live="minDurationMs">
+            <x-telemetry-ui::combobox wire:model.live="minDurationMs">
                 @foreach ($durations as $duration)
                     <option value="{{ $duration }}">{{ $duration === 0 ? 'any' : $duration.'ms' }}</option>
                 @endforeach
-            </select>
+            </x-telemetry-ui::combobox>
         </label>
 
         <button type="button" class="tui-btn tui-advanced-toggle" x-on:click="advanced = !advanced"

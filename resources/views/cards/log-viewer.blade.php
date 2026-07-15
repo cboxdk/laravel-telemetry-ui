@@ -3,12 +3,12 @@
         <div class="tui-error">{{ $error }}</div>
     @else
         <div class="tui-toolbar">
-            <select class="tui-input" style="min-width: 120px" wire:model.live="level">
+            <x-telemetry-ui::combobox class="tui-input" style="min-width: 120px" wire:model.live="level">
                 <option value="">All levels</option>
                 @foreach ($levels as $lvl)
                     <option value="{{ $lvl }}">{{ ucfirst($lvl) }}</option>
                 @endforeach
-            </select>
+            </x-telemetry-ui::combobox>
             <input type="search" class="tui-input tui-input-grow" placeholder="Filter log lines…" wire:model.live.debounce.400ms="search">
         </div>
 

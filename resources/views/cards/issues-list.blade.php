@@ -13,26 +13,26 @@
             <div class="tui-error" style="margin-bottom: .5rem">⚠ {{ $error }}</div>
         @endif
         <div class="tui-toolbar">
-            <select class="tui-input" style="min-width: 100px" wire:model.live="state">
+            <x-telemetry-ui::combobox class="tui-input" style="min-width: 100px" wire:model.live="state">
                 <option value="open">Open</option>
                 <option value="closed">Closed</option>
                 <option value="all">All</option>
-            </select>
+            </x-telemetry-ui::combobox>
             @if ($multiSource)
-                <select class="tui-input" style="min-width: 120px" wire:model.live="sourceFilter">
+                <x-telemetry-ui::combobox class="tui-input" style="min-width: 120px" wire:model.live="sourceFilter">
                     <option value="">All repos</option>
                     @foreach ($sources as $src)
                         <option value="{{ $src }}">{{ $src }}</option>
                     @endforeach
-                </select>
+                </x-telemetry-ui::combobox>
             @endif
             @if ($labels !== [])
-                <select class="tui-input" style="min-width: 130px" wire:model.live="label">
+                <x-telemetry-ui::combobox class="tui-input" style="min-width: 130px" wire:model.live="label">
                     <option value="">All labels</option>
                     @foreach ($labels as $lbl)
                         <option value="{{ $lbl }}">{{ $lbl }}</option>
                     @endforeach
-                </select>
+                </x-telemetry-ui::combobox>
             @endif
             <input type="search" class="tui-input tui-input-grow" placeholder="Search titles…" wire:model.live.debounce.400ms="search">
         </div>
