@@ -1,6 +1,18 @@
 import * as echarts from 'echarts';
 
-const palette = ['#34d399', '#fbbf24', '#f87171', '#60a5fa', '#c084fc', '#f472b6', '#2dd4bf', '#a3e635'];
+// Read a Cbox design token off the root so charts follow the active light/dark
+// theme (the .dark scope lives on <html>). Evaluated at chart build time.
+const cssVar = (name, fallback) => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+};
+
+// Series colourway = the Cbox chart tokens (blue, green, amber, red, violet …).
+const paletteColors = () => [
+    cssVar('--chart-1', '#3b6fd4'), cssVar('--chart-2', '#3ca36a'),
+    cssVar('--chart-3', '#d0a12f'), cssVar('--chart-4', '#d6533a'),
+    cssVar('--chart-5', '#8b5cf6'), cssVar('--info', '#3aa0d6'),
+];
 
 const humanBytes = (value) => {
     const abs = Math.abs(value);
@@ -35,26 +47,26 @@ const baseOption = (unit) => {
             // Named so the wrapper can hide it via CSS while an annotation
             // callout owns the space next to the line (see .tui-marker-active).
             className: 'tui-ec-tip',
-            backgroundColor: '#18181b',
-            borderColor: '#27272a',
-            textStyle: { color: '#e4e4e7', fontSize: 12, fontFamily: 'ui-monospace, monospace' },
+            backgroundColor: cssVar('--popover', '#fff'),
+            borderColor: cssVar('--border', '#e5e0d6'),
+            textStyle: { color: cssVar('--foreground', '#1a1714'), fontSize: 12, fontFamily: 'var(--font-mono, ui-monospace, monospace)' },
             valueFormatter: (value) => value == null ? '—' : format(Number(value)),
         },
         xAxis: {
             type: 'time',
-            axisLine: { lineStyle: { color: '#27272a' } },
-            axisLabel: { color: '#71717a', fontSize: 10, fontFamily: 'ui-monospace, monospace' },
+            axisLine: { lineStyle: { color: cssVar('--border', '#e5e0d6') } },
+            axisLabel: { color: cssVar('--muted-foreground', '#8a8072'), fontSize: 10, fontFamily: 'var(--font-mono, ui-monospace, monospace)' },
             splitLine: { show: false },
         },
         yAxis: {
             type: 'value',
             axisLabel: {
-                color: '#71717a',
+                color: cssVar('--muted-foreground', '#8a8072'),
                 fontSize: 10,
-                fontFamily: 'ui-monospace, monospace',
+                fontFamily: 'var(--font-mono, ui-monospace, monospace)',
                 formatter: (unit === 'bytes' || unit === 'ms') ? ((value) => format(Number(value))) : undefined,
             },
-            splitLine: { lineStyle: { color: '#1c1c1f' } },
+            splitLine: { lineStyle: { color: cssVar('--border', '#efeae0'), opacity: 0.6 } },
         },
         legend: { show: false },
     };
@@ -453,9 +465,9 @@ function register() {
                     xAxis: a.xAxis,
                     markerLabel: (a.label || '') + (a.count > 1 ? ` \u00d7${a.count}` : ''),
                     marker: a,
-                    label: { color: a.color || '#c084fc' },
-                    itemStyle: { color: a.color || '#c084fc' },
-                    lineStyle: { color: a.color || '#c084fc' },
+                    label: { color: a.color || cssVar('--primary', '#3b6fd4') },
+                    itemStyle: { color: a.color || cssVar('--primary', '#3b6fd4') },
+                    lineStyle: { color: a.color || cssVar('--primary', '#3b6fd4') },
                 }));
 
             if (annotations.length && mapped.length) {
@@ -467,7 +479,7 @@ function register() {
                     label: {
                         show: true,
                         position: 'insideEndTop',
-                        color: '#a1a1aa',
+                        color: cssVar('--muted-foreground', '#8a8072'),
                         fontSize: 9,
                         fontFamily: 'ui-monospace, monospace',
                         formatter: (p) => p.data.markerLabel || '',
@@ -487,7 +499,7 @@ function register() {
 
             chart.setOption({
                 ...base,
-                color: palette,
+                color: paletteColors(),
                 series: mapped,
             });
 
