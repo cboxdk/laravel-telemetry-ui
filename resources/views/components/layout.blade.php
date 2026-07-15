@@ -1,7 +1,7 @@
 @props(['pages' => [], 'active' => null, 'services' => [], 'environments' => [], 'title' => 'Telemetry', 'commands' => [], 'traceBase' => '', 'traceSentinel' => ''])
 
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
