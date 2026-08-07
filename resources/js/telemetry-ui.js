@@ -491,6 +491,11 @@ function register() {
                 lineStyle: { width: 1.5 },
                 stack: stacked ? 'total' : undefined,
                 areaStyle: stacked ? { opacity: type === 'bar' ? 0.35 : 0.15 } : undefined,
+                // Axis tooltip is our hover affordance; ECharts' own emphasis
+                // state repaints a stacked step-area with a collapsed baseline,
+                // making the fill vanish on hover — disable it. (markLine keeps
+                // its own emphasis.)
+                emphasis: { disabled: true },
             }));
 
             // Grafana-style annotations: vertical marker lines (deploys, …)

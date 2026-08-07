@@ -20,7 +20,7 @@ use Laravel\Mcp\Server\Tool;
  * @api Use via the TelemetryUi facade. page()/card()/mcpTool() are the
  *      supported extension points.
  *
- * @phpstan-type PageMeta array{label: string, group: string|null, icon: string|null, detect: string|null, hidden?: bool}
+ * @phpstan-type PageMeta array{label: string, group: string|null, icon: string|null, detect: string|null, hidden?: bool, parent?: string}
  */
 final class TelemetryUiManager
 {
@@ -37,36 +37,36 @@ final class TelemetryUiManager
         'requests' => ['label' => 'Requests', 'group' => 'Activity', 'icon' => null, 'detect' => null],
         // Purpose-built detail pages: routable + rendered, but not in the
         // sidebar nav (reached by drilling into a row).
-        'request-detail' => ['label' => 'Request', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
+        'request-detail' => ['label' => 'Request', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'requests'],
         'jobs' => ['label' => 'Jobs', 'group' => 'Activity', 'icon' => null, 'detect' => null],
-        'job-detail' => ['label' => 'Job', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
+        'job-detail' => ['label' => 'Job', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'jobs'],
         // Queue infrastructure (cboxdk/laravel-queue-metrics) and the
         // autoscaler (cboxdk/laravel-queue-autoscale) — separate metric
         // families, so each page lights up independently.
         'queues' => ['label' => 'Queues', 'group' => 'Queues', 'icon' => null, 'detect' => 'queue_metrics_.*'],
-        'queue-detail' => ['label' => 'Queue', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
+        'queue-detail' => ['label' => 'Queue', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'queues'],
         'autoscale' => ['label' => 'Autoscale', 'group' => 'Queues', 'icon' => null, 'detect' => 'queue_autoscale_.*'],
         'horizon' => ['label' => 'Horizon', 'group' => 'Queues', 'icon' => null, 'detect' => 'horizon_.*'],
         'commands' => ['label' => 'Commands', 'group' => 'Activity', 'icon' => null, 'detect' => 'commands_.*'],
         'schedule' => ['label' => 'Scheduled Tasks', 'group' => 'Activity', 'icon' => null, 'detect' => null],
         'exceptions' => ['label' => 'Exceptions', 'group' => 'Activity', 'icon' => null, 'detect' => null],
-        'exception-detail' => ['label' => 'Exception', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
-        'error-detail' => ['label' => 'Issue', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
+        'exception-detail' => ['label' => 'Exception', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'exceptions'],
+        'error-detail' => ['label' => 'Issue', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'exceptions'],
         'queries' => ['label' => 'Queries', 'group' => 'Activity', 'icon' => null, 'detect' => null],
-        'query-detail' => ['label' => 'Query', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
+        'query-detail' => ['label' => 'Query', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'queries'],
         'cache' => ['label' => 'Cache', 'group' => 'Activity', 'icon' => null, 'detect' => 'cache_operations.*'],
         'storage' => ['label' => 'Storage', 'group' => 'Activity', 'icon' => null, 'detect' => 'storage_operations.*'],
         'livewire' => ['label' => 'Livewire', 'group' => 'Activity', 'icon' => null, 'detect' => 'livewire_.*'],
         'features' => ['label' => 'Feature Flags', 'group' => 'Activity', 'icon' => null, 'detect' => 'feature_(checks|unknown).*'],
         'reverb' => ['label' => 'Reverb', 'group' => 'Activity', 'icon' => null, 'detect' => 'reverb_.*'],
         'outgoing' => ['label' => 'Outgoing Requests', 'group' => 'Activity', 'icon' => null, 'detect' => null],
-        'outgoing-detail' => ['label' => 'Host', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
+        'outgoing-detail' => ['label' => 'Host', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'outgoing'],
         'mail' => ['label' => 'Mail & Notifications', 'group' => 'Activity', 'icon' => null, 'detect' => null],
         'analytics' => ['label' => 'Analytics', 'group' => 'Frontend', 'icon' => null, 'detect' => null],
-        'page-detail' => ['label' => 'Page', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
+        'page-detail' => ['label' => 'Page', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'analytics'],
         'frontend' => ['label' => 'Web Vitals', 'group' => 'Frontend', 'icon' => null, 'detect' => null],
         'hosts' => ['label' => 'Hosts', 'group' => 'Infrastructure', 'icon' => null, 'detect' => null],
-        'host-detail' => ['label' => 'Host', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true],
+        'host-detail' => ['label' => 'Host', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'hosts'],
         'users' => ['label' => 'Users', 'group' => 'Frontend', 'icon' => null, 'detect' => null],
         'logs' => ['label' => 'Logs', 'group' => 'Infrastructure', 'icon' => null, 'detect' => null],
         'system' => ['label' => 'System', 'group' => 'Infrastructure', 'icon' => null, 'detect' => 'system_.*'],
@@ -111,7 +111,7 @@ final class TelemetryUiManager
         'outgoing-detail' => [Builtin\Detail\OutgoingHostHeader::class, Builtin\Detail\OutgoingHostActivity::class, Builtin\Detail\OutgoingHostTraces::class],
         'mail' => [Builtin\MailOverview::class, Builtin\NotificationsOverview::class],
         'statamic-cache' => [Builtin\StaticCacheOverview::class, Builtin\Statamic\StaticCacheBreakdown::class],
-        'statamic-stache' => [Builtin\Statamic\StacheActivity::class],
+        'statamic-stache' => [Builtin\Statamic\StacheActivity::class, Builtin\Statamic\StacheWarmLatency::class],
         'statamic-glide' => [Builtin\Statamic\GlideGenerations::class, Builtin\Statamic\GlideByPreset::class],
         'statamic-forms' => [Builtin\Statamic\FormsSubmissions::class, Builtin\Statamic\FormsByForm::class],
         'statamic-content' => [Builtin\Statamic\ContentChanges::class, Builtin\Statamic\ContentByType::class],

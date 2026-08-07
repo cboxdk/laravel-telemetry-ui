@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-07
+
+### Added
+
+- **Statamic pages carry a breakdown, not just a chart.** Under each thin
+  overview chart, a list a reader can scan: Static Cache by outcome, Glide by
+  preset, Forms by form, Content by type — which item dominates, without
+  per-item spans. Stache (no facet label to group by) gains a **warm-build
+  latency** table instead — the p50/p75/p90/p95/p99 distribution behind its
+  single P95 stat.
+- **Analytics audience tables now show visitors, not just views.** The
+  Campaigns and Sources & audience breakdowns gain a **Visitors** column
+  beside Views (the distinct-visitor count was already computed but never
+  shown), with a fixed table layout so the compact side-by-side tables can't
+  overflow into each other.
+
+### Changed
+
+- **Navigation reorganised.** Queues split into their own sidebar group, and
+  Monitoring broken into **Frontend** (Analytics, Web Vitals, Users) and
+  **Infrastructure** (Hosts, Logs, System) — so each area is a focused tier-1
+  entry instead of one long list.
+
+### Fixed
+
+- **Chart bars no longer vanish on hover.** On the bar charts (e.g. a page's
+  Traffic), ECharts' emphasis state repainted the stacked step-area with a
+  collapsed baseline, so the fill disappeared while the pointer was over it.
+  Emphasis is disabled on the series (the axis tooltip is the hover
+  affordance); annotation markers keep their own emphasis.
+- **Detail pages light up the nav again.** A hidden detail page (a page,
+  issue, host, request, …) now highlights its list page in both the icon rail
+  and the subnav via a declared `parent`, instead of leaving the whole
+  navigation with nothing active.
+- **Web Vitals aggregate summary restored.** The Core Web Vitals card passed
+  its p75 LCP/CLS/INP summary to the stats component under the wrong attribute
+  (`:stats` instead of `:items`), so the headline was silently dropped and the
+  page rendered as a bare table.
+
 ## [1.2.0] - 2026-07-15
 
 ### Changed

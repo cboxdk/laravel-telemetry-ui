@@ -12,11 +12,15 @@
                         <p class="tui-tone-dim tui-analytics-empty">{{ $section['hint'] }}</p>
                     @else
                         <table class="tui-table">
+                            <thead>
+                                <tr><th></th><th class="is-num">Views</th><th class="is-num">Visitors</th></tr>
+                            </thead>
                             <tbody>
                                 @foreach ($section['rows'] as $row)
                                     <tr>
                                         <td class="is-primary">{{ $row['key'] }}</td>
                                         <td class="is-num">{{ Format::count($row['views']) }}</td>
+                                        <td class="is-num tui-tone-dim">{{ Format::count($row['visitors']) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

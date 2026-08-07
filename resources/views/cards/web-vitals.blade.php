@@ -7,7 +7,7 @@
             <code>ingest.spans.browser.vitals</code> enabled (default on).
         </div>
     @else
-        <x-telemetry-ui::stats :stats="$stats" />
+        <x-telemetry-ui::stats :items="$stats" />
 
         <div class="tui-table-wrap">
             <table class="tui-table">

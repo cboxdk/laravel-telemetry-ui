@@ -7,7 +7,15 @@
     // every group becomes its own area. Each area's pages are "tier 2" (subnav).
     $visible = collect($pages)->reject(fn ($meta) => $meta['hidden'] ?? false);
     $grouped = $visible->groupBy(fn ($meta) => $meta['group'] ?? '', preserveKeys: true);
-    $activeGroup = $pages[$active]['group'] ?? '';
+
+    // A hidden detail page (page-detail, error-detail, …) isn't in the nav, so
+    // it highlights its list page instead: resolve the slug the nav should mark
+    // active — the detail's `parent` when set, otherwise the page itself.
+    $activeMeta = $pages[$active] ?? [];
+    $navActive = (($activeMeta['hidden'] ?? false) && isset($activeMeta['parent']) && isset($pages[$activeMeta['parent']]))
+        ? $activeMeta['parent']
+        : $active;
+    $activeGroup = $pages[$navActive]['group'] ?? '';
 
     // Lucide outline paths per area (matched by lowercased group name), 24-box.
     $areaIcon = function (string $group): string {
@@ -140,7 +148,7 @@
                     </button>
                     <nav class="tui-subnav-nav">
                         @foreach ($activeArea['pages'] as $slug => $meta)
-                            <a href="{{ $pageUrl($slug) }}" class="tui-subnav-item {{ $slug === $active ? 'is-active' : '' }}">
+                            <a href="{{ $pageUrl($slug) }}" class="tui-subnav-item {{ $slug === $navActive ? 'is-active' : '' }}">
                                 <span>{{ $meta['label'] }}</span>
                                 @isset($meta['count'])<span class="cnt">{{ $meta['count'] }}</span>@endisset
                             </a>
