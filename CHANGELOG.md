@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-08-07
+
+### Fixed
+
+- The `TelemetryUi` facade's `@method` annotation for `resolveConnectionsUsing()`
+  never gained the `needsViewer` parameter added in 1.4.0, so a static analyser
+  flagged every correct call as passing an unknown argument.
+  `connectionResolverNeedsViewer()` is annotated too.
+
 ## [1.4.0] - 2026-08-07
 
 ### Added
