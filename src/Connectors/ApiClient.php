@@ -24,10 +24,14 @@ use Illuminate\Support\Facades\Log;
  *
  * @internal Drivers reach it through ConnectionManager; not a public API.
  */
-final readonly class ApiClient
+readonly class ApiClient
 {
     /**
      * @param  array<string, string>  $headers
+     * @param  bool|string  $verify  TLS peer verification: true (default), a path to a
+     *                               custom CA bundle, or false to disable. Disabling
+     *                               makes the connection trivially interceptable and
+     *                               is only ever a deliberate per-connection opt-in.
      */
     public function __construct(
         private string $url,
@@ -36,6 +40,7 @@ final readonly class ApiClient
         private float $timeout = 10.0,
         private int $cacheTtl = 0,
         private int $retries = 2,
+        private bool|string $verify = true,
     ) {}
 
     /**
@@ -133,6 +138,13 @@ final readonly class ApiClient
         $request = Http::withHeaders($headers)
             ->timeout($this->timeout)
             ->acceptJson();
+
+        // Only touch Guzzle's verify option when it deviates from the default,
+        // so the common path keeps the transport's own (correct) CA handling
+        // and Http::fake() in tests sees an unmodified request.
+        if ($this->verify !== true) {
+            $request = $request->withOptions(['verify' => $this->verify]);
+        }
 
         // Retry only transient connection failures; a 4xx/5xx response is left
         // for the caller to surface. throw:false keeps our own error handling.

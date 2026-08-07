@@ -208,6 +208,13 @@ return [
     | "user:pass"; both are turned into an Authorization header. Add any other
     | headers under "headers".
     |
+    | TLS: "verify" is true (default), a path to a custom CA bundle for an
+    | internal PKI or self-signed certificate, or false to skip verification.
+    | Only an explicit boolean false disables it — a stringy "false" from an env
+    | var is read as a (nonexistent) CA path and fails closed, rather than
+    | silently downgrading TLS on a typo. Skipping verification makes the
+    | connection trivially interceptable; it is never a default.
+    |
     | Grafana datasource proxy recipe (no direct backend access needed):
     |   URL  = https://grafana.example.com/api/datasources/proxy/uid/<uid>
     |   token = <grafana service-account token, Viewer role>
@@ -225,6 +232,7 @@ return [
             'tenant' => env('TELEMETRY_UI_METRICS_TENANT'),
             'token' => env('TELEMETRY_UI_METRICS_TOKEN', env('TELEMETRY_UI_TOKEN')),
             'basic_auth' => env('TELEMETRY_UI_METRICS_BASIC_AUTH'),
+            'verify' => env('TELEMETRY_UI_METRICS_CA_BUNDLE', true),
             'headers' => [],
             'timeout' => (float) env('TELEMETRY_UI_METRICS_TIMEOUT', 10.0),
         ],
@@ -235,6 +243,7 @@ return [
             'tenant' => env('TELEMETRY_UI_TEMPO_TENANT'),
             'token' => env('TELEMETRY_UI_TEMPO_TOKEN', env('TELEMETRY_UI_TOKEN')),
             'basic_auth' => env('TELEMETRY_UI_TEMPO_BASIC_AUTH'),
+            'verify' => env('TELEMETRY_UI_TEMPO_CA_BUNDLE', true),
             'headers' => [],
             'timeout' => (float) env('TELEMETRY_UI_TEMPO_TIMEOUT', 10.0),
         ],
@@ -245,6 +254,7 @@ return [
             'tenant' => env('TELEMETRY_UI_LOKI_TENANT'),
             'token' => env('TELEMETRY_UI_LOKI_TOKEN', env('TELEMETRY_UI_TOKEN')),
             'basic_auth' => env('TELEMETRY_UI_LOKI_BASIC_AUTH'),
+            'verify' => env('TELEMETRY_UI_LOKI_CA_BUNDLE', true),
             'headers' => [],
             'timeout' => (float) env('TELEMETRY_UI_LOKI_TIMEOUT', 10.0),
         ],

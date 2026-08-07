@@ -15,6 +15,7 @@ use Cbox\TelemetryUi\Contracts\CreatesIssues;
 use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
+use Cbox\TelemetryUi\Contracts\ProbesConnection;
 use Cbox\TelemetryUi\Contracts\TracesSource;
 use Closure;
 use Illuminate\Contracts\Config\Repository as Config;
@@ -25,7 +26,7 @@ use InvalidArgumentException;
  * Resolves named backend connections lazily from config. Nothing is
  * instantiated until a source is actually used.
  */
-final class ConnectionManager
+class ConnectionManager
 {
     /**
      * Upper bound on the driver cache, so a many-tenant Octane worker can't grow
@@ -178,6 +179,51 @@ final class ConnectionManager
     public function canCreateIssues(?string $name = null): bool
     {
         return $this->hasIssues($name) && $this->issues($name) instanceof CreatesIssues;
+    }
+
+    /**
+     * Test a named connection and report precisely what is wrong — reachability,
+     * TLS, credentials, or "this answered, but it isn't the API we expect".
+     *
+     * Never throws: every failure mode, including a missing or malformed
+     * connection config, comes back as a non-Ok {@see ProbeResult}. A connection
+     * tester that can itself blow up is not a tester.
+     */
+    public function probe(string $name): ProbeResult
+    {
+        try {
+            $config = $this->connectionConfig($name);
+
+            if ($config === null) {
+                return ProbeResult::fail(
+                    BackendStatus::Error,
+                    "Connection [{$name}] is not configured.",
+                );
+            }
+
+            $source = $this->cached($name, $config);
+        } catch (SourceException $exception) {
+            return ProbeResult::fromException($exception);
+        } catch (InvalidArgumentException $exception) {
+            // Config-shaped failure (no driver, no url, unknown driver). The
+            // message is ours, not a backend's, so it is safe to surface.
+            return ProbeResult::fail(BackendStatus::Error, $exception->getMessage());
+        }
+
+        if (! $source instanceof ProbesConnection) {
+            return ProbeResult::fail(
+                BackendStatus::Error,
+                'This driver does not support connection testing.',
+            );
+        }
+
+        try {
+            return $source->probe();
+        } catch (SourceException $exception) {
+            // ProbesConnection forbids throwing; a driver that does anyway must
+            // not take the connection screen down with it.
+            return ProbeResult::fromException($exception);
+        }
     }
 
     /**
@@ -407,7 +453,36 @@ final class ConnectionManager
             timeout: (float) ($config['timeout'] ?? 10.0),
             cacheTtl: is_numeric($ttl) ? (int) $ttl : 0,
             retries: (int) $this->config->get('telemetry-ui.retries', 2),
+            verify: $this->verify($config),
         );
+    }
+
+    /**
+     * TLS peer verification for a connection: true (default), false to disable,
+     * or a path to a custom CA bundle — for backends behind an internal PKI or
+     * a self-signed certificate.
+     *
+     * Only an explicit boolean false disables verification. A stray string like
+     * "false" or "0" from an env var is NOT accepted as "off": silently
+     * downgrading TLS on a typo is exactly the failure this guards against, so
+     * anything unrecognised falls back to verifying.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function verify(array $config): bool|string
+    {
+        $verify = $config['verify'] ?? true;
+
+        if ($verify === false) {
+            return false;
+        }
+
+        // A non-empty string is a CA bundle path.
+        if (is_string($verify) && $verify !== '') {
+            return $verify;
+        }
+
+        return true;
     }
 
     /**

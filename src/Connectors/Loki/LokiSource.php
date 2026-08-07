@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Connectors\Loki;
 
 use Cbox\TelemetryUi\Connectors\ApiClient;
+use Cbox\TelemetryUi\Connectors\BackendStatus;
+use Cbox\TelemetryUi\Connectors\ProbeResult;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\LogsSource;
+use Cbox\TelemetryUi\Contracts\ProbesConnection;
 use Cbox\TelemetryUi\Queries\Compilers\LogqlCompiler;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Results\LogEntry;
@@ -15,9 +18,29 @@ use DateTimeInterface;
 /**
  * Grafana Loki driver (LogQL over the HTTP query API).
  */
-final readonly class LokiSource implements LogsSource
+readonly class LokiSource implements LogsSource, ProbesConnection
 {
     public function __construct(private ApiClient $client) {}
+
+    public function probe(): ProbeResult
+    {
+        try {
+            $response = $this->client->get('/loki/api/v1/labels');
+        } catch (SourceException $exception) {
+            return ProbeResult::fromException($exception);
+        }
+
+        // Loki wraps every read in {status, data}. Requiring the envelope is
+        // what separates "this is Loki" from "this is some JSON server".
+        if (($response['status'] ?? null) !== 'success') {
+            return ProbeResult::fail(
+                BackendStatus::UnexpectedApi,
+                'The URL answered, but not with a Loki log API.',
+            );
+        }
+
+        return ProbeResult::pass();
+    }
 
     public function query(
         LogQuery $query,

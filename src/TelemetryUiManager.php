@@ -158,6 +158,14 @@ final class TelemetryUiManager
      */
     private ?Closure $connectionResolver = null;
 
+    /**
+     * Whether the connection resolver needs an authenticated viewer to mean
+     * anything. True for multi-tenant hosting (the default); false for hosts
+     * with no auth at all, where the connection is a property of the process
+     * rather than of a user (e.g. a desktop client bound to one profile).
+     */
+    private bool $connectionResolverNeedsViewer = true;
+
     public function __construct(private readonly Config $config) {}
 
     /**
@@ -190,11 +198,19 @@ final class TelemetryUiManager
      * and returns a map of connection name → config; anything it omits falls
      * back to the static `telemetry-ui.connections` config. Resolved per request.
      *
+     * By default the resolver is only consulted for an authenticated viewer —
+     * a tenant resolver dereferences the user, so calling it at boot or for a
+     * guest would fatal. Pass `needsViewer: false` when the connection does not
+     * depend on who is looking (an unauthenticated single-user host, such as a
+     * desktop client bound to one connection profile); the resolver is then
+     * consulted always and receives null as its viewer.
+     *
      * @param  Closure(mixed): array<string, array<string, mixed>>  $resolver
      */
-    public function resolveConnectionsUsing(Closure $resolver): self
+    public function resolveConnectionsUsing(Closure $resolver, bool $needsViewer = true): self
     {
         $this->connectionResolver = $resolver;
+        $this->connectionResolverNeedsViewer = $needsViewer;
 
         return $this;
     }
@@ -205,6 +221,15 @@ final class TelemetryUiManager
     public function connectionResolver(): ?Closure
     {
         return $this->connectionResolver;
+    }
+
+    /**
+     * Whether {@see resolveConnectionsUsing()} requires an authenticated viewer
+     * before it may be consulted.
+     */
+    public function connectionResolverNeedsViewer(): bool
+    {
+        return $this->connectionResolverNeedsViewer;
     }
 
     /**

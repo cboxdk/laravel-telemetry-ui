@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Connectors\Prometheus;
 
 use Cbox\TelemetryUi\Connectors\ApiClient;
+use Cbox\TelemetryUi\Connectors\BackendStatus;
+use Cbox\TelemetryUi\Connectors\ProbeResult;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
+use Cbox\TelemetryUi\Contracts\ProbesConnection;
 use Cbox\TelemetryUi\Queries\Compilers\PromqlCompiler;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\DataPoint;
@@ -18,7 +21,7 @@ use DateTimeInterface;
  * Prometheus HTTP API driver. Also the base for Mimir, which serves the
  * same API under a path prefix.
  */
-class PrometheusSource implements MetricsSource
+class PrometheusSource implements MetricsSource, ProbesConnection
 {
     /**
      * Target number of points per series when deriving a range-query step.
@@ -29,6 +32,54 @@ class PrometheusSource implements MetricsSource
         protected readonly ApiClient $client,
         protected readonly string $prefix = '',
     ) {}
+
+    public function probe(): ProbeResult
+    {
+        try {
+            $response = $this->client->get($this->path('/api/v1/status/buildinfo'));
+        } catch (SourceException $exception) {
+            // Prometheus-compatible backends do not all serve buildinfo, and a
+            // 404 there says nothing about the query API — so only that one
+            // status falls through to the query check. Everything else (TLS,
+            // auth, unreachable) is the real answer and is returned as-is.
+            if ($exception->status !== BackendStatus::NotFound) {
+                return ProbeResult::fromException($exception);
+            }
+
+            return $this->probeByQuery();
+        }
+
+        if (($response['status'] ?? null) !== 'success') {
+            return $this->probeByQuery();
+        }
+
+        $data = $response['data'] ?? null;
+        $version = is_array($data) && is_string($data['version'] ?? null) ? $data['version'] : null;
+
+        return ProbeResult::pass($version);
+    }
+
+    /**
+     * Fallback probe: the cheapest possible instant query. Proves the query API
+     * itself answers, for backends without a buildinfo endpoint.
+     */
+    private function probeByQuery(): ProbeResult
+    {
+        try {
+            $response = $this->client->get($this->path('/api/v1/query'), ['query' => '1']);
+        } catch (SourceException $exception) {
+            return ProbeResult::fromException($exception);
+        }
+
+        if (($response['status'] ?? null) !== 'success') {
+            return ProbeResult::fail(
+                BackendStatus::UnexpectedApi,
+                'The URL answered, but not with a Prometheus-compatible metrics API.',
+            );
+        }
+
+        return ProbeResult::pass();
+    }
 
     public function query(MetricQuery $query, ?DateTimeInterface $at = null): array
     {

@@ -10,7 +10,7 @@ use Cbox\TelemetryUi\Connectors\ApiClient;
  * Grafana Mimir speaks the Prometheus HTTP API under the "/prometheus"
  * path prefix, with multi-tenancy handled by the ApiClient's tenant header.
  */
-final class MimirSource extends PrometheusSource
+class MimirSource extends PrometheusSource
 {
     public function __construct(ApiClient $client, string $prefix = 'prometheus')
     {

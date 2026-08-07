@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Connection probing — `Contracts\ProbesConnection`.** A driver can now answer
+  "is this connection actually usable?" without running a dashboard query, via
+  `ConnectionManager::probe($name)`. The result is a classified `ProbeResult`
+  (`BackendStatus`: reachable / TLS / unauthorized / not-found / unexpected-API),
+  because "it didn't work" is useless — a wrong hostname, an untrusted CA, a bad
+  token and a URL pointing at the wrong product need four different fixes.
+  Implemented by the Tempo, Loki, Prometheus and Mimir drivers, each checking the
+  API *shape*, so a Loki URL pasted into the traces field is caught up front
+  rather than failing on every card. `probe()` never throws — a malformed config
+  comes back as a failed result.
+- **Per-connection TLS options.** Connections accept `verify`: `true` (default),
+  a path to a custom CA bundle for an internal PKI or self-signed certificate, or
+  `false` to skip verification. Env keys `TELEMETRY_UI_{METRICS,TEMPO,LOKI}_CA_BUNDLE`.
+  Only an explicit boolean `false` disables verification — a stringy `"false"`
+  from an env var is read as a CA path and fails closed, rather than silently
+  downgrading TLS on a typo.
+- **`Contracts\WritesToBackend`.** A marker making the read-only posture
+  checkable instead of claimed: no telemetry read driver implements it, and
+  `CreatesIssues` now extends it. A host that promises "this never writes to your
+  stores" can assert that, rather than documenting it.
+- **`resolveConnectionsUsing(..., needsViewer: false)`.** For hosts with no
+  authentication at all, where the connection is a property of the process rather
+  than of a user. The default stays viewer-gated, so existing multi-tenant
+  resolvers — which dereference the user — are never handed `null`.
+
+### Changed
+
+- `SourceException` now carries a `BackendStatus`, classified at the throw site
+  where the HTTP status and transport error are still available, instead of
+  leaving callers to pattern-match on message text.
+- Dropped `final` from the connector classes per the house rule that package
+  classes stay open to extension (`ApiClient`, `ConnectionManager`,
+  `ResolvedConnections`, `SourceException`, `TempoSource`, `LokiSource`,
+  `MimirSource`).
+
 ## [1.3.0] - 2026-08-07
 
 ### Added

@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Connectors\Tempo;
 
 use Cbox\TelemetryUi\Connectors\ApiClient;
+use Cbox\TelemetryUi\Connectors\BackendStatus;
+use Cbox\TelemetryUi\Connectors\ProbeResult;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Contracts\ProbesConnection;
 use Cbox\TelemetryUi\Contracts\TracesSource;
 use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
@@ -20,9 +23,30 @@ use DateTimeInterface;
 /**
  * Grafana Tempo driver: TraceQL search plus OTLP-JSON trace retrieval.
  */
-final readonly class TempoSource implements TracesSource
+readonly class TempoSource implements ProbesConnection, TracesSource
 {
     public function __construct(private ApiClient $client) {}
+
+    public function probe(): ProbeResult
+    {
+        try {
+            $response = $this->client->get('/api/search/tags');
+        } catch (SourceException $exception) {
+            return ProbeResult::fromException($exception);
+        }
+
+        // Any JSON server answers 200; only Tempo answers this path with a tag
+        // envelope. Without this check a Loki URL pasted into the traces field
+        // would probe green and then fail on every card.
+        if (! isset($response['tagNames']) && ! isset($response['scopes'])) {
+            return ProbeResult::fail(
+                BackendStatus::UnexpectedApi,
+                'The URL answered, but not with a Tempo trace API.',
+            );
+        }
+
+        return ProbeResult::pass();
+    }
 
     public function search(
         TraceQuery $query,

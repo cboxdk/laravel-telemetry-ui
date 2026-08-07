@@ -13,10 +13,13 @@ use RuntimeException;
  * query string or response body), and a full {@see $detail} for server-side
  * logs. {@see ApiClient} logs the detail at the throw site.
  */
-final class SourceException extends RuntimeException
+class SourceException extends RuntimeException
 {
-    private function __construct(string $message, public readonly string $detail)
-    {
+    private function __construct(
+        string $message,
+        public readonly string $detail,
+        public readonly BackendStatus $status = BackendStatus::Error,
+    ) {
         parent::__construct($message);
     }
 
@@ -25,16 +28,21 @@ final class SourceException extends RuntimeException
      * URL or response body) — e.g. a missing config value or a backend error
      * string that is meaningful to show.
      */
-    public static function because(string $message): self
+    public static function because(string $message, BackendStatus $status = BackendStatus::Error): self
     {
-        return new self($message, $message);
+        return new self($message, $message, $status);
     }
 
     public static function connectionFailed(string $url, string $reason): self
     {
+        $status = BackendStatus::classifyConnectionFailure($reason);
+
         return new self(
-            'Could not reach the telemetry backend.',
+            $status === BackendStatus::Tls
+                ? 'The telemetry backend\'s TLS certificate could not be verified.'
+                : 'Could not reach the telemetry backend.',
             "Could not reach [{$url}]: {$reason}",
+            $status,
         );
     }
 
@@ -43,6 +51,7 @@ final class SourceException extends RuntimeException
         return new self(
             "The telemetry backend returned status {$status}.",
             "Request to [{$url}] failed with status {$status}: ".mb_substr($body, 0, 1000),
+            BackendStatus::classifyHttpStatus($status),
         );
     }
 
@@ -54,6 +63,7 @@ final class SourceException extends RuntimeException
         return new self(
             "Unexpected response from the telemetry backend: {$reason}",
             "Unexpected payload from [{$url}]: {$reason}",
+            BackendStatus::UnexpectedApi,
         );
     }
 }
