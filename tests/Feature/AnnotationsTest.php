@@ -2,11 +2,16 @@
 
 declare(strict_types=1);
 
+use Cbox\Telemetry\Support\ExportOutcome;
+use Cbox\Telemetry\Support\ExportReport;
+use Cbox\Telemetry\Support\ExportResult;
+use Cbox\Telemetry\TelemetryManager;
 use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
 use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
+use Cbox\TelemetryUi\Support\AnnotationWriter;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
@@ -244,4 +249,53 @@ it('ships every annotation with its kind so the header toggle hides types client
 
     expect($html)->toContain('abc123')
         ->and($html)->toContain('app.deployment');
+});
+
+/**
+ * From cboxdk/laravel-telemetry v1.2 a refused batch is reported rather than
+ * thrown, so the writer's catch no longer sees it. Without reading the report,
+ * the annotate command and the scan-versions cron announce an annotation the
+ * backend declined — the same lie that release set out to end, one layer up.
+ */
+it('reports a refused annotation as not written', function (): void {
+    $telemetry = Mockery::mock(TelemetryManager::class);
+    $telemetry->shouldReceive('enabled')->andReturn(true);
+    $telemetry->shouldReceive('event')->once();
+    $telemetry->shouldReceive('flush')->once()->andReturn(
+        new ExportReport([
+            ExportOutcome::of('otlp', ExportResult::failed('HTTP 400: nope')),
+        ]),
+    );
+
+    app()->instance(TelemetryManager::class, $telemetry);
+
+    expect(app(AnnotationWriter::class)->write('deploy', 'v9'))->toBeFalse();
+});
+
+it('still reports a written annotation when the backend accepts it', function (): void {
+    $telemetry = Mockery::mock(TelemetryManager::class);
+    $telemetry->shouldReceive('enabled')->andReturn(true);
+    $telemetry->shouldReceive('event')->once();
+    $telemetry->shouldReceive('flush')->once()->andReturn(
+        new ExportReport([
+            ExportOutcome::of('otlp', ExportResult::ok()),
+        ]),
+    );
+
+    app()->instance(TelemetryManager::class, $telemetry);
+
+    expect(app(AnnotationWriter::class)->write('deploy', 'v9'))->toBeTrue();
+});
+
+it('lets a programming error through instead of burying it as a transport failure', function (): void {
+    // The catch here is deliberately broad so a backend outage cannot abort a
+    // cron. That breadth once swallowed a TypeError and cost an afternoon.
+    $telemetry = Mockery::mock(TelemetryManager::class);
+    $telemetry->shouldReceive('enabled')->andReturn(true);
+    $telemetry->shouldReceive('event')->andThrow(new Error('someone renamed a method'));
+
+    app()->instance(TelemetryManager::class, $telemetry);
+
+    expect(fn () => app(AnnotationWriter::class)->write('deploy', 'v9'))
+        ->toThrow(Error::class, 'someone renamed a method');
 });

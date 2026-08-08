@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Support;
 
 use Cbox\Telemetry\TelemetryManager;
+use Error;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -65,11 +66,35 @@ final readonly class AnnotationWriter
         // retries.
         try {
             $this->telemetry->event($config['event'], $attributes);
-            $this->telemetry->flush();
+            $report = $this->telemetry->flush();
+        } catch (Error $error) {
+            // A TypeError or a missing method is our bug, not the backend's,
+            // and the catch below would bury it. One such mistake hid inside
+            // this method for an afternoon: an emitter mock that could not
+            // build its own return type threw here, was swallowed, and the
+            // command cheerfully reported a clean miss.
+            throw $error;
         } catch (Throwable $exception) {
             Log::warning('telemetry-ui: annotation emit failed', [
                 'marker' => $marker,
                 'error' => $exception->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        // From cboxdk/laravel-telemetry v1.2 a refused batch is reported
+        // rather than thrown, so the catch above no longer sees it. Without
+        // reading the report, `telemetry-ui:annotate` and the scan-versions
+        // cron announce an annotation the backend declined — the same lie
+        // that release set out to end, one layer up.
+        //
+        // This is why composer.json requires ^1.2: you cannot report a
+        // refusal without the version that reports one.
+        if (! $report->successful()) {
+            Log::warning('telemetry-ui: annotation rejected by the backend', [
+                'marker' => $marker,
+                'detail' => $report->summary(),
             ]);
 
             return false;
