@@ -1,7 +1,11 @@
 @props(['services' => [], 'environments' => [], 'servicesLocked' => false, 'environmentsLocked' => false])
 
-@php($currentService = (string) request('service'))
-@php($currentEnv = (string) request('env'))
+{{-- The selection comes from the shared view state (URL first, then what the
+     reader last chose), so the picker always shows the scope the cards are
+     querying — never the default while the cards are somewhere else. --}}
+@php($state = app(Cbox\TelemetryUi\Support\ViewState::class))
+@php($currentService = $state->service())
+@php($currentEnv = $state->environment())
 
 {{-- A dimension locked to a single value has no choice to offer, so its picker
      is hidden entirely; the scope is enforced at query time regardless. --}}
@@ -14,16 +18,17 @@
      x-data
      x-on:change="
         const url = new URL(window.location);
-        const value = $event.target.value;
-        if (value === '') { url.searchParams.delete($event.target.name); }
-        else { url.searchParams.set($event.target.name, value); }
+        // Always SET, even to ''. An empty parameter is how 'All services' is
+        // said out loud: deleting it would be indistinguishable from 'not
+        // specified', and the remembered scope would come straight back.
+        url.searchParams.set($event.target.name, $event.target.value);
         window.location = url;
      ">
     @if ($showService)
         <label class="tui-scope-field">
             <x-telemetry-ui::combobox name="service" aria-label="Service" title="Service">
                 @unless ($servicesLocked)
-                    <option value="">All services</option>
+                    <option value="" @selected($currentService === '')>All services</option>
                 @endunless
                 @foreach ($services as $service)
                     <option value="{{ $service }}" @selected($service === $currentService)>{{ $service }}</option>
@@ -36,7 +41,7 @@
         <label class="tui-scope-field">
             <x-telemetry-ui::combobox name="env" aria-label="Environment" title="Environment">
                 @unless ($environmentsLocked)
-                    <option value="">All envs</option>
+                    <option value="" @selected($currentEnv === '')>All envs</option>
                 @endunless
                 @foreach ($environments as $environment)
                     <option value="{{ $environment }}" @selected($environment === $currentEnv)>{{ $environment }}</option>

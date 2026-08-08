@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Shared view state that survives navigation — `Support\ViewState`.** The time
+  window, the auto-refresh interval and the service/environment scope used to
+  live only in the query string, so they survived exactly the links that
+  bothered to carry them: a host's `navLink()`, a card's deep link, a trace
+  drill-in or a plain reload of a bare URL all dropped silently back to the last
+  hour. They are now resolved once per request and remembered in a cookie.
+  An explicit URL parameter still wins, and taking one updates what is
+  remembered — so a shared deep link shows the sender's view and a bare link
+  shows the recipient's saved one. Read it with `TelemetryUi::viewState()`, move
+  it with `put()`, and listen for `Events\ViewStateChanged`. See
+  [docs/extension-points/view-state.md](docs/extension-points/view-state.md).
+- **`TelemetryUi::connection()` / `currentConnection()`.** A host that mounts the
+  dashboard as its whole UI can offer its backend profiles as a native `<select>`
+  in the dashboard header, instead of making the reader leave for a host screen
+  and come back. Nothing registered means nothing rendered, as with `navLink()`;
+  label and URL are escaped and there is no markup parameter, holding the same
+  line `NavLink` holds.
+
+### Changed
+
+- **The page header is sticky within `.tui-main`.** The title, scope switcher and
+  period selector are what a reader reaches for most on a long page and hardest
+  to find once scrolled past. Themed translucent pane with a blur (opaque
+  fallback where `backdrop-filter` is unsupported), parked below the mobile
+  topbar so the two never fight.
+- **"Refresh now" re-dispatches the Livewire refresh event** instead of calling
+  `window.location.reload()`, so an open drawer, the scroll position and any
+  client-side selection survive a refresh — and it costs one round trip rather
+  than a whole page render. Falls back to a reload if Livewire has not booted.
+- **"Copy link" pins the resolved state into the URL** rather than copying the
+  address bar verbatim. Now that the window lives in a cookie, a copied bare URL
+  would have silently retargeted to whatever range the *recipient* last used.
+
+### Fixed
+
+- **The auto-refresh control could show an interval other than the one running.**
+  The timer was restored from `sessionStorage` while the combobox labelled itself
+  from the DOM's selected `<option>`, which the server always rendered as "off" —
+  and Alpine's `x-model` write of the restored value neither changes the
+  `selected` attribute nor fires `change`, so the label never caught up. The
+  interval is now server-rendered from the shared state and handed to Alpine as
+  the same number, so the label and the timer have one source.
+- **"Reset zoom" now pins the preset period.** It only deleted `from`/`to`, which
+  with a remembered range would have resolved straight back to the range it was
+  meant to clear.
+- **"All services" / "All envs" set an empty scope parameter instead of deleting
+  it.** An absent parameter is indistinguishable from "not specified", so
+  clearing the scope would otherwise have been undone by the remembered one.
+
 ## [1.4.1] - 2026-08-07
 
 ### Fixed

@@ -7,6 +7,7 @@
     <header class="tui-header">
         <h1>{{ $trace?->root()?->name ?: 'Trace' }}</h1>
         <div class="tui-header-right">
+            <x-telemetry-ui::connection-switcher :connections="$connections" :current="$currentConnection" />
             <x-telemetry-ui::scope-switcher :services="$services" :environments="$environments" :services-locked="$servicesLocked" :environments-locked="$environmentsLocked" />
         </div>
     </header>

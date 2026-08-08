@@ -6,8 +6,11 @@ namespace Cbox\TelemetryUi;
 
 use Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
+use Cbox\TelemetryUi\Events\ViewStateChanged;
+use Cbox\TelemetryUi\Support\ConnectionOption;
 use Cbox\TelemetryUi\Support\NavLink;
 use Cbox\TelemetryUi\Support\SchemaDetector;
+use Cbox\TelemetryUi\Support\ViewState;
 use Closure;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Support\Str;
@@ -152,6 +155,19 @@ final class TelemetryUiManager
     private array $navLinks = [];
 
     /**
+     * Backend profiles the host offers in the header's connection switcher.
+     *
+     * @var array<string, ConnectionOption>
+     */
+    private array $connections = [];
+
+    /**
+     * The value of the currently-selected connection, or null when the host has
+     * not said — in which case the switcher selects nothing.
+     */
+    private ?string $currentConnection = null;
+
+    /**
      * Per-viewer scope lock (tenancy). Returns the services / environments the
      * current user may see; empty/absent = unrestricted for that dimension.
      *
@@ -241,6 +257,21 @@ final class TelemetryUiManager
     }
 
     /**
+     * The reader's current view state — the time window, the auto-refresh
+     * interval and the service/environment scope actually on screen, whether
+     * they came from the URL or from what the reader last chose.
+     *
+     * A host that draws its own chrome around the dashboard reads it here
+     * (`TelemetryUi::viewState()->range()`), and moves it with
+     * {@see ViewState::put()}. Listen for {@see ViewStateChanged} to be told
+     * when the reader moves it instead.
+     */
+    public function viewState(): ViewState
+    {
+        return app(ViewState::class);
+    }
+
+    /**
      * Register an MCP tool on the telemetry server. Packages call this from a
      * service provider to expose their own read tool (e.g. an autoscale
      * decision explainer) alongside the built-in metrics/traces/logs tools.
@@ -315,6 +346,65 @@ final class TelemetryUiManager
     public function navLinks(): array
     {
         return array_values($this->navLinks);
+    }
+
+    /**
+     * Offer the host's backend profiles in the dashboard header as a native
+     * `<select>`: picking one navigates to $url, which is the host's own route
+     * and does whatever switching means over there.
+     *
+     * This is the companion to {@see resolveConnectionsUsing()}. That hook says
+     * which backend the dashboard reads from; this one lets the reader change
+     * it without leaving the dashboard for a host screen and coming back.
+     * Registering the same $value twice replaces the earlier entry.
+     *
+     * $label and $url are escaped like any other Blade output — as with
+     * {@see NavLink()}, a host string never reaches an unescaped sink. That is
+     * also why there is no icon or markup parameter here.
+     */
+    public function connection(string $value, string $label, string $url): self
+    {
+        $this->connections[$value] = new ConnectionOption($value, $label, $url);
+
+        return $this;
+    }
+
+    /**
+     * Mark which registered connection is the one currently being read. The
+     * switcher shows it as selected; an unknown or unset value selects nothing,
+     * so the control never claims to be on a profile it isn't.
+     */
+    public function currentConnection(?string $value): self
+    {
+        $this->currentConnection = $value;
+
+        return $this;
+    }
+
+    public function removeConnection(string $value): self
+    {
+        unset($this->connections[$value]);
+
+        return $this;
+    }
+
+    /**
+     * @return list<ConnectionOption>
+     */
+    public function connections(): array
+    {
+        return array_values($this->connections);
+    }
+
+    /**
+     * The selected connection's value, or '' when the host registered none or
+     * named one that isn't in the list.
+     */
+    public function selectedConnection(): string
+    {
+        return $this->currentConnection !== null && isset($this->connections[$this->currentConnection])
+            ? $this->currentConnection
+            : '';
     }
 
     /**

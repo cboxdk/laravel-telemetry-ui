@@ -110,6 +110,45 @@ function writeClipboard(text) {
     return Promise.resolve(fallbackCopy(text));
 }
 
+// ── Shared view state ────────────────────────────────────────────────────────
+// The window, scope and auto-refresh interval live in a cookie so PHP knows
+// them on the FIRST render — the cards are server-rendered and query their
+// backends during it, so anything discovered client-side would arrive a full
+// round of queries too late. PHP owns almost every write. The auto-refresh
+// control is the exception: it changes state without navigating, so it patches
+// the cookie here — same name, same scope, same query-string encoding as the
+// server's own write, so the two are one cookie rather than two.
+function readViewState(name) {
+    const row = document.cookie.split('; ').find((c) => c.startsWith(name + '='));
+    if (!row) return new URLSearchParams();
+    try {
+        return new URLSearchParams(decodeURIComponent(row.slice(name.length + 1)));
+    } catch {
+        return new URLSearchParams();
+    }
+}
+
+function writeViewState(cookie, patch) {
+    if (!cookie || !cookie.name) return;
+
+    const params = readViewState(cookie.name);
+    for (const [key, value] of Object.entries(patch)) {
+        if (value === null || value === '') params.delete(key);
+        else params.set(key, value);
+    }
+
+    const parts = [
+        cookie.name + '=' + encodeURIComponent(params.toString()),
+        'path=' + (cookie.path || '/'),
+        'max-age=' + (cookie.maxAge || 31536000),
+        'samesite=' + (cookie.sameSite || 'lax'),
+    ];
+    if (cookie.domain) parts.push('domain=' + cookie.domain);
+    if (cookie.secure) parts.push('secure');
+
+    document.cookie = parts.join('; ');
+}
+
 // The drawer's content is server-rendered, so opening it costs a Livewire
 // round trip plus the backend queries behind it. Slide the shell open
 // instantly with a skeleton — the morph replaces it when the data lands.
@@ -272,10 +311,23 @@ function register() {
         },
     }));
 
-    window.Alpine.data('telemetryUiCopyLink', () => ({
+    // "Copy link" shares the EXACT current view. The window and scope are
+    // remembered in a cookie, so most of the time they aren't in the address
+    // bar — copying it verbatim would hand the recipient a link that silently
+    // retargets to whatever range THEY last looked at. So the server's resolved
+    // state is pinned into the URL first; every other param (a traces query, a
+    // table filter, ann_off) is left exactly as it is.
+    window.Alpine.data('telemetryUiCopyLink', (state = {}) => ({
         copied: false,
+        href() {
+            const url = new URL(window.location);
+            for (const [key, value] of Object.entries(state)) {
+                url.searchParams.set(key, value);
+            }
+            return url.toString();
+        },
         copy() {
-            writeClipboard(window.location.href).then((ok) => {
+            writeClipboard(this.href()).then((ok) => {
                 if (!ok) return;
                 this.copied = true;
                 setTimeout(() => { this.copied = false; }, 1500);
@@ -338,8 +390,16 @@ function register() {
         },
     }));
 
-    window.Alpine.data('telemetryUiRefresh', () => ({
-        value: sessionStorage.getItem('telemetry-ui:refresh') || '0',
+    // Auto refresh. The interval arrives from the SERVER (rendered as the
+    // selected <option> and passed in here as the same number), so the label
+    // the reader sees and the timer that is actually running always agree.
+    //
+    // It is the one control that changes shared state without navigating, so
+    // it writes the state cookie itself rather than waiting for a page render
+    // to persist it — and it writes the same cookie PHP does, with the same
+    // scope, so there is only ever one.
+    window.Alpine.data('telemetryUiRefresh', (seconds = 0, cookie = null) => ({
+        value: String(seconds),
         timer: null,
 
         init() {
@@ -347,11 +407,11 @@ function register() {
         },
 
         apply(persist = true) {
-            if (persist) sessionStorage.setItem('telemetry-ui:refresh', this.value);
+            if (persist) writeViewState(cookie, { refresh: this.value === '0' ? null : this.value });
             if (this.timer) clearInterval(this.timer);
-            const seconds = parseInt(this.value, 10);
-            if (seconds > 0) {
-                this.timer = setInterval(() => window.Livewire?.dispatch('telemetry-ui:refresh'), seconds * 1000);
+            const interval = parseInt(this.value, 10);
+            if (interval > 0) {
+                this.timer = setInterval(() => window.Livewire?.dispatch('telemetry-ui:refresh'), interval * 1000);
             }
         },
 
@@ -360,20 +420,23 @@ function register() {
         },
     }));
 
-    window.Alpine.data('telemetryUiRange', () => ({
+    window.Alpine.data('telemetryUiRange', (initialFrom = '', initialTo = '') => ({
         open: false,
         from: '',
         to: '',
 
         init() {
-            const params = new URLSearchParams(window.location.search);
+            // Seeded from the resolved view state, not the query string: the
+            // active range may be a remembered one that never reached the URL.
+            // Only absolute (unix) bounds can fill a datetime-local input; a
+            // relative "now-2h" has no fixed value to show.
             const toLocal = (unix) => {
                 const date = new Date(parseInt(unix, 10) * 1000);
                 date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
                 return date.toISOString().slice(0, 16);
             };
-            if (params.get('from')) this.from = toLocal(params.get('from'));
-            if (params.get('to')) this.to = toLocal(params.get('to'));
+            if (/^\d+$/.test(initialFrom)) this.from = toLocal(initialFrom);
+            if (/^\d+$/.test(initialTo)) this.to = toLocal(initialTo);
         },
 
         apply() {

@@ -1,27 +1,40 @@
-@php($current = Cbox\TelemetryUi\Support\Period::tryFrom((string) request('period')) ?? Cbox\TelemetryUi\Support\Period::default())
-@php($rangeFrom = Cbox\TelemetryUi\Support\TimeExpression::parse((string) request('from')))
-@php($rangeTo = Cbox\TelemetryUi\Support\TimeExpression::parse((string) request('to')))
-@php($hasCustomRange = $rangeFrom !== null && $rangeTo !== null && $rangeFrom < $rangeTo)
+{{-- Every control here reads the SHARED view state, not the raw query string:
+     the window may have come from the URL or from what the reader last chose,
+     and the header must show whichever one the cards are actually querying. --}}
+@php($state = app(Cbox\TelemetryUi\Support\ViewState::class))
+@php($current = $state->period())
+@php($hasCustomRange = $state->hasCustomRange())
 
 <div class="tui-header-controls">
-    {{-- Copy deep-link to the current view (filters, range, scope) --}}
-    <button type="button" class="tui-btn tui-copy-link" x-data="telemetryUiCopyLink()" x-on:click="copy()"
+    {{-- Copy deep-link to the current view (filters, range, scope).
+         The link PINS the state into the URL rather than copying the address
+         bar as-is: the range now survives in a cookie, so a bare copied link
+         would silently retarget to whatever range the recipient last used. --}}
+    <button type="button" class="tui-btn tui-copy-link" x-data="telemetryUiCopyLink(@js($state->queryParams()))" x-on:click="copy()"
             :class="{ 'is-copied': copied }" title="Copy a link to this exact view">
         <span x-show="!copied">🔗 Copy link</span>
         <span x-show="copied" x-cloak>✓ Copied</span>
     </button>
 
-    {{-- Refresh now --}}
-    <button type="button" class="tui-btn tui-refresh-now" x-data x-on:click="window.location.reload()"
+    {{-- Refresh now: re-runs the cards in place instead of reloading the page,
+         so an open drawer, a scroll position and an in-flight selection all
+         survive the refresh — and it costs one round trip, not a full render.
+         Falls back to a reload if Livewire hasn't booted. --}}
+    <button type="button" class="tui-btn tui-refresh-now" x-data
+            x-on:click="window.Livewire ? window.Livewire.dispatch('telemetry-ui:refresh') : window.location.reload()"
             title="Refresh now">↻</button>
 
-    {{-- Auto refresh --}}
-    <div class="tui-refresh" x-data="telemetryUiRefresh()" title="Auto refresh">
+    {{-- Auto refresh. The selected interval is SERVER-rendered from the shared
+         state and handed to Alpine as the same number, so the control's label
+         and the timer that is actually running cannot disagree — they have one
+         source. (They used to: the timer was restored from sessionStorage while
+         the combobox labelled itself from the DOM's selected option, which the
+         server always drew as "off".) --}}
+    <div class="tui-refresh" x-data="telemetryUiRefresh({{ $state->refresh() }}, @js($state->cookieAttributes()))" title="Auto refresh">
         <x-telemetry-ui::combobox x-model="value" x-on:change="apply()">
-            <option value="0">⟳ off</option>
-            <option value="10">⟳ 10s</option>
-            <option value="30">⟳ 30s</option>
-            <option value="60">⟳ 60s</option>
+            @foreach (Cbox\TelemetryUi\Support\ViewState::INTERVALS as $seconds)
+                <option value="{{ $seconds }}" @selected($seconds === $state->refresh())>⟳ {{ $seconds === 0 ? 'off' : $seconds.'s' }}</option>
+            @endforeach
         </x-telemetry-ui::combobox>
     </div>
 
@@ -74,7 +87,10 @@
         </div>
     @endif
 
-    {{-- Reset zoom: only shown while a custom (zoomed/absolute) range is active --}}
+    {{-- Reset zoom: only shown while a custom (zoomed/absolute) range is active.
+         It pins the preset period explicitly — the range is resolved as one
+         unit, so a URL with neither period nor from/to would simply fall back
+         to the remembered custom range and the button would do nothing. --}}
     @if ($hasCustomRange)
         <button type="button" class="tui-btn tui-reset-zoom" title="Reset zoom"
             x-data
@@ -82,15 +98,16 @@
                 const url = new URL(window.location);
                 url.searchParams.delete('from');
                 url.searchParams.delete('to');
+                url.searchParams.set('period', '{{ $current->value }}');
                 window.location = url;
             ">↺ Reset</button>
     @endif
 
     {{-- Custom absolute range --}}
-    <div class="tui-range" x-data="telemetryUiRange()">
+    <div class="tui-range" x-data="telemetryUiRange(@js($state->from()), @js($state->to()))">
         <button type="button" class="tui-btn {{ $hasCustomRange ? 'is-range-active' : '' }}" x-on:click="open = !open">
             @if ($hasCustomRange)
-                {{ Cbox\TelemetryUi\Support\TimeExpression::label((string) request('from')) }} – {{ Cbox\TelemetryUi\Support\TimeExpression::label((string) request('to')) }}
+                {{ Cbox\TelemetryUi\Support\TimeExpression::label($state->from()) }} – {{ Cbox\TelemetryUi\Support\TimeExpression::label($state->to()) }}
             @else
                 Custom
             @endif
@@ -102,7 +119,8 @@
         </div>
     </div>
 
-    {{-- Presets --}}
+    {{-- Presets. Setting `period` and dropping `from`/`to` is what tells the
+         server "this is a fresh range" — see the one-unit rule in ViewState. --}}
     <div class="tui-periods" role="tablist" aria-label="Time period">
         @foreach (Cbox\TelemetryUi\Support\Period::cases() as $period)
             <button
