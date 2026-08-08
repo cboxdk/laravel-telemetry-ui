@@ -2,6 +2,7 @@
     <header class="tui-header">
         <h1>{{ $pages[$page]['label'] }}</h1>
         <div class="tui-header-right">
+            <x-telemetry-ui::connection-switcher :connections="$connections" :current="$currentConnection" />
             <x-telemetry-ui::scope-switcher :services="$services" :environments="$environments" :services-locked="$servicesLocked" :environments-locked="$environmentsLocked" />
             <x-telemetry-ui::period-selector />
         </div>

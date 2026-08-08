@@ -68,6 +68,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | View state
+    |--------------------------------------------------------------------------
+    |
+    | The reader's time window, auto-refresh interval and service/environment
+    | scope, remembered in a cookie so they survive a reload, a link that
+    | carries no query string, and a drill into a trace and back. An explicit
+    | URL parameter always wins, and taking one updates what is remembered —
+    | so shared deep links keep showing the sender's view.
+    |
+    | The cookie is a preference, not a credential: it is readable by the page's
+    | own JavaScript (the auto-refresh control writes it) and grants nothing —
+    | a remembered scope is still bounded by the tenancy lock above and every
+    | query is forced into that lock regardless. Set "enabled" to false to go
+    | back to URL-or-default with nothing carried between requests.
+    |
+    */
+
+    'state' => [
+        'enabled' => (bool) env('TELEMETRY_UI_STATE', true),
+        'cookie' => env('TELEMETRY_UI_STATE_COOKIE', 'telemetry_ui_view'),
+        // Minutes. A year: this is a view preference, not a session.
+        'lifetime' => (int) env('TELEMETRY_UI_STATE_LIFETIME', 60 * 24 * 365),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Analytics
     |--------------------------------------------------------------------------
     |

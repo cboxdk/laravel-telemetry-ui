@@ -8,11 +8,14 @@ use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\ResolvedConnections;
 use Cbox\TelemetryUi\Http\Middleware\Authorize;
+use Cbox\TelemetryUi\Http\Middleware\RemembersViewState;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLock;
+use Cbox\TelemetryUi\Support\ViewState;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -75,6 +78,14 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             $app->make(TelemetryUiManager::class),
         ));
 
+        // The reader's remembered window/scope/refresh. Request-scoped: it is
+        // resolved from THIS request's query string and cookie, so it must
+        // never survive into the next one under a persistent runtime.
+        $this->app->scoped(ViewState::class, static fn (Application $app): ViewState => new ViewState(
+            $app->make(ScopeLock::class),
+            $app->make('config'),
+        ));
+
         $this->app->singleton(Annotations::class, static fn (Application $app): Annotations => new Annotations(
             $app->make(ConnectionManager::class),
             $app->make('cache'),
@@ -110,6 +121,7 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             static fn (): string => "<?php echo \Cbox\TelemetryUi\Support\Assets::tags(); ?>",
         );
 
+        $this->registerViewStateCookie();
         $this->registerRoutes();
         $this->registerGate();
         $this->registerIssuesPage();
@@ -180,9 +192,20 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $manager->card(Cards\Builtin\IssuesList::class, page: 'issues');
     }
 
+    /**
+     * The view-state cookie is written by PHP and rewritten by the auto-refresh
+     * control in the browser (the one control that changes state without
+     * navigating), so it must stay readable on both sides. It carries no
+     * secret and grants nothing — see {@see ViewState}.
+     */
+    private function registerViewStateCookie(): void
+    {
+        EncryptCookies::except(ViewState::cookieNameFor($this->app->make('config')));
+    }
+
     private function registerRoutes(): void
     {
-        $middleware = [...(array) config('telemetry-ui.middleware', ['web']), Authorize::class];
+        $middleware = [...(array) config('telemetry-ui.middleware', ['web']), Authorize::class, RemembersViewState::class];
 
         $throttle = config('telemetry-ui.throttle');
         if (is_string($throttle) && $throttle !== '') {

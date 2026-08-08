@@ -18,10 +18,12 @@ function fakeTelemetry(bool $enabled = true): MockInterface
 it('emits a configured annotation marker through the telemetry pipeline', function (): void {
     $telemetry = fakeTelemetry();
     $telemetry->shouldReceive('event')->once()->with('app.incident', ['incident.notes' => 'checkout 5xx spike']);
-    $telemetry->shouldReceive('flush')->once();
+    stubTelemetryFlush($telemetry);
 
+    // The whole string, not just "emitted": the failure path prints "was NOT
+    // emitted", so the loose substring passed either way and proved nothing.
     $this->artisan('telemetry-ui:annotate', ['marker' => 'incident', '--notes' => 'checkout 5xx spike'])
-        ->expectsOutputToContain('emitted')
+        ->expectsOutputToContain('Annotation [incident] emitted.')
         ->assertExitCode(0);
 });
 
@@ -31,7 +33,7 @@ it('maps id and notes to the marker\'s dotted OTLP attributes', function (): voi
         'scaling.id' => 'web',
         'scaling.notes' => '+2 workers',
     ]);
-    $telemetry->shouldReceive('flush')->once();
+    stubTelemetryFlush($telemetry);
 
     app(AnnotationWriter::class)->write('scaling', 'web', '+2 workers');
 });
@@ -42,7 +44,7 @@ it('emits a cache purge marker with the cache.type attribute', function (): void
         'cache.type' => 'redis',
         'cache.notes' => 'full flush',
     ]);
-    $telemetry->shouldReceive('flush')->once();
+    stubTelemetryFlush($telemetry);
 
     $this->artisan('telemetry-ui:annotate', ['marker' => 'cache_purge', '--id' => 'redis', '--notes' => 'full flush'])
         ->expectsOutputToContain('emitted')

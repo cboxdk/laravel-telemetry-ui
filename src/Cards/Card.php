@@ -17,6 +17,7 @@ use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Period;
 use Cbox\TelemetryUi\Support\TimeExpression;
+use Cbox\TelemetryUi\Support\ViewState;
 use DateTimeImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Gate;
@@ -30,9 +31,11 @@ use Livewire\Component;
  * anything that can be expressed as PromQL/TraceQL/LogQL).
  *
  * Cards share the global scope: the time period plus the service/environment
- * selected in the sidebar switcher, all synced via the query string. The two
- * engines a card reuses live in {@see ScopesQueries} (scoped PromQL/TraceQL/
- * LogQL) and {@see BuildsCharts} (the ECharts card view + stat tiles).
+ * selected in the header, resolved through {@see ViewState} (an explicit query
+ * parameter, else the reader's remembered view) and synced onward via the query
+ * string. The two engines a card reuses live in {@see ScopesQueries} (scoped
+ * PromQL/TraceQL/LogQL) and {@see BuildsCharts} (the ECharts card view + stat
+ * tiles).
  *
  * @api This base and its protected scope helpers (metric(), traceScope(),
  *      logSelector(), range(), scopeMatchers(), escapeLabelValue(), the
@@ -105,11 +108,19 @@ abstract class Card extends Component
             abort_unless(Gate::allows('viewTelemetryUi'), 403);
         }
 
-        $this->service = $service ?? $this->service;
-        $this->environment = $environment ?? $this->environment;
-        $this->period = $period ?? $this->period;
-        $this->from = $from ?? $this->from;
-        $this->to = $to ?? $this->to;
+        // Anything not passed explicitly comes from the shared view state,
+        // which is the URL when the URL says something and the reader's
+        // remembered window otherwise. Reading it here rather than leaning on
+        // #[Url] alone is what makes the FIRST render right: a card queries its
+        // backend during that render, so a window discovered client-side would
+        // arrive one full round of queries too late.
+        $state = app(ViewState::class);
+
+        $this->service = $service ?? $state->service();
+        $this->environment = $environment ?? $state->environment();
+        $this->period = $period ?? $state->period()->value;
+        $this->from = $from ?? $state->from();
+        $this->to = $to ?? $state->to();
 
         // The page view passes $onPage explicitly — lazy cards mount in a
         // later Livewire request where the page route param is long gone,

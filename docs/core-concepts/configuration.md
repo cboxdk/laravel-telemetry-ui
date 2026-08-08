@@ -89,6 +89,17 @@ default. See [issue trackers](../extension-points/issue-trackers.md).
 | `connections.issues.url` | `TELEMETRY_UI_ISSUES_URL` |
 | `connections.issues.token` | `TELEMETRY_UI_ISSUES_TOKEN` |
 
+## View state
+
+| Key | Env | Default | Notes |
+| --- | --- | --- | --- |
+| `state.enabled` | `TELEMETRY_UI_STATE` | `true` | Remember the reader's time window, auto-refresh interval and scope between requests. `false` restores URL-or-default with nothing carried. |
+| `state.cookie` | `TELEMETRY_UI_STATE_COOKIE` | `telemetry_ui_view` | Cookie name. Excluded from cookie encryption — the auto-refresh control writes it from the browser. It is a preference, never an authorization input. |
+| `state.lifetime` | `TELEMETRY_UI_STATE_LIFETIME` | `525600` | Cookie lifetime in minutes (a year). |
+
+See [view state](../extension-points/view-state.md) for the precedence rules and
+the host API.
+
 ## Discovery caches
 
 | Key | Env | Default | Notes |

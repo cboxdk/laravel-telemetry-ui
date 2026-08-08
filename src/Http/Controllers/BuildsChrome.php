@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Http\Controllers;
 
 use Cbox\TelemetryUi\Events\DashboardViewed;
+use Cbox\TelemetryUi\Support\ConnectionOption;
 use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\MetricScope;
 use Cbox\TelemetryUi\Support\NavLink;
 use Cbox\TelemetryUi\Support\PaletteCommands;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLock;
+use Cbox\TelemetryUi\Support\ViewState;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
@@ -33,8 +35,12 @@ trait BuildsChrome
     {
         // Scope detection to the selected service/environment so an optional
         // group (Statamic, Horizon, …) only shows when THAT service emits it —
-        // not because some other service in the fleet does.
-        $scope = app(MetricScope::class)->promMatchers($this->queryString('service'), $this->queryString('env'));
+        // not because some other service in the fleet does. Read through the
+        // view state, so a REMEMBERED service shapes the sidebar exactly like a
+        // freshly-picked one and the nav can't disagree with the cards.
+        $state = app(ViewState::class);
+
+        $scope = app(MetricScope::class)->promMatchers($state->service(), $state->environment());
 
         return array_filter(
             $manager->visiblePages($detector, $scope),
@@ -69,7 +75,7 @@ trait BuildsChrome
      * @param  array<string, array{label: string, group: string|null, icon: string|null, detect: string|null}>  $pages
      * @param  list<string>  $services
      * @param  list<string>  $environments
-     * @return array{commands: list<array{type: string, label: string, group: string, href: string}>, traceBase: string, traceSentinel: string, navLinks: list<NavLink>}
+     * @return array{commands: list<array{type: string, label: string, group: string, href: string}>, traceBase: string, traceSentinel: string, navLinks: list<NavLink>, connections: list<ConnectionOption>, currentConnection: string}
      */
     protected function chrome(array $pages, array $services, array $environments, string $active): array
     {
@@ -81,28 +87,28 @@ trait BuildsChrome
             'env' => Request::query('env'),
         ], static fn ($value): bool => is_string($value) && $value !== '');
 
+        $manager = app(TelemetryUiManager::class);
+
         return [
             'commands' => PaletteCommands::build($pages, $services, $environments, $active, $query),
             'traceBase' => PaletteCommands::traceBase($active, $query),
             'traceSentinel' => PaletteCommands::TRACE_SENTINEL,
-            'navLinks' => app(TelemetryUiManager::class)->navLinks(),
+            'navLinks' => $manager->navLinks(),
+            'connections' => $manager->connections(),
+            'currentConnection' => $manager->selectedConnection(),
         ];
     }
 
     /**
-     * Fire the audit/usage event for a page view — the one place the scope is
-     * read off the request, coerced safely (an array-shaped ?service[]= param
-     * records as '' rather than the literal 'Array' or throwing).
+     * Fire the audit/usage event for a page view. The scope comes from the
+     * shared {@see ViewState}, so the audit trail records the window the reader
+     * actually saw — including a remembered one — and is coerced safely there
+     * (an array-shaped `?service[]=` records as '' rather than 'Array').
      */
     protected function recordView(string $page): void
     {
-        event(new DashboardViewed(Auth::user(), $page, $this->queryString('service'), $this->queryString('env')));
-    }
+        $state = app(ViewState::class);
 
-    private function queryString(string $key): string
-    {
-        $value = Request::query($key);
-
-        return is_string($value) ? $value : '';
+        event(new DashboardViewed(Auth::user(), $page, $state->service(), $state->environment()));
     }
 }
