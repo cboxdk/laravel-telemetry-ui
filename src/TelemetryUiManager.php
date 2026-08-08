@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi;
 
 use Cbox\TelemetryUi\Cards\Builtin;
 use Cbox\TelemetryUi\Cards\Card;
+use Cbox\TelemetryUi\Support\NavLink;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Closure;
 use Illuminate\Contracts\Config\Repository as Config;
@@ -144,6 +145,13 @@ final class TelemetryUiManager
     private array $mcpTools = [];
 
     /**
+     * Links back OUT to the host application, shown at the foot of the rail.
+     *
+     * @var array<string, NavLink>
+     */
+    private array $navLinks = [];
+
+    /**
      * Per-viewer scope lock (tenancy). Returns the services / environments the
      * current user may see; empty/absent = unrestricted for that dimension.
      *
@@ -274,6 +282,39 @@ final class TelemetryUiManager
         $this->pages[$slug] = ['label' => $label, 'group' => $group, 'icon' => $icon, 'detect' => $detectMetric, 'hidden' => $hidden];
 
         return $this;
+    }
+
+    /**
+     * Register a link out of the dashboard, shown at the foot of the icon rail.
+     *
+     * Unlike a page, this points wherever you like — the host's own settings,
+     * a connection switcher, its home screen. Intended for hosts that mount the
+     * dashboard as the whole UI, where its chrome is the only navigation the
+     * reader has. Registering the same $key twice replaces the earlier link.
+     *
+     * $icon is one of: back, home, settings, connection, server, database,
+     * user. Anything else draws the generic link glyph.
+     */
+    public function navLink(string $key, string $label, string $url, ?string $icon = null): self
+    {
+        $this->navLinks[$key] = new NavLink($key, $label, $url, $icon);
+
+        return $this;
+    }
+
+    public function removeNavLink(string $key): self
+    {
+        unset($this->navLinks[$key]);
+
+        return $this;
+    }
+
+    /**
+     * @return list<NavLink>
+     */
+    public function navLinks(): array
+    {
+        return array_values($this->navLinks);
     }
 
     /**

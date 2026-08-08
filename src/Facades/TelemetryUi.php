@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Facade;
  * contribute pages, cards and MCP tools to the dashboard.
  *
  * @method static \Cbox\TelemetryUi\TelemetryUiManager page(string $slug, string $label, ?string $group = null, ?string $icon = null, ?string $detectMetric = null, bool $hidden = false)
+ * @method static \Cbox\TelemetryUi\TelemetryUiManager navLink(string $key, string $label, string $url, ?string $icon = null)
+ * @method static \Cbox\TelemetryUi\TelemetryUiManager removeNavLink(string $key)
+ * @method static list<\Cbox\TelemetryUi\Support\NavLink> navLinks()
  * @method static \Cbox\TelemetryUi\TelemetryUiManager card(string $card, string $page = 'dashboard')
  * @method static \Cbox\TelemetryUi\TelemetryUiManager setCards(string $page, list<class-string<\Cbox\TelemetryUi\Cards\Card>> $cards)
  * @method static \Cbox\TelemetryUi\TelemetryUiManager removeCard(string $card, string $page = 'dashboard')

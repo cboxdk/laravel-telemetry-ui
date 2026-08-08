@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Http\Controllers;
 use Cbox\TelemetryUi\Events\DashboardViewed;
 use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\MetricScope;
+use Cbox\TelemetryUi\Support\NavLink;
 use Cbox\TelemetryUi\Support\PaletteCommands;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLock;
@@ -68,7 +69,7 @@ trait BuildsChrome
      * @param  array<string, array{label: string, group: string|null, icon: string|null, detect: string|null}>  $pages
      * @param  list<string>  $services
      * @param  list<string>  $environments
-     * @return array{commands: list<array{type: string, label: string, group: string, href: string}>, traceBase: string, traceSentinel: string}
+     * @return array{commands: list<array{type: string, label: string, group: string, href: string}>, traceBase: string, traceSentinel: string, navLinks: list<NavLink>}
      */
     protected function chrome(array $pages, array $services, array $environments, string $active): array
     {
@@ -84,6 +85,7 @@ trait BuildsChrome
             'commands' => PaletteCommands::build($pages, $services, $environments, $active, $query),
             'traceBase' => PaletteCommands::traceBase($active, $query),
             'traceSentinel' => PaletteCommands::TRACE_SENTINEL,
+            'navLinks' => app(TelemetryUiManager::class)->navLinks(),
         ];
     }
 

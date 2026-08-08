@@ -1,4 +1,4 @@
-<x-telemetry-ui::layout :pages="$pages" :active="$page" :services="$services" :environments="$environments" :title="$pages[$page]['label']" :commands="$commands" :traceBase="$traceBase" :traceSentinel="$traceSentinel">
+<x-telemetry-ui::layout :pages="$pages" :active="$page" :services="$services" :environments="$environments" :title="$pages[$page]['label']" :commands="$commands" :traceBase="$traceBase" :traceSentinel="$traceSentinel" :navLinks="$navLinks">
     <header class="tui-header">
         <h1>{{ $pages[$page]['label'] }}</h1>
         <div class="tui-header-right">

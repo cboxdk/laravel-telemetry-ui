@@ -1,4 +1,4 @@
-<x-telemetry-ui::layout :pages="$pages" active="traces" :services="$services" :environments="$environments" :title="'Trace '.substr($traceId, 0, 8)" :commands="$commands" :traceBase="$traceBase" :traceSentinel="$traceSentinel">
+<x-telemetry-ui::layout :pages="$pages" active="traces" :services="$services" :environments="$environments" :title="'Trace '.substr($traceId, 0, 8)" :commands="$commands" :traceBase="$traceBase" :traceSentinel="$traceSentinel" :navLinks="$navLinks">
     <div class="tui-crumbs">
         <a href="{{ route('telemetry-ui.page', array_filter(['page' => 'traces', 'period' => request('period'), 'service' => request('service'), 'env' => request('env')])) }}">Traces</a>
         <span> / {{ $traceId }}</span>
