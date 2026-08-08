@@ -38,7 +38,7 @@ it('annotates only versions that are live but not yet annotated', function (): v
         'version.id' => 'v2',
         'version.notes' => 'First seen in production (cbox-web)',
     ]);
-    $this->telemetry->shouldReceive('flush')->once();
+    stubTelemetryFlush($this->telemetry);
 
     $this->artisan('telemetry-ui:scan-versions')
         ->expectsOutputToContain('Annotated newly-seen version: v2')
