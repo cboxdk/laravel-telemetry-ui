@@ -55,6 +55,9 @@
     --shadow-card: 0 1px 2px rgba(31, 26, 18, 0.05), 0 1px 1px rgba(31, 26, 18, 0.03);
     --shadow-popover: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
     --ease: cubic-bezier(0.4, 0, 0.2, 1);
+    /* Where the sticky page header parks. 0 on desktop; the mobile media query
+       lifts it clear of the topbar, which owns the top strip there. */
+    --tui-sticky-top: 0px;
     --dur-hover: 150ms;
     --dur-menu: 200ms;
     --dur-layout: 300ms;
@@ -484,11 +487,48 @@ html, body {
         var(--canvas);
 }
 
+/* The page title, the scope switcher and the period selector are the controls
+   a reader reaches for most on a long page — and the ones hardest to find once
+   they have scrolled away. So the header sticks to the top of the scroll.
+
+   The document scrolls (.tui-navwrap is itself sticky beside it), so top: 0 is
+   the viewport top. On mobile the topbar already owns that strip, hence the
+   --tui-sticky-top offset, which is 0 everywhere else.
+
+   Negative HORIZONTAL margins widen the pane to .tui-main's padding edges so
+   nothing slides past it down the sides; its own padding puts the gutter back.
+   The top margin is left alone on purpose: the trace page puts breadcrumbs
+   above this header, and pulling it upwards would sit it on top of them. It
+   stays inside .tui-main's box either way, so it can never overlap the subnav
+   (or its 26px collapsed strip) — those are a separate column in the flex row. */
 .tui-header {
+    position: sticky;
+    top: var(--tui-sticky-top, 0px);
+    z-index: 40;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
+    gap: 12px;
+    margin: 0 -28px 16px;
+    padding: 8px 28px 10px;
+    /* .tui-main's backdrop is a radial wash, and its brightest corner sits
+       exactly behind this header — a flat fill would read as a seam. A
+       translucent pane + blur (the same treatment .tui-topbar uses) lets the
+       wash through while still hiding content sliding underneath, and both
+       --canvas and --border are themed, so it works in light and dark. */
+    background: color-mix(in oklch, var(--canvas) 86%, transparent);
+    backdrop-filter: blur(10px) saturate(1.4);
+    -webkit-backdrop-filter: blur(10px) saturate(1.4);
+    /* Always drawn, not toggled on scroll: the rule reads as a header rule at
+       rest and as the pane's edge once content is sliding under it, and it
+       needs no JavaScript to be correct. */
+    border-bottom: 1px solid var(--border);
+}
+
+/* No blur support (older WebKit, or blur disabled for reduced transparency):
+   fall back to an opaque pane, which loses the wash but never leaks content. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .tui-header { background: var(--canvas); }
 }
 
 .tui-header h1 {
@@ -2004,10 +2044,18 @@ code {
 
     .tui-main { padding: 16px 14px 40px; }
 
+    /* The topbar (10px + 34px button + 10px + 1px rule) already occupies the
+       top strip at z-index 60, so the page header parks just below it instead
+       of sliding underneath and disappearing. */
+    :root { --tui-sticky-top: calc(55px + env(safe-area-inset-top, 0px)); }
+
     .tui-header {
         flex-wrap: wrap;
         gap: 10px;
-        margin-bottom: 14px;
+        /* Tighter than desktop: a wrapped two-row header is a lot of a phone
+           viewport to give up permanently. */
+        margin: 0 -14px 12px;
+        padding: 8px 14px;
     }
 
     .tui-header h1 { font-size: 17px; }
