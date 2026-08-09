@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Cbox\Telemetry\TelemetryManager;
+use Cbox\Telemetry\Support\ExportReport;
 use Cbox\TelemetryUi\Support\AnnotationWriter;
 use Cbox\TelemetryUi\Tests\DisabledTestCase;
 use Cbox\TelemetryUi\Tests\TestCase;
@@ -31,13 +31,12 @@ pest()->extend(DisabledTestCase::class)->in('Disabled');
  */
 function stubTelemetryFlush(MockInterface $telemetry): void
 {
-    $expectation = $telemetry->shouldReceive('flush')->once();
-
-    $returnType = (new ReflectionMethod(TelemetryManager::class, 'flush'))->getReturnType();
-
-    if ($returnType instanceof ReflectionNamedType && ! $returnType->isBuiltin()) {
-        $expectation->andReturn((new ReflectionClass($returnType->getName()))->newInstanceWithoutConstructor());
-    }
+    // A real, empty report: no exporter was attempted, so nothing was lost.
+    // It used to be built with newInstanceWithoutConstructor() to dodge the
+    // signature difference across ^1.0 — which was fine only while nobody
+    // read it. AnnotationWriter reads it now, and an uninitialised readonly
+    // property throws the moment it does.
+    $telemetry->shouldReceive('flush')->once()->andReturn(new ExportReport);
 }
 
 /**
