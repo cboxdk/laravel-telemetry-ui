@@ -26,6 +26,12 @@ beforeEach(function (): void {
                 ['metric' => ['class' => '2xx', 'http_route' => '/orders', 'http_request_method' => 'GET', 'job_name' => 'App\\Jobs\\Ship', 'queue' => 'default', 'command' => 'queue:work', 'task' => 'backup', 'exception' => 'RuntimeException', 'operation' => 'hit', 'server_address' => 'api.test'], 'value' => [1735689600, '42']],
             ]],
         ]),
+        // Page detection reads the metric-name index, so the fake backend has
+        // to hold a name per detectable family or those pages 404 here.
+        'prometheus.test:9090/api/v1/label/__name__/values*' => Http::response([
+            'status' => 'success',
+            'data' => allMetricNames(),
+        ]),
         'prometheus.test:9090/api/v1/label/*' => Http::response([
             'status' => 'success',
             'data' => ['telemetry-demo'],

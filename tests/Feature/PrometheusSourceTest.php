@@ -99,6 +99,44 @@ it('lists label values with a series matcher', function (): void {
     Http::assertSent(fn ($request): bool => requestQuery($request)['match'] === ['http_server_request_duration_milliseconds_count']);
 });
 
+it('resolves many metric-name patterns in a single labels call', function (): void {
+    Http::fake([
+        'prometheus.test:9090/api/v1/label/__name__/values*' => Http::response([
+            'status' => 'success',
+            'data' => ['statamic_stache_warm_seconds', 'horizon_jobs_total'],
+        ]),
+    ]);
+
+    $names = prometheus()->metricNamesMatching(['statamic_.*', 'horizon_.*', 'statamic_.*'], 'service_name="checkout"');
+
+    expect($names)->toBe(['statamic_stache_warm_seconds', 'horizon_jobs_total']);
+
+    Http::assertSentCount(1);
+
+    Http::assertSent(function ($request): bool {
+        $query = requestQuery($request);
+
+        // Each pattern is its own alternative (so `a|b` in one pattern cannot
+        // swallow the next), duplicates are dropped, and the scope rides along
+        // in the same selector — a scoped question stays scoped.
+        expect($query['match'])->toBe(['{__name__=~"(?:statamic_.*)|(?:horizon_.*)",service_name="checkout"}']);
+
+        // Windowed to the instant-query lookback: this replaces count({…}),
+        // which cannot see a series whose last sample is older than that.
+        expect((int) $query['end'] - (int) $query['start'])->toBe(300);
+
+        return true;
+    });
+});
+
+it('asks nothing when there are no patterns to detect', function (): void {
+    Http::fake();
+
+    expect(prometheus()->metricNamesMatching([]))->toBe([]);
+
+    Http::assertNothingSent();
+});
+
 it('throws on error envelopes', function (): void {
     Http::fake([
         'prometheus.test:9090/*' => Http::response([

@@ -7,6 +7,7 @@ use Cbox\TelemetryUi\Connectors\Loki\LokiSource;
 use Cbox\TelemetryUi\Connectors\Prometheus\MimirSource;
 use Cbox\TelemetryUi\Connectors\Prometheus\PrometheusSource;
 use Cbox\TelemetryUi\Connectors\Tempo\TempoSource;
+use Cbox\TelemetryUi\Contracts\EnumeratesMetricNames;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Illuminate\Support\Facades\Http;
@@ -30,7 +31,7 @@ it('resolves the mimir driver with its prometheus path prefix', function (): voi
     config()->set('telemetry-ui.connections.metrics.tenant', 'team-apps');
 
     Http::fake([
-        'prometheus.test:9090/prometheus/api/v1/query*' => Http::response([
+        'prometheus.test:9090/prometheus/*' => Http::response([
             'status' => 'success',
             'data' => ['resultType' => 'vector', 'result' => []],
         ]),
@@ -43,6 +44,14 @@ it('resolves the mimir driver with its prometheus path prefix', function (): voi
     $metrics->query(MetricQuery::raw('up'));
 
     Http::assertSent(fn ($request): bool => str_contains($request->url(), '/prometheus/api/v1/query')
+        && $request->hasHeader('X-Scope-OrgID', 'team-apps'));
+
+    // Mimir inherits the batched detection capability, prefix and all.
+    expect($metrics)->toBeInstanceOf(EnumeratesMetricNames::class);
+
+    $metrics->metricNamesMatching(['statamic_.*']);
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/prometheus/api/v1/label/__name__/values')
         && $request->hasHeader('X-Scope-OrgID', 'team-apps'));
 });
 

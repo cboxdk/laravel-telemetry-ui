@@ -40,6 +40,37 @@ function stubTelemetryFlush(MockInterface $telemetry): void
 }
 
 /**
+ * One metric name per detectable family in the built-in page registry, so a
+ * fake backend holding this list lights up every page that declares a `detect`
+ * pattern. Page detection reads the metric-name index in one call, so a fake
+ * that answers /api/v1/label/__name__/values with something else (a service
+ * name, an empty list) silently 404s those pages.
+ *
+ * @return list<string>
+ */
+function allMetricNames(): array
+{
+    return [
+        'queue_metrics_pending_jobs',
+        'queue_autoscale_desired_workers',
+        'horizon_jobs_total',
+        'commands_runs_total',
+        'cache_operations_total',
+        'storage_operations_total',
+        'livewire_updates_total',
+        'feature_checks_total',
+        'reverb_connections_active',
+        'system_cpu_seconds_total',
+        'statamic_static_cache_hits_total',
+        'statamic_stache_warm_seconds',
+        'statamic_glide_generations_total',
+        'statamic_forms_submissions_total',
+        'statamic_content_changes_total',
+        'statamic_entries_count',
+    ];
+}
+
+/**
  * Query-string parameters of a faked client request (GET data lives in the
  * URL, not in Request::data()).
  *

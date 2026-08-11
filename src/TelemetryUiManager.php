@@ -485,13 +485,27 @@ final class TelemetryUiManager
      * given PromQL scope (empty = fleet-wide) — so an optional group hides for a
      * selected service that doesn't emit its metrics.
      *
+     * Every registered pattern is handed to the detector together: this runs on
+     * each request, and resolving the patterns one at a time cost one backend
+     * round trip per detectable page.
+     *
      * @return array<string, PageMeta>
      */
     public function visiblePages(SchemaDetector $detector, string $scope = ''): array
     {
+        $patterns = [];
+
+        foreach ($this->pages as $meta) {
+            if ($meta['detect'] !== null) {
+                $patterns[] = $meta['detect'];
+            }
+        }
+
+        $detected = $detector->detect(array_values(array_unique($patterns)), $scope);
+
         return array_filter(
             $this->pages,
-            static fn (array $meta): bool => $meta['detect'] === null || $detector->hasMetricsMatching($meta['detect'], $scope),
+            static fn (array $meta): bool => $meta['detect'] === null || ($detected[$meta['detect']] ?? true),
         );
     }
 
