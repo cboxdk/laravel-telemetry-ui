@@ -209,9 +209,16 @@ Lag 1 shipped signal by signal, each a clean contract break, all green under
 The IR deliberately doesn't model everything. Genuine escape-hatch cases use
 `MetricQuery::raw()`: nested double-aggregation (system memory/filesystem),
 arithmetic between two metrics (request avg latency), and config-driven exporter
-queries (system/host cards, MCP tools, schema detection). These are PromQL-only
-and a SQL backend rejects them — acceptable, since they're operator-supplied
-exporter queries, not core cards.
+queries (system/host cards, MCP tools). These are PromQL-only and a SQL backend
+rejects them — acceptable, since they're operator-supplied exporter queries, not
+core cards.
+
+Schema detection used to be on that list and no longer is: it asks through
+`Contracts\EnumeratesMetricNames` (metric names matching a set of patterns, in
+one call) and only falls back to raw `count({__name__=~"…"})` for drivers that
+don't implement it. A SQL backend can answer the capability from a DISTINCT over
+its metric-name column; the ClickHouse driver does not implement it yet, so
+detection there still takes the raw path and therefore fails open.
 
 The IR carries **snake_case, Loki/Prometheus-style** label names throughout
 (that's what the cards read), so the ClickHouse driver bridges them to dotted

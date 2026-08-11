@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Contracts\EnumeratesMetricNames`, an optional metrics-driver capability.**
+  `metricNamesMatching(array $patterns, string $scope = '')` returns the metric
+  names present that match any of the patterns, so page detection can ask about
+  every pattern at once. Prometheus and Mimir implement it from the series
+  index. Optional the way `AggregatesSpans` is: `SchemaDetector` feature-detects
+  it, so third-party drivers keep working unchanged.
 - **Shared view state that survives navigation — `Support\ViewState`.** The time
   window, the auto-refresh interval and the service/environment scope used to
   live only in the query string, so they survived exactly the links that
@@ -29,6 +35,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Page detection resolves every pattern in one backend call.** The shell asked
+  `count({__name__=~"…"})` once per page that declares a `detect` pattern —
+  sixteen built-in patterns, sixteen sequential round trips. Against a remote
+  Grafana datasource proxy (~140 ms RTT) that was 2.3 s of pure latency before
+  the first pixel, appearing as the dashboard "randomly" going slow whenever the
+  detection cache lapsed. `SchemaDetector::detect()` now asks about all the
+  uncached patterns at once and decides each one against the returned metric
+  names: 16 calls → 1, and 2340 ms → 179 ms with the same latency injected.
+  Scope still batches (the selector carries the service/environment matchers),
+  caching is still per pattern so a partly warm cache only asks about what it
+  is missing, and a backend that cannot answer still fails open uncached. Public
+  API is unchanged; `hasMetricsMatching()` delegates to the batched path.
 - **The page header is sticky within `.tui-main`.** The title, scope switcher and
   period selector are what a reader reaches for most on a long page and hardest
   to find once scrolled past. Themed translucent pane with a blur (opaque

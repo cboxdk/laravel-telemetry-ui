@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\BackendStatus;
 use Cbox\TelemetryUi\Connectors\ProbeResult;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Contracts\EnumeratesMetricNames;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
 use Cbox\TelemetryUi\Contracts\ProbesConnection;
 use Cbox\TelemetryUi\Queries\Compilers\PromqlCompiler;
@@ -15,18 +16,28 @@ use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\DataPoint;
 use Cbox\TelemetryUi\Queries\Results\Sample;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
+use DateTimeImmutable;
 use DateTimeInterface;
 
 /**
  * Prometheus HTTP API driver. Also the base for Mimir, which serves the
  * same API under a path prefix.
  */
-class PrometheusSource implements MetricsSource, ProbesConnection
+class PrometheusSource implements EnumeratesMetricNames, MetricsSource, ProbesConnection
 {
     /**
      * Target number of points per series when deriving a range-query step.
      */
     private const TARGET_POINTS = 250;
+
+    /**
+     * How far back {@see metricNamesMatching()} looks, in seconds. Matches
+     * Prometheus' default `--query.lookback-delta` (5m), which is exactly how
+     * far back an instant query sees a sample — so the name list answers the
+     * same question `count({__name__=~"..."})` answers, and a family that fell
+     * silent stops being detected at the same moment it did before.
+     */
+    private const DETECTION_LOOKBACK = 300;
 
     public function __construct(
         protected readonly ApiClient $client,
@@ -144,6 +155,34 @@ class PrometheusSource implements MetricsSource, ProbesConnection
             static fn (mixed $value): ?string => is_string($value) ? $value : null,
             $values,
         ), static fn (?string $value): bool => $value !== null));
+    }
+
+    public function metricNamesMatching(array $patterns, string $scope = ''): array
+    {
+        if ($patterns === []) {
+            return [];
+        }
+
+        // One selector for every pattern, so the series index does the
+        // filtering and the response carries only names the caller asked
+        // about. Patterns go in verbatim, in the same position in the same
+        // PromQL they occupied as individual `count({__name__=~"..."})`
+        // queries — escaping them here would change which names they match.
+        $alternation = implode('|', array_map(
+            static fn (string $pattern): string => '(?:'.$pattern.')',
+            array_values(array_unique($patterns)),
+        ));
+
+        $selector = '{__name__=~"'.$alternation.'"'.($scope === '' ? '' : ','.$scope).'}';
+
+        $now = time();
+
+        return $this->labelValues(
+            '__name__',
+            $selector,
+            new DateTimeImmutable('@'.($now - self::DETECTION_LOOKBACK)),
+            new DateTimeImmutable('@'.$now),
+        );
     }
 
     protected function path(string $path): string

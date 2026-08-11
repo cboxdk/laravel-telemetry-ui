@@ -50,11 +50,20 @@ backend actually contains matching metric names:
 TelemetryUi::page('autoscale', 'Autoscale', group: 'Activity', detectMetric: 'autoscale_.*');
 ```
 
-Detection is one cached instant query
-(`count({__name__=~"autoscale_.*"})`, TTL `telemetry-ui.detection.ttl`,
-default 300s). Undetected pages are hidden from the sidebar and 404. If the
-backend is unreachable, detection fails open — the page stays visible and
-its cards render their own error states.
+Detection is cached per pattern (TTL `telemetry-ui.detection.ttl`, default
+300s). Undetected pages are hidden from the sidebar and 404. If the backend is
+unreachable, detection fails open — the page stays visible and its cards render
+their own error states.
+
+Every registered pattern is resolved in **one** backend call per request: the
+driver returns the metric names matching any of them and each pattern is
+decided against that list here. On Prometheus/Mimir that is a single
+`/api/v1/label/__name__/values` with a `match[]` selector, looking back the
+same 5 minutes an instant query would. A driver that does not implement
+[`EnumeratesMetricNames`](../extension-points/custom-drivers.md) falls back to
+one `count({__name__=~"autoscale_.*"})` query per pattern — correct, but one
+network round trip per detectable page, which is what the batched path exists
+to avoid.
 
 The built-in **Statamic** page works this way: install
 [`cboxdk/statamic-telemetry`](https://github.com/cboxdk/statamic-telemetry)
