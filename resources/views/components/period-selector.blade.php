@@ -6,15 +6,17 @@
 @php($hasCustomRange = $state->hasCustomRange())
 
 <div class="tui-header-controls">
-    {{-- Copy deep-link to the current view (filters, range, scope).
-         The link PINS the state into the URL rather than copying the address
-         bar as-is: the range now survives in a cookie, so a bare copied link
-         would silently retarget to whatever range the recipient last used. --}}
-    <button type="button" class="tui-btn tui-copy-link" x-data="telemetryUiCopyLink(@js($state->queryParams()))" x-on:click="copy()"
-            :class="{ 'is-copied': copied }" title="Copy a link to this exact view">
-        <span x-show="!copied">🔗 Copy link</span>
-        <span x-show="copied" x-cloak>✓ Copied</span>
-    </button>
+    @if (config('telemetry-ui.copy_link', true))
+        {{-- Copy deep-link to the current view (filters, range, scope).
+             The link PINS the state into the URL rather than copying the address
+             bar as-is: the range now survives in a cookie, so a bare copied link
+             would silently retarget to whatever range the recipient last used. --}}
+        <button type="button" class="tui-btn tui-copy-link" x-data="telemetryUiCopyLink(@js($state->queryParams()))" x-on:click="copy()"
+                :class="{ 'is-copied': copied }" title="Copy a link to this exact view">
+            <span x-show="!copied">🔗 Copy link</span>
+            <span x-show="copied" x-cloak>✓ Copied</span>
+        </button>
+    @endif
 
     {{-- Refresh now: re-runs the cards in place instead of reloading the page,
          so an open drawer, a scroll position and an in-flight selection all

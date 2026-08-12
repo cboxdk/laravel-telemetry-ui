@@ -174,6 +174,22 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Copy link
+    |--------------------------------------------------------------------------
+    |
+    | The header button that copies a shareable URL for the current view.
+    |
+    | Turn it off where the URL cannot travel. A desktop host serves the
+    | dashboard from 127.0.0.1 on a port it picked, so the link it copies only
+    | ever resolves on that machine, while that app is running — a button
+    | offering to share something unshareable.
+    |
+    */
+
+    'copy_link' => env('TELEMETRY_UI_COPY_LINK', true),
+
     'brand' => [
         'name' => env('TELEMETRY_UI_BRAND_NAME'),
         'logo' => env('TELEMETRY_UI_BRAND_LOGO'),

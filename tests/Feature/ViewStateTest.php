@@ -370,3 +370,23 @@ function activePreset(string $html): string
 
     return trim($matches[1] ?? '');
 }
+
+/**
+ * A desktop host serves the dashboard from 127.0.0.1 on a port it picked. The
+ * link that button copies only ever resolves on that machine, while that app
+ * is running — a button offering to share something unshareable.
+ */
+it('can be told not to offer a link that cannot travel', function (): void {
+    config()->set('telemetry-ui.copy_link', false);
+
+    $this->get('/telemetry-ui')
+        ->assertOk()
+        ->assertDontSee('tui-copy-link', false)
+        ->assertDontSee('Copy link');
+});
+
+it('offers it by default, because most hosts are reachable', function (): void {
+    $this->get('/telemetry-ui')
+        ->assertOk()
+        ->assertSee('tui-copy-link', false);
+});
