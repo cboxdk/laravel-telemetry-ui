@@ -20,10 +20,10 @@ final class OutgoingHostHeader extends Card
     public function render(): View
     {
         $p = $this->promDuration();
-        $count = $this->metric('http_client_request_duration_milliseconds_count');
-        $errors = $this->metric('http_client_request_duration_milliseconds_count', 'http_response_status_code=~"5.."');
+        $count = $this->metric('http_client_request_duration_seconds_count');
+        $errors = $this->metric('http_client_request_duration_seconds_count', 'http_response_status_code=~"5.."');
         $failures = $this->metric('http_client_connection_failures_total');
-        $sum = $this->metric('http_client_request_duration_milliseconds_sum');
+        $sum = $this->metric('http_client_request_duration_seconds_sum');
 
         $error = null;
         $total = $err = $fail = $time = 0.0;
@@ -52,7 +52,7 @@ final class OutgoingHostHeader extends Card
                 ['label' => 'Requests', 'value' => Format::count($total), 'tone' => null],
                 ['label' => 'Errors', 'value' => Format::count($err), 'tone' => $err > 0 ? 'danger' : 'dim'],
                 ['label' => 'Failures', 'value' => Format::count($fail), 'tone' => $fail > 0 ? 'danger' : 'dim'],
-                ['label' => 'AVG', 'value' => $total > 0 ? Format::ms($time / $total) : '—', 'tone' => $total > 0 && $bad > 0 ? 'warn' : 'dim'],
+                ['label' => 'AVG', 'value' => $total > 0 ? Format::ms($time / $total * 1000) : '—', 'tone' => $total > 0 && $bad > 0 ? 'warn' : 'dim'],
             ],
         ]);
     }

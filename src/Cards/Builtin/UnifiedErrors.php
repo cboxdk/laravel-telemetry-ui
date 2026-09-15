@@ -101,7 +101,7 @@ final class UnifiedErrors extends Card
                 $this->fold($groups, $group, $entry->timestampNano, $fromNano, $toNano, frontend: false, attributes: [
                     'type' => $entry->labels['exception_type'] ?? '',
                     'message' => $entry->labels['exception_message'] ?? '',
-                ], user: $entry->labels['enduser_id'] ?? '');
+                ], user: $entry->labels['user_id'] ?? '');
             }
 
             // Frontend: browser exception spans, grouped by the computed

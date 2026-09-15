@@ -45,9 +45,9 @@ class RoutesTable extends Card
         [$start, $end] = $this->range();
         $p = $this->promDuration();
 
-        $count = $this->metric('http_server_request_duration_milliseconds_count');
-        $sum = $this->metric('http_server_request_duration_milliseconds_sum');
-        $bucket = $this->metric('http_server_request_duration_milliseconds_bucket');
+        $count = $this->metric('http_server_request_duration_seconds_count');
+        $sum = $this->metric('http_server_request_duration_seconds_sum');
+        $bucket = $this->metric('http_server_request_duration_seconds_bucket');
 
         $rows = [];
         $error = null;
@@ -102,7 +102,8 @@ class RoutesTable extends Card
             $key = ($sample->labels['http_request_method'] ?? '?').' '.($sample->labels['http_route'] ?? '?');
 
             if (isset($rows[$key])) {
-                $rows[$key]['time'] = $sample->value;
+                // v2 duration histogram is in seconds; ×1000 → ms for the view.
+                $rows[$key]['time'] = $sample->value * 1000;
             }
         }
 
@@ -110,7 +111,7 @@ class RoutesTable extends Card
             $key = ($sample->labels['http_request_method'] ?? '?').' '.($sample->labels['http_route'] ?? '?');
 
             if (isset($rows[$key]) && ! is_nan($sample->value)) {
-                $rows[$key]['p95'] = $sample->value;
+                $rows[$key]['p95'] = $sample->value * 1000;
             }
         }
 

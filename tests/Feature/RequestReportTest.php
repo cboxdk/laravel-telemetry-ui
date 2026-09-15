@@ -36,7 +36,7 @@ it('tells the request as readable sections instead of raw spans', function (): v
             'http.response.status_code' => 200,
             'client.address' => '203.0.113.9',
             'user_agent.original' => 'Mozilla/5.0',
-            'enduser.id' => 7,
+            'user.id' => 7,
             'db.query.count' => 4,
             'db.query.time_ms' => 38.5,
             'cache.event.count' => 3,
@@ -48,8 +48,8 @@ it('tells the request as readable sections instead of raw spans', function (): v
 
     $trace = new Trace('abc123abc123abc123abc123abc123ab', [
         $root,
-        reportSpan('s1', 'db.query', SpanKind::Client, ['db.query.text' => 'select * from users where id = ?', 'db.namespace' => 'mysql'], 12),
-        reportSpan('s2', 'db.query', SpanKind::Client, ['db.query.text' => 'select * from users where id = ?', 'db.namespace' => 'mysql'], 9),
+        reportSpan('s1', 'db.query', SpanKind::Client, ['db.query.text' => 'select * from users where id = ?', 'laravel.db.connection' => 'mysql'], 12),
+        reportSpan('s2', 'db.query', SpanKind::Client, ['db.query.text' => 'select * from users where id = ?', 'laravel.db.connection' => 'mysql'], 9),
         reportSpan('s3', 'cache.miss', SpanKind::Client, ['cache.key' => 'shop:promo'], 1),
         reportSpan('s4', 'cache.hit', SpanKind::Client, ['cache.key' => 'shop:count'], 1),
         reportSpan('s5', 'redis GET', SpanKind::Client, ['db.operation.name' => 'GET shop:count'], 2),

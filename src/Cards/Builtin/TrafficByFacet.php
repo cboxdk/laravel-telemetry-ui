@@ -21,9 +21,9 @@ use Livewire\Attributes\Url;
 final class TrafficByFacet extends Card
 {
     private const FACETS = [
-        'user' => ['enduser.id', 'User'],
-        'guard' => ['enduser.guard', 'Guard'],
-        'type' => ['enduser.type', 'User type'],
+        'user' => ['user.id', 'User'],
+        'guard' => ['user.guard', 'Guard'],
+        'type' => ['user.type', 'User type'],
         'ip' => ['client.address', 'Client IP'],
     ];
 
@@ -82,7 +82,7 @@ final class TrafficByFacet extends Card
 
     public function tracesUrl(string $value): string
     {
-        $attribute = $this->attribute() ?? 'enduser.id';
+        $attribute = $this->attribute() ?? 'user.id';
 
         return $this->pageUrl('traces', [
             'q' => '{ '.$this->traceScope('span.'.$attribute.' = "'.addcslashes($value, '"\\').'"').' }',

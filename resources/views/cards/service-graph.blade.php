@@ -9,6 +9,11 @@
             (service-graphs processor) remote-writing to your metrics backend.
         </div>
     @else
+        <div wire:ignore wire:key="svcgraph-{{ md5(json_encode($graph)) }}"
+             x-data="telemetryUiServiceGraph(@js($graph))" class="tui-svcgraph-wrap">
+            <div class="tui-svcgraph" style="height: 300px"></div>
+        </div>
+
         <div class="tui-table-wrap">
             <table class="tui-table">
                 <thead>

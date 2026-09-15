@@ -22,10 +22,10 @@ final class RequestDetailHeader extends Card
         [$start, $end] = $this->range();
         $p = $this->promDuration();
 
-        $count = $this->metric('http_server_request_duration_milliseconds_count');
-        $errors = $this->metric('http_server_request_duration_milliseconds_count', 'http_response_status_code=~"5.."');
-        $sum = $this->metric('http_server_request_duration_milliseconds_sum');
-        $bucket = $this->metric('http_server_request_duration_milliseconds_bucket');
+        $count = $this->metric('http_server_request_duration_seconds_count');
+        $errors = $this->metric('http_server_request_duration_seconds_count', 'http_response_status_code=~"5.."');
+        $sum = $this->metric('http_server_request_duration_seconds_sum');
+        $bucket = $this->metric('http_server_request_duration_seconds_bucket');
 
         $error = null;
         $total = $errCount = $time = 0.0;
@@ -55,8 +55,8 @@ final class RequestDetailHeader extends Card
             'stats' => [
                 ['label' => 'Requests', 'value' => Format::count($total), 'tone' => null],
                 ['label' => 'Error rate', 'value' => Format::percent($errRate), 'tone' => $errRate > 0.01 ? 'danger' : 'dim'],
-                ['label' => 'AVG', 'value' => $total > 0 ? Format::ms($time / $total) : '—', 'tone' => 'dim'],
-                ['label' => 'P95', 'value' => $p95 !== null ? Format::ms($p95) : '—', 'tone' => 'warn'],
+                ['label' => 'AVG', 'value' => $total > 0 ? Format::ms($time / $total * 1000) : '—', 'tone' => 'dim'],
+                ['label' => 'P95', 'value' => $p95 !== null ? Format::ms($p95 * 1000) : '—', 'tone' => 'warn'],
             ],
         ]);
     }

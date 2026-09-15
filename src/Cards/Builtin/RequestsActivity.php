@@ -22,11 +22,14 @@ class RequestsActivity extends Card
     {
         [$start, $end] = $this->range();
 
-        $count = $this->metric('http_server_request_duration_milliseconds_count');
+        $count = $this->metric('http_server_request_duration_seconds_count');
 
         try {
             $totals = $this->metrics()->query($count->increase($this->promDuration())->sumBy('http_response_status_code'));
             $range = $this->metrics()->queryRange($count->rate($this->rateWindow())->sumBy('http_response_status_code')->times(60), $start, $end);
+            // Same period-total, evaluated at the window's start = the immediately
+            // preceding equal window, for the throughput delta.
+            $previous = $this->metrics()->query($count->increase($this->promDuration())->sumBy(), $start);
         } catch (SourceException $exception) {
             return $this->chartCard('Requests', error: $exception->getMessage());
         }
@@ -37,12 +40,15 @@ class RequestsActivity extends Card
             $classTotals[$this->bucket($sample->labels['http_response_status_code'] ?? '')] += $sample->value;
         }
 
+        $total = array_sum($classTotals);
+        $previousTotal = array_sum(array_map(static fn ($sample): float => $sample->value, $previous));
+
         return $this->chartCard(
             title: 'Requests',
             subtitle: 'Incoming HTTP requests per minute, split by response status class',
             series: $this->bucketedSeries($range),
             stats: [
-                $this->stat('Requests', Format::count(array_sum($classTotals))),
+                $this->statDelta('Requests', Format::count($total), $total, $previousTotal, upIsGood: true, points: $this->throughputPoints($range)),
                 $this->stat('1/2/3XX', Format::count($classTotals['ok']), 'dim'),
                 $this->stat('4XX', Format::count($classTotals['4xx']), $classTotals['4xx'] > 0 ? 'warn' : 'dim'),
                 $this->stat('5XX', Format::count($classTotals['5xx']), $classTotals['5xx'] > 0 ? 'danger' : 'dim'),
@@ -97,6 +103,30 @@ class RequestsActivity extends Card
         }
 
         return $result;
+    }
+
+    /**
+     * Total throughput per time bucket (all status classes summed) — the
+     * value list behind the headline tile's sparkline.
+     *
+     * @param  list<TimeSeries>  $range
+     * @return list<float>
+     */
+    private function throughputPoints(array $range): array
+    {
+        /** @var array<int, float> $totals */
+        $totals = [];
+
+        foreach ($range as $series) {
+            foreach ($series->points as $point) {
+                $key = (int) $point->timestamp;
+                $totals[$key] = ($totals[$key] ?? 0.0) + $point->value;
+            }
+        }
+
+        ksort($totals);
+
+        return array_values($totals);
     }
 
     private function bucket(string $code): string

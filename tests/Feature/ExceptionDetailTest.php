@@ -49,7 +49,7 @@ function fakeExceptionRecords(): void
                         ['key' => 'http.request.method', 'value' => ['stringValue' => 'POST']],
                         ['key' => 'http.route', 'value' => ['stringValue' => '/orders']],
                         ['key' => 'http.response.status_code', 'value' => ['intValue' => '500']],
-                        ['key' => 'enduser.id', 'value' => ['intValue' => '7']],
+                        ['key' => 'user.id', 'value' => ['intValue' => '7']],
                     ]],
                 ]]],
             ]],

@@ -46,6 +46,50 @@ trait BuildsCharts
     }
 
     /**
+     * A KPI tile with a period-over-period delta and an optional window
+     * sparkline — the Datadog-style headline. `$upIsGood` flips the delta tone:
+     * throughput up is good (green), error-rate up is bad (red). A zero/absent
+     * previous value drops the delta and the tile renders plain. `$points`
+     * draws an inline sparkline of the window.
+     *
+     * @param  list<float>  $points
+     * @return array{label: string, value: string, tone: string|null, delta?: string, deltaTone?: string, points?: list<float>, sparkColor?: string}
+     */
+    protected function statDelta(
+        string $label,
+        string $value,
+        float $current,
+        float $previous,
+        bool $upIsGood = true,
+        ?string $tone = null,
+        array $points = [],
+    ): array {
+        $item = $this->stat($label, $value, $tone);
+
+        if ($previous > 0.0) {
+            $pct = ($current - $previous) / $previous * 100.0;
+            $dir = match (true) {
+                $pct >= 1.0 => 'up',
+                $pct <= -1.0 => 'down',
+                default => 'flat',
+            };
+            $item['delta'] = match ($dir) {
+                'up' => '▲ ',
+                'down' => '▼ ',
+                default => '± ',
+            }.number_format(abs($pct), abs($pct) >= 10.0 ? 0 : 1).'%';
+            $item['deltaTone'] = $dir === 'flat' ? 'dim' : (($dir === 'up') === $upIsGood ? 'ok' : 'danger');
+        }
+
+        if ($points !== []) {
+            $item['points'] = $points;
+            $item['sparkColor'] = 'var(--chart-1)';
+        }
+
+        return $item;
+    }
+
+    /**
      * A whole metric chart card in one call — the terse path for the common
      * "run a PromQL range query, draw it" card. It queries the range, converts
      * the series, catches backend errors, and renders {@see chartCard()}. Use a

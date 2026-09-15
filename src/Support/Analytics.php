@@ -87,9 +87,11 @@ final class Analytics
                 'utm_campaign' => self::label($l, 'analytics.utm.campaign', 'analytics_utm_campaign'),
                 'utm_content' => self::label($l, 'analytics.utm.content', 'analytics_utm_content'),
                 'utm_term' => self::label($l, 'analytics.utm.term', 'analytics_utm_term'),
-                'country' => self::label($l, 'client.geo.country', 'client_geo_country'),
-                'region' => self::label($l, 'client.geo.region', 'client_geo_region'),
-                'city' => self::label($l, 'client.geo.city', 'client_geo_city'),
+                // v2 renamed client.geo.* to OTel geo.*; keep the old keys as a
+                // fallback so historical events still resolve.
+                'country' => self::label($l, 'geo.country.iso_code', 'geo_country_iso_code', 'client.geo.country', 'client_geo_country'),
+                'region' => self::label($l, 'geo.region.iso_code', 'geo_region_iso_code', 'client.geo.region', 'client_geo_region'),
+                'city' => self::label($l, 'geo.locality.name', 'geo_locality_name', 'client.geo.city', 'client_geo_city'),
                 'device' => self::label($l, 'device.type', 'device_type'),
                 'os' => self::label($l, 'os.name', 'os_name'),
                 'browser' => self::label($l, 'user_agent.name', 'user_agent_name'),

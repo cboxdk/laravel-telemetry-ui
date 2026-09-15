@@ -25,9 +25,9 @@ class RequestDuration extends Card
         $p = $this->promDuration();
         $w = $this->rateWindow();
 
-        $sum = $this->metric('http_server_request_duration_milliseconds_sum');
-        $count = $this->metric('http_server_request_duration_milliseconds_count');
-        $bucket = $this->metric('http_server_request_duration_milliseconds_bucket');
+        $sum = $this->metric('http_server_request_duration_seconds_sum');
+        $count = $this->metric('http_server_request_duration_seconds_count');
+        $bucket = $this->metric('http_server_request_duration_seconds_bucket');
 
         try {
             $totalTime = $this->total($sum->increase($p)->sumBy());
@@ -38,14 +38,16 @@ class RequestDuration extends Card
             $sumSelector = $compiler->compile($sum);
             $countSelector = $compiler->compile($count);
 
+            // v2 records this histogram in SECONDS; ×1000 keeps the whole card
+            // (chart unit, Format::ms, thresholds) in milliseconds as before.
             $avgRange = $this->metrics()->queryRange(
-                MetricQuery::raw('sum(rate('.$sumSelector.'['.$w.'])) / sum(rate('.$countSelector.'['.$w.']))'),
+                MetricQuery::raw('1000 * (sum(rate('.$sumSelector.'['.$w.'])) / sum(rate('.$countSelector.'['.$w.'])))'),
                 $start,
                 $end,
             );
 
             $p95Range = $this->metrics()->queryRange(
-                $bucket->quantile(0.95, $w),
+                $bucket->quantile(0.95, $w)->times(1000),
                 $start,
                 $end,
             );
@@ -68,8 +70,8 @@ class RequestDuration extends Card
             subtitle: 'Server-side request latency — average and 95th percentile',
             series: $series,
             stats: [
-                $this->stat('AVG', $totalCount > 0 ? Format::ms($totalTime / $totalCount) : '—', 'dim'),
-                $this->stat('P95', $totalCount > 0 && ! is_nan($p95Now) ? Format::ms($p95Now) : '—', 'warn'),
+                $this->stat('AVG', $totalCount > 0 ? Format::ms($totalTime / $totalCount * 1000) : '—', 'dim'),
+                $this->stat('P95', $totalCount > 0 && ! is_nan($p95Now) ? Format::ms($p95Now * 1000) : '—', 'warn'),
             ],
             unit: 'ms',
         );

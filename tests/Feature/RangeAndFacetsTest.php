@@ -48,14 +48,14 @@ it('ignores an invalid custom range and falls back to the period', function (): 
         && str_contains(requestQuery($request)['query'] ?? '', '[3600s]'));
 });
 
-it('facets traffic by user via enduser.id', function (): void {
+it('facets traffic by user via user.id', function (): void {
     fakeEmptyBackends();
 
     $this->get('/telemetry-ui/users')->assertOk();
 
     Http::assertSent(fn ($request): bool => str_contains($request->url(), '/api/search')
-        && str_contains(requestQuery($request)['q'] ?? '', 'span.enduser.id != nil')
-        && str_contains(requestQuery($request)['q'] ?? '', 'select(span.enduser.id)'));
+        && str_contains(requestQuery($request)['q'] ?? '', 'span.user.id != nil')
+        && str_contains(requestQuery($request)['q'] ?? '', 'select(span.user.id)'));
 });
 
 it('facets traffic by client ip', function (): void {

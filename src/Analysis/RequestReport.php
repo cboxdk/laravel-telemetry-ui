@@ -62,7 +62,7 @@ final class RequestReport
                 $sql = self::str($span->attributes['db.query.text']);
                 $sqlSeen[$sql] = ($sqlSeen[$sql] ?? 0) + 1;
 
-                $db['items'][] = self::item($span, $sql, self::str($span->attributes['db.namespace'] ?? $span->attributes['db.system.name'] ?? ''));
+                $db['items'][] = self::item($span, $sql, self::str($span->attributes['laravel.db.connection'] ?? $span->attributes['db.system.name'] ?? ''));
 
                 continue;
             }
@@ -155,7 +155,7 @@ final class RequestReport
             'path' => $get('url.path').($get('url.query') !== '' ? '?'.$get('url.query') : ''),
             'status' => $get('http.response.status_code'),
             'ip' => $get('client.address'),
-            'user' => $get('enduser.id') !== '' ? '#'.$get('enduser.id').($get('enduser.guard') !== '' ? ' ('.$get('enduser.guard').')' : '') : '',
+            'user' => $get('user.id') !== '' ? '#'.$get('user.id').($get('user.guard') !== '' ? ' ('.$get('user.guard').')' : '') : '',
             'user agent' => $get('user_agent.original'),
             'request size' => $get('http.request.body.size') !== '' ? Format::bytes((float) $get('http.request.body.size')) : '',
             'response size' => $get('http.response.body.size') !== '' ? Format::bytes((float) $get('http.response.body.size')) : '',

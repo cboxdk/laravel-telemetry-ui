@@ -74,6 +74,7 @@ final class ServiceGraph extends Card
 
         return view($view, [
             'edges' => $edges,
+            'graph' => $this->graphData($edges),
             'error' => $error,
         ]);
     }
@@ -81,5 +82,52 @@ final class ServiceGraph extends Card
     public function color(string $service): string
     {
         return ServiceIdentity::color($service);
+    }
+
+    /**
+     * Shape the edge list into an ECharts force-graph payload: one node per
+     * service (sized/health-coloured by the traffic it receives) and one link
+     * per edge (width by volume, red when it's failing).
+     *
+     * @param  list<array{client: string, server: string, requests: float, failed: float, p95: float|null}>  $edges
+     * @return array{nodes: list<array{name: string, value: float, failed: float, color: string}>, links: list<array{source: string, target: string, requests: float, failed: float, p95: float|null, errorRate: float}>}
+     */
+    private function graphData(array $edges): array
+    {
+        /** @var array<string, bool> $services */
+        $services = [];
+        /** @var array<string, float> $inbound */
+        $inbound = [];
+        /** @var array<string, float> $inboundFailed */
+        $inboundFailed = [];
+
+        foreach ($edges as $edge) {
+            $services[$edge['client']] = true;
+            $services[$edge['server']] = true;
+            $inbound[$edge['server']] = ($inbound[$edge['server']] ?? 0.0) + $edge['requests'];
+            $inboundFailed[$edge['server']] = ($inboundFailed[$edge['server']] ?? 0.0) + $edge['failed'];
+        }
+
+        $nodes = [];
+
+        foreach (array_keys($services) as $service) {
+            $nodes[] = [
+                'name' => $service,
+                'value' => $inbound[$service] ?? 0.0,
+                'failed' => $inboundFailed[$service] ?? 0.0,
+                'color' => ServiceIdentity::color($service),
+            ];
+        }
+
+        $links = array_map(static fn (array $edge): array => [
+            'source' => $edge['client'],
+            'target' => $edge['server'],
+            'requests' => $edge['requests'],
+            'failed' => $edge['failed'],
+            'p95' => $edge['p95'],
+            'errorRate' => $edge['requests'] > 0.0 ? $edge['failed'] / $edge['requests'] : 0.0,
+        ], $edges);
+
+        return ['nodes' => $nodes, 'links' => $links];
     }
 }

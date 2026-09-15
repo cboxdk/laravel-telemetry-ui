@@ -464,6 +464,7 @@ function register() {
         let sizeObserver = null;
         let hideTimer = null;
         let annVisibilityHandler = null;
+        let themeHandler = null;
 
         return {
         // The annotation under the pointer, plus the marker line's own pixel
@@ -623,6 +624,22 @@ function register() {
             resizeHandler = () => chart?.resize();
             window.addEventListener('resize', resizeHandler);
 
+            // Charts read design tokens at build time (cssVar). When the user
+            // flips light/dark, re-apply the token-derived colours — axes,
+            // tooltip, grid lines and the default palette — so the chart follows
+            // the theme without a page reload. Series data/colours are untouched.
+            themeHandler = () => {
+                if (!chart) return;
+                const b = baseOption(unit);
+                chart.setOption({
+                    color: paletteColors(),
+                    tooltip: b.tooltip,
+                    xAxis: { axisLine: b.xAxis.axisLine, axisLabel: b.xAxis.axisLabel },
+                    yAxis: { axisLabel: b.yAxis.axisLabel, splitLine: b.yAxis.splitLine },
+                });
+            };
+            window.addEventListener('telemetry-ui:theme-changed', themeHandler);
+
             // Hover a marker line to open the callout; the pointer can move into
             // it (mouseenter cancels the hide) to reach its actions, and leaving
             // both the line and the callout closes it. Click opens it too, for
@@ -700,6 +717,193 @@ function register() {
                 window.removeEventListener('telemetry-ui:annotations-visibility', annVisibilityHandler);
                 annVisibilityHandler = null;
             }
+            if (themeHandler) {
+                window.removeEventListener('telemetry-ui:theme-changed', themeHandler);
+                themeHandler = null;
+            }
+            sizeObserver?.disconnect();
+            sizeObserver = null;
+            chart?.dispose();
+            chart = null;
+        },
+        };
+    });
+
+    // Service map: the who-calls-whom edges rendered as a force-directed graph
+    // (Datadog-style) instead of a table. Node size + health colour by inbound
+    // traffic/errors; edge width by volume, red when failing. Click a node to
+    // scope the whole dashboard to that service.
+    window.Alpine.data('telemetryUiServiceGraph', (graph) => {
+        let chart = null;
+        let resizeHandler = null;
+        let sizeObserver = null;
+
+        return {
+        init() {
+            const el = this.$el.querySelector('.tui-svcgraph') || this.$el;
+            chart = echarts.init(el, null, { renderer: 'canvas' });
+
+            const fg = cssVar('--foreground', '#1a1714');
+            const muted = cssVar('--muted-foreground', '#8a8072');
+            const danger = cssVar('--destructive', '#d6533a');
+            const warning = cssVar('--warning', '#d0a12f');
+            const success = cssVar('--success', '#3ca36a');
+            const count = (v) => Math.round(v).toLocaleString();
+
+            const maxVol = Math.max(1, ...graph.nodes.map((n) => n.value));
+            const nodes = graph.nodes.map((n) => {
+                const er = n.value > 0 ? n.failed / n.value : 0;
+                const health = er >= 0.05 ? danger : (er >= 0.01 ? warning : success);
+                return {
+                    name: n.name,
+                    value: n.value,
+                    failed: n.failed,
+                    symbolSize: 16 + 30 * Math.sqrt(n.value / maxVol),
+                    itemStyle: { color: n.color, borderColor: health, borderWidth: er >= 0.01 ? 2.5 : 1.5 },
+                };
+            });
+
+            const maxReq = Math.max(1, ...graph.links.map((l) => l.requests));
+            const links = graph.links.map((l) => ({
+                source: l.source, target: l.target, value: l.requests, failed: l.failed, p95: l.p95,
+                lineStyle: {
+                    width: 1 + 5 * Math.sqrt(l.requests / maxReq),
+                    color: l.errorRate >= 0.01 ? danger : muted,
+                    opacity: l.errorRate >= 0.01 ? 0.75 : 0.35,
+                    curveness: 0.14,
+                },
+            }));
+
+            chart.setOption({
+                backgroundColor: 'transparent',
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: cssVar('--popover', '#fff'),
+                    borderColor: cssVar('--border', '#e5e0d6'),
+                    textStyle: { color: fg, fontSize: 12, fontFamily: 'var(--font-mono, ui-monospace, monospace)' },
+                    formatter: (p) => p.dataType === 'edge'
+                        ? `${p.data.source} → ${p.data.target}<br>${count(p.data.value)} req`
+                            + (p.data.failed ? ` · ${count(p.data.failed)} failed` : '')
+                            + (p.data.p95 != null ? ` · p95 ${humanMs(p.data.p95)}` : '')
+                        : `${p.name}<br>${count(p.value)} req in`
+                            + (p.data.failed ? ` · ${count(p.data.failed)} failed` : ''),
+                },
+                series: [{
+                    type: 'graph',
+                    layout: 'force',
+                    roam: true,
+                    draggable: true,
+                    force: { repulsion: 240, edgeLength: [70, 150], gravity: 0.08 },
+                    edgeSymbol: ['none', 'arrow'],
+                    edgeSymbolSize: 7,
+                    label: { show: true, position: 'bottom', color: fg, fontSize: 10, fontFamily: 'var(--font-mono, ui-monospace, monospace)' },
+                    emphasis: { focus: 'adjacency', lineStyle: { width: 4 } },
+                    data: nodes,
+                    links,
+                }],
+            });
+
+            chart.on('click', (p) => {
+                if (p.dataType !== 'node') return;
+                const url = new URL(window.location);
+                url.searchParams.set('service', p.name);
+                window.location = url;
+            });
+
+            sizeObserver = new ResizeObserver(() => chart?.resize());
+            sizeObserver.observe(el);
+            resizeHandler = () => chart?.resize();
+            window.addEventListener('resize', resizeHandler);
+        },
+
+        destroy() {
+            window.removeEventListener('resize', resizeHandler);
+            sizeObserver?.disconnect();
+            sizeObserver = null;
+            chart?.dispose();
+            chart = null;
+        },
+        };
+    });
+
+    // Latency heatmap: time × latency-band grid, colour = requests/min in that
+    // band — the distribution a single p95 line flattens away.
+    window.Alpine.data('telemetryUiHeatmap', (data) => {
+        let chart = null;
+        let resizeHandler = null;
+        let sizeObserver = null;
+        let themeHandler = null;
+
+        return {
+        init() {
+            const el = this.$el.querySelector('.tui-heatmap') || this.$el;
+            chart = echarts.init(el, null, { renderer: 'canvas' });
+
+            const hhmm = (ms) => {
+                const d = new Date(ms);
+                return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+            };
+
+            const build = () => {
+                const muted = cssVar('--muted-foreground', '#8a8072');
+                const border = cssVar('--border', '#e5e0d6');
+                return {
+                    backgroundColor: 'transparent',
+                    animation: false,
+                    grid: { left: 8, right: 12, top: 8, bottom: 4, containLabel: true },
+                    tooltip: {
+                        position: 'top',
+                        backgroundColor: cssVar('--popover', '#fff'),
+                        borderColor: border,
+                        textStyle: { color: cssVar('--foreground', '#1a1714'), fontSize: 12, fontFamily: 'var(--font-mono, ui-monospace, monospace)' },
+                        formatter: (p) => `${new Date(data.x[p.value[0]]).toLocaleString()}<br>${data.y[p.value[1]]}: ${Math.round(p.value[2]).toLocaleString()}/min`,
+                    },
+                    xAxis: {
+                        type: 'category',
+                        data: data.x.map(hhmm),
+                        axisLine: { lineStyle: { color: border } },
+                        axisLabel: { color: muted, fontSize: 10, fontFamily: 'var(--font-mono, ui-monospace, monospace)' },
+                        splitArea: { show: false },
+                    },
+                    yAxis: {
+                        type: 'category',
+                        data: data.y,
+                        axisLine: { show: false },
+                        axisTick: { show: false },
+                        axisLabel: { color: muted, fontSize: 10, fontFamily: 'var(--font-mono, ui-monospace, monospace)' },
+                        splitArea: { show: false },
+                    },
+                    visualMap: {
+                        min: 0,
+                        max: data.max || 1,
+                        show: false,
+                        inRange: { color: [cssVar('--card', '#fff'), cssVar('--chart-1', '#3b6fd4')] },
+                    },
+                    series: [{
+                        type: 'heatmap',
+                        data: data.cells,
+                        progressive: 0,
+                        itemStyle: { borderWidth: 0 },
+                        emphasis: { itemStyle: { borderColor: cssVar('--foreground', '#1a1714'), borderWidth: 1 } },
+                    }],
+                };
+            };
+
+            chart.setOption(build());
+
+            themeHandler = () => { if (chart) chart.setOption(build()); };
+            window.addEventListener('telemetry-ui:theme-changed', themeHandler);
+
+            sizeObserver = new ResizeObserver(() => chart?.resize());
+            sizeObserver.observe(el);
+            resizeHandler = () => chart?.resize();
+            window.addEventListener('resize', resizeHandler);
+        },
+
+        destroy() {
+            window.removeEventListener('resize', resizeHandler);
+            if (themeHandler) window.removeEventListener('telemetry-ui:theme-changed', themeHandler);
+            themeHandler = null;
             sizeObserver?.disconnect();
             sizeObserver = null;
             chart?.dispose();

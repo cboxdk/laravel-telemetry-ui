@@ -18,14 +18,14 @@ class OutgoingActivity extends Card
     {
         [$start, $end] = $this->range();
 
-        $count = $this->metric('http_client_request_duration_milliseconds_count');
+        $count = $this->metric('http_client_request_duration_seconds_count');
         $failures = $this->metric('http_client_connection_failures_total');
         $p = $this->promDuration();
 
         try {
             $total = $this->total($count->increase($p)->sumBy());
             $failed = $this->total($failures->increase($p)->sumBy());
-            $serverErrors = $this->total($this->metric('http_client_request_duration_milliseconds_count', 'http_response_status_code=~"5.."')->increase($p)->sumBy());
+            $serverErrors = $this->total($this->metric('http_client_request_duration_seconds_count', 'http_response_status_code=~"5.."')->increase($p)->sumBy());
 
             $range = $this->metrics()->queryRange(
                 $count->rate($this->rateWindow())->sumBy('server_address')->times(60),

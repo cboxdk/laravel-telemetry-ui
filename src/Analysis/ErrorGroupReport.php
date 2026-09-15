@@ -115,7 +115,7 @@ final class ErrorGroupReport
                 'traceId' => $label('trace_id'),
                 'service' => $label('service_name'),
                 'message' => $label('exception_message'),
-                'user' => $label('enduser_id'),
+                'user' => $label('user_id'),
                 'frontend' => false,
                 'detail' => [
                     'type' => $label('exception_type'),
@@ -174,7 +174,7 @@ final class ErrorGroupReport
                     'traceId' => $summary->traceId,
                     'service' => $summary->rootServiceName,
                     'message' => $attr('exception.message'),
-                    'user' => $attr('enduser.id'),
+                    'user' => $attr('user.id'),
                     'frontend' => true,
                     'detail' => [
                         'type' => $type,
@@ -253,7 +253,7 @@ final class ErrorGroupReport
             'method' => $attr('http.request.method'),
             'route' => $attr('http.route'),
             'status' => $attr('http.response.status_code'),
-            'user' => $attr('enduser.id'),
+            'user' => $attr('user.id'),
         ];
     }
 

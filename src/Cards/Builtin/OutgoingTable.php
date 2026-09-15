@@ -18,9 +18,9 @@ final class OutgoingTable extends Card
         [$start, $end] = $this->range();
         $p = $this->promDuration();
 
-        $count = $this->metric('http_client_request_duration_milliseconds_count');
-        $sum = $this->metric('http_client_request_duration_milliseconds_sum');
-        $bucket = $this->metric('http_client_request_duration_milliseconds_bucket');
+        $count = $this->metric('http_client_request_duration_seconds_count');
+        $sum = $this->metric('http_client_request_duration_seconds_sum');
+        $bucket = $this->metric('http_client_request_duration_seconds_bucket');
         $failures = $this->metric('http_client_connection_failures_total');
 
         $rows = [];
@@ -55,7 +55,8 @@ final class OutgoingTable extends Card
                 $host = $sample->labels['server_address'] ?? '?';
 
                 if (isset($rows[$host])) {
-                    $rows[$host]['time'] = $sample->value;
+                    // v2 duration histogram is in seconds; ×1000 → ms for the view.
+                    $rows[$host]['time'] = $sample->value * 1000;
                 }
             }
 
@@ -63,7 +64,7 @@ final class OutgoingTable extends Card
                 $host = $sample->labels['server_address'] ?? '?';
 
                 if (isset($rows[$host]) && ! is_nan($sample->value)) {
-                    $rows[$host]['p95'] = $sample->value;
+                    $rows[$host]['p95'] = $sample->value * 1000;
                 }
             }
 

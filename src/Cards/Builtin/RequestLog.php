@@ -81,7 +81,7 @@ class RequestLog extends Card
             }
 
             if ($this->user !== '') {
-                $conditions[] = TraceCondition::eq('span.enduser.id', $this->user);
+                $conditions[] = TraceCondition::eq('span.user.id', $this->user);
             }
 
             if ($this->path !== '') {
@@ -94,7 +94,7 @@ class RequestLog extends Card
             }
 
             $query = $this->traceQuery(...$conditions)
-                ->select('span.http.request.method', 'span.url.path', 'span.http.route', 'span.http.response.status_code', 'span.client.address', 'span.enduser.id', 'span.livewire.components');
+                ->select('span.http.request.method', 'span.url.path', 'span.http.route', 'span.http.response.status_code', 'span.client.address', 'span.user.id', 'span.livewire.components');
 
             foreach ($this->traces()->search($query, $start, $end, limit: 50) as $summary) {
                 $attributes = isset($summary->matchedSpans[0]) ? $summary->matchedSpans[0]->attributes : [];
@@ -119,7 +119,7 @@ class RequestLog extends Card
                     'path' => $path,
                     'status' => $this->str($attributes['http.response.status_code'] ?? null) ?? '',
                     'ip' => $this->str($attributes['client.address'] ?? null) ?? '',
-                    'user' => $this->str($attributes['enduser.id'] ?? null) ?? '',
+                    'user' => $this->str($attributes['user.id'] ?? null) ?? '',
                 ];
             }
 

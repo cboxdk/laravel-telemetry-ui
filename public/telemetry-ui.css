@@ -787,6 +787,10 @@ html, body {
 .tui-chart { width: 100%; }
 .tui-chart-wrap { position: relative; }
 
+/* Service map (force graph) + latency heatmap share the chart-wrap contract. */
+.tui-svcgraph-wrap, .tui-heatmap-wrap { position: relative; }
+.tui-svcgraph, .tui-heatmap { width: 100%; }
+
 /* Annotation click-callout: the detail a thin marker line can't carry. */
 
 .tui-annotation-pop {
@@ -903,6 +907,36 @@ html, body {
     font-size: 24px;
     font-weight: 600;
     letter-spacing: -0.01em;
+}
+
+/* KPI-tile extras: period-over-period delta, "typ" baseline, and an inline
+   sparkline of the window — a plain tile just omits these. */
+.tui-stat-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-top: 3px;
+}
+
+.tui-stat-delta {
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+}
+
+.tui-stat-base {
+    font-size: 10px;
+    color: var(--tui-text-faint);
+    font-variant-numeric: tabular-nums;
+}
+
+.tui-stat .tui-spark {
+    margin-top: 7px;
+    width: 100%;
+    max-width: 132px;
+    height: 22px;
+    opacity: 0.9;
 }
 
 .tui-tone-ok { color: var(--tui-accent); }

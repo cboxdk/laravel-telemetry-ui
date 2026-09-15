@@ -32,14 +32,14 @@ function fakeErrorRecords(): void
                 // A NEW group: born two hours ago, still failing in-period —
                 // and hitting two distinct users.
                 [
-                    'stream' => ['service_name' => 'demo', 'exception_group' => 'bbbb33334444', 'exception_type' => 'PaymentDeclined', 'exception_message' => 'fresh regression', 'enduser_id' => '7'],
+                    'stream' => ['service_name' => 'demo', 'exception_group' => 'bbbb33334444', 'exception_type' => 'PaymentDeclined', 'exception_message' => 'fresh regression', 'user_id' => '7'],
                     'values' => [
                         [(string) (($now - 7200) * 1_000_000_000), 'exception'],
                         [(string) (($now - 60) * 1_000_000_000), 'exception'],
                     ],
                 ],
                 [
-                    'stream' => ['service_name' => 'demo', 'exception_group' => 'bbbb33334444', 'exception_type' => 'PaymentDeclined', 'exception_message' => 'fresh regression', 'enduser_id' => '9'],
+                    'stream' => ['service_name' => 'demo', 'exception_group' => 'bbbb33334444', 'exception_type' => 'PaymentDeclined', 'exception_message' => 'fresh regression', 'user_id' => '9'],
                     'values' => [
                         [(string) (($now - 30) * 1_000_000_000), 'exception'],
                     ],
@@ -159,7 +159,7 @@ it('renders the full issue page: header, trend, tags and deep-dive', function ()
                         'exception_file' => 'app/Checkout.php', 'exception_line' => '42',
                         'exception_stacktrace' => '#0 app/Checkout.php(42): charge()',
                         'deployment_environment_name' => 'production', 'deployment_id' => 'v9.1.0',
-                        'host_name' => 'web-3', 'enduser_id' => '7',
+                        'host_name' => 'web-3', 'user_id' => '7',
                     ],
                     'values' => [
                         [(string) (($now - 300) * 1_000_000_000), 'exception'],

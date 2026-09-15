@@ -51,8 +51,8 @@ beforeEach(function (): void {
                         'durationNanos' => '87000000',
                         'attributes' => [
                             ['key' => 'db.query.text', 'value' => ['stringValue' => 'select * from orders']],
-                            ['key' => 'enduser.id', 'value' => ['intValue' => '7']],
-                            ['key' => 'enduser.guard', 'value' => ['stringValue' => 'web']],
+                            ['key' => 'user.id', 'value' => ['intValue' => '7']],
+                            ['key' => 'user.guard', 'value' => ['stringValue' => 'web']],
                         ],
                     ]],
                 ]],

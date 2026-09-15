@@ -22,7 +22,7 @@ function fakeRequestLog(): void
                         ['key' => 'url.path', 'value' => ['stringValue' => '/orders']],
                         ['key' => 'http.response.status_code', 'value' => ['intValue' => '200']],
                         ['key' => 'client.address', 'value' => ['stringValue' => '203.0.113.9']],
-                        ['key' => 'enduser.id', 'value' => ['intValue' => '25']],
+                        ['key' => 'user.id', 'value' => ['intValue' => '25']],
                     ]]]]]],
             ],
         ]),
@@ -64,7 +64,7 @@ it('tails a specific user and ip via scoped traceql', function (): void {
     Http::assertSent(function ($request): bool {
         $q = rawurldecode(requestQuery($request)['q'] ?? '');
 
-        return str_contains($q, 'span.enduser.id = "25"')
+        return str_contains($q, 'span.user.id = "25"')
             && str_contains($q, 'span.client.address = "203.0.113.9"')
             && str_contains($q, 'span.http.response.status_code >= 500');
     });

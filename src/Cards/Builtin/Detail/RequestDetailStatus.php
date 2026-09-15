@@ -21,7 +21,7 @@ final class RequestDetailStatus extends Card
     public function render(): View
     {
         $p = $this->promDuration();
-        $count = $this->metric('http_server_request_duration_milliseconds_count');
+        $count = $this->metric('http_server_request_duration_seconds_count');
 
         $rows = [];
         $error = null;

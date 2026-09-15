@@ -19,8 +19,8 @@ final class HostsTable extends Card
     public function render(): View
     {
         $p = $this->promDuration();
-        $count = $this->metric('http_server_request_duration_milliseconds_count');
-        $errors = $this->metric('http_server_request_duration_milliseconds_count', 'http_response_status_code=~"5.."');
+        $count = $this->metric('http_server_request_duration_seconds_count');
+        $errors = $this->metric('http_server_request_duration_seconds_count', 'http_response_status_code=~"5.."');
 
         /** @var array<string, array{host: string, requests: float, errors: float, cpu: ?float, memory: ?float}> $rows */
         $rows = [];
