@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Cbox\TelemetryUi\Explore\Stats;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
 /** Three server spans in the last minute: two on /orders (one failing), one on /users. */
@@ -107,7 +108,7 @@ it('defaults an unfiltered trace search to server spans, and a filtered one to w
 });
 
 it('describes a trace row by its root, not by the matched span', function (): void {
-    Http::fake(fn (Illuminate\Http\Client\Request $request) => Http::response(['traces' => str_contains((string) (requestQuery($request)['q'] ?? ''), 'status = error')
+    Http::fake(fn (Request $request) => Http::response(['traces' => str_contains((string) (requestQuery($request)['q'] ?? ''), 'status = error')
         ? [tempoHit('abc', 'GET /orders', time() - 30, 12.0)]
         : [tempoHit('abc', 'GET /orders', time() - 30, 12.0, ['db.query.text' => 'select 1']), tempoHit('ok1', 'GET /health', time() - 20, 2.0, ['db.query.text' => 'select 1'])],
     ]));

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Cbox\TelemetryUi\TelemetryUiManager;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
 const FAILING_TRACE = 'ffff0000ffff0000ffff0000ffff0002';
@@ -184,7 +185,7 @@ it('answers a typed 502 when the traces backend fails', function (): void {
 it('counts failed occurrences of a span-level entity from a status = error search', function (): void {
     $now = time() - 60;
 
-    Http::fake(function (Illuminate\Http\Client\Request $request) use ($now) {
+    Http::fake(function (Request $request) use ($now) {
         if (str_contains($request->url(), 'loki.test')) {
             return Http::response(lokiStreams([]));
         }
