@@ -257,10 +257,9 @@ pre { margin: 0; }
 .t-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .t-page-title { font-size: 21px; font-weight: 700; line-height: 1.2; }
 .t-page-sub { margin: 3px 0 0; color: var(--muted-foreground); font-size: 12px; }
-.t-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
-.t-grid > .span-2 { grid-column: span 2; }
-.t-grid > .span-3, .t-grid > .is-header { grid-column: 1 / -1; }
-@media (max-width: 1100px) { .t-grid { grid-template-columns: 1fr; } .t-grid > .span-2 { grid-column: auto; } }
+.t-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.t-grid > .span-2, .t-grid > .span-3, .t-grid > .is-header { grid-column: 1 / -1; }
+@media (max-width: 1000px) { .t-grid { grid-template-columns: 1fr; } }
 
 .t-panel {
     background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card);
@@ -305,10 +304,12 @@ pre { margin: 0; }
 .t-tbody .t-tr:hover { background: var(--secondary); }
 .t-td { min-width: 0; display: flex; }
 .t-cell { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; position: relative; }
-.t-td.is-num .t-cell { justify-content: flex-end; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.t-td.is-num .t-cell, .t-td.is-num .t-cell-main { justify-content: flex-end; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .t-cell-link { color: var(--foreground); overflow: hidden; text-overflow: ellipsis; }
 .t-cell-link:hover { color: var(--primary); }
-.t-cell-sub { color: var(--muted-foreground); font-size: 11px; }
+.t-cell-main { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.t-cell.has-sub { flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 0; }
+.t-cell-sub { color: var(--muted-foreground); font-size: 11px; font-family: var(--font-sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .t-cellbar { width: 48px; height: 4px; border-radius: 2px; background: var(--secondary); flex: none; overflow: hidden; }
 .t-cellbar i { display: block; height: 100%; background: var(--primary); border-radius: 2px; }
 

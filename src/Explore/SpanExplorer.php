@@ -192,10 +192,67 @@ final class SpanExplorer
             }
 
             $span = $this->representative($summary, $signal);
-            $rows[] = $this->row($summary, $span, $keys);
+            $row = $this->row($summary, $span, $keys);
+
+            // A trace row describes the trace: its root operation, service
+            // and end-to-end duration — not whichever span happened to match.
+            if ($signal === 'traces') {
+                $row['name'] = $summary->rootTraceName !== '' ? $summary->rootTraceName : $row['name'];
+                $row['durationMs'] = round($summary->durationMs, 3);
+                $row['target'] = $row['target'] ?? $row['name'];
+            }
+
+            $rows[] = $row;
         }
 
         usort($rows, static fn (array $a, array $b): int => $b['startMs'] <=> $a['startMs']);
+
+        return $rows;
+    }
+
+    /**
+     * Mark rows whose span failed. The span status is an intrinsic that search
+     * results don't carry, so a second search with `status = error` names the
+     * failing spans — the only way a job/query/view failure (no HTTP status)
+     * shows up as a failure at all.
+     *
+     * @param  list<Row>  $rows
+     * @param  list<TraceCondition>  $extra
+     * @return list<Row>
+     */
+    public function markErrors(array $rows, RequestScope $scope, string $signal, array $extra = [], int $limit = self::DEFAULT_LIMIT, bool $wholeTrace = false): array
+    {
+        if ($rows === []) {
+            return $rows;
+        }
+
+        try {
+            $failed = $this->summaries($scope, $signal, $limit, [...$extra, TraceCondition::token('status', TraceOp::Eq, 'error')]);
+        } catch (SourceException) {
+            return $rows; // best-effort: the rows stand without it
+        }
+
+        $spans = [];
+        $traces = [];
+
+        foreach ($failed as $summary) {
+            $traces[$summary->traceId] = true;
+
+            foreach ($summary->matchedSpans as $span) {
+                $spans[$summary->traceId.':'.$span->spanId] = true;
+            }
+        }
+
+        foreach ($rows as $i => $row) {
+            // A trace row fails when any span in it failed; a span row
+            // (one occurrence of a query/view/job) only when that span did.
+            $hit = $wholeTrace ? isset($traces[$row['traceId']]) : isset($spans[$row['traceId'].':'.$row['spanId']]);
+
+            if ($hit) {
+                $rows[$i]['error'] = true;
+                $rows[$i]['attributes']['status'] = 'error';
+            }
+        }
 
         return $rows;
     }
@@ -212,6 +269,11 @@ final class SpanExplorer
         $keys = $groupBy !== null ? [...$keys, $groupBy] : $keys;
 
         $rows = $this->rows($scope, $signal, $limit, [], $keys);
+
+        if ($signal === 'traces') {
+            $rows = $this->markErrors($rows, $scope, $signal, [], $limit, wholeTrace: true);
+        }
+
         [$start, $end] = $scope->range();
         $startMs = $start->getTimestamp() * 1000;
         $endMs = $end->getTimestamp() * 1000;
@@ -407,6 +469,14 @@ final class SpanExplorer
         $route = $attributes['http.route'] ?? null;
         $path = $attributes['url.path'] ?? ($attributes['http.url'] ?? null);
 
+        $error = ($status !== null && (int) $status >= 500) || (($span->attributes['status'] ?? '') === 'error');
+        // The span status is an intrinsic, not an attribute: surface it as one
+        // so the "status" facet and group-by have something to count.
+        $attributes['status'] = $error ? 'error' : 'ok';
+        // The operation the span ran under (its trace's root) — "who calls
+        // this query / renders this view" for span-level entities.
+        $attributes['trace.root'] = $summary->rootTraceName;
+
         return [
             'traceId' => $summary->traceId,
             'spanId' => $span->spanId ?? '',
@@ -423,7 +493,7 @@ final class SpanExplorer
             // The intrinsic span status comes back as a `status` attribute when
             // the query references it; it is not a selectable row attribute,
             // so read it off the raw span rather than the filtered bag.
-            'error' => ($status !== null && (int) $status >= 500) || (($span->attributes['status'] ?? '') === 'error'),
+            'error' => $error,
             'browser' => Span::attributesAreBrowser($span->attributes ?? []),
             'attributes' => $attributes,
         ];

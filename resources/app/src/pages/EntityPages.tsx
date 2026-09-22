@@ -34,7 +34,11 @@ export function EntityIndexPage() {
                 </div>
                 <div className="t-row-gap">
                     <input className="t-input t-input-sm" placeholder={`Filter ${(def?.plural ?? type).toLowerCase()}…`} value={filter} onChange={(e) => setFilter(e.target.value)} />
-                    <Link to="/explore/requests" search={{ ...scopeOf(search), groupBy: data?.entity.key ?? def?.key } as never} className="t-btn t-btn-sm t-btn-secondary">
+                    <Link
+                        to={`/explore/${data?.signal ?? 'requests'}`}
+                        search={{ ...scopeOf(search), groupBy: data?.entity.key ?? def?.key, ...(data?.signal === 'traces' ? { where: [`${data.entity.key}!=`] } : {}) } as never}
+                        className="t-btn t-btn-sm t-btn-secondary"
+                    >
                         <Icon name="group" size={12} />Explore grouped
                     </Link>
                 </div>
@@ -63,7 +67,7 @@ export function EntityIndexPage() {
                         ))}
                     </div>
                 )}
-                {data && <footer className="t-panel-foot">{data.sample.truncated ? `Counted over the newest ${count(data.sample.size)} matching spans.` : `${count(data.sample.size)} spans in this window.`}</footer>}
+                {data && <footer className="t-panel-foot">{data.unit === 'spans' ? `Counted over ${count(data.sample.size)} occurrences in the newest matching traces.` : data.sample.truncated ? `Counted over the newest ${count(data.sample.size)} matching requests.` : `${count(data.sample.size)} requests in this window.`}</footer>}
             </section>
         </div>
     );
@@ -141,8 +145,8 @@ function StoryTab({ data }: { data: EntityStory }) {
             </div>
 
             <div className="t-redrow">
-                <Tile k={data.signal === 'requests' ? 'Requests' : 'Spans'} v={count(red.count)} sub={`${count(red.perMinute)}/min`} />
-                <Tile k="Error rate" v={percent(red.errorRate)} tone={red.errorRate > 0.01 ? 'danger' : undefined} sub={`${count(red.errors)} server errors`} />
+                <Tile k={data.signal === 'requests' ? 'Requests' : 'Occurrences'} v={count(red.count)} sub={`${count(red.perMinute)}/min`} />
+                <Tile k="Error rate" v={percent(red.errorRate)} tone={red.errorRate > 0.01 ? 'danger' : undefined} sub={data.signal === 'requests' ? `${count(red.errors)} server errors` : `${count(red.errors)} failed`} />
                 <Tile k="p50" v={ms(red.p50)} />
                 <Tile k="p95" v={ms(red.p95)} tone={(red.p95 ?? 0) > 1000 ? 'warn' : undefined} />
                 <Tile k="Traces" v={count(red.traces)} />
@@ -169,7 +173,9 @@ function StoryTab({ data }: { data: EntityStory }) {
                                 <div className="t-breakdown-title"><span>{b.label}</span><span className="t-dim mono">{b.distinct} distinct</span></div>
                                 {b.values.map((v) => (
                                     <div key={v.value} className="t-breakdown-row">
-                                        <DimensionValue dimKey={b.key} value={v.value}><span className="mono">{v.value}</span></DimensionValue>
+                                        {b.drill === false
+                                            ? <span className="mono t-ellipsis" title={v.value}>{v.value}</span>
+                                            : <DimensionValue dimKey={b.key} value={v.value}><span className="mono">{v.value}</span></DimensionValue>}
                                         <span className="t-breakdown-bar"><i style={{ width: `${v.share * 100}%` }} className={v.lift !== null && v.lift > 1.5 && v.failing > 0 ? 'is-hot' : ''} /></span>
                                         <span className="mono t-dim">{count(v.count)}</span>
                                         {v.failing > 0 && <span className="mono t-tone-danger" title="failing">{v.failing}✕</span>}
@@ -181,6 +187,7 @@ function StoryTab({ data }: { data: EntityStory }) {
                 </section>
 
                 <div className="t-stack">
+                    {data.statusMix.some((st) => st.value !== '(none)') && (
                     <section className="t-panel">
                         <header className="t-panel-head"><h3 className="t-panel-title">Status</h3></header>
                         <div className="t-panel-body t-statusmix">
@@ -191,9 +198,9 @@ function StoryTab({ data }: { data: EntityStory }) {
                                     <span className="t-dim mono">{percent(s.share)}</span>
                                 </button>
                             ))}
-                            {data.statusMix.every((s) => s.value === '(none)') && <span className="t-dim">No HTTP status on these spans.</span>}
                         </div>
                     </section>
+                    )}
                     <section className="t-panel">
                         <header className="t-panel-head"><h3 className="t-panel-title">Correlated</h3></header>
                         <div className="t-panel-body t-corr">
@@ -246,7 +253,10 @@ function TraceTable({ title, rows, empty, onOpen }: { title: string; rows: SpanR
                     <button key={`${r.traceId}-${i}`} type="button" className="t-mini-row" onClick={() => onOpen(r)}>
                         <span className="mono t-dim">{clock(r.startMs)}</span>
                         {r.status && <span className={`t-status t-status-${statusTone(r.status)}`}>{r.status}</span>}
-                        <span className="mono t-ellipsis">{r.method ? `${r.method} ` : ''}{r.path ?? r.target ?? r.name}</span>
+                        <span className="mono t-ellipsis" title={r.name}>
+                            {r.method ? `${r.method} ` : ''}{r.path ?? r.target ?? r.attributes['trace.root'] ?? r.name}
+                            {!r.method && r.attributes['trace.root'] && r.attributes['trace.root'] !== r.name ? <span className="t-dim"> · {r.name}</span> : null}
+                        </span>
                         <span className="mono">{ms(r.durationMs)}</span>
                     </button>
                 ))}

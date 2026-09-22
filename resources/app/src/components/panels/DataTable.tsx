@@ -54,12 +54,45 @@ export function CellView({ cell, onParam }: { cell: Cell | null; onParam?: (p: R
     }
 
     return (
-        <div className={`t-cell ${tone && !cell.badge ? `t-tone-${tone}` : ''} ${cell.mono ? 'mono' : ''}`}>
-            {cell.spark && cell.spark.length > 0 ? <Sparkline points={cell.spark} tone={tone ?? null} /> : content}
-            {cell.bar !== undefined && <span className="t-cellbar"><i style={{ width: `${Math.max(1, Math.min(100, cell.bar * 100))}%` }} /></span>}
-            {cell.sub && <span className="t-cell-sub">{cell.sub}</span>}
+        <div className={`t-cell ${cell.sub ? 'has-sub' : ''} ${tone && !cell.badge ? `t-tone-${tone}` : ''} ${cell.mono ? 'mono' : ''}`}>
+            <span className="t-cell-main">
+                {cell.spark && cell.spark.length > 0 ? <Sparkline points={cell.spark} tone={tone ?? null} /> : content}
+                {cell.bar !== undefined && <span className="t-cellbar"><i style={{ width: `${Math.max(1, Math.min(100, cell.bar * 100))}%` }} /></span>}
+            </span>
+            {cell.sub && <span className="t-cell-sub" title={cell.sub}>{cell.sub}</span>}
         </div>
     );
+}
+
+/**
+ * Content-aware column widths: numbers take what they need, sparklines a fixed
+ * track, badges hug their text, and the remaining space goes to text columns in
+ * proportion to how long their values actually are — so a route or SQL column
+ * isn't squeezed to the width of a method badge.
+ */
+export function columnTemplate(columns: Column[], rows: Row[]): string {
+    const sample = rows.slice(0, 80);
+    // Every row is its own grid, so tracks must be explicit — `max-content`
+    // would size each row differently and the columns would not line up.
+    const px = (chars: number, min: number, max: number) => `${Math.round(Math.min(max, Math.max(min, chars * 7.4 + 22)))}px`;
+
+    return columns.map((c) => {
+        if (c.width) return c.width;
+
+        const cells = sample.map((r) => asCell(r[c.key])).filter((x): x is Cell => x !== null);
+        const text = (x: Cell) => String(x.v ?? '').length + (x.badge && !TONES.has(x.badge) && x.badge !== String(x.v ?? '') ? x.badge.length + 2 : 0);
+        const longest = Math.max(c.label.length, ...cells.map(text));
+        const hasSub = cells.some((x) => x.sub);
+
+        if (c.align === 'right') return px(longest, 56, 150);
+        if (cells.length > 0 && cells.every((x) => x.spark)) return '96px';
+        if (hasSub) return 'minmax(220px, 6fr)';
+
+        const avg = cells.length === 0 ? 10 : cells.reduce((n, x) => n + String(x.v ?? '').length, 0) / cells.length;
+        if (longest <= 12) return px(longest, 60, 130);
+        const weight = Math.max(1, Math.min(8, Math.round(avg / 6)));
+        return `minmax(${avg > 24 ? 160 : 90}px, ${weight}fr)`;
+    }).join(' ');
 }
 
 /**
@@ -96,7 +129,7 @@ export function DataTable({ columns, rows, onParam, onTicket, maxHeight = 520 }:
     });
 
     const hasTicket = rows.some((r) => r._ticket);
-    const template = columns.map((c) => c.width ?? (c.align === 'right' ? 'minmax(64px, max-content)' : 'minmax(90px, 1fr)')).join(' ') + (hasTicket ? ' 36px' : '');
+    const template = useMemo(() => columnTemplate(columns, rows), [columns, rows]) + (hasTicket ? ' 36px' : '');
 
     const onRow = (link: Link | undefined, e: React.MouseEvent) => {
         if (!link) return;

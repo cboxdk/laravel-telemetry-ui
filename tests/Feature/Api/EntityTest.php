@@ -180,3 +180,28 @@ it('answers a typed 502 when the traces backend fails', function (): void {
     $this->getJson(apiUrl('entities/route'))->assertStatus(502)->assertJsonPath('error.type', 'backend');
     $this->getJson(apiUrl('entities/route/story', ['value' => '/orders']))->assertStatus(502)->assertJsonPath('error.type', 'backend');
 });
+
+it('counts failed occurrences of a span-level entity from a status = error search', function (): void {
+    $now = time() - 60;
+
+    Http::fake(function (Illuminate\Http\Client\Request $request) use ($now) {
+        if (str_contains($request->url(), 'loki.test')) {
+            return Http::response(lokiStreams([]));
+        }
+
+        $q = (string) (requestQuery($request)['q'] ?? '');
+        $job = fn (string $trace): array => tempoHit($trace, 'App\\Jobs\\Charge process', $now, 120.0, ['laravel.job.class' => 'App\\Jobs\\Charge']);
+
+        return Http::response(['traces' => str_contains($q, 'status = error') ? [$job('t2')] : [$job('t1'), $job('t2'), $job('t3')]]);
+    });
+
+    $story = $this->getJson(apiUrl('entities/job/story', ['value' => 'App\\Jobs\\Charge']))->assertOk()->json();
+
+    expect($story['signal'])->toBe('traces')
+        ->and($story['red']['count'])->toBe(3)
+        ->and($story['red']['errors'])->toBe(1)
+        ->and($story['failing'])->toHaveCount(1)
+        ->and($story['insights'][0]['text'])->toContain('failed')
+        ->and($story['insights'][0]['text'])->not->toContain('server errors')
+        ->and(collect($story['breakdowns'])->firstWhere('key', 'trace.root')['drill'])->toBeFalse();
+});

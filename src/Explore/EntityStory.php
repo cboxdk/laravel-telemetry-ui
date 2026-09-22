@@ -75,6 +75,10 @@ final class EntityStory
             $rows = $this->spans->rowsFrom($this->spans->spanSample($scope, [$present], [$dimension->key]), $signal, [$dimension->key], true);
         }
 
+        if ($signal !== 'requests') {
+            $rows = $this->spans->markErrors($rows, $scope, $signal, [$present], 200);
+        }
+
         $groups = array_values(array_filter(
             Stats::groupBy($rows, $dimension->key, 200),
             static fn (array $g): bool => $g['value'] !== '(none)',
@@ -110,13 +114,17 @@ final class EntityStory
 
         $rows = $this->spans->rowsFrom($summaries, $signal, $keys, $signal !== 'requests');
 
+        if ($signal !== 'requests') {
+            $rows = $this->spans->markErrors($rows, $scope, $signal, [$match], 200);
+        }
+
         [$start, $end] = $scope->range();
         $startMs = $start->getTimestamp() * 1000;
         $endMs = $end->getTimestamp() * 1000;
 
         $red = Stats::red($rows, $scope->rangeSeconds());
         $failing = array_values(array_filter($rows, static fn (array $r): bool => $r['status'] !== null && (int) $r['status'] >= 400 || $r['error']));
-        $breakdowns = $this->breakdowns($rows, $failing, $keys);
+        $breakdowns = $this->breakdowns($rows, $failing, $signal === 'requests' ? $keys : ['trace.root', ...$keys]);
         $errors = $this->correlatedErrors($scope, $rows);
         $deploys = $this->deploys($scope);
 
@@ -217,7 +225,7 @@ final class EntityStory
      * @param  list<Row>  $rows
      * @param  list<Row>  $failing
      * @param  list<string>  $keys
-     * @return list<array{key: string, label: string, custom: bool, entity: string, distinct: int, values: list<array{value: string, count: int, share: float, failing: int, lift: float|null}>}>
+     * @return list<array{key: string, label: string, custom: bool, entity: string, distinct: int, values: list<array{value: string, count: int, share: float, failing: int, lift: float|null}>, drill: bool}>
      */
     private function breakdowns(array $rows, array $failing, array $keys): array
     {
@@ -263,16 +271,19 @@ final class EntityStory
 
             $out[] = [
                 'key' => $key,
-                'label' => $dimension->label,
+                'label' => $key === 'trace.root' ? 'Called from' : $dimension->label,
                 'custom' => ! $dimension->builtin && $this->dimensions->get($key) !== null,
                 'entity' => $dimension->entitySlug(),
                 'distinct' => count($counts),
                 'values' => $values,
+                // trace.root is read-side (the trace's root name), not a
+                // queryable attribute: show it, but don't offer filter/group.
+                'drill' => $key !== 'trace.root',
             ];
         }
 
         // Custom (host-declared) dimensions first — they are why the host declared them.
-        usort($out, static fn (array $a, array $b): int => [$b['custom'], $b['values'][0]['count']] <=> [$a['custom'], $a['values'][0]['count']]);
+        usort($out, static fn (array $a, array $b): int => [$b['key'] === 'trace.root', $b['custom'], $b['values'][0]['count']] <=> [$a['key'] === 'trace.root', $a['custom'], $a['values'][0]['count']]);
 
         return $out;
     }
@@ -349,7 +360,7 @@ final class EntityStory
      *
      * @param  list<Row>  $rows
      * @param  list<Row>  $failing
-     * @param  list<array{key: string, label: string, custom: bool, entity: string, distinct: int, values: list<array{value: string, count: int, share: float, failing: int, lift: float|null}>}>  $breakdowns
+     * @param  list<array{key: string, label: string, custom: bool, entity: string, distinct: int, values: list<array{value: string, count: int, share: float, failing: int, lift: float|null}>, drill: bool}>  $breakdowns
      * @param  list<array{group: string, type: string, message: string, count: int, traceId: string|null}>  $errors
      * @param  list<array<string, mixed>>  $deploys
      * @param  array{count: int, errors: int, errorRate: float, avg: float|null, p50: float|null, p95: float|null, p99: float|null, traces: int, perMinute: float}  $red
@@ -375,12 +386,17 @@ final class EntityStory
             arsort($statuses);
             $top = (string) array_key_first($statuses);
             $serverSide = $red['errors'] > 0;
+            $http = $top !== 'error';
 
             $out[] = [
                 'tone' => $serverSide ? 'danger' : 'warn',
                 'text' => Format::percent($failCount / $count).' of '.Format::count($count).' failed'
-                    .($top !== 'error' ? ' — mostly '.$top : '')
-                    .($serverSide ? ' ('.$red['errors'].' server errors).' : '. All client errors (4xx): a caller or data problem, not an outage.'),
+                    .($http ? ' — mostly '.$top : '')
+                    .match (true) {
+                        ! $http => '.',
+                        $serverSide => ' ('.$red['errors'].' server errors).',
+                        default => '. All client errors (4xx): a caller or data problem, not an outage.',
+                    },
             ];
         } else {
             $out[] = ['tone' => 'ok', 'text' => Format::count($count).' in this window, none failed.'];
@@ -397,7 +413,7 @@ final class EntityStory
                 $out[] = [
                     'tone' => 'warn',
                     'text' => "Failures concentrate on {$breakdown['label']} {$topValue['value']} ({$topValue['failing']} of {$failCount}).",
-                    'dim' => ['key' => $breakdown['key'], 'value' => $topValue['value']],
+                    ...($breakdown['drill'] ? ['dim' => ['key' => $breakdown['key'], 'value' => $topValue['value']]] : []),
                 ];
             } elseif ($count >= 5 && $topValue['share'] >= 0.6 && $breakdown['distinct'] > 1 && $breakdown['custom']) {
                 $out[] = [

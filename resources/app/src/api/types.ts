@@ -416,6 +416,7 @@ export interface Red {
 export interface EntityIndex {
     entity: EntityInfo;
     signal: Signal;
+    unit?: 'requests' | 'spans';
     values: Group[];
     stats: Red;
     sample: Sample;
@@ -428,6 +429,8 @@ export interface Breakdown {
     entity: string;
     distinct: number;
     values: { value: string; count: number; share: number; failing: number; lift: number | null }[];
+    /** false for read-side keys (trace.root) that can't be filtered on. */
+    drill?: boolean;
 }
 
 export interface Insight {

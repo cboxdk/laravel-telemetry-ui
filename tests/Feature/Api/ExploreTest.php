@@ -84,19 +84,41 @@ it('drops intrinsic filters with values traceql cannot take', function (): void 
 
     $this->getJson(apiUrl('explore/traces', ['service' => 'shop', 'where' => ['status=broken', 'kind=weird', 'duration>soon']]))->assertOk();
 
-    expect(sentTraceql()[0])->toBe('{ resource.service.name = "shop" } | select('.explode('| select(', sentTraceql()[0])[1]);
+    // Invalid intrinsic values are dropped; what is left is the scope plus
+    // the request-shaped default.
+    expect(sentTraceql()[0])->toStartWith('{ resource.service.name = "shop" && kind = server } | select(');
 });
 
-it('does not default traces to server spans when scoped, but never sends an empty spanset', function (): void {
+it('defaults an unfiltered trace search to server spans, and a filtered one to what the filter says', function (): void {
     fakeExploreSpans();
 
+    // Unfiltered: one request-shaped span per trace (backends like telemetryd
+    // return every matched span, so matching all spans would pull whole traces).
     $this->getJson(apiUrl('explore/traces', ['service' => 'shop']))->assertOk();
     $this->getJson(apiUrl('explore/traces', ['service' => '']))->assertOk();
+    $this->getJson(apiUrl('explore/traces', ['service' => 'shop', 'where' => ['view.name=welcome']]))->assertOk();
 
-    [$scoped, $unscoped] = sentTraceql();
+    // (each trace search is followed by a `status = error` search that marks failures)
+    [$scoped, $unscoped, $filtered] = array_values(array_filter(sentTraceql(), static fn (string $q): bool => ! str_contains($q, 'status = error')));
 
-    expect($scoped)->not->toContain('kind =')
-        ->and($unscoped)->toStartWith('{ kind = server }');
+    expect($scoped)->toStartWith('{ resource.service.name = "shop" && kind = server }')
+        ->and($unscoped)->toStartWith('{ kind = server }')
+        ->and($filtered)->toStartWith('{ resource.service.name = "shop" && span.view.name = "welcome" }');
+});
+
+it('describes a trace row by its root, not by the matched span', function (): void {
+    Http::fake(fn (Illuminate\Http\Client\Request $request) => Http::response(['traces' => str_contains((string) (requestQuery($request)['q'] ?? ''), 'status = error')
+        ? [tempoHit('abc', 'GET /orders', time() - 30, 12.0)]
+        : [tempoHit('abc', 'GET /orders', time() - 30, 12.0, ['db.query.text' => 'select 1']), tempoHit('ok1', 'GET /health', time() - 20, 2.0, ['db.query.text' => 'select 1'])],
+    ]));
+
+    $rows = collect($this->getJson(apiUrl('explore/traces', ['service' => '', 'where' => ['db.query.text=select 1']]))->assertOk()->json('rows'))->keyBy('traceId');
+
+    // The row names the trace's root, and a trace with any failing span is a failure.
+    expect($rows['abc']['name'])->toBe('GET /orders')
+        ->and($rows['abc']['error'])->toBeTrue()
+        ->and($rows['abc']['attributes']['status'])->toBe('error')
+        ->and($rows['ok1']['error'])->toBeFalse();
 });
 
 it('returns rows, stats, series and heatmap for requests', function (): void {
