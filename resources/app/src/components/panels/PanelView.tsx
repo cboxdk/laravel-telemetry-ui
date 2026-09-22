@@ -50,7 +50,7 @@ export function PanelView({ id, span = 1, params = {} }: { id: string; span?: nu
 
     return (
         <section className={`t-panel span-${effectiveSpan} ${isHeader ? 'is-header' : ''} ${isFetching && !isLoading ? 'is-refreshing' : ''}`} aria-busy={isFetching}>
-            {(data?.title || isLoading) && (
+            {(data?.title || !data) && (
                 <header className="t-panel-head">
                     <div className="t-panel-titles">
                         {isHeader ? <h1 className="t-page-title">{data?.title}</h1> : <h3 className="t-panel-title">{data?.title ?? ' '}</h3>}
@@ -71,7 +71,8 @@ export function PanelView({ id, span = 1, params = {} }: { id: string; span?: nu
                 </header>
             )}
             <div className="t-panel-body">
-                {isLoading && !data ? <Skeleton height={isHeader ? 60 : 160} /> : error && !data ? <ErrorState error={error} compact /> : data ? <PanelBody data={data} onParam={setParam} onTicket={setDraft} /> : null}
+                {/* Every state renders something: data, else the typed error, else a skeleton (loading or retrying). */}
+                {data ? <PanelBody data={data} onParam={setParam} onTicket={setDraft} /> : error && !isFetching ? <ErrorState error={error} compact /> : <Skeleton height={160} />}
             </div>
             {data?.note && <footer className="t-panel-foot">{data.note}</footer>}
             {draft && <ComposeIssue draft={draft} onClose={() => setDraft(null)} />}
