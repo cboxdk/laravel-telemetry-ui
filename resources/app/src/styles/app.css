@@ -604,7 +604,7 @@ button.t-rstat:focus-visible { outline: 2px solid var(--ring); outline-offset: 1
     height: 52px; padding: 0 20px; border-bottom: 1px solid var(--border-subtle); cursor: pointer;
 }
 .t-lrow:hover, .t-lrow:focus-visible { background: var(--secondary); }
-.t-lrow:focus-visible { outline: none; box-shadow: inset 2px 0 0 var(--primary); }
+.t-lrow:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--ring); }
 .t-lrow.is-sel { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-edge); }
 .t-lrow-time { font-size: 11px; color: var(--muted-foreground); }
 .t-lrow-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }

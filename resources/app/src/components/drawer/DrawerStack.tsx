@@ -26,11 +26,14 @@ export function DrawerStack({ boot }: { boot: Bootstrap }) {
     useEffect(() => {
         if (!top) return;
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && !(e.target as HTMLElement).closest('input,textarea,.t-modal,.t-palette')) set({ drawer: undefined });
+            if (e.key !== 'Escape' || (e.target as HTMLElement).closest('input,textarea,.t-modal,.t-palette')) return;
+            // An open menu takes the Escape first; otherwise pop one drawer (back to the one below).
+            if (document.querySelector('.t-popover')) return;
+            set({ drawer: stack.length > 1 ? formatDrawer(stack.slice(0, -1)) : undefined });
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [top, set]);
+    }, [top, set, stack]);
 
     if (!top) return null;
 
