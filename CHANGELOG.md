@@ -186,6 +186,11 @@ change with before/after code.
 
 ### Fixed (polish)
 
+- The Duration panels (dashboard, route pages) failed from 24h up on
+  telemetryd ("query matched more than … records"): the average's sum and
+  count are now two range queries divided per point instead of one binary
+  expression holding both.
+
 - Switching Explore signals no longer renders the previous signal's rows with
   the wrong list (it crashed going from requests to logs).
 

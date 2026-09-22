@@ -117,13 +117,17 @@ final class TrafficByFacet extends Panel
                 'value' => Ui::cell($row['value'], $value),
                 'traces' => Ui::cell($row['traces'], ['raw' => $row['traces']]),
                 'errors' => Ui::cell($row['errors'], ['raw' => $row['errors'], 'tone' => $row['errors'] > 0 ? 'danger' : null]),
-                'lastAction' => Ui::cell($row['lastAction']),
-                'lastSeen' => Ui::cell($row['lastSeen']->format('H:i:s'), ['raw' => $row['lastSeen']->getTimestamp() * 1000]),
+                'lastAction' => $row['lastAction'] !== '' ? Ui::cell($row['lastAction'], ['link' => Ui::rootOperation($row['lastAction'])]) : Ui::cell('—'),
+                // A time alone is ambiguous across a multi-day period.
+                'lastSeen' => Ui::cell(
+                    $row['lastSeen']->format($row['lastSeen']->format('Y-m-d') === date('Y-m-d') ? 'H:i:s' : 'M j H:i'),
+                    ['raw' => $row['lastSeen']->getTimestamp() * 1000, 'mono' => true],
+                ),
                 '_link' => $link,
             ];
         }, array_slice($rows, 0, 100));
 
-        return Ui::table('Traffic by', $columns, $cells, array_filter([
+        return Ui::table('Traffic by '.($attribute !== null ? lcfirst($valueColumn) : 'attribute'), $columns, $cells, array_filter([
             'subtitle' => 'Requests grouped by a span attribute (user, guard, IP or custom), sampled from traces',
             'controls' => $controls,
             'error' => $error,

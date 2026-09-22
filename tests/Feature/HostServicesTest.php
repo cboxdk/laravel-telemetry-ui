@@ -74,7 +74,7 @@ it('lists hosts linking to the host page and to their requests', function (): vo
             $q = rawurldecode(requestQuery($request)['query'] ?? '');
 
             $value = match (true) {
-                str_contains($q, 'memory') => '0.95',
+                str_contains($q, 'memory') => '0.91',
                 str_contains($q, 'cpu') => '0.4',
                 str_contains($q, '5..') => '3',
                 default => '1200',

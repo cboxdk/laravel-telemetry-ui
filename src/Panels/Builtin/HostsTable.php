@@ -124,12 +124,8 @@ final class HostsTable extends Panel
                     'link' => Ui::explore('requests', ['host.name='.$host]),
                 ]),
                 'errors' => Ui::cell(Format::count($row['errors']), ['raw' => $row['errors'], 'mono' => true, 'tone' => $row['errors'] > 0 ? 'danger' : null]),
-                'cpu' => Ui::cell($row['cpu'] !== null && ! is_nan($row['cpu']) ? Format::percent($row['cpu']) : '—', ['raw' => $row['cpu'], 'mono' => true]),
-                'memory' => Ui::cell($row['memory'] !== null ? Format::percent($row['memory']) : '—', [
-                    'raw' => $row['memory'],
-                    'mono' => true,
-                    'tone' => ($row['memory'] ?? 0) > 0.9 ? 'warn' : null,
-                ]),
+                'cpu' => self::utilisation($row['cpu']),
+                'memory' => self::utilisation($row['memory']),
             ];
         }
 
@@ -145,6 +141,25 @@ final class HostsTable extends Panel
             'error' => $error,
             'note' => $note,
             'empty' => 'No hosts reporting in this period.',
+        ]);
+    }
+
+    /**
+     * A 0–1 utilisation as a percentage with a bar; amber from 80%, red from 95%.
+     *
+     * @return array<string, mixed>
+     */
+    private static function utilisation(?float $ratio): array
+    {
+        if ($ratio === null || is_nan($ratio)) {
+            return Ui::cell('—', ['raw' => -1, 'mono' => true]);
+        }
+
+        return Ui::cell(Format::percent($ratio), [
+            'raw' => $ratio,
+            'mono' => true,
+            'bar' => max(0.0, min(1.0, $ratio)),
+            'tone' => $ratio >= 0.95 ? 'danger' : ($ratio >= 0.8 ? 'warn' : null),
         ]);
     }
 }

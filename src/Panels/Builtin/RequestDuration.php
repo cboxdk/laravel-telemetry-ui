@@ -6,8 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
-use Cbox\TelemetryUi\Queries\Compilers\PromqlCompiler;
-use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
+use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -33,17 +32,12 @@ class RequestDuration extends Panel
             $totalCount = $this->total($count->increase($p)->sumBy());
             $p95Now = $this->total($bucket->quantile(0.95, $p));
 
-            $compiler = new PromqlCompiler;
-            $sumSelector = $compiler->compile($sum);
-            $countSelector = $compiler->compile($count);
-
-            // v2 records this histogram in SECONDS; ×1000 keeps the whole card
-            // (chart unit, Format::ms, thresholds) in milliseconds as before.
-            $avgRange = $this->metrics()->queryRange(
-                MetricQuery::raw('1000 * (sum(rate('.$sumSelector.'['.$w.'])) / sum(rate('.$countSelector.'['.$w.'])))'),
-                $start,
-                $end,
-            );
+            // Sum and count as two queries, divided here: one binary PromQL
+            // expression holds both sides at once, and a day of per-route
+            // series is over what some backends (telemetryd) allow per query.
+            $sumRange = $this->metrics()->queryRange($sum->rate($w)->sumBy(), $start, $end);
+            $countRange = $this->metrics()->queryRange($count->rate($w)->sumBy(), $start, $end);
+            $avgData = self::ratioSeries($sumRange[0] ?? null, $countRange[0] ?? null, 1000.0);
 
             $p95Range = $this->metrics()->queryRange(
                 $bucket->quantile(0.95, $w)->times(1000),
@@ -56,8 +50,8 @@ class RequestDuration extends Panel
 
         $series = [];
 
-        if (isset($avgRange[0])) {
-            $series[] = ['name' => 'AVG', 'data' => $avgRange[0]->toChartData(), 'color' => '#a1a1aa'];
+        if ($avgData !== []) {
+            $series[] = ['name' => 'AVG', 'data' => $avgData, 'color' => '#a1a1aa'];
         }
 
         if (isset($p95Range[0])) {
@@ -74,5 +68,36 @@ class RequestDuration extends Panel
             ],
             unit: 'ms',
         );
+    }
+
+    /**
+     * numerator / denominator per shared timestamp, × factor, as chart points;
+     * points where the denominator is zero are skipped (no requests ≠ 0 ms).
+     *
+     * @return list<array{float, float}>
+     */
+    private static function ratioSeries(?TimeSeries $numerator, ?TimeSeries $denominator, float $factor): array
+    {
+        if ($numerator === null || $denominator === null) {
+            return [];
+        }
+
+        $den = [];
+
+        foreach ($denominator->points as $point) {
+            $den[(string) $point->timestamp] = $point->value;
+        }
+
+        $out = [];
+
+        foreach ($numerator->points as $point) {
+            $d = $den[(string) $point->timestamp] ?? 0.0;
+
+            if ($d > 0.0 && ! is_nan($point->value)) {
+                $out[] = [$point->timestamp * 1000.0, $point->value / $d * $factor];
+            }
+        }
+
+        return $out;
     }
 }
