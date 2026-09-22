@@ -19,6 +19,8 @@ final class SystemMemory extends SystemCharts
             'label' => 'state',
             'unit' => 'bytes',
             'type' => 'area',
+            'subtitle' => 'Memory by state across hosts — used vs. what the OS can reclaim (cached, buffers, free)',
+            'stats' => ['used', 'free', 'cached'],
         ];
     }
 }

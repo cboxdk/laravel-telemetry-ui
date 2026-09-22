@@ -13,6 +13,9 @@ final class SystemNetwork extends SystemCharts
             'query' => $this->metric('system_network_io_bytes')->rate($this->rateWindow())->sumBy('direction'),
             'label' => 'direction',
             'unit' => 'bytes',
+            'subtitle' => 'Bytes per second received and transmitted, all interfaces',
+            'stats' => ['receive', 'transmit'],
+            'rate' => true,
             'type' => 'area',
         ];
     }

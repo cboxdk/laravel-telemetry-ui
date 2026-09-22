@@ -18,6 +18,8 @@ final class SystemFilesystem extends SystemCharts
             'query' => MetricQuery::raw('sum by (state) (avg by (host_name, state) ('.$selector.'))'),
             'label' => 'state',
             'unit' => 'bytes',
+            'subtitle' => 'Disk space used and free across mounted filesystems',
+            'stats' => ['used', 'free'],
             'type' => 'area',
         ];
     }

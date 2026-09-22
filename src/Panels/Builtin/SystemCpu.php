@@ -16,6 +16,8 @@ final class SystemCpu extends SystemCharts
             'label' => 'period',
             'unit' => '',
             'type' => 'line',
+            'subtitle' => 'Runnable processes averaged over 1, 5 and 15 minutes — compare with the core count',
+            'stats' => ['1m', '5m', '15m'],
         ];
     }
 }
