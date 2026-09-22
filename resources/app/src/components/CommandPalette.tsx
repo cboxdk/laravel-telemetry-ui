@@ -78,7 +78,7 @@ export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap
 
         const all = [...pages, ...scope, ...actions];
         const needle = q.toLowerCase();
-        const matched = needle === '' || f ? all : all.filter((c) => `${c.label} ${c.group} ${c.hint ?? ''}`.toLowerCase().includes(needle));
+        const matched = needle === '' ? all : f || dynamic.length > 0 ? [] : all.filter((c) => `${c.label} ${c.group} ${c.hint ?? ''}`.toLowerCase().includes(needle));
 
         return [...dynamic, ...matched].slice(0, 60);
     }, [query, areas, boot, router, go, set, toggleTheme]);

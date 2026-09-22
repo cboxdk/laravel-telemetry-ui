@@ -56,7 +56,7 @@ export function ErrorGroupView({ group }: { group: string }) {
                     </div>
                 )}
 
-                {data.request && (
+                {data.request && data.request.traceId && (
                     <section className="t-sect">
                         <h4 className="t-sect-title">Latest occurrence</h4>
                         <Go link={{ to: 'trace', id: data.request.traceId }} className="t-corr-item">
@@ -91,14 +91,20 @@ export function ErrorGroupView({ group }: { group: string }) {
                 {data.occurrences.length > 0 && (
                     <section className="t-sect">
                         <h4 className="t-sect-title">Occurrences <span>· newest {Math.min(20, data.occurrences.length)}</span></h4>
-                        {data.occurrences.slice(0, 20).map((o, i) => (
-                            <Go key={`${o.traceId}-${i}`} link={{ to: 'trace', id: o.traceId }} className="t-mini-row">
-                                <span className="mono t-dim">{ago(o.nano / 1e6)}</span>
-                                <span className={`t-badge ${o.frontend ? 't-badge-warn' : 't-badge-info'}`}>{o.frontend ? 'web' : 'server'}</span>
-                                <span className="t-ellipsis">{o.message}</span>
-                                <span className="mono t-dim">{o.service}</span>
-                            </Go>
-                        ))}
+                        {data.occurrences.slice(0, 20).map((o, i) => {
+                            const inner = (
+                                <>
+                                    <span className="mono t-dim">{ago(o.nano / 1e6)}</span>
+                                    <span className={`t-badge ${o.frontend ? 't-badge-warn' : 't-badge-info'}`}>{o.frontend ? 'web' : 'server'}</span>
+                                    <span className="t-ellipsis">{o.message}</span>
+                                    <span className="mono t-dim">{o.traceId ? o.service : 'no trace'}</span>
+                                </>
+                            );
+                            // Exception records outlive sampled-away traces: no trace id, no link.
+                            return o.traceId
+                                ? <Go key={`${o.traceId}-${i}`} link={{ to: 'trace', id: o.traceId }} className="t-mini-row">{inner}</Go>
+                                : <div key={`none-${i}`} className="t-mini-row">{inner}</div>;
+                        })}
                     </section>
                 )}
             </div>

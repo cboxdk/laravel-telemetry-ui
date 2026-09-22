@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Bootstrap } from '../../api/types';
 import { useScope, useSetSearch, useRefreshInterval } from '../../lib/state';
-import { dateTime } from '../../lib/format';
+import { clock, dateTime } from '../../lib/format';
 import { Combobox } from '../Combobox';
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
@@ -125,7 +125,7 @@ function PeriodPicker({ boot }: { boot: Bootstrap }) {
                 trigger={(toggle) => (
                     <button type="button" className={`t-btn t-btn-ghost t-btn-sm ${custom ? 'is-on' : ''}`} onClick={toggle} title="Custom range">
                         <Icon name="clock" size={14} />
-                        {custom ? <span className="mono">{dateTime(Number(scope.from) * 1000)} → {dateTime(Number(scope.to) * 1000)}</span> : null}
+                        {custom ? <span className="mono">{rangeLabel(Number(scope.from) * 1000, Number(scope.to) * 1000)}</span> : null}
                     </button>
                 )}
             >
@@ -153,4 +153,10 @@ function PeriodPicker({ boot }: { boot: Bootstrap }) {
             </Popover>
         </div>
     );
+}
+
+/** Compact custom-range label: times only when both ends fall on the same day. */
+function rangeLabel(from: number, to: number): string {
+    const sameDay = new Date(from).toDateString() === new Date(to).toDateString();
+    return sameDay ? `${clock(from, false)} → ${clock(to, false)}` : `${dateTime(from).slice(0, -3)} → ${dateTime(to).slice(0, -3)}`;
 }

@@ -11,10 +11,12 @@ const loadLib = () => (lib ??= import('./echarts').then((m) => m.default));
  * inputs or the theme change (colours are resolved per theme), resizes with
  * its container, disposes on unmount.
  */
-export function EChart({ build, height, onReady, className, deps }: {
+export function EChart({ build, height, onReady, onOption, className, deps }: {
     build: () => EChartsCoreOption;
     height: number;
     onReady?: (chart: ECharts) => void;
+    /** Runs after every setOption (e.g. to re-arm the brush cursor). */
+    onOption?: (chart: ECharts) => void;
     className?: string;
     deps: unknown[];
 }) {
@@ -47,6 +49,7 @@ export function EChart({ build, height, onReady, className, deps }: {
     useEffect(() => {
         if (!ready || !chart.current) return;
         chart.current.setOption(build(), { notMerge: true });
+        onOption?.(chart.current);
     }, [ready, theme, ...deps]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return <div ref={el} className={`t-echart ${className ?? ''}`} style={{ height }} />;

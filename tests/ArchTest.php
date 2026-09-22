@@ -32,3 +32,14 @@ arch('the service provider never touches connectors at boot')
         'Cbox\TelemetryUi\Connectors\Linear',
         'Illuminate\Support\Facades\Http',
     ]);
+
+// v2: the UI is a JSON API + SPA. No Livewire, and panels build payloads —
+// they never render a view.
+arch('no Livewire anywhere')->expect('Cbox\TelemetryUi')
+    ->not->toUse('Livewire');
+
+arch('panels return data, never views')->expect('Cbox\TelemetryUi\Panels')
+    ->not->toUse(['Illuminate\Contracts\View\View', 'Illuminate\Support\Facades\View', 'view']);
+
+arch('the query core stays free of the HTTP layer')->expect(['Cbox\TelemetryUi\Queries', 'Cbox\TelemetryUi\Analysis', 'Cbox\TelemetryUi\Connectors'])
+    ->not->toUse(['Cbox\TelemetryUi\Http', 'Cbox\TelemetryUi\Panels', 'Cbox\TelemetryUi\Explore']);

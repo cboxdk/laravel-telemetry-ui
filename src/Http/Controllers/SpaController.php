@@ -51,6 +51,16 @@ final class SpaController
                 $css .= '<link rel="stylesheet" href="'.e($assets.'/'.$file).'">';
             }
 
+            // Preload the entry's static imports (react, router chunks) so they
+            // download in parallel with the entry instead of after it parses.
+            foreach ((array) ($entry['imports'] ?? []) as $import) {
+                $file = is_string($import) ? ($manifest[$import]['file'] ?? null) : null;
+
+                if (is_string($file)) {
+                    $css .= '<link rel="modulepreload" href="'.e($assets.'/'.$file).'">';
+                }
+            }
+
             $js = '<script type="module" src="'.e($assets.'/'.(string) ($entry['file'] ?? '')).'"></script>';
         }
 

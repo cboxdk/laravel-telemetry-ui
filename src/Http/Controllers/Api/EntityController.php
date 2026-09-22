@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Entity pages. `GET /api/v2/entities/{type}` lists every value of the
@@ -23,6 +24,12 @@ final class EntityController
 {
     public function index(Request $request, EntityStory $stories, string $type): JsonResponse
     {
+        // Entity stories are built from request spans: same per-page gate as
+        // the Requests page, so a viewer denied it can't read it this way.
+        if (! Gate::allows('viewTelemetryUi', ['requests'])) {
+            return ApiError::forbidden();
+        }
+
         $dimension = $stories->dimension($type);
 
         if ($dimension === null) {
@@ -38,6 +45,12 @@ final class EntityController
 
     public function show(Request $request, EntityStory $stories, string $type): JsonResponse
     {
+        // Entity stories are built from request spans: same per-page gate as
+        // the Requests page, so a viewer denied it can't read it this way.
+        if (! Gate::allows('viewTelemetryUi', ['requests'])) {
+            return ApiError::forbidden();
+        }
+
         $dimension = $stories->dimension($type);
 
         if ($dimension === null) {

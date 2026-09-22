@@ -36,9 +36,12 @@ export function TimeChart({ series, type = 'line', unit, height = 200, annotatio
 }) {
     const set = useSetSearch();
 
+    const onOption = useCallback((chart: ECharts) => {
+        if (brush) chart.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' } });
+    }, [brush]);
+
     const onReady = useCallback((chart: ECharts) => {
         if (!brush) return;
-        chart.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' } });
         chart.on('brushEnd', (params: unknown) => {
             const area = (params as { areas?: { coordRange?: [number, number] }[] }).areas?.[0]?.coordRange;
             if (!area) return;
@@ -108,7 +111,7 @@ export function TimeChart({ series, type = 'line', unit, height = 200, annotatio
         };
     };
 
-    return <EChart build={build} height={height} onReady={onReady} deps={[series, type, unit, annotations, min, max]} />;
+    return <EChart build={build} height={height} onReady={onReady} onOption={onOption} deps={[series, type, unit, annotations, min, max]} />;
 }
 
 function annotationTip(a: Annotation): string {
