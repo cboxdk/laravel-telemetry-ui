@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * The concrete URLs behind a route pattern — `/{segments?}` is really
@@ -17,6 +19,11 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 final class RequestDetailPaths extends Panel
 {
     use ScopesToRoute;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     public function data(): array
     {
@@ -70,22 +77,31 @@ final class RequestDetailPaths extends Panel
             }
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.request-detail-paths';
+        $table = array_map(static fn (array $row): array => [
+            'path' => Ui::cell($row['path'], ['mono' => true, 'dim' => ['key' => 'url.path', 'value' => $row['path']]]),
+            'count' => Ui::cell(Format::count($row['count']), ['raw' => $row['count']]),
+            'avg' => Ui::cell(Format::ms($row['sumMs'] / max(1, $row['count'])), ['raw' => $row['sumMs'] / max(1, $row['count']), 'tone' => 'dim']),
+            'max' => Ui::cell(Format::ms($row['maxMs']), ['raw' => $row['maxMs'], 'tone' => $row['maxMs'] > 1000 ? 'warn' : 'dim']),
+            'errors' => Ui::cell($row['errors'], ['raw' => $row['errors'], 'tone' => $row['errors'] > 0 ? 'danger' : 'dim']),
+            'latest' => $row['traceId'] !== ''
+                ? Ui::cell('⇄', ['link' => Ui::trace($row['traceId'])])
+                : Ui::cell('—'),
+            // The request log filtered to this exact path — live-tailable.
+            '_link' => Ui::page('requests', ['log_path' => $row['path']]),
+        ], array_slice($rows, 0, 50));
 
-        return view($view, ['rows' => array_slice($rows, 0, 50), 'error' => $error]);
-    }
-
-    /**
-     * The request log filtered to this exact path — live-tailable.
-     */
-    public function logUrl(string $path): string
-    {
-        return $this->pageUrl('requests', ['req_view' => 'log', 'log_path' => $path]);
-    }
-
-    public function traceUrl(string $traceId): string
-    {
-        return route('telemetry-ui.trace', ['traceId' => $traceId]);
+        return Ui::table('Paths', [
+            Ui::col('path', 'Path'),
+            Ui::num('count', 'Requests'),
+            Ui::num('avg', 'Avg'),
+            Ui::num('max', 'Max'),
+            Ui::num('errors', '4xx/5xx'),
+            Ui::num('latest', 'Latest'),
+        ], $table, array_filter([
+            'subtitle' => 'Concrete URLs behind this route pattern — click a row to tail that path in the request log',
+            'error' => $error,
+            'empty' => 'No sampled requests for this route in the period.',
+            'note' => 'Aggregated from a bounded trace sample. Row → request log for the path; ⇄ → the newest request\'s full story.',
+        ], static fn ($v): bool => $v !== null));
     }
 }

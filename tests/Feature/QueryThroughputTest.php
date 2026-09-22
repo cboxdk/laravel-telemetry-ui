@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\QueryThroughput;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 it('charts db throughput and headline tiles from db_* counters', function (): void {
     Http::fake([
@@ -22,9 +20,9 @@ it('charts db throughput and headline tiles from db_* counters', function (): vo
         ]),
     ]);
 
-    Livewire::test(QueryThroughput::class)
+    $this->getJson(panelUrl('query-throughput'))
         ->assertOk()
-        ->assertSee('Database throughput')
-        ->assertSee('Queries')
-        ->assertSee('4.2K'); // total queries in the period
+        ->assertJsonPath('kind', 'chart')
+        ->assertJsonPath('title', 'Database throughput')
+        ->assertJsonFragment(['label' => 'Queries', 'value' => '4.2K']); // total queries in the period
 });

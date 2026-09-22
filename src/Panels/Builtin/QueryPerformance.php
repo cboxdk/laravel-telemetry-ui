@@ -5,17 +5,19 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\Telemetry\Instrumentation\QueryInstrumentation;
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\AggregatesSpans;
 use Cbox\TelemetryUi\Contracts\TracesSource;
+use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\SpanAggregation;
 use Cbox\TelemetryUi\Queries\Ir\SpanSort;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
+use Cbox\TelemetryUi\Support\Format;
 use DateTimeInterface;
-use Cbox\TelemetryUi\Panels\Attributes\Param;
 
 /**
  * Database query performance, New-Relic-"Databases"-style: DB spans aggregated
@@ -48,6 +50,11 @@ final class QueryPerformance extends Panel
     #[Param('q_search')]
     public string $search = '';
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
     /** @var list<int> */
     public array $thresholds = [0, 10, 50, 100, 250, 500];
 
@@ -73,14 +80,58 @@ final class QueryPerformance extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.query-performance';
+        $table = array_map(static function (array $row): array {
+            // Drill: the per-statement detail page.
+            $link = Ui::entity('query', $row['query']);
 
-        return view($view, [
-            'rows' => $this->finalize($rows),
+            return [
+                'query' => Ui::cell($row['query'], ['mono' => true, 'link' => $link]),
+                'system' => Ui::cell($row['system']),
+                'calls' => Ui::cell(Format::count($row['calls']), ['raw' => $row['calls']]),
+                'avg' => Ui::cell(Format::ms($row['avgMs']), ['raw' => $row['avgMs']]),
+                'p95' => Ui::cell(Format::ms($row['p95Ms']), ['raw' => $row['p95Ms']]),
+                'max' => Ui::cell(Format::ms($row['maxMs']), ['raw' => $row['maxMs'], 'tone' => $row['maxMs'] >= 500 ? 'warn' : null]),
+                'total' => Ui::cell(Format::ms($row['totalMs']), ['raw' => $row['totalMs']]),
+                'share' => Ui::cell(Format::percent($row['share']), ['raw' => $row['share'], 'bar' => $row['share']]),
+                'trend' => Ui::cell(null, ['spark' => array_map(floatval(...), $row['spark'])]),
+                '_link' => $link,
+            ];
+        }, $this->finalize($rows));
+
+        return Ui::table('Query performance', [
+            Ui::col('query', 'Query'),
+            Ui::col('system', 'DB'),
+            Ui::num('calls', 'Calls'),
+            Ui::num('avg', 'Avg'),
+            Ui::num('p95', 'p95'),
+            Ui::num('max', 'Max'),
+            Ui::num('total', 'Total'),
+            Ui::num('share', 'Share'),
+            Ui::col('trend', 'Trend'),
+        ], $table, array_filter([
+            'subtitle' => 'DB queries aggregated by statement — ranked by the DB time they consume in total, not just the single slowest run',
             'error' => $error,
+            'empty' => 'No database queries in this period.',
             'exact' => $exact,
-        ]);
+            'note' => ($exact
+                ? 'Exact aggregation over every matching span (ClickHouse store).'
+                : 'Sampled from the most recent matching traces — representative, not exact (a ClickHouse store aggregates every span).')
+                .' Ranked by total DB time consumed; query text is parameterised and redacted at emit time.',
+            'controls' => [
+                Ui::search('q_search', 'Filter', $this->search, 'Filter queries…'),
+                Ui::select('q_min', 'Slower than', (string) $this->minMs, array_map(
+                    static fn (int $t): array => ['value' => (string) $t, 'label' => $t === 0 ? 'All' : $t.'ms'],
+                    $this->thresholds,
+                )),
+                Ui::select('q_sort', 'Rank by', $this->sort, [
+                    ['value' => 'total', 'label' => 'Total time'],
+                    ['value' => 'avg', 'label' => 'Avg'],
+                    ['value' => 'p95', 'label' => 'p95'],
+                    ['value' => 'max', 'label' => 'Max'],
+                    ['value' => 'calls', 'label' => 'Calls'],
+                ]),
+            ],
+        ], static fn ($v): bool => $v !== null));
     }
 
     /**
@@ -249,13 +300,5 @@ final class QueryPerformance extends Panel
         $index = (int) ceil($p * count($values)) - 1;
 
         return $values[max(0, min(count($values) - 1, $index))];
-    }
-
-    /**
-     * Drill: the per-statement detail page.
-     */
-    public function detailUrl(string $query): string
-    {
-        return $this->pageUrl('query-detail', ['dbq' => $query]);
     }
 }

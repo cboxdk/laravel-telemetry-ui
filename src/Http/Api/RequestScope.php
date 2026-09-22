@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Support\Concerns\ScopesQueries;
 use Cbox\TelemetryUi\Support\Period;
+use Cbox\TelemetryUi\Support\ScopeLock;
 use Cbox\TelemetryUi\Support\TimeExpression;
 use Cbox\TelemetryUi\Support\ViewState;
 use DateTimeImmutable;
@@ -23,7 +24,7 @@ use Illuminate\Http\Request;
  * This is where the v1 Livewire component state went. The fail-closed tenancy
  * semantics are unchanged: every query builder here goes through
  * {@see ScopesQueries}, so a blank or out-of-bounds `?service=` can never widen
- * past the viewer's {@see \Cbox\TelemetryUi\Support\ScopeLock}.
+ * past the viewer's {@see ScopeLock}.
  */
 final class RequestScope
 {

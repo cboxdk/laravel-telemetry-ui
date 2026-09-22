@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Support\Str;
 
@@ -31,21 +32,22 @@ final class ErrorGroupHeader extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.detail-header';
+        $plus = $stats !== null && $stats['sampled'] ? '+' : '';
 
-        return view($view, [
-            'title' => is_string($detail['type'] ?? null) && $detail['type'] !== '' ? $detail['type'] : 'Error group '.$this->group,
-            'subtitle' => is_string($detail['message'] ?? null) ? Str::limit($detail['message'], 160) : 'Error group',
-            'backUrl' => $this->pageUrl('issues'),
-            'backLabel' => '← All issues',
-            'error' => $error,
-            'stats' => [
-                ['label' => 'Events', 'value' => $stats !== null ? Format::count((float) $stats['count']).($stats['sampled'] ? '+' : '') : '—', 'tone' => 'danger'],
-                ['label' => 'Users', 'value' => $stats !== null && $stats['users'] > 0 ? Format::count((float) $stats['users']).($stats['sampled'] ? '+' : '') : '—', 'tone' => null],
-                ['label' => 'First seen', 'value' => is_string($stats['firstSeen'] ?? null) ? $stats['firstSeen'] : '—', 'tone' => 'dim'],
-                ['label' => 'Last seen', 'value' => is_string($stats['lastSeen'] ?? null) ? $stats['lastSeen'] : '—', 'tone' => 'dim'],
+        return Ui::header(
+            $detail !== null && $detail['type'] !== '' ? $detail['type'] : 'Error group '.$this->group,
+            $detail !== null ? Str::limit($detail['message'], 160) : 'Error group',
+            [
+                $this->stat('Events', $stats !== null ? Format::count((float) $stats['count']).$plus : '—', 'danger'),
+                $this->stat('Users', $stats !== null && $stats['users'] > 0 ? Format::count((float) $stats['users']).$plus : '—'),
+                $this->stat('First seen', $stats['firstSeen'] ?? '—', 'dim'),
+                $this->stat('Last seen', $stats['lastSeen'] ?? '—', 'dim'),
             ],
-        ]);
+            [
+                'back' => [...Ui::page('issues'), 'label' => '← All issues'],
+                'error' => $error,
+                'span' => 2,
+            ],
+        );
     }
 }

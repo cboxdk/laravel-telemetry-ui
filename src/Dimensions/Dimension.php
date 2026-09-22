@@ -73,14 +73,17 @@ final readonly class Dimension
     }
 
     /**
-     * The TraceQL field for this dimension (`span.x`, `resource.x`, or the
-     * intrinsic itself).
+     * The TraceQL field for this dimension: the intrinsic itself, `span.x`
+     * for span attributes, and the unscoped `.x` for resource attributes —
+     * unscoped matches whether the emitter stamped it on the resource or on
+     * every span (backends differ; telemetryd merges resource attributes into
+     * spans, Tempo keeps them apart).
      */
     public function traceField(): string
     {
         return match ($this->scope) {
             'intrinsic' => $this->key,
-            'resource' => 'resource.'.$this->key,
+            'resource' => '.'.$this->key,
             default => 'span.'.$this->key,
         };
     }

@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
 use Cbox\TelemetryUi\Analysis\ErrorGroupReport;
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\CreatesIssues;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Queries\Results\Issue;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 
 /**
  * The issue page's action/context sidebar, Sentry-style: create a ticket
@@ -48,24 +51,54 @@ final class ErrorGroupSidebar extends Panel
             }
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.error-group-sidebar';
+        $extra = ['span' => 1];
 
-        return view($view, [
-            'error' => $error,
-            'group' => $this->group,
-            'stats' => $report['stats'],
-            'detail' => $report['detail'],
-            'suspect' => $report['suspect'],
-            'related' => $related,
-            'canCreate' => $canCreate,
-            'draft' => $canCreate ? app(ErrorGroupReport::class)->draft($this->group, $report['stats'], $report['detail']) : null,
-            // Markdown brief for pasting into an LLM — available to anyone who
-            // can see the group, no issue-tracker write access required.
-            'llm' => ($report['stats'] !== null || $report['detail'] !== null)
-                ? app(ErrorGroupReport::class)->llmMarkdown($this->group, $report)
+        if ($error !== null) {
+            return Ui::composite('Actions & context', [], [...$extra, 'error' => $error]);
+        }
+
+        $parts = [];
+
+        if ($related !== []) {
+            $parts[] = Ui::kv('Related tickets', array_map(static function (Issue $issue): array {
+                $item = ['label' => $issue->id, 'value' => Str::limit($issue->title, 60), 'link' => Ui::issue($issue->id)];
+
+                if ($issue->isOpen()) {
+                    $item['tone'] = 'ok';
+                }
+
+                return $item;
+            }, array_values($related)));
+        } elseif ($canCreate) {
+            $parts[] = Ui::callout('', 'No tracker tickets mention this exception yet.');
+        }
+
+        if ($report['stats'] !== null) {
+            $parts[] = Ui::kv('Facts', $this->groupFacts($report, withCount: false));
+        }
+
+        $suspect = $report['suspect'];
+
+        if ($suspect !== null) {
+            $item = ['label' => $suspect['label'], 'value' => 'first seen '.$suspect['gap'].' later'];
+
+            if ($suspect['traceId'] !== null && $suspect['traceId'] !== '') {
+                $item['link'] = Ui::trace($suspect['traceId']);
+            }
+
+            $parts[] = Ui::kv('Suspect', [$item]);
+        }
+
+        return Ui::composite('Actions & context', $parts, [
+            ...$extra,
+            // Actions: a prefilled ticket draft for the compose form
+            // (POST /api/v2/issues), and a Markdown brief to copy into an
+            // LLM — the latter for anyone who can see the group, no tracker
+            // write access required.
+            'ticket' => $canCreate ? app(ErrorGroupReport::class)->draft($this->group, $report['stats'], $report['detail']) : null,
+            'copy' => ($report['stats'] !== null || $report['detail'] !== null)
+                ? ['label' => 'Copy for LLM', 'text' => app(ErrorGroupReport::class)->llmMarkdown($this->group, $report)]
                 : null,
-            'tracesUrl' => $this->pageUrl('traces'),
         ]);
     }
 }

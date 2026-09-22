@@ -6,7 +6,7 @@ use Cbox\Telemetry\Support\ExportOutcome;
 use Cbox\Telemetry\Support\ExportReport;
 use Cbox\Telemetry\Support\ExportResult;
 use Cbox\Telemetry\TelemetryManager;
-use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
+use Cbox\TelemetryUi\Panels\Builtin\JobsOverview;
 use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Support\Annotation;
@@ -14,7 +14,6 @@ use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\AnnotationWriter;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 function fakeDeployMarkers(): void
 {
@@ -213,10 +212,18 @@ it('draws deploy annotation lines on dashboard charts', function (): void {
         ]),
     ]);
 
-    $this->get('/telemetry-ui')
+    // v1 rendered the dashboard page; v2's dashboard is the SPA shell, so the
+    // markers are asserted on a dashboard chart panel's payload instead.
+    $this->getJson(panelUrl(JobsOverview::id()))
         ->assertOk()
-        ->assertSee('Deploys')
-        ->assertSee('hotfix');
+        ->assertJsonPath('annotations.0.label', 'Deploy abc123')
+        ->assertJsonPath('annotations.0.notes', 'hotfix');
+
+    // The shared annotations endpoint serves the same marker for the header.
+    $this->getJson(apiUrl('annotations'))
+        ->assertOk()
+        ->assertJsonPath('annotations.0.label', 'Deploy abc123')
+        ->assertJsonPath('annotations.0.notes', 'hotfix');
 });
 
 it('ships every annotation with its kind so the header toggle hides types client-side', function (): void {
@@ -241,14 +248,14 @@ it('ships every annotation with its kind so the header toggle hides types client
         ]),
     ]);
 
-    // The card ships the annotation AND its kind — hiding a type is a pure
+    // The panel ships the annotation AND its kind — hiding a type is a pure
     // frontend concern (the chart filters marker lines by kind), so the
     // toggle never triggers a backend refetch and the payload must always
     // be complete.
-    $html = Livewire::test(JobsOverview::class)->html();
-
-    expect($html)->toContain('abc123')
-        ->and($html)->toContain('app.deployment');
+    $this->getJson(panelUrl(JobsOverview::id()))
+        ->assertOk()
+        ->assertJsonPath('annotations.0.label', 'Deploy abc123')
+        ->assertJsonPath('annotations.0.kind', 'app.deployment');
 });
 
 /**

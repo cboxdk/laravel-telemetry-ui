@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -16,6 +17,14 @@ final class QueueDetailHeader extends Panel
 {
     use ScopesToQueue;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function data(): array
     {
         $error = null;
@@ -31,27 +40,16 @@ final class QueueDetailHeader extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.detail-header';
-
-        return view($view, [
-            'title' => $this->queue === '' ? '(all queues)' : $this->queue,
-            'subtitle' => 'Queue detail',
-            'backUrl' => $this->backUrl(),
-            'backLabel' => '← All queues',
+        return Ui::header($this->queue === '' ? '(all queues)' : $this->queue, 'Queue detail', [
+            ['label' => 'Pending', 'value' => Format::count($pending), 'tone' => $pending > 0 ? null : 'dim'],
+            ['label' => 'Oldest', 'value' => $oldest > 0 ? Format::ms($oldest * 1000) : '—', 'tone' => $oldest >= 60 ? 'warn' : 'dim'],
+            ['label' => 'Jobs/min', 'value' => Format::count($perMinute), 'tone' => null],
+            ['label' => 'Failure', 'value' => Format::percent($failure / 100), 'tone' => $failure > 0 ? 'danger' : 'dim'],
+            ['label' => 'Workers', 'value' => Format::count($workers), 'tone' => null],
+        ], [
+            'back' => [...Ui::page('queues'), 'label' => '← All queues'],
             'error' => $error,
-            'stats' => [
-                ['label' => 'Pending', 'value' => Format::count($pending), 'tone' => $pending > 0 ? null : 'dim'],
-                ['label' => 'Oldest', 'value' => $oldest > 0 ? Format::ms($oldest * 1000) : '—', 'tone' => $oldest >= 60 ? 'warn' : 'dim'],
-                ['label' => 'Jobs/min', 'value' => Format::count($perMinute), 'tone' => null],
-                ['label' => 'Failure', 'value' => Format::percent($failure / 100), 'tone' => $failure > 0 ? 'danger' : 'dim'],
-                ['label' => 'Workers', 'value' => Format::count($workers), 'tone' => null],
-            ],
+            'span' => 2,
         ]);
-    }
-
-    public function backUrl(): string
-    {
-        return $this->pageUrl('queues');
     }
 }

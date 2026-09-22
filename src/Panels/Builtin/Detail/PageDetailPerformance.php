@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
+use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Builtin\FrontendPages;
 use Cbox\TelemetryUi\Panels\Builtin\WebVitals;
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
-use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Support\Format;
 
@@ -26,6 +27,11 @@ final class PageDetailPerformance extends Panel
     use ScopesToPage;
 
     private const SEARCH_LIMIT = 200;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     public function data(): array
     {
@@ -115,13 +121,32 @@ final class PageDetailPerformance extends Panel
             }
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.page-detail-performance';
+        $extra = ['subtitle' => 'Real-user Core Web Vitals (p75) and navigation timings for this page — field data, not lab.'];
 
-        return view($view, [
-            'vitals' => $vitals,
-            'timings' => $timings,
-            'error' => $error,
+        if ($error !== null) {
+            return Ui::composite('Performance', [], [...$extra, 'error' => $error]);
+        }
+
+        if ($vitals === [] && $timings === []) {
+            return Ui::composite('Performance', [], [
+                ...$extra,
+                'empty' => 'No browser performance data for this page in this period. Requires the frontend SDK (@telemetryBrowser).',
+            ]);
+        }
+
+        $parts = [];
+
+        if ($vitals !== []) {
+            $parts[] = Ui::stats('Core Web Vitals (p75)', $vitals);
+        }
+
+        if ($timings !== []) {
+            $parts[] = Ui::stats('Navigation timings', $timings);
+        }
+
+        return Ui::composite('Performance', $parts, [
+            ...$extra,
+            'note' => 'Vitals green / amber / red on Google\'s good / needs-improvement / poor thresholds. Bounded trace sample.',
         ]);
     }
 

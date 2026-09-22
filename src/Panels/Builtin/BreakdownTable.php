@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * Shared shape for "name → outcome counters + duration histogram" tables
@@ -18,6 +20,14 @@ abstract class BreakdownTable extends Panel
      */
     abstract protected function spec(): array;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function data(): array
     {
         $spec = $this->spec();
@@ -78,15 +88,45 @@ abstract class BreakdownTable extends Panel
 
         usort($rows, static fn (array $a, array $b): int => array_sum($b['outcomes']) <=> array_sum($a['outcomes']));
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.breakdown-table';
+        $outcomes = array_keys($spec['outcomes']);
 
-        return view($view, [
-            'title' => $spec['title'],
-            'keyColumn' => $spec['keyColumn'],
-            'outcomeColumns' => array_keys($spec['outcomes']),
-            'rows' => array_slice($rows, 0, 100),
+        $columns = [Ui::col('name', $spec['keyColumn'])];
+
+        foreach ($outcomes as $outcome) {
+            $columns[] = Ui::num('o_'.$outcome, ucfirst($outcome));
+        }
+
+        $columns[] = Ui::num('avg', 'AVG');
+        $columns[] = Ui::num('p95', 'P95');
+
+        $table = [];
+
+        foreach (array_slice($rows, 0, 100) as $row) {
+            $cells = ['name' => Ui::cell($row['name'], ['mono' => true])];
+
+            foreach ($outcomes as $outcome) {
+                $value = $row['outcomes'][$outcome];
+                $cells['o_'.$outcome] = Ui::cell(Format::count($value), [
+                    'raw' => $value,
+                    'mono' => true,
+                    'tone' => $outcome === 'failed' && $value > 0 ? 'danger' : null,
+                ]);
+            }
+
+            $cells['avg'] = $row['count'] > 0
+                ? Ui::cell(Format::ms($row['time'] / $row['count']), ['raw' => $row['time'] / $row['count'], 'mono' => true])
+                : Ui::cell('—', ['mono' => true]);
+            $cells['p95'] = $row['p95'] !== null
+                ? Ui::cell(Format::ms($row['p95']), ['raw' => $row['p95'], 'mono' => true])
+                : Ui::cell('—', ['mono' => true]);
+
+            $table[] = $cells;
+        }
+
+        return Ui::table($spec['title'], $columns, $table, [
+            'span' => 2,
             'error' => $error,
+            'empty' => 'No data in this period.',
         ]);
     }
 }

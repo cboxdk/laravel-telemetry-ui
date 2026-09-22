@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
+use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Builtin\QueryPerformance;
 use Cbox\TelemetryUi\Panels\Panel;
-use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
-use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * One database statement in depth (drilled from {@see QueryPerformance}):
@@ -21,6 +23,11 @@ final class QueryDetail extends Panel
     private const SEARCH_LIMIT = 100;
 
     private const BUCKETS = 32;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     #[Param('dbq')]
     public string $dbq = '';
@@ -44,21 +51,62 @@ final class QueryDetail extends Panel
             }
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.query-detail';
+        $title = 'Query detail';
+        $meta = array_filter([
+            'subtitle' => 'One statement in depth — volume, latency, and who runs it',
+            'back' => Ui::page('queries'),
+            'backLabel' => '← Queries',
+            'badges' => $system !== '' ? [$system] : null,
+        ], static fn ($v): bool => $v !== null);
 
-        return view($view, [
-            'query' => $this->dbq,
-            'system' => $system,
-            'stats' => $stats,
-            'callers' => $callers,
-            'examples' => $examples,
-            'trend' => $trend,
-            'error' => $error,
-            'backUrl' => $this->pageUrl('queries'),
-            'min' => $start->getTimestamp() * 1000,
-            'max' => $end->getTimestamp() * 1000,
-        ]);
+        if ($error !== null) {
+            return Ui::composite($title, [], [...$meta, 'error' => $error]);
+        }
+
+        if ($this->dbq === '') {
+            return Ui::composite($title, [], [...$meta, 'empty' => 'No statement selected.']);
+        }
+
+        $sql = Ui::code('Statement', $this->dbq, 'sql');
+
+        if ($stats === null || $stats['calls'] === 0) {
+            return Ui::composite($title, [$sql], [...$meta, 'empty' => 'No traces carrying this statement in the period.']);
+        }
+
+        $examplesTable = Ui::table('Slowest example traces', [
+            Ui::col('origin', 'Origin'),
+            Ui::num('duration', 'Duration'),
+            Ui::num('when', 'When'),
+        ], array_map(static fn (array $ex): array => [
+            'origin' => Ui::cell($ex['origin'], ['link' => Ui::trace($ex['traceId'])]),
+            'duration' => Ui::cell(Format::ms($ex['durationMs']), ['raw' => $ex['durationMs'], 'tone' => $ex['durationMs'] >= 500 ? 'warn' : null]),
+            'when' => Ui::cell($ex['at']->format('H:i:s'), ['raw' => $ex['at']->getTimestamp(), 'mono' => true]),
+            '_link' => Ui::trace($ex['traceId']),
+        ], $examples), ['empty' => 'No traces.']);
+
+        $callersTable = Ui::table('Called by', [
+            Ui::col('origin', 'Route / job'),
+            Ui::num('calls', 'Calls'),
+            Ui::num('total', 'Total'),
+        ], array_map(static fn (array $caller): array => [
+            'origin' => Ui::cell($caller['origin']),
+            'calls' => Ui::cell(Format::count($caller['calls']), ['raw' => $caller['calls']]),
+            'total' => Ui::cell(Format::ms($caller['totalMs']), ['raw' => $caller['totalMs']]),
+        ], $callers), ['empty' => 'No callers.']);
+
+        return Ui::composite($title, [
+            $sql,
+            Ui::stats('', [
+                $this->stat('Calls (sample)', Format::count($stats['calls'])),
+                // The latency trend (avg per bucket across the period) rides on the Avg tile.
+                ['label' => 'Avg', 'value' => Format::ms($stats['avgMs']), 'tone' => null, 'points' => $trend, 'sparkColor' => '#8b5cf6'],
+                $this->stat('p95', Format::ms($stats['p95Ms'])),
+                $this->stat('Max', Format::ms($stats['maxMs']), $stats['maxMs'] >= 500 ? 'warn' : null),
+                $this->stat('Total time', Format::ms($stats['totalMs'])),
+            ]),
+            $examplesTable,
+            $callersTable,
+        ], [...$meta, 'note' => 'Sampled from traces carrying this statement — a ClickHouse store aggregates every span exactly.']);
     }
 
     /**
@@ -154,10 +202,5 @@ final class QueryDetail extends Panel
         sort($values);
 
         return $values[max(0, min(count($values) - 1, (int) ceil($p * count($values)) - 1))];
-    }
-
-    public function traceUrl(string $traceId): string
-    {
-        return route('telemetry-ui.trace', ['traceId' => $traceId]);
     }
 }

@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -16,6 +17,14 @@ final class JobDetailHeader extends Panel
 {
     use ScopesToJob;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function data(): array
     {
         $p = $this->promDuration();
@@ -36,25 +45,14 @@ final class JobDetailHeader extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.detail-header';
-
-        return view($view, [
-            'title' => $this->job === '' ? '(all jobs)' : $this->job,
-            'subtitle' => 'Job detail',
-            'backUrl' => $this->backUrl(),
-            'backLabel' => '← All jobs',
+        return Ui::header($this->job === '' ? '(all jobs)' : $this->job, 'Job detail', [
+            ['label' => 'Processed', 'value' => Format::count($proc), 'tone' => null],
+            ['label' => 'Failed', 'value' => Format::count($fail), 'tone' => $fail > 0 ? 'danger' : 'dim'],
+            ['label' => 'AVG', 'value' => $cnt > 0 ? Format::ms($time / $cnt) : '—', 'tone' => 'dim'],
+        ], [
+            'back' => [...Ui::page('jobs'), 'label' => '← All jobs'],
             'error' => $error,
-            'stats' => [
-                ['label' => 'Processed', 'value' => Format::count($proc), 'tone' => null],
-                ['label' => 'Failed', 'value' => Format::count($fail), 'tone' => $fail > 0 ? 'danger' : 'dim'],
-                ['label' => 'AVG', 'value' => $cnt > 0 ? Format::ms($time / $cnt) : '—', 'tone' => 'dim'],
-            ],
+            'span' => 2,
         ]);
-    }
-
-    public function backUrl(): string
-    {
-        return $this->pageUrl('jobs');
     }
 }

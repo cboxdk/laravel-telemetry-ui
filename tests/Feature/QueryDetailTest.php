@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\Detail\QueryDetail;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 it('shows one statement in depth: stats, callers and example traces', function (): void {
     Http::fake([
@@ -24,15 +22,20 @@ it('shows one statement in depth: stats, callers and example traces', function (
         ]),
     ]);
 
-    Livewire::withQueryParams(['dbq' => 'select * from users where id = ?'])
-        ->test(QueryDetail::class)
+    $this->getJson(panelUrl('query-detail', ['dbq' => 'select * from users where id = ?']))
         ->assertOk()
-        ->assertSee('select * from users where id = ?')
-        ->assertSee('mysql')
-        ->assertSee('Called by')
-        ->assertSee('GET /checkout')          // the calling route
-        ->assertSee('Slowest example traces')
-        ->assertSeeHtml('data-trace-id="cccc2222cccc2222cccc2222cccc2222"');
+        ->assertJsonPath('kind', 'composite')
+        ->assertJsonPath('badges', ['mysql'])
+        ->assertJsonPath('back', ['to' => 'page', 'page' => 'queries'])
+        ->assertJsonPath('parts.0.kind', 'code')
+        ->assertJsonPath('parts.0.text', 'select * from users where id = ?')
+        // 100ms + 300ms in one trace → 2 calls, 200ms avg, 300ms max.
+        ->assertJsonPath('parts.1.items.0.value', '2')
+        ->assertJsonPath('parts.1.items.1.value', '200ms')
+        ->assertJsonPath('parts.2.title', 'Slowest example traces')
+        ->assertJsonPath('parts.2.rows.0._link', ['to' => 'trace', 'id' => 'cccc2222cccc2222cccc2222cccc2222'])
+        ->assertJsonPath('parts.3.title', 'Called by')
+        ->assertJsonPath('parts.3.rows.0.origin.v', 'GET /checkout'); // the calling route
 
     // The exact statement is matched in the TraceQL.
     Http::assertSent(function ($request): bool {
@@ -43,7 +46,10 @@ it('shows one statement in depth: stats, callers and example traces', function (
 });
 
 it('is quiet with no statement selected', function (): void {
-    Livewire::test(QueryDetail::class)
+    $this->getJson(panelUrl('query-detail'))
         ->assertOk()
-        ->assertSee('No statement selected');
+        ->assertJsonPath('parts', [])
+        ->assertJsonPath('empty', 'No statement selected.');
+
+    Http::assertNothingSent();
 });

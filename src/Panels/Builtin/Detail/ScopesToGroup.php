@@ -6,15 +6,18 @@ namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
 use Cbox\TelemetryUi\Analysis\ErrorGroupReport;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
-use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * Scopes a card to one error group (the `?group=` on the error-detail page)
  * and fetches its shared, per-request-memoized report.
  *
  * @phpstan-import-type Report from ErrorGroupReport
+ * @phpstan-import-type Link from Ui
  */
 trait ScopesToGroup
 {
@@ -40,5 +43,57 @@ trait ScopesToGroup
                 TraceCondition::nil('span.exception.type'),
             ),
         );
+    }
+
+    /**
+     * The group's key facts as `kv` items — shared by the deep-dive and the
+     * sidebar (v1's "issue facts" strip). The host links to its detail page.
+     *
+     * @param  Report  $report
+     * @return list<array{label: string, value: string|int|float|null, mono?: bool, link?: Link, tone?: string}>
+     */
+    protected function groupFacts(array $report, bool $withCount): array
+    {
+        $stats = $report['stats'];
+        $detail = $report['detail'];
+
+        if ($stats === null) {
+            return [];
+        }
+
+        $plus = $stats['sampled'] ? '+' : '';
+        $items = [];
+
+        if ($withCount) {
+            $items[] = ['label' => 'occurrences', 'value' => Format::count((float) $stats['count']).$plus, 'tone' => 'danger'];
+        }
+
+        $items[] = ['label' => 'first seen', 'value' => $stats['firstSeen']];
+        $items[] = ['label' => 'last seen', 'value' => $stats['lastSeen']];
+        $items[] = ['label' => 'source', 'value' => $stats['source']];
+
+        if ($stats['users'] > 0) {
+            $items[] = ['label' => 'users affected', 'value' => $stats['users'].$plus];
+        }
+
+        if ($detail !== null && $detail['environment'] !== '') {
+            $items[] = ['label' => 'env', 'value' => $detail['environment']];
+        }
+
+        if ($detail !== null && $detail['release'] !== '') {
+            $items[] = ['label' => 'release', 'value' => $detail['release'], 'mono' => true];
+        }
+
+        if ($detail !== null && $detail['host'] !== '') {
+            $items[] = ['label' => 'host', 'value' => $detail['host'], 'link' => Ui::entity('host', $detail['host'])];
+        }
+
+        if ($detail !== null && $detail['file'] !== '') {
+            $items[] = ['label' => 'at', 'value' => $detail['file'].':'.$detail['line'], 'mono' => true];
+        }
+
+        $items[] = ['label' => 'group', 'value' => $this->group, 'mono' => true];
+
+        return $items;
     }
 }

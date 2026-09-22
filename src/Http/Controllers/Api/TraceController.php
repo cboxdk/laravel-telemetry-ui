@@ -84,7 +84,7 @@ final class TraceController
      * Correlation is best-effort: a metrics or logs backend being down must
      * not take the waterfall with it.
      *
-     * @template T of array
+     * @template T of array<mixed>
      *
      * @param  callable(): T  $fn
      * @return T|array{}

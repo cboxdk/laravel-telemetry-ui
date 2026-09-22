@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\LabelFilter;
 use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Results\LogEntry;
-use Cbox\TelemetryUi\Panels\Attributes\Param;
 
 /**
  * Log viewer over Loki. Every line is correlated with its trace: the
@@ -58,14 +59,36 @@ final class LogViewer extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.log-viewer';
-
-        return view($view, ['rows' => $rows, 'error' => $error]);
+        return [
+            'kind' => 'logs',
+            'title' => 'Logs',
+            'subtitle' => 'Trace-correlated log lines from Loki — click a line for metadata, jump to its trace',
+            'span' => 2,
+            'entries' => $rows,
+            // Live tail: the SPA opens /api/v2/stream/logs with the same filters.
+            'stream' => ['signal' => 'logs', 'params' => array_filter([
+                'log_search' => $this->search,
+                'log_level' => $this->level,
+            ], static fn (string $v): bool => $v !== '')],
+            'error' => $error,
+            'empty' => 'No log lines in this period. Route the "telemetry" log channel to OTLP to see logs here.',
+            'note' => $rows !== [] ? 'Most recent 200 lines, oldest first.' : null,
+            'controls' => [
+                Ui::select('log_level', 'Level', $this->level, [
+                    ['value' => '', 'label' => 'All levels'],
+                    ...array_map(static fn (string $lvl): array => ['value' => $lvl, 'label' => ucfirst($lvl)], $this->levels),
+                ]),
+                Ui::search('log_search', 'Filter', $this->search, 'Filter log lines…'),
+            ],
+        ];
     }
 
     /**
-     * @return array{time: string, tone: string, level: string, service: string, message: string, traceId: string|null, traceUrl: string|null, meta: array<string, string>}
+     * One `logs` entry. The service rides in the labels (v1 showed it as a
+     * badge); the rest of the labels are the structured metadata worth
+     * surfacing.
+     *
+     * @return array{time: string, ms: int, level: string, tone: string, message: string, labels: array<string, string>, traceId?: string}
      */
     private function row(LogEntry $entry): array
     {
@@ -74,31 +97,33 @@ final class LogViewer extends Panel
 
         // Structured metadata worth surfacing; the rest is boilerplate.
         $hidden = ['service_name', 'trace_id', 'level', 'detected_level', 'severity_number', 'scope_name'];
-        $meta = [];
+        $labels = [];
+        $service = $entry->labels['service_name'] ?? '';
+
+        if ($service !== '') {
+            $labels['service'] = $service;
+        }
 
         foreach ($entry->labels as $key => $value) {
             if (! in_array($key, $hidden, true)) {
-                $meta[$key] = $value;
+                $labels[$key] = $value;
             }
         }
 
-        return [
+        $row = [
             'time' => $entry->timestamp()->format('H:i:s.v'),
-            'tone' => $this->tone($entry),
+            'ms' => intdiv($entry->timestampNano, 1_000_000),
             'level' => strtoupper($entry->labels['level'] ?? $entry->labels['detected_level'] ?? $this->inferLevel($entry->line)),
-            'service' => $entry->labels['service_name'] ?? '',
+            'tone' => $this->tone($entry),
             'message' => $entry->line,
-            'traceId' => $traceId,
-            'traceUrl' => $traceId !== null ? route('telemetry-ui.trace', [
-                'traceId' => $traceId,
-                'period' => $this->period,
-                'from' => $this->from,
-                'to' => $this->to,
-                'service' => $this->service,
-                'env' => $this->environment,
-            ]) : null,
-            'meta' => $meta,
+            'labels' => $labels,
         ];
+
+        if ($traceId !== null) {
+            $row['traceId'] = $traceId;
+        }
+
+        return $row;
     }
 
     private function tone(LogEntry $entry): string

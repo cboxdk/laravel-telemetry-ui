@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\Statamic\ContentByType;
-use Cbox\TelemetryUi\Cards\Builtin\Statamic\GlideByPreset;
+use Cbox\TelemetryUi\Panels\Builtin\Statamic\ContentByType;
+use Cbox\TelemetryUi\Panels\Builtin\Statamic\GlideByPreset;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 /** A Prometheus instant-vector response. */
 function facetVector(array $results): array
@@ -22,7 +21,8 @@ it('breaks a single-label counter down by facet, sorted by count with share', fu
         ])),
     ]);
 
-    Livewire::test(GlideByPreset::class)
+    $this->getJson(panelUrl(GlideByPreset::id()))
+        ->assertOk()
         ->assertSee('Generations by preset')
         ->assertSee('Preset')
         ->assertSee('Images')
@@ -30,7 +30,9 @@ it('breaks a single-label counter down by facet, sorted by count with share', fu
         ->assertSeeInOrder(['hero', 'card', 'full'])
         ->assertSee('15')
         ->assertSee('9')
-        ->assertSee('8');
+        ->assertSee('8')
+        ->assertJsonPath('rows.0.k0.v', 'hero')
+        ->assertJsonPath('rows.0.share.raw', 15 / 32);
 
     Http::assertSent(function ($request): bool {
         $query = rawurldecode(parse_url($request->url(), PHP_URL_QUERY) ?? '');
@@ -48,8 +50,9 @@ it('breaks a multi-label counter down into one column per label', function (): v
         ])),
     ]);
 
-    Livewire::test(ContentByType::class)
-        ->assertSee('Changes by type & action')
+    $this->getJson(panelUrl(ContentByType::id()))
+        ->assertOk()
+        ->assertSee('Changes by type & action', false)
         ->assertSee('Type')
         ->assertSee('Action')
         ->assertSeeInOrder(['saved', 'deleted'])
@@ -61,7 +64,8 @@ it('shows an empty state when the counter has no samples in the period', functio
         'prometheus.test:9090/api/v1/query?*' => Http::response(facetVector([])),
     ]);
 
-    Livewire::test(GlideByPreset::class)
+    $this->getJson(panelUrl(GlideByPreset::id()))
+        ->assertOk()
         ->assertSee('Generations by preset')
         ->assertSee('No data in this period.');
 });

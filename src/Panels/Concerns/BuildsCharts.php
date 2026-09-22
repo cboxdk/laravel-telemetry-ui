@@ -5,13 +5,14 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Concerns;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Support\Format;
 use Cbox\TelemetryUi\TelemetryUiManager;
 
 /**
- * The chart engine shared by every {@see \Cbox\TelemetryUi\Panels\Panel}: the
+ * The chart engine shared by every {@see Panel}: the
  * `chart` payload (series, annotations, range bounds, error/empty states) plus
  * the terse {@see promChart()} path and the stat-tile builders — so a metric
  * panel is a query and a title.

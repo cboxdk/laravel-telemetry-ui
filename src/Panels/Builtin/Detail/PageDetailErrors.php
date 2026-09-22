@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
-use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
+use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * The errors seen on a single page — browser exception spans stamped with this
@@ -29,6 +32,11 @@ final class PageDetailErrors extends Panel
 
     /** Sparkline resolution: buckets across the page period. */
     private const BUCKETS = 24;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     public function data(): array
     {
@@ -101,21 +109,33 @@ final class PageDetailErrors extends Panel
             }
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.page-detail-errors';
+        $columns = [
+            Ui::col('error', 'Error'),
+            Ui::col('trend', 'Trend'),
+            Ui::num('count', 'Events'),
+            Ui::num('lastSeen', 'Last seen'),
+        ];
 
-        return view($view, [
-            'rows' => array_slice($rows, 0, 100),
+        // Each row opens the issue — trend, tags, stacktrace, root cause.
+        $cells = array_map(static fn (array $row): array => [
+            'error' => Ui::cell($row['type'] !== '' ? $row['type'] : $row['group'], array_filter([
+                'mono' => true,
+                'sub' => $row['message'] !== '' ? Str::limit($row['message'], 120) : null,
+            ], static fn (mixed $v): bool => $v !== null)),
+            'trend' => Ui::cell(null, [
+                'spark' => array_map(static fn (int $n): float => (float) $n, array_values($row['buckets'])),
+                'tone' => 'danger',
+            ]),
+            'count' => Ui::cell(Format::count($row['count']), ['raw' => $row['count'], 'tone' => 'danger']),
+            'lastSeen' => Ui::cell($row['lastSeen'], ['raw' => intdiv($row['lastNano'], 1_000_000), 'tone' => 'dim']),
+            '_link' => Ui::error($row['group']),
+        ], array_slice($rows, 0, 100));
+
+        return Ui::table('Errors', $columns, $cells, array_filter([
+            'subtitle' => 'Browser errors seen on this page, grouped by fingerprint. Click a row for the issue\'s stacktrace and root cause.',
+            'empty' => 'No errors on this page in this period. 🎉',
+            'note' => $truncated && $cells !== [] ? 'Sampled — counts are lower bounds.' : null,
             'error' => $error,
-            'sampled' => $truncated,
-        ]);
-    }
-
-    /**
-     * The group's own issue page.
-     */
-    public function showUrl(string $group): string
-    {
-        return $this->pageUrl('error-detail', ['group' => $group]);
+        ], static fn (?string $v): bool => $v !== null));
     }
 }

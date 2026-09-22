@@ -2,12 +2,10 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Gate;
+use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Http;
 
-it('renders a purpose-built request detail page scoped to the route', function (): void {
-    Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
-
+it('renders a purpose-built request detail header scoped to the route', function (): void {
     Http::fake([
         'prometheus.test:9090/api/v1/query_range*' => Http::response([
             'status' => 'success',
@@ -20,26 +18,46 @@ it('renders a purpose-built request detail page scoped to the route', function (
         'tempo.test:3200/*' => Http::response(['traces' => []]),
     ]);
 
-    $this->get('/telemetry-ui/request-detail?route=/orders')
+    $this->getJson(panelUrl('request-detail-header', ['route' => '/orders']))
         ->assertOk()
-        ->assertSee('/orders')
-        ->assertSee('All requests');
+        ->assertJsonPath('kind', 'header')
+        ->assertJsonPath('title', '/orders')
+        ->assertJsonPath('stats.0.label', 'Requests')
+        ->assertJsonPath('stats.0.value', '5')
+        ->assertJsonPath('back', ['to' => 'page', 'page' => 'requests'])
+        ->assertJsonPath('backLabel', '← All requests');
 
-    // Every metric on the page is scoped to the one route.
+    // Every metric on the header is scoped to the one route.
     Http::assertSent(fn ($request): bool => str_contains(rawurldecode($request->url()), 'http_route="/orders"'));
 });
 
-it('keeps the request detail page out of the sidebar nav', function (): void {
-    Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
+it('lists the recent traces of the route, each opening its trace', function (): void {
+    $now = time();
 
     Http::fake([
-        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
-        'tempo.test:3200/*' => Http::response(['traces' => []]),
-        'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
+        'tempo.test:3200/api/search*' => Http::response(['traces' => [
+            ['traceID' => 'abcdabcdabcdabcdabcdabcdabcdabcd', 'rootServiceName' => 'demo', 'rootTraceName' => 'GET /orders', 'startTimeUnixNano' => (string) (($now - 30) * 1_000_000_000), 'durationMs' => 1500],
+        ]]),
     ]);
 
-    // The nav lists "Requests" but never a "Request" detail entry.
-    $this->get('/telemetry-ui/requests')
+    $this->getJson(panelUrl('request-detail-traces', ['route' => '/orders']))
         ->assertOk()
-        ->assertDontSeeHtml('>Request</a>');
+        ->assertJsonPath('title', 'Recent traces')
+        ->assertJsonPath('rows.0.trace.v', 'GET /orders')
+        ->assertJsonPath('rows.0.duration.tone', 'warn')
+        ->assertJsonPath('rows.0._link', ['to' => 'trace', 'id' => 'abcdabcdabcdabcdabcdabcdabcdabcd']);
+
+    Http::assertSent(fn ($request): bool => str_contains(rawurldecode(requestQuery($request)['q'] ?? ''), 'span.http.route = "/orders"'));
+});
+
+it('keeps the request detail page out of the sidebar nav', function (): void {
+    $pages = app(TelemetryUiManager::class)->pages();
+
+    // Routable (reached by drilling a row) but hidden from the nav.
+    expect($pages['request-detail']['hidden'] ?? false)->toBeTrue()
+        ->and($pages['requests']['hidden'] ?? false)->toBeFalse();
+
+    $this->getJson(apiUrl('pages/request-detail'))
+        ->assertOk()
+        ->assertJsonPath('panels.0.id', 'request-detail-header');
 });

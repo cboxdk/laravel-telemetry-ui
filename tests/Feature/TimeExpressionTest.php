@@ -2,10 +2,9 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
+use Cbox\TelemetryUi\Panels\Builtin\JobsOverview;
 use Cbox\TelemetryUi\Support\TimeExpression;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 it('parses unix seconds, now, and grafana-style offsets', function (): void {
     $now = new DateTimeImmutable('2026-07-06 12:00:00');
@@ -28,7 +27,7 @@ it('labels relative expressions verbatim and unix seconds as dates', function ()
         ->and(TimeExpression::label('1735689600'))->toBe(date('d/m H:i', 1735689600));
 });
 
-it('drives card ranges from relative from/to like grafana', function (): void {
+it('drives panel ranges from relative from/to like grafana', function (): void {
     Http::fake([
         'prometheus.test:9090/api/v1/query_range*' => Http::response([
             'status' => 'success', 'data' => ['resultType' => 'matrix', 'result' => []],
@@ -39,8 +38,7 @@ it('drives card ranges from relative from/to like grafana', function (): void {
         'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
     ]);
 
-    Livewire::withQueryParams(['from' => 'now-2h', 'to' => 'now'])
-        ->test(JobsOverview::class)
+    $this->getJson(panelUrl(JobsOverview::id(), ['from' => 'now-2h', 'to' => 'now']))
         ->assertOk();
 
     // The period total spans exactly the relative window.
@@ -59,8 +57,7 @@ it('falls back to the preset period when the expression is invalid', function ()
         'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
     ]);
 
-    Livewire::withQueryParams(['from' => 'now-1x', 'to' => 'now', 'period' => '1h'])
-        ->test(JobsOverview::class)
+    $this->getJson(panelUrl(JobsOverview::id(), ['from' => 'now-1x', 'to' => 'now', 'period' => '1h']))
         ->assertOk();
 
     Http::assertSent(function ($request): bool {

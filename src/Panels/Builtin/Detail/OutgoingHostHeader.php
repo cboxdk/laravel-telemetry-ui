@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -15,6 +16,11 @@ use Cbox\TelemetryUi\Support\Format;
 final class OutgoingHostHeader extends Panel
 {
     use ScopesToHost;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     public function data(): array
     {
@@ -38,26 +44,20 @@ final class OutgoingHostHeader extends Panel
 
         $bad = $err + $fail;
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.detail-header';
-
-        return view($view, [
-            'title' => $this->host === '' ? '(all hosts)' : $this->host,
-            'subtitle' => 'Outgoing host detail',
-            'backUrl' => $this->backUrl(),
-            'backLabel' => '← All hosts',
-            'error' => $error,
-            'stats' => [
-                ['label' => 'Requests', 'value' => Format::count($total), 'tone' => null],
-                ['label' => 'Errors', 'value' => Format::count($err), 'tone' => $err > 0 ? 'danger' : 'dim'],
-                ['label' => 'Failures', 'value' => Format::count($fail), 'tone' => $fail > 0 ? 'danger' : 'dim'],
-                ['label' => 'AVG', 'value' => $total > 0 ? Format::ms($time / $total * 1000) : '—', 'tone' => $total > 0 && $bad > 0 ? 'warn' : 'dim'],
+        return Ui::header(
+            $this->host === '' ? '(all hosts)' : $this->host,
+            'Outgoing host detail',
+            [
+                $this->stat('Requests', Format::count($total)),
+                $this->stat('Errors', Format::count($err), $err > 0 ? 'danger' : 'dim'),
+                $this->stat('Failures', Format::count($fail), $fail > 0 ? 'danger' : 'dim'),
+                $this->stat('AVG', $total > 0 ? Format::ms($time / $total * 1000) : '—', $total > 0 && $bad > 0 ? 'warn' : 'dim'),
             ],
-        ]);
-    }
-
-    public function backUrl(): string
-    {
-        return $this->pageUrl('outgoing');
+            array_filter([
+                'back' => Ui::page('outgoing'),
+                'backLabel' => '← All hosts',
+                'error' => $error,
+            ], static fn ($v): bool => $v !== null),
+        );
     }
 }

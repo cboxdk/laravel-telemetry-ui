@@ -4,14 +4,21 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * Outgoing HTTP requests per upstream host: volume, errors and latency.
  */
 final class OutgoingTable extends Panel
 {
+    public static function span(): int
+    {
+        return 2;
+    }
+
     public function data(): array
     {
         [$start, $end] = $this->range();
@@ -79,17 +86,39 @@ final class OutgoingTable extends Panel
 
         usort($rows, static fn (array $a, array $b): int => $b['total'] <=> $a['total']);
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.outgoing-table';
+        $table = array_map(static function (array $row): array {
+            // The purpose-built detail page for this upstream host.
+            $link = Ui::entity('outgoing', $row['host']);
 
-        return view($view, ['rows' => array_slice($rows, 0, 100), 'error' => $error]);
-    }
+            return [
+                'host' => Ui::cell($row['host'], ['mono' => true, 'link' => $link, 'dim' => ['key' => 'server.address', 'value' => $row['host']]]),
+                'trend' => Ui::cell(null, ['spark' => $row['spark'] ?? [], 'tone' => $row['5xx'] > 0 || $row['failures'] > 0 ? 'danger' : 'info']),
+                'ok' => Ui::cell(Format::count($row['ok']), ['raw' => $row['ok']]),
+                '4xx' => Ui::cell(Format::count($row['4xx']), ['raw' => $row['4xx'], 'tone' => $row['4xx'] > 0 ? 'warn' : null]),
+                '5xx' => Ui::cell(Format::count($row['5xx']), ['raw' => $row['5xx'], 'tone' => $row['5xx'] > 0 ? 'danger' : null]),
+                'failures' => Ui::cell(Format::count($row['failures']), ['raw' => $row['failures'], 'tone' => $row['failures'] > 0 ? 'danger' : null]),
+                'total' => Ui::cell(Format::count($row['total']), ['raw' => $row['total']]),
+                'avg' => $row['total'] > 0
+                    ? Ui::cell(Format::ms($row['time'] / $row['total']), ['raw' => $row['time'] / $row['total']])
+                    : Ui::cell('—'),
+                'p95' => $row['p95'] !== null ? Ui::cell(Format::ms($row['p95']), ['raw' => $row['p95']]) : Ui::cell('—'),
+                '_link' => $link,
+            ];
+        }, array_slice($rows, 0, 100));
 
-    /**
-     * The purpose-built detail page for this upstream host.
-     */
-    public function detailUrl(string $host): string
-    {
-        return $this->pageUrl('outgoing-detail', ['host' => $host]);
+        return Ui::table('Upstream hosts', [
+            Ui::col('host', 'Host'),
+            Ui::col('trend', 'Trend'),
+            Ui::num('ok', '1/2/3XX'),
+            Ui::num('4xx', '4XX'),
+            Ui::num('5xx', '5XX'),
+            Ui::num('failures', 'Conn. failures'),
+            Ui::num('total', 'Total'),
+            Ui::num('avg', 'AVG'),
+            Ui::num('p95', 'P95'),
+        ], $table, array_filter([
+            'error' => $error,
+            'empty' => 'No outgoing requests in this period.',
+        ], static fn ($v): bool => $v !== null));
     }
 }

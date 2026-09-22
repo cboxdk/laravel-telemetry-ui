@@ -4,21 +4,25 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
-use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Queries\Results\Span;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
-use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * Trace search driven by friendly filters (status, route, name, duration)
  * that compose TraceQL under the hood. A raw TraceQL box is available under
  * "Advanced" for power users and for deep-links from other pages (?q=).
+ *
+ * @phpstan-import-type Control from Ui
  */
 final class TraceSearch extends Panel
 {
@@ -96,79 +100,93 @@ final class TraceSearch extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.trace-search';
+        $table = [];
 
-        return view($view, [
-            'results' => $results,
+        foreach ($results as $row) {
+            $link = Ui::trace($row['traceId']);
+
+            $table[] = [
+                '_link' => $link,
+                'time' => Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true]),
+                'service' => Ui::cell($row['service'], array_filter([
+                    'badge' => $row['service'],
+                    'tone' => 'info',
+                    'sub' => $row['browser'] ? 'web' : null,
+                ], static fn (?string $v): bool => $v !== null)),
+                'root' => Ui::cell(
+                    ($row['method'] !== null ? $row['method'].' ' : '').($row['target'] ?? $row['name']),
+                    array_filter([
+                        'link' => $link,
+                        'badge' => $row['status'],
+                        'tone' => $row['isError'] ? 'danger' : null,
+                    ], static fn (mixed $v): bool => $v !== null),
+                ),
+                'duration' => Ui::cell(Format::ms($row['durationMs']), [
+                    'raw' => $row['durationMs'],
+                    'mono' => true,
+                    'tone' => $row['durationMs'] > 1000 ? 'warn' : null,
+                ]),
+                'trace' => Ui::cell(substr($row['traceId'], 0, 8).'…', ['link' => $link, 'mono' => true]),
+            ];
+        }
+
+        return Ui::table('Trace search', [
+            Ui::col('time', 'Time'),
+            Ui::col('service', 'Service'),
+            Ui::col('root', 'Root span'),
+            Ui::num('duration', 'Duration'),
+            Ui::num('trace', 'Trace'),
+        ], $table, [
+            'subtitle' => 'Find requests, jobs and commands by status, route, name or duration',
+            'span' => 2,
             'error' => $error,
-            'effectiveQuery' => $effectiveQuery,
-            'usingRaw' => $this->query !== '',
+            'empty' => 'No traces match these filters.',
+            // The TraceQL actually sent to Tempo — v1's query preview.
+            'note' => $effectiveQuery,
+            'controls' => $this->controls(),
         ]);
     }
 
-    // Changing any friendly filter drops a raw/deep-linked query so the
-    // builder stays the source of truth.
-    public function updatedStatus(): void
+    /**
+     * The friendly filters plus the raw TraceQL box (Advanced). A non-empty
+     * `q` wins over the builder filters.
+     *
+     * @return list<Control>
+     */
+    private function controls(): array
     {
-        $this->query = '';
+        return [
+            Ui::select('status', 'Status', $this->status, self::any([
+                ['value' => 'error', 'label' => 'Errors'],
+                ['value' => 'ok', 'label' => 'OK'],
+            ])),
+            Ui::select('source', 'Source', $this->source, self::any([
+                ['value' => 'frontend', 'label' => 'Frontend (browser)'],
+                ['value' => 'backend', 'label' => 'Backend'],
+            ])),
+            Ui::select('status_code', 'Status code', $this->statusCode, self::any(array_map(
+                static fn (string $class): array => ['value' => $class, 'label' => $class],
+                ['2xx', '3xx', '4xx', '5xx'],
+            ))),
+            Ui::search('route', 'Route', $this->route, '/orders/{id}'),
+            Ui::search('path', 'Path contains', $this->path, '/checkout'),
+            Ui::search('ip', 'Client IP', $this->ip, '203.0.113.9'),
+            Ui::search('name', 'Name contains', $this->nameContains, 'db.query, POST …'),
+            Ui::select('min_duration', 'Min duration', (string) $this->minDurationMs, array_map(
+                static fn (int $duration): array => ['value' => (string) $duration, 'label' => $duration === 0 ? 'any' : $duration.'ms'],
+                $this->durations,
+            )),
+            Ui::search('q', 'TraceQL', $this->query, '{ span.http.route = "/orders" && duration > 500ms }'),
+        ];
     }
 
-    public function updatedSource(): void
+    /**
+     * @param  list<array{value: string, label: string}>  $options
+     * @return list<array{value: string, label: string}>
+     */
+    private static function any(array $options): array
     {
-        $this->query = '';
-    }
-
-    public function updatedRoute(): void
-    {
-        $this->query = '';
-    }
-
-    public function updatedStatusCode(): void
-    {
-        $this->query = '';
-    }
-
-    public function updatedPath(): void
-    {
-        $this->query = '';
-    }
-
-    public function updatedIp(): void
-    {
-        $this->query = '';
-    }
-
-    public function updatedNameContains(): void
-    {
-        $this->query = '';
-    }
-
-    public function updatedMinDurationMs(): void
-    {
-        $this->query = '';
-    }
-
-    public function clearFilters(): void
-    {
-        $this->query = '';
-        $this->status = '';
-        $this->source = '';
-        $this->route = '';
-        $this->nameContains = '';
-        $this->minDurationMs = 0;
-    }
-
-    public function traceUrl(string $traceId): string
-    {
-        return route('telemetry-ui.trace', array_filter([
-            'traceId' => $traceId,
-            'period' => $this->period,
-            'from' => $this->from,
-            'to' => $this->to,
-            'service' => $this->service,
-            'env' => $this->environment,
-        ]));
+        return [['value' => '', 'label' => 'Any'], ...$options];
     }
 
     /**

@@ -2,11 +2,9 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\AnalyticsPages;
-use Cbox\TelemetryUi\Cards\Builtin\FrontendPages;
+use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 /**
  * A Loki streams response of analytics page-view events for one path.
@@ -69,15 +67,21 @@ beforeEach(function (): void {
     ]);
 });
 
-it('renders a purpose-built page detail page scoped to the url path', function (): void {
-    $this->get('/telemetry-ui/page-detail?path=/blog/x')
+it('renders a page detail header scoped to the url path', function (): void {
+    $this->getJson(panelUrl('page-detail-header', ['period' => '1h', 'path' => '/blog/x']))
         ->assertOk()
-        ->assertSee('/blog/x')       // header title is the concrete path
-        ->assertSee('Analytics');    // the back link
+        ->assertJsonPath('kind', 'header')
+        ->assertJsonPath('title', '/blog/x')            // header title is the concrete path
+        ->assertJsonPath('stats.0.label', 'Views')
+        ->assertJsonPath('stats.0.value', '2')
+        ->assertJsonPath('drill.page', 'analytics')     // the back link
+        ->assertJsonPath('drill.label', '← Analytics');
 });
 
 it('scopes trace queries to the one url path', function (): void {
-    $this->get('/telemetry-ui/page-detail?path=/blog/x')->assertOk();
+    $this->getJson(panelUrl('page-detail-traces', ['period' => '1h', 'path' => '/blog/x']))
+        ->assertOk()
+        ->assertJsonPath('rows.0._link', ['to' => 'trace', 'id' => '1111111111111111aaaaaaaaaaaaaaaa']);
 
     Http::assertSent(function ($request): bool {
         if (! str_contains($request->url(), '/api/search')) {
@@ -89,7 +93,12 @@ it('scopes trace queries to the one url path', function (): void {
 });
 
 it('scopes the analytics log query to the url_path label', function (): void {
-    $this->get('/telemetry-ui/page-detail?path=/blog/x')->assertOk();
+    $this->getJson(panelUrl('page-detail-traffic', ['period' => '1h', 'path' => '/blog/x']))
+        ->assertOk()
+        ->assertJsonPath('kind', 'composite')
+        ->assertJsonPath('parts.0.kind', 'chart')
+        ->assertJsonPath('parts.2.title', 'Countries')
+        ->assertSee('DK');
 
     Http::assertSent(function ($request): bool {
         if (! str_contains($request->url(), 'loki')) {
@@ -100,22 +109,45 @@ it('scopes the analytics log query to the url_path label', function (): void {
     });
 });
 
-it('keeps the page detail page out of the sidebar nav', function (): void {
-    $this->get('/telemetry-ui/analytics')
+it('shows the page\'s real-user navigation timings', function (): void {
+    $this->getJson(panelUrl('page-detail-performance', ['period' => '1h', 'path' => '/blog/x']))
         ->assertOk()
-        ->assertDontSeeHtml('>Page</a>');
+        ->assertJsonPath('kind', 'composite')
+        ->assertJsonPath('parts.0.title', 'Navigation timings')
+        ->assertJsonPath('parts.0.items.0.label', 'Page loads')
+        ->assertJsonPath('parts.0.items.0.value', '1');
+});
+
+it('shows a clean empty state when the page has no browser errors', function (): void {
+    $this->getJson(panelUrl('page-detail-errors', ['period' => '1h', 'path' => '/blog/x']))
+        ->assertOk()
+        ->assertJsonPath('kind', 'table')
+        ->assertJsonPath('rows', [])
+        ->assertSee('No errors on this page');
+});
+
+it('keeps the page detail page out of the sidebar nav', function (): void {
+    // v1 asserted the rendered sidebar; the nav now comes from the page
+    // registry, where page-detail is a hidden child of Analytics.
+    $meta = app(TelemetryUiManager::class)->pages()['page-detail'];
+
+    expect($meta['hidden'] ?? false)->toBeTrue()
+        ->and($meta['parent'] ?? null)->toBe('analytics');
 });
 
 it('points analytics top-page rows at the page detail, not a trace search', function (): void {
-    Livewire::test(AnalyticsPages::class)
-        ->assertSee('/blog/x')
-        ->assertSeeHtml('page-detail')      // the row drills into the page's own detail
-        ->assertDontSeeHtml('page=traces'); // no longer a pre-filtered trace search
+    $this->getJson(panelUrl('analytics-pages', ['period' => '1h']))
+        ->assertOk()
+        ->assertJsonPath('items.0.label', '/blog/x')
+        ->assertJsonPath('items.0.link', ['to' => 'entity', 'type' => 'path', 'value' => '/blog/x'])
+        ->assertDontSee('"traces"', false); // no longer a pre-filtered trace search
 });
 
 it('points frontend page rows at the page detail, not a trace search', function (): void {
-    Livewire::test(FrontendPages::class)
-        ->assertSee('/blog/x')
-        ->assertSeeHtml('page-detail')      // the row drills into the page's own detail
-        ->assertDontSeeHtml('page=traces'); // no longer a pre-filtered trace search
+    $this->getJson(panelUrl('frontend-pages', ['period' => '1h']))
+        ->assertOk()
+        ->assertJsonPath('parts.0.kind', 'stats')
+        ->assertJsonPath('parts.1.rows.0.path.v', '/blog/x')
+        ->assertJsonPath('parts.1.rows.0._link', ['to' => 'entity', 'type' => 'path', 'value' => '/blog/x'])
+        ->assertDontSee('"traces"', false);
 });

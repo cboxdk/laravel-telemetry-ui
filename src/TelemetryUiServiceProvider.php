@@ -7,6 +7,10 @@ namespace Cbox\TelemetryUi;
 use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\ResolvedConnections;
+use Cbox\TelemetryUi\Explore\EntityStory;
+use Cbox\TelemetryUi\Explore\ErrorExplorer;
+use Cbox\TelemetryUi\Explore\LogExplorer;
+use Cbox\TelemetryUi\Explore\SpanExplorer;
 use Cbox\TelemetryUi\Http\Middleware\Authorize;
 use Cbox\TelemetryUi\Http\Middleware\RemembersViewState;
 use Cbox\TelemetryUi\Support\Annotations;
@@ -82,6 +86,21 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $this->app->scoped(ViewState::class, static fn (Application $app): ViewState => new ViewState(
             $app->make(ScopeLock::class),
             $app->make('config'),
+        ));
+
+        // Explore services read the dimension registry off the manager.
+        foreach ([SpanExplorer::class, LogExplorer::class, ErrorExplorer::class] as $explorer) {
+            $this->app->bind($explorer, static fn (Application $app): object => new $explorer(
+                $app->make(ConnectionManager::class),
+                $app->make(TelemetryUiManager::class)->dimensions(),
+            ));
+        }
+
+        $this->app->bind(EntityStory::class, static fn (Application $app): EntityStory => new EntityStory(
+            $app->make(ConnectionManager::class),
+            $app->make(TelemetryUiManager::class)->dimensions(),
+            $app->make(SpanExplorer::class),
+            $app->make(TelemetryUiManager::class),
         ));
 
         $this->app->singleton(Annotations::class, static fn (Application $app): Annotations => new Annotations(

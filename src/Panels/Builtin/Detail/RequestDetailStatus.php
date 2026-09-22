@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -46,14 +47,28 @@ final class RequestDetailStatus extends Panel
 
         $max = $rows === [] ? 0.0 : max(array_column($rows, 'count'));
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.request-detail-status';
+        $table = array_map(static function (array $row) use ($max): array {
+            $tone = match ($row['class']) {
+                '5' => 'danger',
+                '4' => 'warn',
+                default => null,
+            };
 
-        return view($view, [
-            'rows' => $rows,
-            'max' => $max,
+            return [
+                'code' => Ui::cell($row['code'], ['mono' => true, 'tone' => $tone, 'dim' => ['key' => 'http.response.status_code', 'value' => $row['code']]]),
+                'share' => Ui::cell(null, ['bar' => $max > 0 ? $row['count'] / $max : 0.0, 'tone' => $tone ?? 'dim']),
+                'count' => Ui::cell(Format::count($row['count']), ['raw' => $row['count']]),
+            ];
+        }, $rows);
+
+        return Ui::table('Status codes', [
+            Ui::col('code', 'Code'),
+            Ui::col('share', 'Share'),
+            Ui::num('count', 'Count'),
+        ], $table, array_filter([
+            'subtitle' => 'Exact response codes for this route — where errors concentrate',
             'error' => $error,
-            'formatCount' => static fn (float $v): string => Format::count($v),
-        ]);
+            'empty' => 'No requests in this period.',
+        ], static fn ($v): bool => $v !== null));
     }
 }

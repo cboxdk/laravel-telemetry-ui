@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
-use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * Slowest database query spans, straight from Tempo via TraceQL — metrics
@@ -18,6 +20,11 @@ final class SlowQueries extends Panel
 {
     #[Param('min_ms')]
     public int $minMs = 50;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     /** @var list<int> */
     public array $thresholds = [10, 50, 100, 250, 500, 1000];
@@ -61,17 +68,28 @@ final class SlowQueries extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.slow-queries';
+        $table = array_map(static fn (array $row): array => [
+            'query' => Ui::cell($row['query'], ['mono' => true, 'link' => Ui::trace($row['traceId'])]),
+            'origin' => Ui::cell($row['origin']),
+            'duration' => Ui::cell(Format::ms($row['durationMs']), ['raw' => $row['durationMs'], 'tone' => 'warn']),
+            'when' => Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true]),
+            '_link' => Ui::trace($row['traceId']),
+        ], array_slice($rows, 0, 50));
 
-        return view($view, [
-            'rows' => array_slice($rows, 0, 50),
+        return Ui::table('Slowest queries', [
+            Ui::col('query', 'Query'),
+            Ui::col('origin', 'Origin'),
+            Ui::num('duration', 'Duration'),
+            Ui::num('when', 'When'),
+        ], $table, array_filter([
+            'subtitle' => 'Individual DB query spans sampled from traces — click to open the full trace',
             'error' => $error,
-        ]);
-    }
-
-    public function traceUrl(string $traceId): string
-    {
-        return route('telemetry-ui.trace', ['traceId' => $traceId]);
+            'empty' => 'No query spans above '.$this->minMs.'ms in this period.',
+            'note' => 'Sampled from the most recent matching traces (Tempo search). Query text is truncated and redacted at emit time.',
+            'controls' => [Ui::select('min_ms', 'Slower than', (string) $this->minMs, array_map(
+                static fn (int $t): array => ['value' => (string) $t, 'label' => $t.'ms'],
+                $this->thresholds,
+            ))],
+        ], static fn ($v): bool => $v !== null));
     }
 }

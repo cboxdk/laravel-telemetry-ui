@@ -2,16 +2,41 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\UnifiedErrors;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Illuminate\Testing\TestResponse;
 
 /**
  * The Sentry-style behaviors of the unified errors list: first-seen looks
  * beyond the page period, NEW marks groups born in the last 24h, trends
  * are period-scoped sparklines, and rows are sortable.
  */
+
+/**
+ * The unified-errors panel payload for a 1h page period, plus extra params.
+ *
+ * @param  array<string, string>  $params
+ */
+function errorsPanel(array $params = []): TestResponse
+{
+    return test()->getJson(panelUrl('unified-errors', ['period' => '1h', ...$params]))->assertOk();
+}
+
+/**
+ * The row whose error cell shows the given exception type.
+ *
+ * @return array<string, mixed>|null
+ */
+function errorRow(TestResponse $response, string $type): ?array
+{
+    foreach ((array) $response->json('rows') as $row) {
+        if (($row['error']['v'] ?? null) === $type) {
+            return $row;
+        }
+    }
+
+    return null;
+}
 function fakeErrorRecords(): void
 {
     $now = time();
@@ -53,8 +78,8 @@ function fakeErrorRecords(): void
 it('computes first-seen beyond the page period and marks fresh groups NEW', function (): void {
     fakeErrorRecords();
 
-    Livewire::withQueryParams(['period' => '1h'])
-        ->test(UnifiedErrors::class)
+    errorsPanel()
+        ->assertJsonPath('kind', 'table')
         ->assertSee('RuntimeException')
         ->assertSee('5 days ago')        // first seen survives the 1h period
         ->assertSee('PaymentDeclined')
@@ -74,46 +99,60 @@ it('computes first-seen beyond the page period and marks fresh groups NEW', func
 it('does not mark an old group as NEW', function (): void {
     fakeErrorRecords();
 
-    $html = Livewire::withQueryParams(['period' => '1h'])->test(UnifiedErrors::class)->html();
+    $response = errorsPanel();
 
     // NEW appears exactly once — only on the fresh group.
-    expect(substr_count($html, '>NEW<'))->toBe(1);
+    expect(substr_count((string) $response->getContent(), '"NEW"'))->toBe(1)
+        ->and(errorRow($response, 'PaymentDeclined')['error']['badge'] ?? null)->toBe('NEW')
+        ->and(errorRow($response, 'RuntimeException')['error'])->not->toHaveKey('badge');
 });
 
 it('counts distinct affected users per group', function (): void {
     fakeErrorRecords();
 
-    $html = Livewire::withQueryParams(['period' => '1h'])->test(UnifiedErrors::class)->html();
+    $response = errorsPanel()->assertJsonFragment(['key' => 'users', 'label' => 'Users', 'align' => 'right']);
 
     // PaymentDeclined hit users 7 and 9; the old group carries no user.
-    expect($html)->toContain('Users');
-    // Two distinct users on the fresh group.
-    expect(preg_match('/PaymentDeclined.*?<td class="is-num">2<\/td>/s', $html))->toBe(1);
+    expect(errorRow($response, 'PaymentDeclined')['users']['v'] ?? null)->toBe('2')
+        ->and(errorRow($response, 'RuntimeException')['users']['v'] ?? null)->toBe('—');
+});
+
+it('links each row to its error group', function (): void {
+    fakeErrorRecords();
+
+    expect(errorRow(errorsPanel(), 'PaymentDeclined')['_link'] ?? null)
+        ->toBe(['to' => 'error', 'group' => 'bbbb33334444']);
+});
+
+it('exposes sort, search and source as panel controls', function (): void {
+    fakeErrorRecords();
+
+    $controls = collect((array) errorsPanel(['err_sort' => 'last'])->json('controls'))->keyBy('param');
+
+    expect($controls->keys()->all())->toEqualCanonicalizing(['err_q', 'err_source', 'err_sort'])
+        ->and($controls['err_sort']['value'])->toBe('last')
+        ->and($controls['err_q']['type'])->toBe('search');
 });
 
 it('filters by text and source', function (): void {
     fakeErrorRecords();
 
-    Livewire::withQueryParams(['period' => '1h'])
-        ->test(UnifiedErrors::class)
-        ->set('search', 'fresh regression')
+    errorsPanel(['err_q' => 'fresh regression'])
         ->assertSee('PaymentDeclined')
-        ->assertDontSee('RuntimeException')
-        ->set('search', '')
-        ->set('sourceFilter', 'frontend')
-        ->assertSee('No errors match the filter');
+        ->assertDontSee('RuntimeException');
+
+    errorsPanel(['err_source' => 'frontend'])
+        ->assertJsonCount(0, 'rows')
+        ->assertJsonPath('empty', 'No errors match the filter.');
 });
 
 it('sorts by first-seen when asked', function (): void {
     fakeErrorRecords();
 
-    $html = Livewire::withQueryParams(['period' => '1h'])
-        ->test(UnifiedErrors::class)
-        ->set('sort', 'new')
-        ->html();
-
     // The fresh group (born 2h ago) outranks the 5-day-old one.
-    expect(strpos($html, 'PaymentDeclined'))->toBeLessThan(strpos($html, 'RuntimeException'));
+    errorsPanel(['err_sort' => 'new'])
+        ->assertJsonPath('rows.0.error.v', 'PaymentDeclined')
+        ->assertJsonPath('rows.1.error.v', 'RuntimeException');
 });
 
 it('only lists groups active within the page period', function (): void {
@@ -133,10 +172,10 @@ it('only lists groups active within the page period', function (): void {
         'tempo.test:3200/*' => Http::response(['traces' => []]),
     ]);
 
-    Livewire::withQueryParams(['period' => '1h'])
-        ->test(UnifiedErrors::class)
+    errorsPanel()
         ->assertDontSee('StaleException')
-        ->assertSee('No errors in this period');
+        ->assertJsonCount(0, 'rows')
+        ->assertJsonPath('empty', 'No errors in this period. 🎉');
 });
 
 it('renders the full issue page: header, trend, tags and deep-dive', function (): void {
@@ -172,15 +211,28 @@ it('renders the full issue page: header, trend, tags and deep-dive', function ()
         'tempo.test:3200/*' => Http::response(['traces' => []]),
     ]);
 
-    $this->get('/telemetry-ui/error-detail?group=abc123def456')
+    // The issue page is a registered page whose panels the SPA fetches one
+    // by one, all scoped to ?group=.
+    $this->getJson(apiUrl('pages/error-detail'))
         ->assertOk()
-        ->assertSee('PaymentDeclined')            // header title
-        ->assertSee('Card declined')              // header subtitle
-        ->assertSee('All issues')                 // back link
-        ->assertSee('Events')                     // trend card
-        ->assertSee('Tags')                       // distributions card
-        ->assertSee('web-3')                      // host distribution value
-        ->assertSee('100%')                       // single host -> 100%
-        ->assertSee('Latest occurrence')          // deep-dive card
-        ->assertSee('#0 app/Checkout.php(42): charge()'); // stacktrace
+        ->assertJsonPath('panels.*.id', ['error-group-header', 'error-group-trend', 'error-group-sidebar', 'error-group-tags', 'error-group-detail']);
+
+    $panel = fn (string $id) => $this->getJson(panelUrl($id, ['group' => 'abc123def456']))->assertOk();
+
+    $panel('error-group-header')
+        ->assertJsonPath('kind', 'header')
+        ->assertJsonPath('title', 'PaymentDeclined')          // header title
+        ->assertJsonPath('subtitle', 'Card declined')         // header subtitle
+        ->assertJsonPath('back.label', '← All issues');       // back link
+
+    $panel('error-group-trend')->assertJsonPath('title', 'Events');   // trend card
+
+    $panel('error-group-tags')
+        ->assertJsonPath('title', 'Tags')                     // distributions card
+        ->assertSee('web-3')                                  // host distribution value
+        ->assertSee('100%');                                  // single host -> 100%
+
+    $panel('error-group-detail')
+        ->assertJsonPath('title', 'Latest occurrence')        // deep-dive card
+        ->assertSee('#0 app/Checkout.php(42): charge()');     // stacktrace
 });

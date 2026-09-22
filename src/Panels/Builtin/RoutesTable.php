@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
-use Livewire\Attributes\On;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * Per-route request table: status classes, totals, avg and p95, with
@@ -18,29 +19,13 @@ class RoutesTable extends Panel
     #[Param('route_search')]
     public string $search = '';
 
-    /** Shared toggle with the RequestLog sibling: 'routes' | 'log'. */
-    #[Param('req_view')]
-    public string $view = 'routes';
-
-    /**
-     * The Routes/Request log toggle is a Livewire event (not a page link) so
-     * flipping views never reloads the page — both sibling cards listen.
-     */
-    #[On('telemetry-ui:request-view-changed')]
-    public function updateRequestView(string $view): void
+    public static function span(): int
     {
-        $this->view = $view === 'log' ? 'log' : 'routes';
+        return 2;
     }
 
     public function data(): array
     {
-        if ($this->view === 'log') {
-            /** @var view-string $hidden */
-            $hidden = 'telemetry-ui::cards.hidden';
-
-            return view($hidden);
-        }
-
         [$start, $end] = $this->range();
         $p = $this->promDuration();
 
@@ -72,7 +57,7 @@ class RoutesTable extends Panel
                 fn (array $labels): string => ($labels['http_request_method'] ?? '?').' '.($labels['http_route'] ?? '?'),
             );
         } catch (SourceException $exception) {
-            return $this->view($rows, $exception->getMessage());
+            return $this->payload([], $exception->getMessage());
         }
 
         foreach ($counts as $sample) {
@@ -123,32 +108,54 @@ class RoutesTable extends Panel
 
         usort($rows, static fn (array $a, array $b): int => $b['total'] <=> $a['total']);
 
-        return $this->view(array_slice($rows, 0, 100), $error);
+        return $this->payload(array_values(array_slice($rows, 0, 100)), $error);
     }
 
     /**
-     * The purpose-built detail page for this route (its own throughput,
-     * latency, error rate and traces) — not a pre-filtered trace search.
+     * @param  list<array{method: string, route: string, ok: float, '4xx': float, '5xx': float, total: float, time: float, p95: float|null, spark: list<float>}>  $rows
+     * @return array<string, mixed>
      */
-    public function detailUrl(string $route): string
+    private function payload(array $rows, ?string $error): array
     {
-        return $this->pageUrl('request-detail', ['route' => $route]);
-    }
+        $table = [];
 
-    /**
-     * @param  list<array{method: string, route: string, ok: float, '4xx': float, '5xx': float, total: float, time: float, p95: float|null, spark?: list<float>}>  $rows
-     */
-    private function view(array $rows, ?string $error): array
-    {
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.routes-table';
+        foreach ($rows as $row) {
+            // The purpose-built detail page for this route (its own throughput,
+            // latency, error rate and traces) — not a pre-filtered trace search.
+            $link = Ui::entity('route', $row['route']);
 
-        return view($view, [
-            'rows' => $rows,
-            'error' => $error,
-            'title' => $this->tableTitle(),
+            $table[] = [
+                'method' => Ui::cell($row['method'], ['badge' => $row['method'], 'tone' => $row['method'] === 'GET' ? 'info' : 'ok']),
+                'route' => Ui::cell($row['route'], ['mono' => true, 'link' => $link, 'dim' => ['key' => 'http.route', 'value' => $row['route']]]),
+                'trend' => Ui::cell(null, ['spark' => $row['spark'], 'tone' => $row['5xx'] > 0 ? 'danger' : ($row['4xx'] > 0 ? 'warn' : 'ok')]),
+                'ok' => Ui::cell(Format::count($row['ok']), ['raw' => $row['ok']]),
+                '4xx' => Ui::cell(Format::count($row['4xx']), ['raw' => $row['4xx'], 'tone' => $row['4xx'] > 0 ? 'warn' : null]),
+                '5xx' => Ui::cell(Format::count($row['5xx']), ['raw' => $row['5xx'], 'tone' => $row['5xx'] > 0 ? 'danger' : null]),
+                'total' => Ui::cell(Format::count($row['total']), ['raw' => $row['total']]),
+                'avg' => $row['total'] > 0
+                    ? Ui::cell(Format::ms($row['time'] / $row['total']), ['raw' => $row['time'] / $row['total']])
+                    : Ui::cell('—'),
+                'p95' => $row['p95'] !== null ? Ui::cell(Format::ms($row['p95']), ['raw' => $row['p95']]) : Ui::cell('—'),
+                '_link' => $link,
+            ];
+        }
+
+        return Ui::table($this->tableTitle(), [
+            Ui::col('method', 'Method'),
+            Ui::col('route', 'Route'),
+            Ui::col('trend', 'Trend'),
+            Ui::num('ok', '1/2/3XX'),
+            Ui::num('4xx', '4XX'),
+            Ui::num('5xx', '5XX'),
+            Ui::num('total', 'Total'),
+            Ui::num('avg', 'AVG'),
+            Ui::num('p95', 'P95'),
+        ], $table, array_filter([
             'subtitle' => $this->tableSubtitle(),
-        ]);
+            'error' => $error,
+            'empty' => 'No requests in this period.',
+            'controls' => [Ui::search('route_search', 'Search', $this->search, 'Search routes…')],
+        ], static fn ($v): bool => $v !== null));
     }
 
     protected function tableTitle(): string

@@ -8,8 +8,8 @@ use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 
 /**
  * The live request log narrowed to Livewire update requests — rows show the
- * component(s) behind each update, and the Components card is the grouped
- * sibling via the shared req_view toggle.
+ * component(s) behind each update; the Components panel is the grouped
+ * sibling, shown alongside.
  */
 final class LivewireRequestLog extends RequestLog
 {

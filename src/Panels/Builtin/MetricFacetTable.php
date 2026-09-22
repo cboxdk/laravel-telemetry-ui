@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * Shared shape for "counter grouped by one or more labels → count, per-minute
@@ -23,6 +25,14 @@ abstract class MetricFacetTable extends Panel
      */
     abstract protected function spec(): array;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function data(): array
     {
         $spec = $this->spec();
@@ -61,15 +71,34 @@ abstract class MetricFacetTable extends Panel
         }
         unset($row);
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.metric-facet-table';
+        $columns = [];
 
-        return view($view, [
-            'title' => $spec['title'],
-            'keyColumns' => array_values($spec['keys']),
-            'valueColumn' => $spec['valueColumn'],
-            'rows' => array_slice($rows, 0, 100),
+        foreach (array_values($spec['keys']) as $i => $label) {
+            $columns[] = Ui::col('k'.$i, $label);
+        }
+
+        $columns[] = Ui::num('count', $spec['valueColumn']);
+        $columns[] = Ui::num('share', 'Share');
+
+        $table = [];
+
+        foreach (array_slice($rows, 0, 100) as $row) {
+            $cells = [];
+
+            foreach (array_values($row['keys']) as $i => $value) {
+                $cells['k'.$i] = Ui::cell($value);
+            }
+
+            $cells['count'] = Ui::cell(Format::count($row['count']), ['raw' => $row['count'], 'mono' => true]);
+            $cells['share'] = Ui::cell(Format::percent($row['share']), ['raw' => $row['share'], 'mono' => true, 'bar' => $row['share']]);
+
+            $table[] = $cells;
+        }
+
+        return Ui::table($spec['title'], $columns, $table, [
+            'span' => 2,
             'error' => $error,
+            'empty' => 'No data in this period.',
         ]);
     }
 }

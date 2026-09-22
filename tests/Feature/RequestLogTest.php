@@ -2,12 +2,7 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\LivewireComponents;
-use Cbox\TelemetryUi\Cards\Builtin\LivewireRequestLog;
-use Cbox\TelemetryUi\Cards\Builtin\RequestLog;
-use Cbox\TelemetryUi\Cards\Builtin\RoutesTable;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 function fakeRequestLog(): void
 {
@@ -31,35 +26,34 @@ function fakeRequestLog(): void
     ]);
 }
 
-it('stays hidden while the routes view is active', function (): void {
-    fakeRequestLog();
-
-    Livewire::test(RequestLog::class)
-        ->assertDontSee('Request log');
-
-    Http::assertNothingSent(); // hidden mode costs zero backend queries
-});
-
 it('lists individual requests with user, ip and status', function (): void {
     fakeRequestLog();
 
-    Livewire::withQueryParams(['req_view' => 'log'])
-        ->test(RequestLog::class)
-        ->assertSee('/orders')
-        ->assertSee('#25')
-        ->assertSee('203.0.113.9')
-        ->assertSee('200')
-        ->assertSeeHtml('data-row-trace="1111111111111111aaaaaaaaaaaaaaaa"');
+    $this->getJson(panelUrl('request-log', ['period' => '1h']))
+        ->assertOk()
+        ->assertJsonPath('kind', 'table')
+        ->assertJsonPath('title', 'Request log')
+        ->assertJsonPath('rows.0.request.v', 'GET /orders')
+        ->assertJsonPath('rows.0.user.v', '#25')
+        ->assertJsonPath('rows.0.ip.v', '203.0.113.9')
+        ->assertJsonPath('rows.0.status.v', '200')
+        ->assertJsonPath('rows.0.status.tone', 'ok')
+        // Every row opens the request's story.
+        ->assertJsonPath('rows.0._link', ['to' => 'trace', 'id' => '1111111111111111aaaaaaaaaaaaaaaa'])
+        // Clicking a user / IP tails them: sets the panel's own filter.
+        ->assertJsonPath('rows.0.user.link', ['to' => 'param', 'params' => ['log_user' => '25']])
+        ->assertJsonPath('rows.0.ip.link', ['to' => 'param', 'params' => ['log_ip' => '203.0.113.9']]);
 });
 
 it('tails a specific user and ip via scoped traceql', function (): void {
     fakeRequestLog();
 
-    Livewire::withQueryParams(['req_view' => 'log'])
-        ->test(RequestLog::class)
-        ->set('user', '25')
-        ->set('ip', '203.0.113.9')
-        ->set('statusCode', '5xx');
+    $this->getJson(panelUrl('request-log', ['log_user' => '25', 'log_ip' => '203.0.113.9', 'log_status' => '5xx']))
+        ->assertOk()
+        // The filter controls reflect the bound params.
+        ->assertJsonPath('controls.0.param', 'log_user')
+        ->assertJsonPath('controls.0.value', '25')
+        ->assertJsonPath('controls.3.value', '5xx');
 
     Http::assertSent(function ($request): bool {
         $q = rawurldecode(requestQuery($request)['q'] ?? '');
@@ -70,60 +64,29 @@ it('tails a specific user and ip via scoped traceql', function (): void {
     });
 });
 
-it('live-tails by default', function (): void {
+it('offers a live-tail stream carrying the current filters', function (): void {
     fakeRequestLog();
 
-    $html = Livewire::withQueryParams(['req_view' => 'log'])
-        ->test(RequestLog::class)
-        ->html();
-
-    expect($html)->toContain('wire:poll.4s')
-        ->and($html)->toContain('● Live');
+    $this->getJson(panelUrl('request-log', ['log_user' => '25']))
+        ->assertOk()
+        ->assertJsonPath('stream.signal', 'requests')
+        ->assertJsonPath('stream.params', ['panel' => 'request-log', 'log_user' => '25']);
 });
 
-it('flips between routes and log via a livewire event, not a page load', function (): void {
+it('renders both the routes table and the request log — no view toggle', function (): void {
     fakeRequestLog();
 
-    // The log card appears when the toggle event fires…
-    Livewire::test(RequestLog::class)
-        ->assertDontSee('Request log')
-        ->dispatch('telemetry-ui:request-view-changed', view: 'log')
-        ->assertSee('Request log');
+    // v2 dropped the req_view mode swap: both panels always render.
+    $this->getJson(panelUrl('request-log', ['req_view' => 'routes']))
+        ->assertOk()
+        ->assertJsonPath('kind', 'table')
+        ->assertJsonPath('title', 'Request log');
 
-    // …and the routes card yields on the same event, and comes back.
-    Livewire::test(RoutesTable::class)
-        ->assertSee('Search routes')
-        ->dispatch('telemetry-ui:request-view-changed', view: 'log')
-        ->assertDontSee('Search routes')
-        ->dispatch('telemetry-ui:request-view-changed', view: 'routes')
-        ->assertSee('Search routes');
-});
-
-it('polls when live tailing is on', function (): void {
-    fakeRequestLog();
-
-    $html = Livewire::withQueryParams(['req_view' => 'log', 'live' => '1'])
-        ->test(RequestLog::class)
-        ->html();
-
-    expect($html)->toContain('wire:poll.4s')
-        ->and($html)->toContain('● Live');
-});
-
-it('the routes card yields to the log view', function (): void {
-    fakeRequestLog();
-
-    Livewire::withQueryParams(['req_view' => 'log'])
-        ->test(RoutesTable::class)
-        ->assertDontSee('Search routes');
-});
-
-it('the routes card links to the request log', function (): void {
-    fakeRequestLog();
-
-    Livewire::test(RoutesTable::class)
-        ->assertSee('Routes')
-        ->assertSee('Request log'); // the toggle link
+    $this->getJson(panelUrl('routes-table', ['req_view' => 'log']))
+        ->assertOk()
+        ->assertJsonPath('kind', 'table')
+        ->assertJsonPath('title', 'Routes')
+        ->assertJsonPath('controls.0.param', 'route_search');
 });
 
 it('shows the livewire component instead of the anonymous update url', function (): void {
@@ -146,17 +109,18 @@ it('shows the livewire component instead of the anonymous update url', function 
         'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
     ]);
 
-    Livewire::withQueryParams(['req_view' => 'log'])
-        ->test(RequestLog::class)
-        ->assertSee('livewire:trace-drawer')
-        ->assertDontSee('/livewire/update');
+    $this->getJson(panelUrl('request-log'))
+        ->assertOk()
+        ->assertJsonPath('rows.0.request.v', 'POST livewire:trace-drawer')
+        ->assertDontSee('/livewire/update', false);
 });
 
 it('lists livewire components as a scoped routes table', function (): void {
     fakeRequestLog();
 
-    Livewire::test(LivewireComponents::class)
-        ->assertSee('Components');
+    $this->getJson(panelUrl('livewire-components'))
+        ->assertOk()
+        ->assertJsonPath('title', 'Components');
 
     Http::assertSent(function ($request): bool {
         $q = rawurldecode(requestQuery($request)['query'] ?? '');
@@ -165,12 +129,29 @@ it('lists livewire components as a scoped routes table', function (): void {
     });
 });
 
+it('drills each route row into its detail page', function (): void {
+    Http::fake([
+        'prometheus.test:9090/api/v1/query_range*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'matrix', 'result' => []]]),
+        'prometheus.test:9090/api/v1/query*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => [
+            ['metric' => ['http_route' => '/orders', 'http_request_method' => 'GET', 'http_response_status_code' => '500'], 'value' => [1735689600, '12']],
+        ]]]),
+        'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
+    ]);
+
+    $this->getJson(panelUrl('routes-table'))
+        ->assertOk()
+        ->assertJsonPath('rows.0.route.v', '/orders')
+        ->assertJsonPath('rows.0.5xx.tone', 'danger')
+        ->assertJsonPath('rows.0._link', ['to' => 'entity', 'type' => 'route', 'value' => '/orders']);
+});
+
 it('narrows the livewire request log to livewire routes', function (): void {
     fakeRequestLog();
 
-    Livewire::withQueryParams(['req_view' => 'log'])
-        ->test(LivewireRequestLog::class)
-        ->assertSee('Request log');
+    $this->getJson(panelUrl('livewire-request-log'))
+        ->assertOk()
+        ->assertJsonPath('title', 'Request log')
+        ->assertJsonPath('stream.params.panel', 'livewire-request-log');
 
     Http::assertSent(function ($request): bool {
         $q = rawurldecode(requestQuery($request)['q'] ?? '');

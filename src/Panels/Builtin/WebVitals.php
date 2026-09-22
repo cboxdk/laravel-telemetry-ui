@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
-use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Support\Format;
 
@@ -21,6 +22,11 @@ final class WebVitals extends Panel
     use CoercesAttributes;
 
     private const SEARCH_LIMIT = 200;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     public function data(): array
     {
@@ -90,23 +96,43 @@ final class WebVitals extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.web-vitals';
+        $extra = ['subtitle' => 'Real-user p75 LCP / CLS / INP per page, reported at page-hide (field data, not lab)'];
 
-        return view($view, [
-            'stats' => $stats,
-            'rows' => array_slice($rows, 0, 100),
-            'error' => $error,
+        if ($error !== null) {
+            return Ui::composite('Core Web Vitals', [], [...$extra, 'error' => $error]);
+        }
+
+        if ($rows === []) {
+            return Ui::composite('Core Web Vitals', [], [
+                ...$extra,
+                'empty' => 'No web-vitals spans in this period. Requires the browser SDK with ingest.spans.browser.vitals enabled (default on).',
+            ]);
+        }
+
+        $columns = [
+            Ui::col('path', 'Page'),
+            Ui::num('views', 'Views'),
+            Ui::num('lcp', 'LCP p75'),
+            Ui::num('cls', 'CLS p75'),
+            Ui::num('inp', 'INP p75'),
+        ];
+
+        $cells = array_map(fn (array $row): array => [
+            'path' => Ui::cell($row['path'], ['mono' => true, 'dim' => ['key' => 'url.path', 'value' => $row['path']]]),
+            'views' => Ui::cell((string) $row['views'], ['raw' => $row['views']]),
+            'lcp' => Ui::cell($this->fmt($row['lcp'], 'ms'), ['raw' => $row['lcp'], 'tone' => $this->tone($row['lcp'], 2500, 4000)]),
+            'cls' => Ui::cell($this->fmt($row['cls'], ''), ['raw' => $row['cls'], 'tone' => $this->tone($row['cls'], 0.1, 0.25)]),
+            'inp' => Ui::cell($this->fmt($row['inp'], 'ms'), ['raw' => $row['inp'], 'tone' => $this->tone($row['inp'], 200, 500)]),
+            '_link' => Ui::entity('path', $row['path']),
+        ], array_slice($rows, 0, 100));
+
+        return Ui::composite('Core Web Vitals', [
+            Ui::stats('', $stats),
+            Ui::table('', $columns, $cells),
+        ], [
+            ...$extra,
+            'note' => 'Green / amber / red on Google\'s good / needs-improvement / poor thresholds. Bounded trace sample.',
         ]);
-    }
-
-    /**
-     * This page's own detail page — traffic, performance, traces and errors
-     * scoped to the one URL path, not a pre-filtered trace search.
-     */
-    public function pageDetailUrl(string $path): string
-    {
-        return $this->pageUrl('page-detail', ['path' => $path]);
     }
 
     /**

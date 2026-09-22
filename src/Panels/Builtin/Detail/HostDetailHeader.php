@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -16,6 +17,14 @@ final class HostDetailHeader extends Panel
 {
     use ScopesToMachine;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function data(): array
     {
         $error = null;
@@ -30,21 +39,15 @@ final class HostDetailHeader extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.detail-header';
-
-        return view($view, [
-            'title' => $this->host === '' ? '(all hosts)' : $this->host,
-            'subtitle' => 'Host detail',
-            'backUrl' => $this->pageUrl('hosts'),
-            'backLabel' => '← All hosts',
+        return Ui::header($this->host === '' ? '(all hosts)' : $this->host, 'Host detail', [
+            ['label' => 'CPU', 'value' => $cpu !== null && ! is_nan($cpu) ? Format::percent($cpu) : '—', 'tone' => $cpu !== null && $cpu > 0.85 ? 'danger' : null],
+            ['label' => 'Memory', 'value' => $memory !== null && ! is_nan($memory) ? Format::percent($memory) : '—', 'tone' => $memory !== null && $memory > 0.9 ? 'danger' : 'dim'],
+            ['label' => 'Load 1m', 'value' => $load !== null && ! is_nan($load) ? rtrim(rtrim(number_format($load, 2), '0'), '.') : '—', 'tone' => 'dim'],
+            ['label' => 'Requests', 'value' => $requests !== null && ! is_nan($requests) ? Format::count($requests) : '—', 'tone' => 'dim'],
+        ], [
+            'back' => [...Ui::page('hosts'), 'label' => '← All hosts'],
             'error' => $error,
-            'stats' => [
-                ['label' => 'CPU', 'value' => $cpu !== null && ! is_nan($cpu) ? Format::percent($cpu) : '—', 'tone' => $cpu !== null && $cpu > 0.85 ? 'danger' : null],
-                ['label' => 'Memory', 'value' => $memory !== null && ! is_nan($memory) ? Format::percent($memory) : '—', 'tone' => $memory !== null && $memory > 0.9 ? 'danger' : 'dim'],
-                ['label' => 'Load 1m', 'value' => $load !== null && ! is_nan($load) ? rtrim(rtrim(number_format($load, 2), '0'), '.') : '—', 'tone' => 'dim'],
-                ['label' => 'Requests', 'value' => $requests !== null && ! is_nan($requests) ? Format::count($requests) : '—', 'tone' => 'dim'],
-            ],
+            'span' => 2,
         ]);
     }
 }

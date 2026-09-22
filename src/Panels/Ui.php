@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels;
 
+use Cbox\TelemetryUi\Panels\Concerns\BuildsCharts;
+
 /**
  * Builders for the panel JSON contract the SPA renders — the one place the
  * payload shapes are spelled, mirrored 1:1 by `resources/app/src/api/types.ts`.
@@ -12,6 +14,14 @@ namespace Cbox\TelemetryUi\Panels;
  * chart, stats, table, bars, composite, heatmap, graph, logs, header, kv, code,
  * callout and hidden. Common optional keys on any kind: title, subtitle, span
  * (grid columns 1–3), error, empty, note, drill (a {@see Link}), controls.
+ *
+ * Kinds without a builder here are plain arrays:
+ * - heatmap: `{xs: list<int ms>, ys: list<string>, cells: list<[xi, yi, value]>, unit?, link?}`
+ * - graph:   `{nodes: list<{id, label, kind?, color?, requests?, errors?, p95?, link?}>,
+ *             edges: list<{source, target, count, errors?, p95?}>}`
+ * - logs:    `{entries: list<{time, ms, level, tone, message, labels: map, traceId?}>,
+ *             stream?: {signal: 'logs'|'requests', params: map}}` — stream enables SSE live-tail
+ * - chart:   see {@see BuildsCharts::chartCard()}
  *
  * Links are data, never URLs: the SPA owns routing (and the base path), so a
  * drill-down says *what* it opens — an entity, a trace, an error group — and the
@@ -75,6 +85,17 @@ final class Ui
     public static function explore(string $signal, array $where = []): array
     {
         return ['to' => 'explore', 'signal' => $signal, 'where' => $where];
+    }
+
+    /**
+     * Set one of this panel's own params (e.g. click an IP to filter the
+     * request log to it) — the in-panel equivalent of Livewire's `$set`.
+     *
+     * @return Link
+     */
+    public static function param(string $param, string $value): array
+    {
+        return ['to' => 'param', 'params' => [$param => $value]];
     }
 
     /** @return Link */

@@ -28,10 +28,12 @@ final class IssueController
         }
 
         try {
-            return Json::ok(Serializer::issue($connections->issues()->issue($id)));
+            $issue = $connections->issues()->issue($id);
         } catch (SourceException $exception) {
             return ApiError::backend($exception->getMessage());
         }
+
+        return $issue !== null ? Json::ok(Serializer::issue($issue)) : ApiError::notFound("Issue {$id} was not found.");
     }
 
     public function store(Request $request, ConnectionManager $connections): JsonResponse

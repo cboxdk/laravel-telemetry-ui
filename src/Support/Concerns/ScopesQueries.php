@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Support\Concerns;
 
-
 use Cbox\TelemetryUi\Queries\Ir\LabelFilter;
 use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;

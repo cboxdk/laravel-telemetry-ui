@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 
 /**
  * Sentry's tag distributions: which hosts, environments, releases, services
@@ -76,9 +77,22 @@ final class ErrorGroupTags extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.error-group-tags';
+        // One ranked-bars block per tag: its top three values by share.
+        $parts = array_map(static fn (array $tag): array => Ui::bars(
+            $tag['label'].' · '.$tag['distinct'],
+            array_map(static fn (array $value): array => [
+                'label' => $value['value'],
+                'value' => $value['pct'],
+                'display' => $value['pct'].'%',
+                'sub' => $value['count'].' occurrences',
+            ], $tag['top']),
+        ), $tags);
 
-        return view($view, ['tags' => $tags, 'error' => $error]);
+        return Ui::composite('Tags', $parts, [
+            'subtitle' => 'What the occurrences have in common — one host, one release, one user?',
+            'span' => 2,
+            'error' => $error,
+            'empty' => 'No tag data on this group\'s occurrences.',
+        ]);
     }
 }

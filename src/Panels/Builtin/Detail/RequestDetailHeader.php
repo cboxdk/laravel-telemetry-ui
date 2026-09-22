@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -15,6 +16,11 @@ use Cbox\TelemetryUi\Support\Format;
 final class RequestDetailHeader extends Panel
 {
     use ScopesToRoute;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     public function data(): array
     {
@@ -42,26 +48,20 @@ final class RequestDetailHeader extends Panel
 
         $errRate = $total > 0 ? $errCount / $total : 0.0;
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.detail-header';
-
-        return view($view, [
-            'title' => $this->route === '' ? '(all routes)' : $this->route,
-            'subtitle' => 'Route detail',
-            'backUrl' => $this->backUrl(),
-            'backLabel' => '← All requests',
-            'error' => $error,
-            'stats' => [
-                ['label' => 'Requests', 'value' => Format::count($total), 'tone' => null],
-                ['label' => 'Error rate', 'value' => Format::percent($errRate), 'tone' => $errRate > 0.01 ? 'danger' : 'dim'],
-                ['label' => 'AVG', 'value' => $total > 0 ? Format::ms($time / $total * 1000) : '—', 'tone' => 'dim'],
-                ['label' => 'P95', 'value' => $p95 !== null ? Format::ms($p95 * 1000) : '—', 'tone' => 'warn'],
+        return Ui::header(
+            $this->route === '' ? '(all routes)' : $this->route,
+            'Route detail',
+            [
+                $this->stat('Requests', Format::count($total)),
+                $this->stat('Error rate', Format::percent($errRate), $errRate > 0.01 ? 'danger' : 'dim'),
+                $this->stat('AVG', $total > 0 ? Format::ms($time / $total * 1000) : '—', 'dim'),
+                $this->stat('P95', $p95 !== null ? Format::ms($p95 * 1000) : '—', 'warn'),
             ],
-        ]);
-    }
-
-    public function backUrl(): string
-    {
-        return $this->pageUrl('requests');
+            array_filter([
+                'back' => Ui::page('requests'),
+                'backLabel' => '← All requests',
+                'error' => $error,
+            ], static fn ($v): bool => $v !== null),
+        );
     }
 }

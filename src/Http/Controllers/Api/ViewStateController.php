@@ -22,10 +22,14 @@ final class ViewStateController
     {
         $values = [];
 
-        foreach (['period', 'from', 'to', 'service', 'env', 'refresh'] as $key) {
+        foreach (['period', 'from', 'to', 'service', 'env'] as $key) {
             if ($request->has($key)) {
                 $values[$key] = (string) $request->input($key, '');
             }
+        }
+
+        if ($request->has('refresh')) {
+            $values['refresh'] = (int) $request->input('refresh', 0);
         }
 
         $state->put($values);

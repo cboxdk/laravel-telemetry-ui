@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
-use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
+use Cbox\TelemetryUi\Support\Format;
 use DateTimeImmutable;
 use Illuminate\Support\Carbon;
-use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Illuminate\Support\Str;
 
 /**
  * The unified errors list — every exception, frontend and backend, grouped by
@@ -176,13 +179,73 @@ final class UnifiedErrors extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.unified-errors';
+        return $this->payload(array_slice($rows, 0, 100), $error, $truncated);
+    }
 
-        return view($view, [
-            'rows' => array_slice($rows, 0, 100),
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return array<string, mixed>
+     */
+    private function payload(array $rows, ?string $error, bool $sampled): array
+    {
+        $table = [];
+
+        foreach ($rows as $row) {
+            /** @var array{group: string, type: string, message: string, count: int, buckets: array<int, int>, users: int, firstSeen: string, lastSeen: string, source: string, isNew: bool, firstNano: int, lastNano: int} $row */
+            $badge = match ($row['source']) {
+                'frontend' => 'web',
+                'full-stack' => 'full-stack',
+                default => 'server',
+            };
+
+            $table[] = [
+                '_link' => Ui::error($row['group']),
+                'source' => Ui::cell($badge, ['badge' => $badge, 'tone' => $row['source'] === 'backend' ? 'info' : null]),
+                'error' => Ui::cell($row['type'] !== '' ? $row['type'] : $row['group'], array_filter([
+                    'sub' => Str::limit($row['message'], 120),
+                    'badge' => $row['isNew'] ? 'NEW' : '',
+                ], static fn (string $v): bool => $v !== '')),
+                'trend' => Ui::cell(null, [
+                    'spark' => array_map(static fn (int $n): float => (float) $n, array_values($row['buckets'])),
+                    'tone' => 'danger',
+                ]),
+                'events' => Ui::cell(Format::count((float) $row['count']), ['raw' => $row['count'], 'mono' => true, 'tone' => 'danger']),
+                'users' => Ui::cell($row['users'] > 0 ? Format::count((float) $row['users']) : '—', ['raw' => $row['users'], 'mono' => true]),
+                'firstSeen' => Ui::cell($row['firstSeen'], ['raw' => intdiv($row['firstNano'], 1_000_000), 'tone' => 'dim']),
+                'lastSeen' => Ui::cell($row['lastSeen'], ['raw' => intdiv($row['lastNano'], 1_000_000), 'tone' => 'dim']),
+            ];
+        }
+
+        $filtered = $this->search !== '' || $this->sourceFilter !== '';
+
+        return Ui::table('Errors', [
+            Ui::col('source', 'Source'),
+            Ui::col('error', 'Error'),
+            Ui::col('trend', 'Trend'),
+            Ui::num('events', 'Events'),
+            Ui::num('users', 'Users'),
+            Ui::num('firstSeen', 'First seen'),
+            Ui::num('lastSeen', 'Last seen'),
+        ], $table, [
+            'subtitle' => 'Every exception — frontend and backend — grouped by fingerprint. Click a row for stacktrace, occurrences and root-cause hints.',
+            'span' => 2,
             'error' => $error,
-            'sampled' => $truncated,
+            'empty' => $filtered ? 'No errors match the filter.' : 'No errors in this period. 🎉',
+            'note' => $sampled ? 'Sampled — counts are lower bounds.' : null,
+            'controls' => [
+                Ui::search('err_q', 'Filter', $this->search, 'Filter by type or message…'),
+                Ui::select('err_source', 'Source', $this->sourceFilter, [
+                    ['value' => '', 'label' => 'All sources'],
+                    ['value' => 'backend', 'label' => 'Server'],
+                    ['value' => 'frontend', 'label' => 'Web'],
+                    ['value' => 'full-stack', 'label' => 'Full-stack'],
+                ]),
+                Ui::select('err_sort', 'Sort', in_array($this->sort, ['count', 'last', 'new'], true) ? $this->sort : 'count', [
+                    ['value' => 'count', 'label' => 'Events'],
+                    ['value' => 'last', 'label' => 'Last seen'],
+                    ['value' => 'new', 'label' => 'First seen'],
+                ]),
+            ],
         ]);
     }
 
@@ -225,14 +288,6 @@ final class UnifiedErrors extends Panel
         }
 
         $groups[$group] = $row;
-    }
-
-    /**
-     * The group's own issue page.
-     */
-    public function showUrl(string $group): string
-    {
-        return $this->pageUrl('error-detail', ['group' => $group]);
     }
 
     private function source(bool $frontend, bool $backend): string

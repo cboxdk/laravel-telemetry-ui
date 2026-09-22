@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * N+1 smells: queries that ran identically more than the configured threshold
@@ -17,6 +19,11 @@ use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 final class DuplicateQueries extends Panel
 {
     private const SEARCH_LIMIT = 500;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     public function data(): array
     {
@@ -70,17 +77,32 @@ final class DuplicateQueries extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.duplicate-queries';
+        $table = array_map(static function (array $row): array {
+            $trace = $row['traceId'] !== '' ? Ui::trace($row['traceId']) : null;
 
-        return view($view, [
-            'rows' => array_slice($rows, 0, 50),
+            return array_filter([
+                'query' => Ui::cell($row['query'], ['mono' => true]),
+                'connection' => Ui::cell($row['connection'] !== '' ? $row['connection'] : '—'),
+                'traces' => Ui::cell(Format::count($row['traces']), ['raw' => $row['traces'], 'tone' => 'warn']),
+                'repeat' => Ui::cell('×'.$row['worstRepeat'], ['raw' => $row['worstRepeat'], 'tone' => 'danger']),
+                'trace' => $trace !== null
+                    ? Ui::cell(substr($row['traceId'], 0, 8).'…', ['mono' => true, 'link' => $trace])
+                    : Ui::cell('—'),
+                '_link' => $trace,
+            ], static fn ($v): bool => $v !== null);
+        }, array_slice($rows, 0, 50));
+
+        return Ui::table('Duplicate queries (N+1)', [
+            Ui::col('query', 'Query'),
+            Ui::col('connection', 'Connection'),
+            Ui::num('traces', 'Traces affected'),
+            Ui::num('repeat', 'Worst repeat'),
+            Ui::num('trace', 'Trace'),
+        ], $table, array_filter([
+            'subtitle' => 'Queries that repeated identically within one trace — the classic N+1 smell, named',
             'error' => $error,
-        ]);
-    }
-
-    public function traceUrl(string $traceId): string
-    {
-        return route('telemetry-ui.trace', ['traceId' => $traceId]);
+            'empty' => 'No duplicate-query detections in this period. 🎉',
+            'note' => 'Fired once per distinct query when it crosses the repeat threshold (default 3). Fix with eager loading or caching.',
+        ], static fn ($v): bool => $v !== null));
     }
 }

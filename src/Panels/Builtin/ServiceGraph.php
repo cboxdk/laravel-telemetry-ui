@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
+use Cbox\TelemetryUi\Support\Format;
 use Cbox\TelemetryUi\Support\ServiceIdentity;
 
 /**
@@ -68,28 +70,55 @@ final class ServiceGraph extends Panel
 
         usort($edges, static fn (array $a, array $b): int => $b['requests'] <=> $a['requests']);
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.service-graph';
+        $graph = [
+            'kind' => 'graph',
+            'title' => 'Service graph',
+            'subtitle' => 'Who-calls-whom across proxies, Beyla-instrumented infra and apps (from Tempo)',
+            'span' => 2,
+            ...$this->graphData($edges),
+        ];
 
-        return view($view, [
-            'edges' => $edges,
-            'graph' => $this->graphData($edges),
-            'error' => $error,
+        if ($error !== null || $edges === []) {
+            return [
+                ...$graph,
+                'error' => $error,
+                'empty' => 'No service-graph edges in this period. Requires Tempo\'s metrics-generator (service-graphs processor) remote-writing to your metrics backend.',
+            ];
+        }
+
+        $rows = array_map(static fn (array $edge): array => [
+            'client' => Ui::cell($edge['client'], ['badge' => $edge['client']]),
+            'arrow' => Ui::cell('→', ['tone' => 'dim']),
+            'server' => Ui::cell($edge['server'], ['badge' => $edge['server']]),
+            'requests' => Ui::cell(Format::count($edge['requests']), ['raw' => $edge['requests'], 'mono' => true]),
+            'failed' => Ui::cell(Format::count($edge['failed']), ['raw' => $edge['failed'], 'mono' => true, 'tone' => $edge['failed'] > 0 ? 'danger' : null]),
+            'p95' => $edge['p95'] !== null
+                ? Ui::cell(Format::ms($edge['p95']), ['raw' => $edge['p95'], 'mono' => true])
+                : Ui::cell('—', ['mono' => true]),
+        ], $edges);
+
+        return Ui::composite('Service graph', [
+            [...$graph, 'title' => ''],
+            Ui::table('', [
+                Ui::col('client', 'Client'),
+                Ui::col('arrow', ''),
+                Ui::col('server', 'Server'),
+                Ui::num('requests', 'Requests'),
+                Ui::num('failed', 'Failed'),
+                Ui::num('p95', 'P95'),
+            ], $rows),
+        ], [
+            'subtitle' => $graph['subtitle'],
+            'span' => 2,
         ]);
     }
 
-    public function color(string $service): string
-    {
-        return ServiceIdentity::color($service);
-    }
-
     /**
-     * Shape the edge list into an ECharts force-graph payload: one node per
-     * service (sized/health-coloured by the traffic it receives) and one link
-     * per edge (width by volume, red when it's failing).
+     * The `graph` payload: one node per service (sized/health-coloured by the
+     * traffic it receives) and one edge per client → server relation.
      *
      * @param  list<array{client: string, server: string, requests: float, failed: float, p95: float|null}>  $edges
-     * @return array{nodes: list<array{name: string, value: float, failed: float, color: string}>, links: list<array{source: string, target: string, requests: float, failed: float, p95: float|null, errorRate: float}>}
+     * @return array{nodes: list<array{id: string, label: string, kind: string, color: string, requests: float, errors: float}>, edges: list<array{source: string, target: string, count: float, errors: float, p95: float|null}>}
      */
     private function graphData(array $edges): array
     {
@@ -110,23 +139,25 @@ final class ServiceGraph extends Panel
         $nodes = [];
 
         foreach (array_keys($services) as $service) {
+            $service = (string) $service;
             $nodes[] = [
-                'name' => $service,
-                'value' => $inbound[$service] ?? 0.0,
-                'failed' => $inboundFailed[$service] ?? 0.0,
+                'id' => $service,
+                'label' => $service,
+                'kind' => ServiceIdentity::kind($service),
                 'color' => ServiceIdentity::color($service),
+                'requests' => $inbound[$service] ?? 0.0,
+                'errors' => $inboundFailed[$service] ?? 0.0,
             ];
         }
 
         $links = array_map(static fn (array $edge): array => [
             'source' => $edge['client'],
             'target' => $edge['server'],
-            'requests' => $edge['requests'],
-            'failed' => $edge['failed'],
+            'count' => $edge['requests'],
+            'errors' => $edge['failed'],
             'p95' => $edge['p95'],
-            'errorRate' => $edge['requests'] > 0.0 ? $edge['failed'] / $edge['requests'] : 0.0,
         ], $edges);
 
-        return ['nodes' => $nodes, 'links' => $links];
+        return ['nodes' => $nodes, 'edges' => $links];
     }
 }

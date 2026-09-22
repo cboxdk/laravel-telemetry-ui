@@ -4,15 +4,16 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
+use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Builtin\FrontendPages;
 use Cbox\TelemetryUi\Panels\Builtin\WebVitals;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\LabelFilter;
 use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\LogStage;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
-use Cbox\TelemetryUi\Panels\Attributes\Param;
 
 /**
  * Scopes a card to a single concrete URL path (the `?path=` from the
@@ -77,10 +78,13 @@ trait ScopesToPage
     }
 
     /**
-     * Back to the analytics overview — where these rows drill from.
+     * Back to the analytics overview — where these rows drill from. Shaped
+     * like a panel `drill` link (a Link plus its label).
+     *
+     * @return array<string, mixed>
      */
-    public function backUrl(): string
+    protected function backLink(): array
     {
-        return $this->pageUrl('analytics');
+        return [...Ui::page('analytics'), 'label' => '← Analytics'];
     }
 }

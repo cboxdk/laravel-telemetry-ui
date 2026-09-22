@@ -41,9 +41,13 @@ function fakeHostExporters(): void
 it('shows exporter-backed services on the host detail page', function (): void {
     fakeHostExporters();
 
-    $this->get('/telemetry-ui/host-detail?host=web-3')
+    $this->getJson(panelUrl('host-services', ['host' => 'web-3']))
         ->assertOk()
-        ->assertSee('Redis')
+        ->assertJsonPath('kind', 'composite')
+        ->assertJsonCount(1, 'parts') // only the exporter that answered
+        ->assertJsonPath('parts.0.title', 'Redis')
+        ->assertJsonPath('parts.0.badge.label', 'up')
+        ->assertJsonPath('parts.0.badge.tone', 'ok')
         ->assertSee('50 MB')
         ->assertDontSee('MySQL'); // probe returned nothing → section hidden
 
@@ -58,7 +62,47 @@ it('shows the empty state when no exporters answer for the host', function (): v
         'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
     ]);
 
-    $this->get('/telemetry-ui/host-detail?host=web-3')
+    $this->getJson(panelUrl('host-services', ['host' => 'web-3']))
         ->assertOk()
+        ->assertJsonPath('parts', [])
         ->assertSee('No service exporters detected');
+});
+
+it('lists hosts linking to the host page and to their requests', function (): void {
+    Http::fake([
+        'prometheus.test:9090/api/v1/query?*' => function ($request) {
+            $q = rawurldecode(requestQuery($request)['query'] ?? '');
+
+            $value = match (true) {
+                str_contains($q, 'memory') => '0.95',
+                str_contains($q, 'cpu') => '0.4',
+                str_contains($q, '5..') => '3',
+                default => '1200',
+            };
+
+            return Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => [
+                ['metric' => ['host_name' => 'web-3'], 'value' => [1735689600, $value]],
+            ]]]);
+        },
+    ]);
+
+    $this->getJson(panelUrl('hosts-table'))
+        ->assertOk()
+        ->assertJsonPath('rows.0._link', ['to' => 'entity', 'type' => 'host', 'value' => 'web-3'])
+        ->assertJsonPath('rows.0.host.dim', ['key' => 'host.name', 'value' => 'web-3'])
+        ->assertJsonPath('rows.0.requests.link.page', 'traces')
+        ->assertJsonPath('rows.0.requests.link.params.q', fn (string $q): bool => str_contains($q, '.host.name = "web-3"'))
+        ->assertJsonPath('rows.0.errors.tone', 'danger')
+        ->assertJsonPath('rows.0.memory.tone', 'warn');
+});
+
+it('renders the host detail header with a back link', function (): void {
+    fakeHostExporters();
+
+    $this->getJson(panelUrl('host-detail-header', ['host' => 'web-3']))
+        ->assertOk()
+        ->assertJsonPath('kind', 'header')
+        ->assertJsonPath('title', 'web-3')
+        ->assertJsonPath('back.page', 'hosts')
+        ->assertJsonPath('stats.0.label', 'CPU');
 });

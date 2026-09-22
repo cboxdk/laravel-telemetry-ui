@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -29,24 +30,13 @@ final class ExceptionDetailHeader extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.detail-header';
-
-        return view($view, [
-            'title' => $this->exception === '' ? '(all exceptions)' : $this->exception,
-            'subtitle' => 'Exception detail',
-            'backUrl' => $this->backUrl(),
-            'backLabel' => '← All exceptions',
+        return Ui::header($this->exception === '' ? '(all exceptions)' : $this->exception, 'Exception detail', [
+            $this->stat('Occurrences', Format::count($total), $total > 0 ? 'danger' : 'dim'),
+            $this->stat('Window', $this->period()->label(), 'dim'),
+        ], [
+            'back' => [...Ui::page('exceptions'), 'label' => '← All exceptions'],
             'error' => $error,
-            'stats' => [
-                ['label' => 'Occurrences', 'value' => Format::count($total), 'tone' => $total > 0 ? 'danger' : 'dim'],
-                ['label' => 'Window', 'value' => $this->period()->label(), 'tone' => 'dim'],
-            ],
+            'span' => 2,
         ]);
-    }
-
-    public function backUrl(): string
-    {
-        return $this->pageUrl('exceptions');
     }
 }

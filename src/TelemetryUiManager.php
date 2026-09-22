@@ -6,9 +6,9 @@ namespace Cbox\TelemetryUi;
 
 use Cbox\TelemetryUi\Dimensions\Dimension;
 use Cbox\TelemetryUi\Dimensions\Dimensions;
+use Cbox\TelemetryUi\Events\ViewStateChanged;
 use Cbox\TelemetryUi\Panels\Builtin;
 use Cbox\TelemetryUi\Panels\Panel;
-use Cbox\TelemetryUi\Events\ViewStateChanged;
 use Cbox\TelemetryUi\Support\ConnectionOption;
 use Cbox\TelemetryUi\Support\NavLink;
 use Cbox\TelemetryUi\Support\SchemaDetector;

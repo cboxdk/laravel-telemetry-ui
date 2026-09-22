@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
-use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Support\Format;
 
@@ -22,6 +23,11 @@ final class FrontendPages extends Panel
     use CoercesAttributes;
 
     private const SEARCH_LIMIT = 200;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     public function data(): array
     {
@@ -87,23 +93,41 @@ final class FrontendPages extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.frontend-pages';
+        $extra = ['subtitle' => 'Real-user navigation timings from the browser (RUM), grouped by page.'];
 
-        return view($view, [
-            'stats' => $stats,
-            'rows' => array_slice($rows, 0, 100),
-            'error' => $error,
-        ]);
-    }
+        if ($error !== null) {
+            return Ui::composite('Page performance', [], [...$extra, 'error' => $error]);
+        }
 
-    /**
-     * This page's own detail page — traffic, performance, traces and errors
-     * scoped to the one URL path, not a pre-filtered trace search.
-     */
-    public function pageDetailUrl(string $path): string
-    {
-        return $this->pageUrl('page-detail', ['path' => $path]);
+        if ($rows === []) {
+            return Ui::composite('Page performance', [], [
+                ...$extra,
+                'empty' => 'No browser page loads in this period. RUM runs under the app\'s own service — check the service scope, and that the frontend SDK (@telemetryBrowser) is enabled.',
+            ]);
+        }
+
+        $columns = [
+            Ui::col('path', 'Page'),
+            Ui::num('loads', 'Loads'),
+            Ui::num('loadMs', 'Avg load'),
+            Ui::num('ttfb', 'TTFB'),
+            Ui::num('dom', 'DOM interactive'),
+        ];
+
+        // Each row drills into the page's own detail page, not a trace search.
+        $cells = array_map(static fn (array $row): array => [
+            'path' => Ui::cell($row['path'], ['mono' => true, 'dim' => ['key' => 'url.path', 'value' => $row['path']]]),
+            'loads' => Ui::cell(Format::count($row['loads']), ['raw' => $row['loads']]),
+            'loadMs' => Ui::cell(Format::ms($row['loadMs']), ['raw' => $row['loadMs']]),
+            'ttfb' => Ui::cell(Format::ms($row['ttfb']), ['raw' => $row['ttfb'], 'tone' => 'dim']),
+            'dom' => Ui::cell(Format::ms($row['dom']), ['raw' => $row['dom'], 'tone' => 'dim']),
+            '_link' => Ui::entity('path', $row['path']),
+        ], array_slice($rows, 0, 100));
+
+        return Ui::composite('Page performance', [
+            Ui::stats('', $stats),
+            Ui::table('', $columns, $cells),
+        ], $extra);
     }
 
     /**

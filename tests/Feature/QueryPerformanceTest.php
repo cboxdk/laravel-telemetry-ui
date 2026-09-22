@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\QueryPerformance;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 function fakeQuerySpans(): void
 {
@@ -35,24 +33,24 @@ function fakeQuerySpans(): void
 it('aggregates db spans by statement and ranks by total DB time', function (): void {
     fakeQuerySpans();
 
-    Livewire::test(QueryPerformance::class)
+    $this->getJson(panelUrl('query-performance'))
         ->assertOk()
-        ->assertSee('select * from users where id = ?')
-        ->assertSee('select count(*) from orders')
-        // The repeated statement: 100ms + 300ms → 400ms total, 200ms avg, 300ms max.
-        ->assertSee('400ms')
-        ->assertSee('200ms')
+        ->assertJsonPath('exact', false)
         // Ranked by total time: the users query (400ms) above the orders query (50ms).
-        ->assertSeeInOrder(['select * from users where id = ?', 'select count(*) from orders']);
+        ->assertJsonPath('rows.0.query.v', 'select * from users where id = ?')
+        ->assertJsonPath('rows.1.query.v', 'select count(*) from orders')
+        // The repeated statement: 100ms + 300ms → 400ms total, 200ms avg, 300ms max.
+        ->assertJsonPath('rows.0.calls.v', '2')
+        ->assertJsonPath('rows.0.total.v', '400ms')
+        ->assertJsonPath('rows.0.avg.v', '200ms')
+        ->assertJsonPath('rows.0.max.v', '300ms');
 });
 
-it('links each row to a traces drill-down for that statement', function (): void {
+it('links each row to the detail page for that statement', function (): void {
     fakeQuerySpans();
 
-    Livewire::test(QueryPerformance::class)
-        // The full statement is the link title, and the row drills somewhere.
-        ->assertSeeHtml('title="select * from users where id = ?"')
-        ->assertSeeHtml('data-row-href');
+    $this->getJson(panelUrl('query-performance'))
+        ->assertJsonPath('rows.0._link', ['to' => 'entity', 'type' => 'query', 'value' => 'select * from users where id = ?']);
 });
 
 it('re-ranks by average when asked', function (): void {
@@ -60,8 +58,9 @@ it('re-ranks by average when asked', function (): void {
 
     // By average the orders query (50ms) still sits below users (200ms avg),
     // so users stays on top — but the sort param must be accepted without error.
-    Livewire::withQueryParams(['q_sort' => 'avg'])
-        ->test(QueryPerformance::class)
+    $this->getJson(panelUrl('query-performance', ['q_sort' => 'avg']))
         ->assertOk()
-        ->assertSee('select * from users where id = ?');
+        ->assertJsonPath('controls.2.param', 'q_sort')
+        ->assertJsonPath('controls.2.value', 'avg')
+        ->assertJsonPath('rows.0.query.v', 'select * from users where id = ?');
 });

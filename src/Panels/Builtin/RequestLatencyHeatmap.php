@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Support\Format;
 
@@ -18,14 +18,16 @@ class RequestLatencyHeatmap extends Panel
 {
     protected ?string $drillPage = 'requests';
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
     public function data(): array
     {
         [$start, $end] = $this->range();
 
         $bucket = $this->metric('http_server_request_duration_seconds_bucket');
-
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.request-latency-heatmap';
 
         try {
             $range = $this->metrics()->queryRange(
@@ -34,13 +36,30 @@ class RequestLatencyHeatmap extends Panel
                 $end,
             );
         } catch (SourceException $exception) {
-            return view($view, ['heatmap' => null, 'error' => $exception->getMessage()]);
+            return $this->payload(null, $exception->getMessage());
         }
 
-        return view($view, [
-            'heatmap' => $this->buildHeatmap($range),
-            'error' => null,
-        ]);
+        return $this->payload($this->buildHeatmap($range), null);
+    }
+
+    /**
+     * @param  array{x: list<int>, y: list<string>, cells: list<array{int, int, float}>, max: float}|null  $heatmap
+     * @return array<string, mixed>
+     */
+    private function payload(?array $heatmap, ?string $error): array
+    {
+        return array_filter([
+            'kind' => 'heatmap',
+            'title' => 'Latency distribution',
+            'subtitle' => 'Where requests actually land over time — the spread the p95 line hides',
+            'xs' => $heatmap['x'] ?? [],
+            'ys' => $heatmap['y'] ?? [],
+            'cells' => $heatmap['cells'] ?? [],
+            'max' => $heatmap['max'] ?? 0.0,
+            'unit' => 'req/min',
+            'error' => $error,
+            'empty' => 'No request-latency histogram in this period.',
+        ], static fn ($v): bool => $v !== null);
     }
 
     /**

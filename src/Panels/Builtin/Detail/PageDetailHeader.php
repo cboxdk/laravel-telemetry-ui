@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Support\Analytics;
@@ -24,6 +25,11 @@ final class PageDetailHeader extends Panel
     private const SAMPLE_LIMIT = 5000;
 
     private const SEARCH_LIMIT = 200;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     public function data(): array
     {
@@ -96,21 +102,19 @@ final class PageDetailHeader extends Panel
             }
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.detail-header';
-
-        return view($view, [
-            'title' => $this->page === '' ? '(no page)' : $this->page,
-            'subtitle' => 'Page detail',
-            'backUrl' => $this->backUrl(),
-            'backLabel' => '← Analytics',
-            'error' => $error,
-            'stats' => [
-                ['label' => 'Views', 'value' => Format::count($views), 'tone' => null],
-                ['label' => 'Unique visitors', 'value' => Format::count($visitors), 'tone' => 'dim'],
-                ['label' => 'Avg load', 'value' => $avgLoad !== null ? Format::ms($avgLoad) : '—', 'tone' => 'dim'],
-                ['label' => 'Errors', 'value' => Format::count($errors), 'tone' => $errors > 0 ? 'danger' : 'dim'],
+        return Ui::header(
+            $this->page === '' ? '(no page)' : $this->page,
+            'Page detail',
+            [
+                $this->stat('Views', Format::count($views)),
+                $this->stat('Unique visitors', Format::count($visitors), 'dim'),
+                $this->stat('Avg load', $avgLoad !== null ? Format::ms($avgLoad) : '—', 'dim'),
+                $this->stat('Errors', Format::count($errors), $errors > 0 ? 'danger' : 'dim'),
             ],
-        ]);
+            array_filter([
+                'drill' => $this->backLink(),
+                'error' => $error,
+            ], static fn (mixed $v): bool => $v !== null),
+        );
     }
 }

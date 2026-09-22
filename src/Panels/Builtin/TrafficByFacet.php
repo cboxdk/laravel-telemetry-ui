@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
-use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\TelemetryUiManager;
 
 /**
  * Traffic broken down by a span attribute facet: user, guard, user type,
  * client IP — or any custom attribute your app adds via
  * Telemetry::context()/enrichRequestsUsing(). Sampled from traces, because
  * unbounded dimensions like user ids don't belong in metric labels.
+ *
+ * @phpstan-import-type Link from Ui
  */
 final class TrafficByFacet extends Panel
 {
@@ -31,6 +35,11 @@ final class TrafficByFacet extends Panel
 
     #[Param('facet_attr')]
     public string $customAttribute = '';
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     public function data(): array
     {
@@ -68,22 +77,71 @@ final class TrafficByFacet extends Panel
             }
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.traffic-by-facet';
+        $controls = [Ui::select('facet', 'Facet', $this->facet, [
+            ...array_map(
+                static fn (string $key, array $facet): array => ['value' => $key, 'label' => $facet[1]],
+                array_keys(self::FACETS),
+                array_values(self::FACETS),
+            ),
+            ['value' => 'custom', 'label' => 'Custom attribute…'],
+        ])];
 
-        return view($view, [
-            'rows' => array_slice($rows, 0, 100),
+        if ($this->facet === 'custom') {
+            $controls[] = Ui::search('facet_attr', 'Attribute', $this->customAttribute, 'span attribute, e.g. team.id');
+        }
+
+        $valueColumn = $attribute !== null ? (self::FACETS[$this->facet][1] ?? $attribute) : 'Value';
+
+        $columns = [
+            Ui::col('value', $valueColumn),
+            Ui::num('traces', 'Traces (sampled)'),
+            Ui::num('errors', 'Errors (sampled)'),
+            Ui::col('lastAction', 'Last action'),
+            Ui::num('lastSeen', 'Last seen'),
+        ];
+
+        // A declared dimension (user.id, client.address, …) lets the SPA offer
+        // filter/group on the value; an ad-hoc attribute just drills.
+        $declared = $attribute !== null && app(TelemetryUiManager::class)->dimensions()->get($attribute) !== null;
+
+        $cells = array_map(function (array $row) use ($attribute, $declared): array {
+            $link = $this->tracesLink($row['value']);
+
+            $value = ['mono' => true, 'link' => $link];
+
+            if ($declared && $attribute !== null) {
+                $value['dim'] = ['key' => $attribute, 'value' => $row['value']];
+            }
+
+            return [
+                'value' => Ui::cell($row['value'], $value),
+                'traces' => Ui::cell($row['traces'], ['raw' => $row['traces']]),
+                'errors' => Ui::cell($row['errors'], ['raw' => $row['errors'], 'tone' => $row['errors'] > 0 ? 'danger' : null]),
+                'lastAction' => Ui::cell($row['lastAction']),
+                'lastSeen' => Ui::cell($row['lastSeen']->format('H:i:s'), ['raw' => $row['lastSeen']->getTimestamp() * 1000]),
+                '_link' => $link,
+            ];
+        }, array_slice($rows, 0, 100));
+
+        return Ui::table('Traffic by', $columns, $cells, array_filter([
+            'subtitle' => 'Requests grouped by a span attribute (user, guard, IP or custom), sampled from traces',
+            'controls' => $controls,
             'error' => $error,
-            'facets' => array_map(static fn (array $facet): string => $facet[1], self::FACETS),
-            'valueColumn' => $attribute !== null ? (self::FACETS[$this->facet][1] ?? $attribute) : 'Value',
-        ]);
+            'empty' => 'No traces carrying this attribute in the period.',
+            'note' => 'Sampled from the most recent 100 matching traces per column — trends, not exact counts.',
+        ], static fn (mixed $v): bool => $v !== null));
     }
 
-    public function tracesUrl(string $value): string
+    /**
+     * The traces page pre-filtered to one facet value.
+     *
+     * @return Link
+     */
+    private function tracesLink(string $value): array
     {
         $attribute = $this->attribute() ?? 'user.id';
 
-        return $this->pageUrl('traces', [
+        return Ui::page('traces', [
             'q' => '{ '.$this->traceScope('span.'.$attribute.' = "'.addcslashes($value, '"\\').'"').' }',
         ]);
     }
@@ -124,7 +182,10 @@ final class TrafficByFacet extends Panel
                     }
                 }
 
-                foreach (array_keys($values) as $value) {
+                foreach (array_keys($values) as $key) {
+                    // PHP turns numeric-string keys (user id 42) into ints.
+                    $value = (string) $key;
+
                     $rows[$value] ??= [
                         'value' => $value,
                         'traces' => 0,

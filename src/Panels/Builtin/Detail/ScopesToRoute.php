@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
+use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
-use Cbox\TelemetryUi\Panels\Attributes\Param;
 
 /**
  * Scopes a card to a single HTTP route (the `?route=` from the request-detail

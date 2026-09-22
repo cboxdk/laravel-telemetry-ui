@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 
 /**
  * Scopes a card to a single queue job (the `?job=` on the job-detail page).

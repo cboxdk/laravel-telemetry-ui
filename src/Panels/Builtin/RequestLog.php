@@ -4,27 +4,24 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
-use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
-use Livewire\Attributes\On;
-use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * The request LOG: individual requests, newest first — the live-tail view
  * for production debugging. Filter down to one user or one client IP, hit
  * Live, and watch their requests arrive; every row opens the readable
- * request story in the pane. The Routes card is the grouped sibling; the
- * shared `req_view` toggle swaps between them.
+ * request story. The Routes panel is the grouped sibling, shown alongside.
  */
 class RequestLog extends Panel
 {
     use CoercesAttributes;
-
-    #[Param('req_view')]
-    public string $view = 'routes';
 
     #[Param('log_ip')]
     public string $ip = '';
@@ -38,29 +35,13 @@ class RequestLog extends Panel
     #[Param('log_status')]
     public string $statusCode = '';
 
-    /** Live tail: re-poll every few seconds, newest on top. On by default. */
-    #[Param('live')]
-    public bool $live = true;
-
-    /**
-     * The Routes/Request log toggle is a Livewire event (not a page link) so
-     * flipping views never reloads the page — both sibling cards listen.
-     */
-    #[On('telemetry-ui:request-view-changed')]
-    public function updateRequestView(string $view): void
+    public static function span(): int
     {
-        $this->view = $view === 'log' ? 'log' : 'routes';
+        return 2;
     }
 
     public function data(): array
     {
-        if ($this->view !== 'log') {
-            /** @var view-string $hidden */
-            $hidden = 'telemetry-ui::cards.hidden';
-
-            return view($hidden);
-        }
-
         [$start, $end] = $this->range();
 
         $rows = [];
@@ -127,13 +108,73 @@ class RequestLog extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.request-log';
-
-        return view($view, [
-            'rows' => $rows,
+        return Ui::table('Request log', [
+            Ui::col('time', 'Time'),
+            Ui::col('request', 'Request'),
+            Ui::num('status', 'Status'),
+            Ui::num('user', 'User'),
+            Ui::num('ip', 'IP'),
+            Ui::num('duration', 'Duration'),
+        ], array_map($this->row(...), $rows), array_filter([
+            'subtitle' => 'Individual requests, newest first — filter to a user or IP and go live to tail production',
             'error' => $error,
-        ]);
+            'empty' => 'No requests match — widen the filters or the period.',
+            'note' => 'Newest 50 within the period. Click user/IP to tail them; click a row for the full request story.',
+            'controls' => [
+                Ui::search('log_user', 'User', $this->user, 'User id…'),
+                Ui::search('log_ip', 'Client IP', $this->ip, 'Client IP…'),
+                Ui::search('log_path', 'Path', $this->path, 'Path contains…'),
+                Ui::select('log_status', 'Status class', $this->statusCode, [
+                    ['value' => '', 'label' => 'Any'],
+                    ['value' => '2xx', 'label' => '2xx'],
+                    ['value' => '3xx', 'label' => '3xx'],
+                    ['value' => '4xx', 'label' => '4xx'],
+                    ['value' => '5xx', 'label' => '5xx'],
+                ]),
+            ],
+            // Live tail: the SPA subscribes to the requests stream with the
+            // current filters and prepends arrivals, newest on top.
+            'stream' => [
+                'signal' => 'requests',
+                'params' => array_filter([
+                    'panel' => static::id(),
+                    'log_ip' => $this->ip,
+                    'log_user' => $this->user,
+                    'log_path' => $this->path,
+                    'log_status' => $this->statusCode,
+                ], static fn (string $v): bool => $v !== ''),
+            ],
+        ], static fn ($v): bool => $v !== null));
+    }
+
+    /**
+     * @param  array{traceId: string, startedAt: \DateTimeImmutable, durationMs: float, service: string, method: string, path: string, status: string, ip: string, user: string}  $row
+     * @return array<string, mixed>
+     */
+    private function row(array $row): array
+    {
+        $status = $row['status'];
+
+        return [
+            'time' => Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true]),
+            'request' => Ui::cell(trim($row['method'].' '.$row['path']), ['mono' => true]),
+            'status' => $status === ''
+                ? Ui::cell(null)
+                : Ui::cell($status, ['raw' => (int) $status, 'badge' => $status, 'tone' => match (true) {
+                    str_starts_with($status, '5') => 'danger',
+                    str_starts_with($status, '4') => 'warn',
+                    default => 'ok',
+                }]),
+            // Click a user/IP to tail them: sets this panel's own filter.
+            'user' => $row['user'] === ''
+                ? Ui::cell('—')
+                : Ui::cell('#'.$row['user'], ['mono' => true, 'link' => Ui::param('log_user', $row['user']), 'dim' => ['key' => 'user.id', 'value' => $row['user']]]),
+            'ip' => $row['ip'] === ''
+                ? Ui::cell('—')
+                : Ui::cell($row['ip'], ['mono' => true, 'link' => Ui::param('log_ip', $row['ip']), 'dim' => ['key' => 'client.address', 'value' => $row['ip']]]),
+            'duration' => Ui::cell(Format::ms($row['durationMs']), ['raw' => $row['durationMs'], 'tone' => 'dim']),
+            '_link' => Ui::trace($row['traceId']),
+        ];
     }
 
     /**

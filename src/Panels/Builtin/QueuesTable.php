@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * Per-queue table: current backlog, oldest-job age, drain rate, failure rate
@@ -13,6 +15,14 @@ use Cbox\TelemetryUi\Connectors\SourceException;
  */
 final class QueuesTable extends Panel
 {
+    public static function span(): int
+    {
+        return 2;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function data(): array
     {
         [$start, $end] = $this->range();
@@ -54,27 +64,59 @@ final class QueuesTable extends Panel
                 }
             }
         } catch (SourceException $exception) {
-            return $this->view([], $exception->getMessage());
+            return $this->payload([], $exception->getMessage());
         }
 
         usort($rows, static fn (array $a, array $b): int => $b['pending'] <=> $a['pending']);
 
-        return $this->view($rows, null);
-    }
-
-    public function detailUrl(string $queue): string
-    {
-        return $this->pageUrl('queue-detail', ['queue' => $queue]);
+        return $this->payload($rows, null);
     }
 
     /**
-     * @param  list<array<string, mixed>>  $rows
+     * @param  list<array{connection: string, queue: string, pending: float, oldest: float, per_minute: float, failure: float, workers: float, spark: list<float>}>  $rows
+     * @return array<string, mixed>
      */
-    private function view(array $rows, ?string $error): array
+    private function payload(array $rows, ?string $error): array
     {
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.queues-table';
+        $table = [];
 
-        return view($view, ['rows' => $rows, 'error' => $error]);
+        foreach ($rows as $row) {
+            $table[] = [
+                '_link' => Ui::entity('queue', $row['queue']),
+                'queue' => Ui::cell($row['queue'], [
+                    'link' => Ui::entity('queue', $row['queue']),
+                    'dim' => ['key' => 'messaging.destination.name', 'value' => $row['queue']],
+                ]),
+                'connection' => Ui::cell($row['connection'], ['badge' => $row['connection']]),
+                'trend' => Ui::cell(null, ['spark' => $row['spark'], 'tone' => $row['pending'] > 0 ? 'info' : 'dim']),
+                'pending' => Ui::cell(Format::count($row['pending']), ['raw' => $row['pending'], 'mono' => true]),
+                'oldest' => Ui::cell(
+                    $row['oldest'] > 0 ? Format::ms($row['oldest'] * 1000) : '—',
+                    ['raw' => $row['oldest'], 'mono' => true, 'tone' => $row['oldest'] >= 60 ? 'warn' : null],
+                ),
+                'per_minute' => Ui::cell(Format::count($row['per_minute']), ['raw' => $row['per_minute'], 'mono' => true]),
+                'failure' => Ui::cell(
+                    Format::percent($row['failure'] / 100),
+                    ['raw' => $row['failure'], 'mono' => true, 'tone' => $row['failure'] > 0 ? 'danger' : null],
+                ),
+                'workers' => Ui::cell(Format::count($row['workers']), ['raw' => $row['workers'], 'mono' => true]),
+            ];
+        }
+
+        return Ui::table('Queues', [
+            Ui::col('queue', 'Queue'),
+            Ui::col('connection', 'Connection'),
+            Ui::col('trend', 'Backlog trend'),
+            Ui::num('pending', 'Pending'),
+            Ui::num('oldest', 'Oldest'),
+            Ui::num('per_minute', 'Jobs/min'),
+            Ui::num('failure', 'Failure'),
+            Ui::num('workers', 'Workers'),
+        ], $table, [
+            'subtitle' => 'Per-queue backlog, drain rate, failure rate and attached workers — click a queue for its detail',
+            'span' => 2,
+            'error' => $error,
+            'empty' => 'No queues reporting.',
+        ]);
     }
 }

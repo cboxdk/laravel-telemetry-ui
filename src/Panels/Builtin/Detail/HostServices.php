@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Support\Format;
 
@@ -26,6 +27,14 @@ final class HostServices extends Panel
 {
     use ScopesToMachine;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function data(): array
     {
         $services = [];
@@ -66,6 +75,7 @@ final class HostServices extends Panel
                     $tiles[] = [
                         'label' => (string) ($tile['label'] ?? '?'),
                         'value' => $this->format($value, (string) ($tile['unit'] ?? '')),
+                        'tone' => 'dim',
                     ];
                 }
 
@@ -85,10 +95,29 @@ final class HostServices extends Panel
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.host-services';
+        $parts = [];
 
-        return view($view, ['services' => $services, 'error' => $error]);
+        foreach ($services as $service) {
+            // 'observed' has no health probe, so quiet ≠ down: it never claims up/down.
+            $badge = match (true) {
+                $service['kind'] === 'observed' => ['label' => 'observed', 'tone' => 'info', 'title' => 'Measured by the app itself — no health probe, so quiet ≠ down'],
+                $service['up'] => ['label' => 'up', 'tone' => 'ok'],
+                default => ['label' => 'down', 'tone' => 'danger'],
+            };
+
+            $parts[] = Ui::stats($service['label'], $service['tiles'], array_filter([
+                'badge' => $badge,
+                'note' => $service['note'],
+            ], static fn ($v): bool => $v !== null));
+        }
+
+        return Ui::composite('Services on this host', $parts, [
+            'subtitle' => "From the services' own Prometheus exporters (mysqld_exporter, redis_exporter, …)",
+            'span' => 2,
+            'error' => $error,
+            'empty' => 'No service exporters detected for this host. Point mysqld_exporter / redis_exporter / '
+                .'postgres_exporter at the same Prometheus, or add your own probes under telemetry-ui.host-services.',
+        ]);
     }
 
     /**

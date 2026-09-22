@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin\Statamic;
 
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Support\Format;
 
 /**
  * Warm-build latency distribution from the Stache warm-duration histogram —
@@ -18,6 +20,14 @@ final class StacheWarmLatency extends Panel
     /** @var list<int> */
     private const PERCENTILES = [50, 75, 90, 95, 99];
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function data(): array
     {
         $bucket = $this->metric('statamic_stache_warm_duration_milliseconds_bucket');
@@ -41,9 +51,25 @@ final class StacheWarmLatency extends Panel
             $rows = [];
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.statamic-stache-latency';
+        $table = [];
 
-        return view($view, ['rows' => $rows, 'error' => $error]);
+        foreach ($rows as $row) {
+            $table[] = [
+                'percentile' => Ui::cell($row['percentile']),
+                'value' => $row['value'] === null
+                    ? Ui::cell('—', ['mono' => true])
+                    : Ui::cell(Format::ms($row['value']), ['raw' => $row['value'], 'mono' => true]),
+            ];
+        }
+
+        return Ui::table('Warm-build latency', [
+            Ui::col('percentile', 'Percentile'),
+            Ui::num('value', 'Warm build'),
+        ], $table, [
+            'subtitle' => 'How long Stache rebuilds take, by percentile — the distribution behind the P95.',
+            'span' => 2,
+            'error' => $error,
+            'empty' => 'No Stache warms in this period.',
+        ]);
     }
 }

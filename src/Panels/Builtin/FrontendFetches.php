@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Panels\Panel;
-use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
+use Cbox\TelemetryUi\Support\Format;
 use Illuminate\Support\Carbon;
 
 /**
@@ -23,6 +25,11 @@ final class FrontendFetches extends Panel
     use CoercesAttributes;
 
     private const SEARCH_LIMIT = 200;
+
+    public static function span(): int
+    {
+        return 2;
+    }
 
     public function data(): array
     {
@@ -62,22 +69,34 @@ final class FrontendFetches extends Panel
 
             $rows = array_values($calls);
             usort($rows, static fn (array $a, array $b): int => $b['count'] <=> $a['count'] ?: $b['lastNano'] <=> $a['lastNano']);
-
-            $rows = array_map(static fn (array $row): array => [
-                ...$row,
-                'lastSeen' => Carbon::createFromTimestamp(intdiv($row['lastNano'], 1_000_000_000))->diffForHumans(),
-            ], $rows);
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
         }
 
-        /** @var view-string $view */
-        $view = 'telemetry-ui::cards.frontend-fetches';
-
-        return view($view, [
-            'rows' => array_slice($rows, 0, 100),
+        $extra = [
+            'subtitle' => 'fetch/XHR calls that failed for real users (5xx or network error). Click a row for the trace.',
+            'empty' => 'No failed browser requests in this period. 🎉',
             'error' => $error,
-        ]);
+        ];
+
+        $columns = [
+            Ui::col('url', 'Request'),
+            Ui::num('status', 'Status'),
+            Ui::num('count', 'Count'),
+            Ui::num('lastSeen', 'Last seen'),
+        ];
+
+        // Each row opens a representative trace — a same-origin failure
+        // continues into the backend span behind it.
+        $cells = array_map(static fn (array $row): array => [
+            'url' => Ui::cell($row['url'], ['mono' => true]),
+            'status' => Ui::cell($row['status'], ['tone' => 'danger', 'mono' => true]),
+            'count' => Ui::cell(Format::count($row['count']), ['raw' => $row['count']]),
+            'lastSeen' => Ui::cell(Carbon::createFromTimestamp(intdiv($row['lastNano'], 1_000_000_000))->diffForHumans(), ['raw' => intdiv($row['lastNano'], 1_000_000), 'tone' => 'dim']),
+            '_link' => Ui::trace($row['traceId']),
+        ], array_slice($rows, 0, 100));
+
+        return Ui::table('Failed browser requests', $columns, $cells, array_filter($extra, static fn (?string $v): bool => $v !== null));
     }
 
     /**
