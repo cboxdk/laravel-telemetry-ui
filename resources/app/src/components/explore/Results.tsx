@@ -3,10 +3,18 @@ import { useContext, useRef } from 'react';
 import type { ErrorRow, Group, SpanRow } from '../../api/types';
 import { ago, clock, count, ms, percent, statusTone } from '../../lib/format';
 import { useGo } from '../../lib/links';
-import { BootContext, DimensionValue } from '../DimensionValue';
+import { BootContext, DimensionValue, useDimension } from '../DimensionValue';
 import { Sparkline } from '../charts/Sparkline';
 
 const CHIP_KEYS = ['user.id', 'client.address'];
+
+/** ↑/↓ (or j/k) move between result rows; Enter opens the focused one. */
+function focusSibling(row: HTMLElement, dir: 1 | -1): void {
+    const rows = [...(row.closest('.t-list')?.querySelectorAll<HTMLElement>('.t-lrow') ?? [])];
+    const next = rows[rows.indexOf(row) + dir];
+    next?.focus();
+    next?.scrollIntoView({ block: 'nearest' });
+}
 
 /** Request/trace rows: time · status · target + dimension chips · duration. */
 export function SpanList({ rows, selected, height = 640, onSelect }: { rows: SpanRow[]; selected?: string; height?: number; onSelect?: (row: SpanRow) => void }) {
@@ -29,7 +37,11 @@ export function SpanList({ rows, selected, height = 640, onSelect }: { rows: Spa
                     if (onSelect) onSelect(row);
                     else go({ to: 'trace', id: row.traceId }, { replaceDrawer: true });
                 }}
-                onKeyDown={(e) => e.key === 'Enter' && go({ to: 'trace', id: row.traceId }, { replaceDrawer: true })}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') go({ to: 'trace', id: row.traceId }, { replaceDrawer: true });
+                    else if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); focusSibling(e.currentTarget, 1); }
+                    else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); focusSibling(e.currentTarget, -1); }
+                }}
             >
                 <span className="t-lrow-time mono">{clock(row.startMs)}</span>
                 {row.status ? <span className={`t-status t-status-${statusTone(row.status)}`}>{row.status}</span> : <span className={`t-status t-status-${row.error ? 'danger' : 'dim'}`}>{row.error ? 'ERR' : row.browser ? 'WEB' : '—'}</span>}
@@ -94,10 +106,11 @@ export function ErrorList({ rows }: { rows: ErrorRow[] }) {
 /** Group-by breakdown: each value is a drill-down (filter / open entity). */
 export function GroupTable({ groupKey, groups, exact }: { groupKey: string; groups: Group[]; exact?: boolean }) {
     const max = Math.max(1, ...groups.map((g) => g.count));
+    const label = useDimension(groupKey)?.label ?? groupKey;
     return (
         <div className="t-groups">
             <div className="t-groups-head">
-                <span>{groupKey}</span>
+                <span title={groupKey}>{label}</span>
                 <span className="is-num">Count</span>
                 <span className="is-num">Errors</span>
                 <span className="is-num">Avg</span>

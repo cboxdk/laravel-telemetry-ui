@@ -11,7 +11,7 @@ import { ErrorState, Skeleton } from '../States';
 import { PanelBody } from './PanelBody';
 
 /** URL keys that are never panel params. */
-const RESERVED = new Set(['period', 'from', 'to', 'service', 'env', 'refresh', 'drawer', 'where', 'groupBy', 'facets', 'value', 'tab']);
+const RESERVED = new Set(['period', 'from', 'to', 'service', 'env', 'refresh', 'drawer', 'where', 'groupBy', 'facets', 'value', 'tab', 'limit']);
 
 /** Controls each panel declared on its last response — which URL keys it reads. */
 const knownControls = new Map<string, string[]>();

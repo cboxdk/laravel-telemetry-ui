@@ -1,6 +1,6 @@
 import { Link, useParams } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
-import { useExplore, useFacets } from '../api/hooks';
+import { useAnnotations, useExplore, useFacets } from '../api/hooks';
 import type { ErrorRow, LogEntryRow, Signal, SpanRow } from '../api/types';
 import { Combobox } from '../components/Combobox';
 import { useBoot } from '../components/DimensionValue';
@@ -38,12 +38,14 @@ export function ExplorePage() {
     const where = list(search, 'where');
     const q = str(search, 'q');
     const groupBy = str(search, 'groupBy');
+    const limit = str(search, 'limit');
+    const annotations = useAnnotations().data?.annotations ?? [];
     const facetKeys = list(search, 'facets');
     const top = parseDrawer(str(search, 'drawer')).at(-1);
 
-    const params = useMemo(() => ({ where, q, groupBy }), [where.join('|'), q, groupBy]); // eslint-disable-line react-hooks/exhaustive-deps
+    const params = useMemo(() => ({ where, q, groupBy, ...(limit ? { limit } : {}) }), [where.join('|'), q, groupBy, limit]); // eslint-disable-line react-hooks/exhaustive-deps
     const explore = useExplore<SpanRow | LogEntryRow | ErrorRow>(signal, params);
-    const facets = useFacets(signal, useMemo(() => ({ where, q, keys: facetKeys.length ? [...defaultKeys(boot, signal), ...facetKeys] : [] }), [where.join('|'), q, facetKeys.join('|'), signal])); // eslint-disable-line react-hooks/exhaustive-deps
+    const facets = useFacets(signal, useMemo(() => ({ where, q, keys: facetKeys.length ? [...defaultKeys(boot, signal), ...facetKeys] : [], ...(limit ? { limit } : {}) }), [where.join('|'), q, facetKeys.join('|'), signal, limit])); // eslint-disable-line react-hooks/exhaustive-deps
 
     const data = explore.data;
     const streamable = signal === 'logs' || signal === 'requests';
@@ -104,6 +106,13 @@ export function ExplorePage() {
                                 <StatsLine signal={signal} stats={data.stats} sample={data.sample} />
                                 {signal !== 'errors' && (
                                     <div className="t-groupby">
+                                        <span>Sample</span>
+                                        <Combobox
+                                            value={limit || String(data.sample.limit)}
+                                            options={['200', '500', '1000', '2000'].map((v) => ({ value: v, label: `${v} newest` }))}
+                                            onChange={(v) => set({ limit: v })}
+                                            className="t-combo-sm"
+                                        />
                                         <span>Group by</span>
                                         <Combobox value={groupBy} options={[{ value: '', label: 'None' }, ...groupOptions]} onChange={(v) => set({ groupBy: v || undefined })} className="t-combo-sm" mono />
                                     </div>
@@ -116,6 +125,7 @@ export function ExplorePage() {
                                     <TimeChart
                                         type="stacked"
                                         height={130}
+                                        annotations={annotations}
                                         min={data.range.start}
                                         max={data.range.end}
                                         series={[

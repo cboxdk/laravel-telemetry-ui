@@ -32,12 +32,13 @@ final class FacetsController
 
         $scope = RequestScope::fromRequest($request);
         $keys = array_values(array_filter((array) $request->query('keys', []), static fn ($k): bool => is_string($k) && $k !== ''));
+        $limit = max(1, min(SpanExplorer::MAX_LIMIT, (int) $request->query('limit', (string) SpanExplorer::DEFAULT_LIMIT)));
 
         try {
             $payload = match ($signal) {
-                'logs' => $logs->facets($scope, $keys),
+                'logs' => $logs->facets($scope, $keys, $limit),
                 'errors' => $errors->facets($scope, $keys),
-                default => $spans->facets($scope, $signal, $keys),
+                default => $spans->facets($scope, $signal, $keys, $limit),
             };
         } catch (SourceException $exception) {
             return ApiError::backend($exception->getMessage());
