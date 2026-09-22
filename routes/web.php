@@ -38,6 +38,7 @@ Route::prefix('api/v2')->name('telemetry-ui.api.')->group(static function (): vo
     Route::get('/issues/{id}', [Api\IssueController::class, 'show'])->where('id', '.+')->name('issue');
     Route::post('/issues', [Api\IssueController::class, 'store'])->name('issues.store');
     Route::get('/annotations', Api\AnnotationsController::class)->name('annotations');
+    Route::get('/dimensions/labels', Api\DimensionLabelsController::class)->name('dimension-labels');
     Route::get('/stream/{signal}', Api\StreamController::class)->where('signal', 'logs|requests')->name('stream');
 });
 

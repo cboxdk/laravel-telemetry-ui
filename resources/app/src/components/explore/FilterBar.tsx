@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { DimensionDef } from '../../api/types';
 import { formatFilter, negate, parseFilter, withoutFilter, type Filter } from '../../lib/search';
+import { ValueText } from '../DimensionValue';
 import { Icon } from '../Icon';
 
 /**
@@ -77,7 +78,7 @@ export function FilterBar({ where, onChange, dimensions, q, onQ, placeholder }: 
                     <span key={raw} className={`t-chip ${dim && !dim.builtin ? 'is-custom' : ''} ${neg ? 'is-neg' : ''}`} title={raw}>
                         <span className="k">{dim?.label ?? f.key}</span>
                         <button type="button" className="op" onClick={() => flip(raw, f)} title="Invert">{f.op}</button>
-                        <b>{f.value === '' ? '∅' : f.value}</b>
+                        <b>{f.value === '' ? '∅' : f.op === '=' || f.op === '!=' ? <ValueText dimKey={f.key} value={f.value} /> : f.value}</b>
                         <button type="button" className="x" onClick={() => onChange(withoutFilter(where, raw))} aria-label={`Remove ${raw}`}><Icon name="x" size={11} /></button>
                     </span>
                 );

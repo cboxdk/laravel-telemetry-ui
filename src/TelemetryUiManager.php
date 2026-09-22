@@ -15,6 +15,7 @@ use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ViewState;
 use Closure;
 use Illuminate\Contracts\Config\Repository as Config;
+use Illuminate\Database\Eloquent\Model;
 use Laravel\Mcp\Server\Tool;
 
 /**
@@ -612,6 +613,7 @@ final class TelemetryUiManager
         ?array $signals = null,
         ?string $format = null,
         ?string $plural = null,
+        ?Closure $resolve = null,
     ): self {
         $existing = $this->dimensionRegistry()->get($key);
 
@@ -626,9 +628,62 @@ final class TelemetryUiManager
             signals: $signals ?? $existing->signals ?? ['requests', 'traces'],
             format: $format ?? $existing?->format,
             plural: $plural ?? $existing?->plural,
+            resolve: $resolve ?? $existing?->resolve,
         ));
 
         return $this;
+    }
+
+    /**
+     * Show names instead of bare ids for a dimension — built-in or declared —
+     * without changing anything else about it:
+     *
+     *     TelemetryUi::resolve('user.id', User::class, 'name');
+     *     TelemetryUi::resolve('hubhus.customer_id', Customer::class, fn (Customer $c) => $c->company);
+     *     TelemetryUi::resolve('tenant.id', fn (array $ids) => Tenant::whereIn('uuid', $ids)->pluck('name', 'uuid'));
+     *
+     * With a model class the values are matched on `$column` (default: the
+     * model's key) and `$display` is an attribute name or a closure receiving
+     * the model. With a closure it gets a batch of values and returns
+     * `[value => name]`. Lookups are batched and cached by the API
+     * (`telemetry-ui.dimensions.label_ttl`) and fail open.
+     *
+     * @param  class-string|Closure(list<string>): iterable<array-key, mixed>  $using
+     * @param  string|Closure(object): mixed  $display
+     */
+    public function resolve(string $key, string|Closure $using, string|Closure $display = 'name', ?string $column = null): self
+    {
+        $resolver = $using instanceof Closure ? $using : self::modelResolver($using, $display, $column);
+        $existing = $this->dimensionRegistry()->get($key);
+
+        $this->dimensionRegistry()->add($existing !== null
+            ? $existing->withResolver($resolver)
+            : new Dimension(key: $key, label: $key, resolve: $resolver));
+
+        return $this;
+    }
+
+    /**
+     * @param  string|Closure(object): mixed  $display
+     * @return Closure(list<string>): array<string, mixed>
+     */
+    private static function modelResolver(string $model, string|Closure $display, ?string $column): Closure
+    {
+        if (! is_subclass_of($model, Model::class)) {
+            throw new \InvalidArgumentException("TelemetryUi::resolve() expects an Eloquent model class or a closure, got [{$model}].");
+        }
+
+        return static function (array $values) use ($model, $display, $column): array {
+            $instance = new $model;
+            $column ??= $instance->getKeyName();
+            $names = [];
+
+            foreach ($model::query()->whereIn($column, $values)->limit(count($values))->get() as $row) {
+                $names[(string) $row->getAttribute($column)] = $display instanceof Closure ? $display($row) : $row->getAttribute($display);
+            }
+
+            return $names;
+        };
     }
 
     public function removeDimension(string $key): self

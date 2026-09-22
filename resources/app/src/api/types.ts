@@ -258,6 +258,8 @@ export interface DimensionDef {
     format: string | null;
     plural: string;
     linksOut: boolean;
+    /** Has a name resolver (TelemetryUi::resolve()): ids render as names. */
+    resolvable?: boolean;
 }
 
 export interface EntityDef {

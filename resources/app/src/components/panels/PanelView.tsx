@@ -88,8 +88,11 @@ function ControlView({ control, value, onChange }: { control: Control; value: st
     }
 
     return (
-        <form className="t-search-control" onSubmit={(e) => { e.preventDefault(); onChange(text.trim()); }}>
-            <Icon name="search" size={12} />
+        <form className={`t-search-control ${control.placeholder && control.placeholder !== control.label ? 'has-label' : ''}`} onSubmit={(e) => { e.preventDefault(); onChange(text.trim()); }}>
+            {/* A placeholder is an example, not a label: say what the box filters. */}
+            {control.placeholder && control.placeholder !== control.label
+                ? <span className="t-search-label">{control.label}</span>
+                : <Icon name="search" size={12} />}
             <input
                 className="t-input t-input-sm"
                 value={text}

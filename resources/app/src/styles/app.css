@@ -138,6 +138,7 @@ pre { margin: 0; }
 .t-combo-btn svg { color: var(--muted-foreground); margin-left: auto; flex: none; }
 .t-combo-label { color: var(--muted-foreground); font-size: 11px; }
 .t-combo-label:empty { display: none; }
+.t-search-label { color: var(--muted-foreground); font-size: 11px; white-space: nowrap; flex: none; }
 .t-combo-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
 .t-combo-value.is-placeholder { color: var(--muted-foreground); }
 .t-combo-sm .t-combo-btn { height: 26px; font-size: 12px; }
@@ -169,6 +170,9 @@ pre { margin: 0; }
 .t-menu > button:hover, .t-menu > a:hover { background: var(--secondary); color: var(--foreground); }
 .t-menu > button svg, .t-menu > a svg { color: var(--muted-foreground); }
 .t-menu-head { display: flex; flex-direction: column; gap: 3px; padding: 6px 8px 8px; border-bottom: 1px solid var(--border-subtle); margin-bottom: 4px; }
+.t-dimval-name { font-family: var(--font-sans); }
+.t-dimval-id { margin-left: 5px; color: var(--muted-foreground); font-size: 0.88em; }
+.t-menu-name { font-size: 13px; font-weight: 600; }
 .t-menu-head code { word-break: break-all; max-width: 320px; }
 .t-menu-foot { padding: 6px 8px 2px; border-top: 1px solid var(--border-subtle); margin-top: 4px; color: var(--muted-foreground); font-size: 10.5px; word-break: break-all; }
 
@@ -271,7 +275,7 @@ pre { margin: 0; }
 }
 .t-topbar-scope { display: flex; align-items: center; gap: 8px; flex: none; }
 .t-topbar .t-period { flex: none; }
-@media (max-width: 1100px) { .t-topbar .t-period .t-seg > button:nth-child(5) { display: none; } .t-combo-label { display: none; } }
+@media (max-width: 1100px) { .t-topbar .t-period .t-seg > button:nth-child(5) { display: none; } .t-topbar .t-combo-label { display: none; } }
 .t-topbar-spacer { flex: 1; }
 .t-content { flex: 1; overflow: auto; }
 @media (max-width: 760px) {
@@ -314,6 +318,9 @@ pre { margin: 0; }
 .t-search-control { display: inline-flex; align-items: center; gap: 4px; position: relative; color: var(--muted-foreground); }
 .t-search-control svg { position: absolute; left: 8px; }
 .t-search-control input { padding-left: 24px; width: 170px; }
+.t-search-control.has-label { gap: 6px; padding-left: 9px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--card); }
+.t-search-control.has-label:focus-within { border-color: var(--ring); }
+.t-search-control.has-label input { border: 0; background: transparent; padding-left: 0; width: 150px; box-shadow: none; outline: none; }
 
 .t-stats { display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 12px; }
 .t-stats.is-compact { gap: 20px; margin-bottom: 8px; }

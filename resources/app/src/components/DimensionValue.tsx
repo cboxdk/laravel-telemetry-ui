@@ -1,6 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
 import { useRouter, useRouterState } from '@tanstack/react-router';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { Bootstrap, DimensionDef, Link as LinkData, Signal } from '../api/types';
+import { loadLabel } from '../lib/dimensionLabels';
 import { useGo } from '../lib/links';
 import { formatFilter, list, parseSearch, scopeOf, withFilter, type Op } from '../lib/search';
 import { Icon } from './Icon';
@@ -17,6 +19,31 @@ export function useBoot(): Bootstrap {
 export function useDimension(key: string): DimensionDef | undefined {
     const boot = useContext(BootContext);
     return useMemo(() => boot?.dimensions.find((d) => d.key === key), [boot, key]);
+}
+
+/**
+ * The host's display name for a dimension value ("Acme ApS" for customer
+ * 8655), when the dimension has a resolver. Batched and cached; null while
+ * loading, for unknown ids, and for dimensions without a resolver.
+ */
+export function useValueLabel(key: string, value: string): string | null {
+    const dim = useDimension(key);
+    const enabled = Boolean(dim?.resolvable) && value !== '' && value !== '(none)';
+    const { data } = useQuery({
+        queryKey: ['dim-label', key, value],
+        queryFn: () => loadLabel(key, value),
+        enabled,
+        staleTime: 5 * 60_000,
+        gcTime: 30 * 60_000,
+        retry: false,
+    });
+    return enabled ? data ?? null : null;
+}
+
+/** A value as its name plus the raw id, or just the value. */
+export function ValueText({ dimKey, value }: { dimKey: string; value: string }) {
+    const name = useValueLabel(dimKey, value);
+    return name ? <><span className="t-dimval-name">{name}</span><span className="t-dimval-id mono">{value}</span></> : <>{value}</>;
 }
 
 /**
@@ -79,6 +106,7 @@ export function DimensionValue({ dimKey, value, children, chip, label, linkOut, 
     const custom = dim ? !dim.builtin : false;
     const entity = dim?.entity;
     const canOpen = Boolean(dim && (custom || dim.entity !== dim.key));
+    const name = useValueLabel(dimKey, value);
 
     return (
         <Popover
@@ -88,10 +116,12 @@ export function DimensionValue({ dimKey, value, children, chip, label, linkOut, 
                     type="button"
                     className={`t-dimval ${chip ? 't-minchip' : ''} ${custom ? 'is-custom' : ''} ${open ? 'is-open' : ''}`}
                     onClick={(e) => { e.stopPropagation(); toggle(); }}
-                    title={`${dim?.label ?? dimKey} = ${value}`}
+                    title={`${dim?.label ?? dimKey} = ${value}${name ? ` (${name})` : ''}`}
                 >
                     {label && <span className="k">{dim?.label ?? dimKey}</span>}
-                    {children ?? <span className="v">{value}</span>}
+                    {name
+                        ? <span className="v"><span className="t-dimval-name">{name}</span><span className="t-dimval-id mono">{value}</span></span>
+                        : children ?? <span className="v">{value}</span>}
                 </button>
             )}
         >
@@ -99,6 +129,7 @@ export function DimensionValue({ dimKey, value, children, chip, label, linkOut, 
                 <div className="t-menu" onClick={(e) => e.stopPropagation()}>
                     <div className="t-menu-head">
                         <span className="t-eyebrow">{dim?.label ?? dimKey}</span>
+                        {name && <strong className="t-menu-name">{name}</strong>}
                         <code>{value}</code>
                     </div>
                     {link && link.to === 'param' && onParam && (

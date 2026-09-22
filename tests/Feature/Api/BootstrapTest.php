@@ -94,6 +94,7 @@ it('ships the dimension registry, with declared dimensions', function (): void {
         'format' => null,
         'plural' => 'Customers',
         'linksOut' => true,
+        'resolvable' => false,
     ])->and($dimensions['http.route'])->toMatchArray(['entity' => 'route', 'builtin' => true, 'linksOut' => false])
         ->and($dimensions['host.name']['scope'])->toBe('resource')
         ->and($dimensions['status']['scope'])->toBe('intrinsic');

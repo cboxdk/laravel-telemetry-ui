@@ -58,6 +58,38 @@ returns the registry.
 Undeclared attributes stay filterable by their raw key. They just don't get a
 label, a facet or an entity page.
 
+### Names instead of ids
+
+Traces carry ids (`user.id = 20`, `hubhus.customer_id = 8655`). Give a
+dimension a resolver and the dashboard shows the name next to the id
+everywhere a value appears: chips on rows, facets, filter chips, group-by
+tables, entity lists and the entity page title ("Kaylin Jenkins · 20").
+
+```php
+use Cbox\TelemetryUi\Facades\TelemetryUi;
+
+// An Eloquent model and the attribute to show (matched on the model's key):
+TelemetryUi::resolve('user.id', \App\Models\User::class, 'name');
+
+// Match on another column, or build the name yourself:
+TelemetryUi::resolve('hubhus.customer_id', Customer::class, fn (Customer $c) => $c->company, column: 'external_id');
+
+// Any lookup: receive a batch of values, return [value => name]:
+TelemetryUi::resolve('tenant.id', fn (array $ids) => Tenant::whereIn('uuid', $ids)->pluck('name', 'uuid'));
+
+// Or declare it together with the dimension:
+TelemetryUi::dimension('hubhus.campaign_id', label: 'Campaign', resolve: fn (array $ids) => Campaign::findMany($ids)->pluck('title', 'id'));
+```
+
+`resolve()` works on built-in dimensions too and changes nothing else about
+them. Lookups go through `GET {path}/api/v2/dimensions/labels?key=…&values[]=…`:
+the SPA batches every id on screen into one request per dimension (at most
+200 values). The API caches each name, and each unknown id, for
+`telemetry-ui.dimensions.label_ttl` seconds (default 300, `0` disables). A
+resolver that throws yields no names rather than an error, so the raw id
+still renders. The endpoint sits behind the dashboard gate like every other
+API route, so the names are only as visible as the dashboard itself.
+
 ### Built-in dimensions
 
 Defined in `src/Dimensions/Dimensions.php`, matching what

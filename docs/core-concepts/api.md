@@ -60,6 +60,7 @@ filters are applied per signal.
 | GET | `/issues/{id}` | A tracker issue. 404 when no tracker is configured. | master |
 | POST | `/issues` | Create an issue from `{title, body, labels[]}`; 201 with the issue. | `manageTelemetryUi` |
 | GET | `/annotations` | `{annotations}` — deploy/change markers in range. | master |
+| GET | `/dimensions/labels?key=&values[]=` | `{labels: {value: name}}`: display names from a dimension's resolver (max 200 values, cached per value, fail-open). See [Names instead of ids](dimensions-and-explore.md#names-instead-of-ids). | master |
 | GET | `/stream/{signal}` | SSE live tail, `signal` ∈ `logs`, `requests`. | `logs` / `requests` |
 
 "master" is `viewTelemetryUi` with no page; "page" is `viewTelemetryUi` with the

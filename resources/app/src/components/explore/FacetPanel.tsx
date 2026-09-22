@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Facet, FacetsResult } from '../../api/types';
 import { count } from '../../lib/format';
 import { formatFilter, parseFilter, toggleFilter } from '../../lib/search';
+import { ValueText } from '../DimensionValue';
 import { Icon } from '../Icon';
 import { Skeleton } from '../States';
 
@@ -83,7 +84,7 @@ export function FacetPanel({ data, loading, where, onWhere, onGroupBy, groupBy, 
                                             title={`${facet.key} = ${v.value} · ⌥-click to exclude`}
                                         >
                                             <span className="t-fv-bar" style={{ width: `${(v.count / max) * 100}%` }} />
-                                            <span className="t-fv-val mono">{v.value}</span>
+                                            <span className="t-fv-val mono"><ValueText dimKey={facet.key} value={v.value} /></span>
                                             <span className="t-fv-cnt mono">{count(v.count)}</span>
                                         </button>
                                     );

@@ -204,6 +204,20 @@ return [
 
     'ignore_own_requests' => (bool) env('TELEMETRY_UI_IGNORE_OWN_REQUESTS', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Dimension names
+    |--------------------------------------------------------------------------
+    |
+    | How long a name resolved by TelemetryUi::resolve() (or a dimension's
+    | `resolve:` callback) is cached per value, in seconds. 0 disables caching.
+    |
+    */
+
+    'dimensions' => [
+        'label_ttl' => (int) env('TELEMETRY_UI_LABEL_TTL', 300),
+    ],
+
     'brand' => [
         'name' => env('TELEMETRY_UI_BRAND_NAME'),
         'logo' => env('TELEMETRY_UI_BRAND_LOGO'),

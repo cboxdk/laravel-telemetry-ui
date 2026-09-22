@@ -159,6 +159,13 @@ change with before/after code.
   and page views → the analytics events (grouped by session for visitors),
   outgoing failures → client spans that failed. Commands, duplicate queries
   and a query's callers link their rows too (`Ui::rootOperation()`).
+- **Names instead of ids**: `TelemetryUi::resolve('user.id', User::class,
+  'name')` (Eloquent model + attribute/closure, optional match column) or a
+  batch closure, also as `dimension(..., resolve:)`. The SPA shows the name
+  next to the id on row chips, facets, filter chips, group-by tables, entity
+  lists and the entity page title, via `GET api/v2/dimensions/labels`: one
+  request per dimension per tick, cached per value (misses too) for
+  `telemetry-ui.dimensions.label_ttl`, and fail-open.
 - **Context everywhere.** The trace story ends with "Around this request"
   (same route ±15 min, service logs ±2 min, errors ±15 min, this user, this
   IP, everything ±1 min); report rows open the query/view/outgoing host/job

@@ -92,7 +92,9 @@ export function columnTemplate(columns: Column[], rows: Row[]): string {
         if (hasSub) return 'minmax(220px, 6fr)';
 
         const avg = cells.length === 0 ? 10 : cells.reduce((n, x) => n + String(x.v ?? '').length, 0) / cells.length;
-        if (longest <= 12) return px(longest, 60, 130);
+        // Short values (ids, services, statuses) get exactly what they need, so
+        // the free space goes to the long column (routes, SQL, messages).
+        if (longest <= 22) return px(longest, 60, 190);
         const weight = Math.max(1, Math.min(8, Math.round(avg / 6)));
         return `minmax(${avg > 24 ? 160 : 90}px, ${weight}fr)`;
     }).join(' ');

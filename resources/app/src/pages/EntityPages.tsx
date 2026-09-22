@@ -2,7 +2,7 @@ import { Link, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useEntityIndex, useEntityStory } from '../api/hooks';
 import type { EntityStory, Link as LinkData, SpanRow } from '../api/types';
-import { useBoot, useDimension, DimensionValue, useDrill } from '../components/DimensionValue';
+import { useBoot, useDimension, DimensionValue, useDrill, useValueLabel, ValueText } from '../components/DimensionValue';
 import { Empty, ErrorState, Skeleton } from '../components/States';
 import { PanelView } from '../components/panels/PanelView';
 import { HeatmapChart } from '../components/charts/HeatmapChart';
@@ -62,7 +62,7 @@ export function EntityIndexPage() {
                         </div>
                         {values.map((v) => (
                             <Go key={v.value} link={{ to: 'entity', type, value: v.value }} className="t-groups-row is-link">
-                                <span className="t-groups-val"><i style={{ width: `${(v.count / max) * 100}%` }} /><span className="mono">{v.value}</span></span>
+                                <span className="t-groups-val"><i style={{ width: `${(v.count / max) * 100}%` }} /><span className="mono"><ValueText dimKey={data?.entity.key ?? ''} value={v.value} /></span></span>
                                 <span className="is-num mono">{count(v.count)}</span>
                                 <span className={`is-num mono ${v.errorRate > 0.01 ? 't-tone-danger' : 't-dim'}`}>{percent(v.errorRate)}</span>
                                 <span className="is-num mono">{ms(v.avg)}</span>
@@ -89,7 +89,8 @@ export function EntityPage() {
     const tab = str(search, 'tab') || 'story';
     const { data, error, isLoading } = useEntityStory(type, value);
     const dim = useDimension(data?.entity.key ?? '');
-    useTitle(value, data?.entity.label ?? dim?.label ?? type);
+    const name = useValueLabel(data?.entity.key ?? '', value);
+    useTitle(name ?? value, data?.entity.label ?? dim?.label ?? type);
 
     if (value === '') return <div className="t-page"><Empty>Pick a value from the {type} list.</Empty></div>;
 
@@ -101,7 +102,9 @@ export function EntityPage() {
                         <Link to={`/entities/${encodeURIComponent(type)}`} search={scopeOf(search) as never}>{data?.entity.plural ?? dim?.plural ?? type}</Link>
                         <span> / {data?.entity.label ?? dim?.label ?? type}</span>
                     </div>
-                    <h1 className="t-page-title mono t-entity-value">{value}</h1>
+                    {name
+                        ? <><h1 className="t-page-title t-entity-value">{name}</h1><p className="t-page-sub mono">{value}</p></>
+                        : <h1 className="t-page-title mono t-entity-value">{value}</h1>}
                 </div>
                 <div className="t-row-gap">
                     {data?.entity.linkOut && <a className="t-btn t-btn-sm t-btn-primary" href={data.entity.linkOut} target="_blank" rel="noopener noreferrer">Open in app <Icon name="external" size={12} /></a>}
