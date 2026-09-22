@@ -175,7 +175,7 @@ it('only lists groups active within the page period', function (): void {
     errorsPanel()
         ->assertDontSee('StaleException')
         ->assertJsonCount(0, 'rows')
-        ->assertJsonPath('empty', 'No errors in this period. 🎉');
+        ->assertJsonPath('empty', 'No errors in this period.');
 });
 
 it('renders the full issue page: header, trend, tags and deep-dive', function (): void {

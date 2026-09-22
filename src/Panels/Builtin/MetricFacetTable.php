@@ -98,7 +98,7 @@ abstract class MetricFacetTable extends Panel
         return Ui::table($spec['title'], $columns, $table, [
             'span' => 2,
             'error' => $error,
-            'empty' => 'No data in this period.',
+            'empty' => self::emptyFor($spec['title']),
         ]);
     }
 }

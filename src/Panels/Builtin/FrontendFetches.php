@@ -75,7 +75,7 @@ final class FrontendFetches extends Panel
 
         $extra = [
             'subtitle' => 'fetch/XHR calls that failed for real users (5xx or network error). Click a row for the trace.',
-            'empty' => 'No failed browser requests in this period. 🎉',
+            'empty' => 'No failed browser requests in this period.',
             'error' => $error,
         ];
 

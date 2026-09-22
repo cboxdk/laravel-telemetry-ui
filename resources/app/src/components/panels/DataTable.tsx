@@ -1,9 +1,9 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Cell, Column, Link, Row, TicketDraft } from '../../api/types';
 import { Go, useGo } from '../../lib/links';
 import { useScrollParent } from '../../lib/scrollParent';
-import { DimensionValue } from '../DimensionValue';
+import { BootContext, DimensionValue } from '../DimensionValue';
 import { Sparkline } from '../charts/Sparkline';
 import { Icon } from '../Icon';
 
@@ -71,33 +71,46 @@ export function CellView({ cell, onParam }: { cell: Cell | null; onParam?: (p: R
  * proportion to how long their values actually are — so a route or SQL column
  * isn't squeezed to the width of a method badge.
  */
-export function columnTemplate(columns: Column[], rows: Row[]): string {
+export function columnTemplate(columns: Column[], rows: Row[], resolvable: ReadonlySet<string> = new Set()): string {
     const sample = rows.slice(0, 80);
     // Every row is its own grid, so tracks must be explicit — `max-content`
     // would size each row differently and the columns would not line up.
-    const px = (chars: number, min: number, max: number) => `${Math.round(Math.min(max, Math.max(min, chars * 7.4 + 22)))}px`;
-
-    return columns.map((c) => {
-        if (c.width) return c.width;
+    const tracks = columns.map((c): { track: string; flexible: boolean; text: boolean; px: number } => {
+        if (c.width) return { track: c.width, flexible: c.width.includes('fr'), text: false, px: 0 };
 
         const cells = sample.map((r) => asCell(r[c.key])).filter((x): x is Cell => x !== null);
+        // Monospace digits/ids run wider than proportional text.
+        const perChar = cells.some((x) => x.mono) || c.align === 'right' ? 7.9 : 7.2;
+        const width = (chars: number, min: number, max: number) => Math.round(Math.min(max, Math.max(min, chars * perChar + 22)));
+        const fixed = (n: number, text = false) => ({ track: `${n}px`, flexible: false, text, px: n });
         const text = (x: Cell) => String(x.v ?? '').length + (x.badge && !TONES.has(x.badge) && x.badge !== String(x.v ?? '') ? x.badge.length + 2 : 0);
-        const longest = Math.max(c.label.length, ...cells.map(text));
+        // Ids with a name resolver render as "Name id": leave room for the name.
+        const named = cells.some((x) => x.dim && resolvable.has(x.dim.key));
+        const longest = Math.max(c.label.length, ...cells.map(text)) + (named ? 16 : 0);
         const hasSub = cells.some((x) => x.sub);
 
         // A value plus its inline share bar needs room for both.
-        if (cells.some((x) => x.bar !== undefined)) return px(longest + 9, 110, 170);
-        if (c.align === 'right') return px(longest, 56, 150);
-        if (cells.length > 0 && cells.every((x) => x.spark)) return '96px';
-        if (hasSub) return 'minmax(220px, 6fr)';
+        if (cells.some((x) => x.bar !== undefined)) return fixed(width(longest + 9, 110, 170));
+        if (c.align === 'right') return fixed(width(longest, 56, 150));
+        if (cells.length > 0 && cells.every((x) => x.spark)) return fixed(96);
+        if (hasSub) return { track: 'minmax(220px, 6fr)', flexible: true, text: true, px: 220 };
 
         const avg = cells.length === 0 ? 10 : cells.reduce((n, x) => n + String(x.v ?? '').length, 0) / cells.length;
         // Short values (ids, services, statuses) get exactly what they need, so
         // the free space goes to the long column (routes, SQL, messages).
-        if (longest <= 22) return px(longest, 60, 190);
+        if (longest <= 22) return fixed(width(longest, 60, 190), true);
         const weight = Math.max(1, Math.min(8, Math.round(avg / 6)));
-        return `minmax(${avg > 24 ? 160 : 90}px, ${weight}fr)`;
-    }).join(' ');
+        return { track: `minmax(${avg > 24 ? 160 : 90}px, ${weight}fr)`, flexible: true, text: true, px: avg > 24 ? 160 : 90 };
+    });
+
+    // All fixed? Then the widest text column takes the free space instead of
+    // leaving a blank strip at the right while it truncates.
+    if (!tracks.some((t) => t.flexible)) {
+        const widest = tracks.reduce<number>((best, t, i) => (t.text && (best < 0 || t.px > tracks[best]!.px) ? i : best), -1);
+        if (widest >= 0) tracks[widest] = { ...tracks[widest]!, track: `minmax(${tracks[widest]!.px}px, 1fr)` };
+    }
+
+    return tracks.map((t) => t.track).join(' ');
 }
 
 /** The narrowest the grid template can get: px tracks + minmax() minimums + gaps + padding. */
@@ -148,7 +161,9 @@ export function DataTable({ columns, rows, onParam, onTicket }: {
     }, [rows, sort]);
 
     const hasTicket = rows.some((r) => r._ticket);
-    const template = useMemo(() => columnTemplate(columns, rows), [columns, rows]) + (hasTicket ? ' 36px' : '');
+    const boot = useContext(BootContext);
+    const resolvable = useMemo(() => new Set((boot?.dimensions ?? []).filter((d) => d.resolvable).map((d) => d.key)), [boot]);
+    const template = useMemo(() => columnTemplate(columns, rows, resolvable), [columns, rows, resolvable]) + (hasTicket ? ' 36px' : '');
     // When the columns can't fit (phones, narrow panels) each row becomes a
     // card — first column as the title, the rest as labelled values — instead
     // of a table that pushes the page sideways.

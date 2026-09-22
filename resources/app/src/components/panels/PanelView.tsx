@@ -43,7 +43,7 @@ export function PanelView({ id, span = 1, params = {} }: { id: string; span?: nu
 
     if (data?.kind === 'hidden') return null;
 
-    const effectiveSpan = Math.min(3, Math.max(1, data?.span ?? span));
+    const effectiveSpan = Math.min(3, Math.max(1, span, data?.span ?? 1));
     const setParam = (patch: Record<string, string>) => set(Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === '' ? undefined : v])));
 
     const isHeader = data?.kind === 'header';
@@ -80,6 +80,11 @@ export function PanelView({ id, span = 1, params = {} }: { id: string; span?: nu
     );
 }
 
+/** A placeholder that doesn't already say what the box is for needs the label beside it. */
+function hasOwnLabel(control: Control): boolean {
+    return Boolean(control.placeholder) && !control.placeholder!.toLowerCase().includes(control.label.toLowerCase());
+}
+
 function ControlView({ control, value, onChange }: { control: Control; value: string; onChange: (v: string) => void }) {
     const [text, setText] = useState(value);
 
@@ -88,9 +93,9 @@ function ControlView({ control, value, onChange }: { control: Control; value: st
     }
 
     return (
-        <form className={`t-search-control ${control.placeholder && control.placeholder !== control.label ? 'has-label' : ''}`} onSubmit={(e) => { e.preventDefault(); onChange(text.trim()); }}>
+        <form className={`t-search-control ${hasOwnLabel(control) ? 'has-label' : ''}`} onSubmit={(e) => { e.preventDefault(); onChange(text.trim()); }}>
             {/* A placeholder is an example, not a label: say what the box filters. */}
-            {control.placeholder && control.placeholder !== control.label
+            {hasOwnLabel(control)
                 ? <span className="t-search-label">{control.label}</span>
                 : <Icon name="search" size={12} />}
             <input

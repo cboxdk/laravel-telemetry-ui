@@ -27,11 +27,28 @@ export function PanelPage({ page: fixed, params }: { page?: string; params?: Rec
             )}
             {isLoading && !data ? <Skeleton height={320} /> : error ? <ErrorState error={error} /> : (
                 <div className="t-grid">
-                    {data?.panels.map((p) => <PanelView key={p.id} id={p.id} span={p.span} params={{ ...params, _page: page }} />)}
+                    {data && fillRows(data.panels).map((p) => <PanelView key={p.id} id={p.id} span={p.span} params={{ ...params, _page: page }} />)}
                 </div>
             )}
         </div>
     );
+}
+
+/**
+ * The grid is two columns: a half-width panel that would sit alone in its row
+ * (the next one is full width, or it's the last) takes the whole row instead
+ * of leaving a hole beside it.
+ */
+export function fillRows<T extends { span: number }>(panels: T[]): T[] {
+    let column = 0;
+    return panels.map((panel, i) => {
+        const half = panel.span < 2;
+        const next = panels[i + 1];
+        const alone = half && column === 0 && (next === undefined || next.span >= 2);
+        const span = half && !alone ? 1 : 2;
+        column = (column + span) % 2;
+        return alone ? { ...panel, span: 2 } : panel;
+    });
 }
 
 export function OverviewPage() {

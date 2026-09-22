@@ -101,7 +101,7 @@ final class DuplicateQueries extends Panel
         ], $table, array_filter([
             'subtitle' => 'Queries that repeated identically within one trace — the classic N+1 smell, named',
             'error' => $error,
-            'empty' => 'No duplicate-query detections in this period. 🎉',
+            'empty' => 'No duplicate-query detections in this period.',
             'note' => 'Fired once per distinct query when it crosses the repeat threshold (default 3). Fix with eager loading or caching.',
         ], static fn ($v): bool => $v !== null));
     }

@@ -67,5 +67,5 @@ it('shows an empty state when the counter has no samples in the period', functio
     $this->getJson(panelUrl(GlideByPreset::id()))
         ->assertOk()
         ->assertSee('Generations by preset')
-        ->assertSee('No data in this period.');
+        ->assertSee('No generations by preset recorded in this period.');
 });

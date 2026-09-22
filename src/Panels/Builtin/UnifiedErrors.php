@@ -230,7 +230,7 @@ final class UnifiedErrors extends Panel
             'subtitle' => 'Every exception — frontend and backend — grouped by fingerprint. Click a row for stacktrace, occurrences and root-cause hints.',
             'span' => 2,
             'error' => $error,
-            'empty' => $filtered ? 'No errors match the filter.' : 'No errors in this period. 🎉',
+            'empty' => $filtered ? 'No errors match the filter.' : 'No errors in this period.',
             'note' => $sampled ? 'Sampled — counts are lower bounds.' : null,
             'controls' => [
                 Ui::search('err_q', 'Filter', $this->search, 'Filter by type or message…'),

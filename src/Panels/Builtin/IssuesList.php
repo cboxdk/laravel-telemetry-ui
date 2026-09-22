@@ -166,8 +166,8 @@ final class IssuesList extends Panel
             // A partial failure (one tracker down, others answered) is a note
             // over the rows, not an error state that hides them.
             'error' => $table === [] ? $error : null,
-            'note' => $table !== [] && $error !== null ? '⚠ '.$error : null,
-            'empty' => 'No matching issues. 🎉',
+            'note' => $table !== [] && $error !== null ? ''.$error : null,
+            'empty' => 'No matching issues.',
             'drill' => $url !== '' ? Ui::url($url) : null,
             'controls' => $controls,
         ]);

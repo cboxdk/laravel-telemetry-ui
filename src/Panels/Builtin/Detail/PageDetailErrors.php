@@ -133,7 +133,7 @@ final class PageDetailErrors extends Panel
 
         return Ui::table('Errors', $columns, $cells, array_filter([
             'subtitle' => 'Browser errors seen on this page, grouped by fingerprint. Click a row for the issue\'s stacktrace and root cause.',
-            'empty' => 'No errors on this page in this period. 🎉',
+            'empty' => 'No errors on this page in this period.',
             'note' => $truncated && $cells !== [] ? 'Sampled — counts are lower bounds.' : null,
             'error' => $error,
         ], static fn (?string $v): bool => $v !== null));

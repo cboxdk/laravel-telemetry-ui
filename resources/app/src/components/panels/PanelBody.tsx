@@ -74,7 +74,7 @@ function ChartBody({ data }: { data: ChartPayload }) {
             {hasData ? (
                 <TimeChart series={data.series} type={data.type} unit={data.unit} height={data.height ?? 200} annotations={data.annotations} min={data.min} max={data.max} />
             ) : (
-                <Empty>{data.empty ?? 'No data in this window.'}</Empty>
+                <Empty>{data.empty ?? 'Nothing recorded in this period.'}</Empty>
             )}
         </>
     );
@@ -213,7 +213,7 @@ function CalloutBody({ data }: { data: CalloutPayload }) {
 }
 
 function HeatmapBody({ data }: { data: HeatmapPayload }) {
-    if (data.cells.length === 0) return <Empty>{data.empty ?? 'No data in this window.'}</Empty>;
+    if (data.cells.length === 0) return <Empty>{data.empty ?? 'Nothing recorded in this period.'}</Empty>;
     return <HeatmapChart xs={data.xs} ys={data.ys} cells={data.cells} unit={data.unit} />;
 }
 

@@ -80,7 +80,7 @@ final class ExceptionsTable extends Panel
         return Ui::table('Exceptions by class', $columns, $table, [
             'span' => 2,
             'error' => $error,
-            'empty' => 'No exceptions reported in this period. 🎉',
+            'empty' => 'No exceptions reported in this period.',
             'drill' => $this->errorTracesLink(),
         ]);
     }

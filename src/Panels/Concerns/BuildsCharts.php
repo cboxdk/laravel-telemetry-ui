@@ -175,7 +175,7 @@ trait BuildsCharts
             'error' => $error,
             'span' => $span,
             'note' => $note,
-            'empty' => $empty,
+            'empty' => $empty ?? self::emptyFor($title),
             'height' => $height,
             'annotations' => $annotate && $series !== [] ? $this->annotationMarks() : [],
             'min' => $start->getTimestamp() * 1000,
@@ -230,5 +230,24 @@ trait BuildsCharts
         }
 
         return false;
+    }
+
+    /**
+     * "No scheduled tasks recorded in this period." — an empty state that
+     * names what's missing instead of a generic "no data".
+     */
+    protected static function emptyFor(string $title): string
+    {
+        $subject = trim((string) preg_replace('/\s*\(.*\)$/', '', $title));
+
+        return $subject === '' ? 'Nothing recorded in this period.' : 'No '.self::lowerFirstWord($subject).' recorded in this period.';
+    }
+
+    private static function lowerFirstWord(string $subject): string
+    {
+        // Keep acronyms and names (DB, HTTP, Livewire…) as written.
+        $first = strtok($subject, ' ');
+
+        return $first !== false && $first === ucfirst(strtolower($first)) ? lcfirst($subject) : $subject;
     }
 }

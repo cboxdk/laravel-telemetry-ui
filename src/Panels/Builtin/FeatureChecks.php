@@ -112,7 +112,7 @@ final class FeatureChecks extends Panel
         // Checks against flags with no registered definition — the smell
         // detector — lead the panel as a warning above the table.
         return Ui::composite('Feature flags', [
-            Ui::callout('Unregistered flags', '⚠ Checks against unregistered flags (typo or stale flag): '.implode(', ', $flags), 'warn'),
+            Ui::callout('Unregistered flags', 'Checks against unregistered flags (typo or stale flag): '.implode(', ', $flags), 'warn'),
             Ui::table('', $columns, $table, ['empty' => 'No registered feature-flag checks in this period.']),
         ], ['subtitle' => $extra['subtitle'], 'span' => 2]);
     }
