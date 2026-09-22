@@ -35,7 +35,9 @@ final class ExploreController
         }
 
         $scope = RequestScope::fromRequest($request);
-        $limit = max(1, min(SpanExplorer::MAX_LIMIT, (int) $request->query('limit', (string) SpanExplorer::DEFAULT_LIMIT)));
+        // A trace search can match many spans per trace; sample fewer by default.
+        $default = $signal === 'traces' ? 200 : SpanExplorer::DEFAULT_LIMIT;
+        $limit = max(1, min(SpanExplorer::MAX_LIMIT, (int) $request->query('limit', (string) $default)));
         $groupBy = is_string($request->query('groupBy')) ? (string) $request->query('groupBy') : null;
 
         try {

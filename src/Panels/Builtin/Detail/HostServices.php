@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
+use Cbox\TelemetryUi\Queries\Results\Sample;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -43,13 +44,30 @@ final class HostServices extends Panel
         /** @var array<string, array{label?: string, kind?: string, up?: string, note?: string, tiles?: array<int, array{label?: string, query?: string, unit?: string}>}> $configured */
         $configured = (array) config('telemetry-ui.host-services', []);
 
+        $failed = [];
+
         try {
             foreach ($configured as $service) {
                 if (! is_array($service) || ! is_string($service['up'] ?? null)) {
                     continue;
                 }
 
-                $up = $this->metrics()->query(MetricQuery::raw($this->expand($service['up'])));
+                $observed = ($service['kind'] ?? 'exporter') === 'observed';
+
+                try {
+                    $up = $this->probe($service['up']);
+                } catch (SourceException) {
+                    // One service's probe failing (an exporter query the
+                    // backend can't run) costs that section, not the panel.
+                    $failed[] = (string) ($service['label'] ?? '?');
+
+                    continue;
+                }
+
+                // An observed service shows only when there was traffic.
+                if ($observed) {
+                    $up = array_values(array_filter($up, static fn ($s): bool => $s->value > 0.0));
+                }
 
                 if ($up === []) {
                     continue; // exporter absent for this host — no section.
@@ -111,6 +129,10 @@ final class HostServices extends Panel
             ], static fn ($v): bool => $v !== null));
         }
 
+        if ($failed !== [] && $parts === [] && $error === null) {
+            $error = 'Could not probe: '.implode(', ', $failed).'.';
+        }
+
         return Ui::composite('Services on this host', $parts, [
             'subtitle' => "From the services' own Prometheus exporters (mysqld_exporter, redis_exporter, …)",
             'span' => 2,
@@ -137,5 +159,27 @@ final class HostServices extends Panel
             'raw' => rtrim(rtrim(number_format($value, 2), '0'), '.'),
             default => Format::count($value),
         };
+    }
+
+    /**
+     * Run a service's health probe. Older published configs filter observed
+     * traffic in PromQL (`… > 0`), which some backends (telemetryd) can't
+     * evaluate — retry without the comparison; the caller filters instead.
+     *
+     * @return list<Sample>
+     */
+    private function probe(string $query): array
+    {
+        try {
+            return $this->metrics()->query(MetricQuery::raw($this->expand($query)));
+        } catch (SourceException $exception) {
+            $bare = preg_replace('/\s*>\s*0(\.0+)?\s*$/', '', $query);
+
+            if ($bare === null || $bare === $query) {
+                throw $exception;
+            }
+
+            return $this->metrics()->query(MetricQuery::raw($this->expand($bare)));
+        }
     }
 }

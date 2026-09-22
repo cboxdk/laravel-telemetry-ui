@@ -17,8 +17,20 @@ trait ScopesToMachine
     #[Param('host')]
     public string $host = '';
 
+    /**
+     * The host's series, plus series with no host label at all: backends that
+     * keep `host.name` only as a resource attribute (telemetryd) export metrics
+     * unlabelled, and on such a fleet those series are this host's. An empty
+     * alternative in an anchored RE2 match is exactly "label absent".
+     */
     protected function scopeMatchers(): string
     {
-        return $this->host === '' ? '' : 'host_name="'.addcslashes($this->host, '"\\').'"';
+        if ($this->host === '') {
+            return '';
+        }
+
+        $escaped = strtr($this->host, ['\\' => '\\\\', '.' => '\\.', '+' => '\\+', '*' => '\\*', '?' => '\\?', '(' => '\\(', ')' => '\\)', '[' => '\\[', ']' => '\\]', '{' => '\\{', '}' => '\\}', '^' => '\\^', '$' => '\\$', '|' => '\\|']);
+
+        return 'host_name=~"'.addcslashes($escaped, '"\\').'|"';
     }
 }

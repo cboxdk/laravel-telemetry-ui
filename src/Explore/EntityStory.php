@@ -66,11 +66,13 @@ final class EntityStory
         $signal = $this->signalFor($dimension);
         $present = TraceCondition::nil($dimension->traceField());
 
-        $rows = $this->spans->rows($scope, $signal, self::LIMIT, [$present], [$dimension->key]);
+        $rows = $signal === 'requests'
+            ? $this->spans->rows($scope, $signal, self::LIMIT, [$present], [$dimension->key])
+            : $this->spans->rowsFrom($this->spans->spanSample($scope, [$present], [$dimension->key]), $signal, [$dimension->key], true);
 
         if ($rows === [] && $signal === 'requests') {
             $signal = 'traces';
-            $rows = $this->spans->rows($scope, $signal, self::LIMIT, [$present], [$dimension->key]);
+            $rows = $this->spans->rowsFrom($this->spans->spanSample($scope, [$present], [$dimension->key]), $signal, [$dimension->key], true);
         }
 
         $groups = array_values(array_filter(
@@ -81,9 +83,10 @@ final class EntityStory
         return [
             'entity' => $this->describe($dimension),
             'signal' => $signal,
+            'unit' => $signal === 'requests' ? 'requests' : 'spans',
             'values' => $groups,
             'stats' => Stats::red($rows, $scope->rangeSeconds()),
-            'sample' => ['size' => count($rows), 'limit' => self::LIMIT, 'truncated' => count($rows) >= self::LIMIT, 'exact' => false],
+            'sample' => ['size' => count($rows), 'limit' => $this->limitFor($signal), 'truncated' => count($rows) >= $this->limitFor($signal), 'exact' => false],
         ];
     }
 
@@ -96,14 +99,16 @@ final class EntityStory
         $match = $this->matchCondition($dimension, $value);
         $keys = $this->breakdownKeys($dimension);
 
-        $summaries = $this->spans->summaries($scope, $signal, self::LIMIT, [$match], $keys);
+        $summaries = $signal === 'requests'
+            ? $this->spans->summaries($scope, $signal, self::LIMIT, [$match], $keys)
+            : $this->spans->spanSample($scope, [$match], $keys);
 
         if ($summaries === [] && $signal === 'requests') {
             $signal = 'traces';
-            $summaries = $this->spans->summaries($scope, $signal, self::LIMIT, [$match], $keys);
+            $summaries = $this->spans->spanSample($scope, [$match], $keys);
         }
 
-        $rows = $this->spans->rowsFrom($summaries, $signal, $keys);
+        $rows = $this->spans->rowsFrom($summaries, $signal, $keys, $signal !== 'requests');
 
         [$start, $end] = $scope->range();
         $startMs = $start->getTimestamp() * 1000;
@@ -146,9 +151,17 @@ final class EntityStory
             'deploys' => $deploys,
             'raw' => $raw,
             'panels' => $this->panels($dimension, $value),
-            'sample' => ['size' => count($rows), 'limit' => self::LIMIT, 'truncated' => count($rows) >= self::LIMIT, 'exact' => false],
+            'sample' => ['size' => count($rows), 'limit' => $this->limitFor($signal), 'truncated' => count($rows) >= $this->limitFor($signal), 'exact' => false],
             'range' => ['start' => $startMs, 'end' => $endMs],
         ];
+    }
+
+    /**
+     * The sample bound reported to the client for a signal.
+     */
+    private function limitFor(string $signal): int
+    {
+        return $signal === 'requests' ? self::LIMIT : 1500;
     }
 
     /**

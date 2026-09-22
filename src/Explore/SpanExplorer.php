@@ -61,8 +61,12 @@ final class SpanExplorer
 
         $hasKind = array_filter($conditions, static fn (TraceCondition $c): bool => $c->field === 'kind') !== [];
 
-        if (($signal === 'requests' && ! $hasKind) || ($conditions === [] && $scope->scopeTraceConditions() === [])) {
-            // Never emit `{}` (every span in retention): default to server spans.
+        // Requests are server spans by definition. An unfiltered trace search
+        // defaults to server spans too (one row per request-shaped trace, the
+        // v1 TraceSearch behaviour) — matching every span would pull whole
+        // traces' worth of spans per hit (backends like telemetryd ignore
+        // spans-per-spanset limits) and never emit `{}` (all of retention).
+        if (($signal === 'requests' || $conditions === []) && ! $hasKind) {
             $conditions[] = TraceCondition::token('kind', TraceOp::Eq, 'server');
         }
 
@@ -92,9 +96,9 @@ final class SpanExplorer
      * @param  list<string>  $keys
      * @return list<Row>
      */
-    public function rows(RequestScope $scope, string $signal, int $limit = self::DEFAULT_LIMIT, array $extra = [], array $keys = []): array
+    public function rows(RequestScope $scope, string $signal, int $limit = self::DEFAULT_LIMIT, array $extra = [], array $keys = [], bool $perSpan = false): array
     {
-        return $this->rowsFrom($this->summaries($scope, $signal, $limit, $extra, $keys), $signal, $keys);
+        return $this->rowsFrom($this->summaries($scope, $signal, $limit, $extra, $keys), $signal, $keys, $perSpan);
     }
 
     /**
@@ -142,15 +146,51 @@ final class SpanExplorer
     }
 
     /**
+     * Span-level occurrences (views, queries, outgoing calls), sampled so the
+     * payload stays bounded whatever the backend returns per trace: probe a
+     * few traces first; if each carries only a handful of matched spans (Tempo
+     * caps spans-per-spanset at 3) widen the sample, if each carries many
+     * (telemetryd returns them all) the probe already is the sample.
+     *
+     * @param  list<TraceCondition>  $extra
+     * @param  list<string>  $keys
+     * @return list<TraceSummary>
+     */
+    public function spanSample(RequestScope $scope, array $extra = [], array $keys = [], int $target = 1500): array
+    {
+        $probe = $this->summaries($scope, 'traces', 10, $extra, $keys);
+
+        if (count($probe) < 10) {
+            return $probe;
+        }
+
+        $spans = array_sum(array_map(static fn (TraceSummary $s): int => count($s->matchedSpans), $probe));
+        $perTrace = max(1, intdiv($spans, count($probe)));
+        $limit = min(300, max(10, intdiv($target, $perTrace)));
+
+        return $limit <= 10 ? $probe : $this->summaries($scope, 'traces', $limit, $extra, $keys);
+    }
+
+    /**
      * @param  list<TraceSummary>  $summaries
      * @param  list<string>  $keys
      * @return list<Row>
      */
-    public function rowsFrom(array $summaries, string $signal, array $keys = []): array
+    public function rowsFrom(array $summaries, string $signal, array $keys = [], bool $perSpan = false): array
     {
         $rows = [];
 
         foreach ($summaries as $summary) {
+            if ($perSpan && $summary->matchedSpans !== []) {
+                // Span-level entities (a view, a query) occur many times per
+                // trace: every matched span is its own occurrence.
+                foreach ($summary->matchedSpans as $span) {
+                    $rows[] = $this->row($summary, $span, $keys);
+                }
+
+                continue;
+            }
+
             $span = $this->representative($summary, $signal);
             $rows[] = $this->row($summary, $span, $keys);
         }

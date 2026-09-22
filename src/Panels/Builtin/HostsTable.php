@@ -50,11 +50,42 @@ final class HostsTable extends Panel
             return $byHost;
         };
 
+        // Backends spell dimensionless gauges differently (`_ratio` per the
+        // Prometheus convention, bare on telemetryd) — match both.
+        $cpu = $this->metric('', '__name__=~"system_cpu_utilization(_ratio)?"');
+        $memory = $this->metric('', '__name__=~"system_memory_utilization(_ratio)?",state="used"');
+        $note = null;
+
         try {
             $values['requests'] = $collect($count->increase($p)->sumBy('host_name'));
             $values['errors'] = $collect($errors->increase($p)->sumBy('host_name'));
-            $values['cpu'] = $collect($this->metric('system_cpu_utilization_ratio')->avgBy('host_name'));
-            $values['memory'] = $collect($this->metric('system_memory_utilization_ratio', 'state="used"')->avgBy('host_name'));
+            $values['cpu'] = $collect($cpu->avgBy('host_name'));
+            $values['memory'] = $collect($memory->avgBy('host_name'));
+
+            // Metrics without a host label (the host is only a resource
+            // attribute on spans): list the hosts traces report, and when
+            // there is exactly one, the unlabelled metrics are its metrics.
+            if (array_merge(...array_values($values)) === []) {
+                [$start, $end] = $this->range();
+                $hosts = array_values(array_filter($this->traces()->tagValues('resource.host.name', null, $start, $end, 50), static fn (string $h): bool => $h !== ''));
+
+                if (count($hosts) === 1) {
+                    $host = $hosts[0];
+                    $values = [
+                        'requests' => [$host => $this->total($count->increase($p)->sumBy())],
+                        'errors' => [$host => $this->total($errors->increase($p)->sumBy())],
+                        'cpu' => [$host => $this->total($cpu->avgBy())],
+                        'memory' => [$host => $this->total($memory->avgBy())],
+                    ];
+                    $note = 'Metrics carry no host label; this single host is inferred from its traces.';
+                } else {
+                    foreach ($hosts as $host) {
+                        $values['requests'][$host] = 0.0;
+                    }
+
+                    $note = $hosts !== [] ? 'Metrics carry no host label, so per-host numbers are unavailable — hosts are listed from traces.' : null;
+                }
+            }
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
         }
@@ -93,7 +124,7 @@ final class HostsTable extends Panel
                     'link' => Ui::page('traces', ['q' => $this->tracesQuery($host)]),
                 ]),
                 'errors' => Ui::cell(Format::count($row['errors']), ['raw' => $row['errors'], 'mono' => true, 'tone' => $row['errors'] > 0 ? 'danger' : null]),
-                'cpu' => Ui::cell($row['cpu'] !== null ? Format::percent($row['cpu']) : '—', ['raw' => $row['cpu'], 'mono' => true]),
+                'cpu' => Ui::cell($row['cpu'] !== null && ! is_nan($row['cpu']) ? Format::percent($row['cpu']) : '—', ['raw' => $row['cpu'], 'mono' => true]),
                 'memory' => Ui::cell($row['memory'] !== null ? Format::percent($row['memory']) : '—', [
                     'raw' => $row['memory'],
                     'mono' => true,
@@ -112,6 +143,7 @@ final class HostsTable extends Panel
             'subtitle' => 'Every host reporting telemetry — request volume, errors, CPU, memory. Click a host for its detail page.',
             'span' => 2,
             'error' => $error,
+            'note' => $note,
             'empty' => 'No hosts reporting in this period.',
         ]);
     }

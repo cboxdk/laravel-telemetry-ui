@@ -498,7 +498,7 @@ return [
         'database-app' => [
             'label' => 'Database (seen by app)',
             'kind' => 'observed',
-            'up' => 'sum(rate(db_queries_total{host_name="{host}"}[10m])) > 0',
+            'up' => 'sum(rate(db_queries_total{host_name="{host}"}[10m]))',
             'note' => 'App-side view only. Point mysqld_exporter / postgres_exporter at this Prometheus for real health, connections and slow-query stats.',
             'tiles' => [
                 ['label' => 'Queries/s', 'query' => 'sum(rate(db_queries_total{host_name="{host}"}[5m]))', 'unit' => 'raw'],
@@ -513,7 +513,7 @@ return [
         'redis-app' => [
             'label' => 'Redis (seen by app)',
             'kind' => 'observed',
-            'up' => 'sum(rate(redis_commands_total{host_name="{host}"}[10m])) > 0',
+            'up' => 'sum(rate(redis_commands_total{host_name="{host}"}[10m]))',
             'note' => 'App-side view only. Point redis_exporter at this Prometheus for real health, memory, clients and hit ratio.',
             'tiles' => [
                 ['label' => 'Commands/s', 'query' => 'sum(rate(redis_commands_total{host_name="{host}"}[5m]))', 'unit' => 'raw'],

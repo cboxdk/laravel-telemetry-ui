@@ -31,8 +31,8 @@ final class HostDetailHeader extends Panel
         $cpu = $memory = $load = $requests = null;
 
         try {
-            $cpu = $this->total($this->metric('system_cpu_utilization_ratio')->avgBy());
-            $memory = $this->total($this->metric('system_memory_utilization_ratio', 'state="used"')->avgBy());
+            $cpu = $this->total($this->metric('', '__name__=~"system_cpu_utilization(_ratio)?"')->avgBy());
+            $memory = $this->total($this->metric('', '__name__=~"system_memory_utilization(_ratio)?",state="used"')->avgBy());
             $load = $this->total($this->metric('', '__name__=~"system_cpu_load_average(_ratio)?", period="1m"')->avgBy());
             $requests = $this->total($this->metric('http_server_request_duration_seconds_count')->increase($this->promDuration())->sumBy());
         } catch (SourceException $exception) {

@@ -24,7 +24,7 @@ final class AutoscaleSla extends Panel
         $predicted = $this->metric('queue_autoscale_sla_predicted_pickup_seconds');
 
         try {
-            $inBreach = $this->total($this->metric('queue_autoscale_sla_breach_ratio')->sumBy());
+            $inBreach = $this->total($this->metric('', '__name__=~"queue_autoscale_sla_breach(_ratio)?"')->sumBy());
             // counterIncrease(), not increase(): breaches are rare, and a
             // counter born mid-window would otherwise read as zero.
             $breaches = $this->total(

@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Builtin\FrontendPages;
 use Cbox\TelemetryUi\Panels\Builtin\WebVitals;
 use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\Concerns\ReadsWebVitals;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -24,6 +25,7 @@ use Cbox\TelemetryUi\Support\Format;
 final class PageDetailPerformance extends Panel
 {
     use CoercesAttributes;
+    use ReadsWebVitals;
     use ScopesToPage;
 
     private const SEARCH_LIMIT = 200;
@@ -43,37 +45,12 @@ final class PageDetailPerformance extends Panel
 
         if ($this->page !== '') {
             try {
-                // Web vitals — one span per view, reported at page-hide.
-                $lcp = $cls = $inp = [];
-
-                // Browser spans carry the page in `http.url`, not `url.path`
-                // (that's only on the backend span), so scope by service/env and
-                // filter to this path in PHP — like WebVitals/FrontendPages.
-                $vitalsResults = $this->traces()->search(
-                    $this->traceQuery(TraceCondition::eq('name', 'web-vitals'))
-                        ->select('span.http.url', 'span.web_vitals.lcp_ms', 'span.web_vitals.cls', 'span.web_vitals.inp_ms'),
-                    $start,
-                    $end,
-                    limit: self::SEARCH_LIMIT,
-                );
-
-                foreach ($vitalsResults as $summary) {
-                    foreach ($summary->matchedSpans as $span) {
-                        if ($span->name !== 'web-vitals' || ! $this->matchesPage($span->attributes['http.url'] ?? null)) {
-                            continue;
-                        }
-
-                        if (isset($span->attributes['web_vitals.lcp_ms'])) {
-                            $lcp[] = $this->num($span->attributes['web_vitals.lcp_ms']);
-                        }
-                        if (isset($span->attributes['web_vitals.cls'])) {
-                            $cls[] = $this->num($span->attributes['web_vitals.cls']);
-                        }
-                        if (isset($span->attributes['web_vitals.inp_ms'])) {
-                            $inp[] = $this->num($span->attributes['web_vitals.inp_ms']);
-                        }
-                    }
-                }
+                // Web vitals from either browser SDK (see ReadsWebVitals),
+                // filtered to this page's path.
+                $page = $this->webVitalsByPath($start, $end, fn (string $path): bool => $this->matchesPage($path))[$this->page] ?? null;
+                $lcp = $page['lcp'] ?? [];
+                $cls = $page['cls'] ?? [];
+                $inp = $page['inp'] ?? [];
 
                 if ($lcp !== [] || $cls !== [] || $inp !== []) {
                     $vitals = [
@@ -167,22 +144,5 @@ final class PageDetailPerformance extends Panel
             $unit === 'ms' => Format::ms($value),
             default => rtrim(rtrim(number_format($value, 3), '0'), '.'),
         };
-    }
-
-    /**
-     * The 75th percentile — the vitals-standard aggregate (an average hides
-     * the slow tail these scores exist to expose).
-     *
-     * @param  list<float>  $values
-     */
-    private function p75(array $values): ?float
-    {
-        if ($values === []) {
-            return null;
-        }
-
-        sort($values);
-
-        return $values[(int) min(count($values) - 1, floor(count($values) * 0.75))];
     }
 }

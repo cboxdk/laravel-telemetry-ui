@@ -5,23 +5,19 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
-use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\Concerns\ReadsWebVitals;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
-use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
- * Core Web Vitals from real users — the browser SDK ships one `web-vitals`
- * span per page view at page-hide (LCP/CLS are not final before that), so
- * these are field numbers, not lab scores. Grouped by URL path with
+ * Core Web Vitals from real users (field numbers, not lab scores) — read from
+ * either browser SDK, see {@see ReadsWebVitals}. Grouped by URL path with
  * good / needs-improvement / poor tones on Google's published thresholds.
  */
 final class WebVitals extends Panel
 {
-    use CoercesAttributes;
-
-    private const SEARCH_LIMIT = 200;
+    use ReadsWebVitals;
 
     public static function span(): int
     {
@@ -37,42 +33,14 @@ final class WebVitals extends Panel
         $error = null;
 
         try {
-            $query = $this->traceQuery(TraceCondition::eq('name', 'web-vitals'))
-                ->select('span.http.url', 'span.web_vitals.lcp_ms', 'span.web_vitals.cls', 'span.web_vitals.inp_ms');
+            $pages = $this->webVitalsByPath($start, $end);
 
-            $results = $this->traces()->search($query, $start, $end, limit: self::SEARCH_LIMIT);
-
-            /** @var array<string, array{path: string, views: int, lcp: list<float>, cls: list<float>, inp: list<float>}> $pages */
-            $pages = [];
-
-            foreach ($results as $summary) {
-                foreach ($summary->matchedSpans as $span) {
-                    if ($span->name !== 'web-vitals') {
-                        continue;
-                    }
-
-                    $path = $this->path($span->attributes['http.url'] ?? null);
-                    $page = $pages[$path] ?? ['path' => $path, 'views' => 0, 'lcp' => [], 'cls' => [], 'inp' => []];
-                    $page['views']++;
-
-                    foreach (['lcp' => 'web_vitals.lcp_ms', 'cls' => 'web_vitals.cls', 'inp' => 'web_vitals.inp_ms'] as $key => $attribute) {
-                        if (isset($span->attributes[$attribute])) {
-                            $page[$key][] = $this->num($span->attributes[$attribute]);
-                        }
-                    }
-
-                    $pages[$path] = $page;
-                }
-            }
-
-            $allLcp = [];
-            $allCls = [];
-            $allInp = [];
+            $all = ['lcp' => [], 'cls' => [], 'inp' => [], 'fcp' => [], 'ttfb' => []];
 
             foreach ($pages as $page) {
-                $allLcp = [...$allLcp, ...$page['lcp']];
-                $allCls = [...$allCls, ...$page['cls']];
-                $allInp = [...$allInp, ...$page['inp']];
+                foreach (array_keys($all) as $metric) {
+                    $all[$metric] = [...$all[$metric], ...$page[$metric]];
+                }
 
                 $rows[] = [
                     'path' => $page['path'],
@@ -80,6 +48,8 @@ final class WebVitals extends Panel
                     'lcp' => $this->p75($page['lcp']),
                     'cls' => $this->p75($page['cls']),
                     'inp' => $this->p75($page['inp']),
+                    'fcp' => $this->p75($page['fcp']),
+                    'ttfb' => $this->p75($page['ttfb']),
                 ];
             }
 
@@ -87,10 +57,15 @@ final class WebVitals extends Panel
 
             if ($rows !== []) {
                 $stats = [
-                    $this->stat('p75 LCP', $this->fmt($this->p75($allLcp), 'ms'), $this->tone($this->p75($allLcp), 2500, 4000)),
-                    $this->stat('p75 CLS', $this->fmt($this->p75($allCls), ''), $this->tone($this->p75($allCls), 0.1, 0.25)),
-                    $this->stat('p75 INP', $this->fmt($this->p75($allInp), 'ms'), $this->tone($this->p75($allInp), 200, 500)),
+                    $this->stat('p75 LCP', $this->fmt($this->p75($all['lcp']), 'ms'), $this->tone($this->p75($all['lcp']), 2500, 4000)),
+                    $this->stat('p75 CLS', $this->fmt($this->p75($all['cls']), ''), $this->tone($this->p75($all['cls']), 0.1, 0.25)),
+                    $this->stat('p75 INP', $this->fmt($this->p75($all['inp']), 'ms'), $this->tone($this->p75($all['inp']), 200, 500)),
                 ];
+
+                if ($all['fcp'] !== [] || $all['ttfb'] !== []) {
+                    $stats[] = $this->stat('p75 FCP', $this->fmt($this->p75($all['fcp']), 'ms'), $this->tone($this->p75($all['fcp']), 1800, 3000));
+                    $stats[] = $this->stat('p75 TTFB', $this->fmt($this->p75($all['ttfb']), 'ms'), $this->tone($this->p75($all['ttfb']), 800, 1800));
+                }
             }
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
@@ -105,7 +80,7 @@ final class WebVitals extends Panel
         if ($rows === []) {
             return Ui::composite('Core Web Vitals', [], [
                 ...$extra,
-                'empty' => 'No web-vitals spans in this period. Requires the browser SDK with ingest.spans.browser.vitals enabled (default on).',
+                'empty' => 'No web-vitals spans in this period. Requires a browser SDK reporting vitals: @telemetryBrowser (data-vitals) or @cboxdk/telemetry-browser.',
             ]);
         }
 
@@ -115,6 +90,8 @@ final class WebVitals extends Panel
             Ui::num('lcp', 'LCP p75'),
             Ui::num('cls', 'CLS p75'),
             Ui::num('inp', 'INP p75'),
+            Ui::num('fcp', 'FCP p75'),
+            Ui::num('ttfb', 'TTFB p75'),
         ];
 
         $cells = array_map(fn (array $row): array => [
@@ -123,6 +100,8 @@ final class WebVitals extends Panel
             'lcp' => Ui::cell($this->fmt($row['lcp'], 'ms'), ['raw' => $row['lcp'], 'tone' => $this->tone($row['lcp'], 2500, 4000)]),
             'cls' => Ui::cell($this->fmt($row['cls'], ''), ['raw' => $row['cls'], 'tone' => $this->tone($row['cls'], 0.1, 0.25)]),
             'inp' => Ui::cell($this->fmt($row['inp'], 'ms'), ['raw' => $row['inp'], 'tone' => $this->tone($row['inp'], 200, 500)]),
+            'fcp' => Ui::cell($this->fmt($row['fcp'], 'ms'), ['raw' => $row['fcp'], 'tone' => $this->tone($row['fcp'], 1800, 3000)]),
+            'ttfb' => Ui::cell($this->fmt($row['ttfb'], 'ms'), ['raw' => $row['ttfb'], 'tone' => $this->tone($row['ttfb'], 800, 1800)]),
             '_link' => Ui::entity('path', $row['path']),
         ], array_slice($rows, 0, 100));
 
@@ -155,33 +134,5 @@ final class WebVitals extends Panel
             $unit === 'ms' => Format::ms($value),
             default => rtrim(rtrim(number_format($value, 3), '0'), '.'),
         };
-    }
-
-    /**
-     * The 75th percentile — the vitals-standard aggregate (an average hides
-     * the slow tail these scores exist to expose).
-     *
-     * @param  list<float>  $values
-     */
-    private function p75(array $values): ?float
-    {
-        if ($values === []) {
-            return null;
-        }
-
-        sort($values);
-
-        return $values[(int) min(count($values) - 1, floor(count($values) * 0.75))];
-    }
-
-    private function path(mixed $url): string
-    {
-        if (! is_string($url) || $url === '') {
-            return '(unknown)';
-        }
-
-        $path = parse_url($url, PHP_URL_PATH);
-
-        return is_string($path) && $path !== '' ? $path : $url;
     }
 }
