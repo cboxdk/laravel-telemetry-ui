@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Explore;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
+use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\AggregatesSpans;
 use Cbox\TelemetryUi\Dimensions\Dimensions;
+use Cbox\TelemetryUi\Http\Api\Filter;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Cbox\TelemetryUi\Queries\Ir\SpanAggregation;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -107,7 +109,36 @@ final class SpanExplorer
         [$start, $end] = $scope->range();
         $limit = max(1, min(self::MAX_LIMIT, $limit));
 
-        return $this->connections->traces()->search($this->query($scope, $signal, $extra, $keys), $start, $end, $limit);
+        try {
+            return $this->connections->traces()->search($this->query($scope, $signal, $extra, $keys), $start, $end, $limit);
+        } catch (SourceException $exception) {
+            // Some backends (telemetryd) refuse negated regex (`!~`). Rather
+            // than fail the whole view, run the query without those filters
+            // and apply them read-side to what comes back.
+            $negated = array_values(array_filter($scope->where, static fn (Filter $f): bool => $f->op === '!~'));
+
+            if ($negated === [] || ! str_contains(strtolower($exception->detail), 'not supported') && ! str_contains($exception->detail, 'unsupported')) {
+                throw $exception;
+            }
+
+            $relaxed = $scope->withWhere(array_values(array_filter($scope->where, static fn (Filter $f): bool => $f->op !== '!~')));
+            $keys = [...$keys, ...array_map(static fn (Filter $f): string => $f->key, $negated)];
+
+            return array_values(array_filter(
+                $this->connections->traces()->search($this->query($relaxed, $signal, $extra, $keys), $start, $end, $limit),
+                function (TraceSummary $summary) use ($negated, $signal): bool {
+                    $attributes = $this->representative($summary, $signal)->attributes ?? [];
+
+                    foreach ($negated as $filter) {
+                        if (! $filter->matches($attributes[$filter->key] ?? '')) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                },
+            ));
+        }
     }
 
     /**
@@ -349,7 +380,10 @@ final class SpanExplorer
             'path' => $path,
             'target' => $route ?? $path,
             'status' => $status,
-            'error' => ($status !== null && (int) $status >= 500) || (($attributes['status'] ?? '') === 'error'),
+            // The intrinsic span status comes back as a `status` attribute when
+            // the query references it; it is not a selectable row attribute,
+            // so read it off the raw span rather than the filtered bag.
+            'error' => ($status !== null && (int) $status >= 500) || (($span->attributes['status'] ?? '') === 'error'),
             'browser' => Span::attributesAreBrowser($span->attributes ?? []),
             'attributes' => $attributes,
         ];

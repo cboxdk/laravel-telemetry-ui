@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Contracts\AggregatesSpans;
 use Cbox\TelemetryUi\Contracts\CreatesIssues;
 use Cbox\TelemetryUi\Dimensions\Dimension;
+use Cbox\TelemetryUi\Http\Api\Brand;
 use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Cbox\TelemetryUi\Support\ConnectionOption;
@@ -77,9 +78,7 @@ final class BootstrapController
 
         return Json::ok([
             'app' => [
-                'name' => (string) (config('telemetry-ui.brand.name') ?? 'Telemetry'),
-                'logo' => config('telemetry-ui.brand.logo'),
-                'accent' => config('telemetry-ui.brand.accent'),
+                ...Brand::toArray(),
                 'copyLink' => (bool) config('telemetry-ui.copy_link', true),
                 'version' => '2.0',
             ],

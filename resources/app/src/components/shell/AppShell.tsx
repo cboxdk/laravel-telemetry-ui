@@ -1,0 +1,203 @@
+import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { useEffect, useMemo, useState } from 'react';
+import { useBootstrap } from '../../api/hooks';
+import type { Bootstrap } from '../../api/types';
+import { parseSearch, scopeOf } from '../../lib/search';
+import { seedRemembered } from '../../lib/state';
+import { load, save } from '../../lib/storage';
+import { useTheme } from '../../lib/theme';
+import { CommandPalette } from '../CommandPalette';
+import { BootContext } from '../DimensionValue';
+import { DrawerStack } from '../drawer/DrawerStack';
+import { ErrorState, Spinner } from '../States';
+import { Icon } from '../Icon';
+import { activeArea, buildAreas, type NavArea } from './nav';
+import { TopBar } from './TopBar';
+
+/**
+ * The two-tier shell (Intercom model): an icon rail (one icon per area,
+ * account at the foot) and the active area's contextual subnav. The rail is
+ * minimised / hover-floating / pinned; the subnav collapses with ⌘. — both
+ * remembered per viewer.
+ */
+export function AppShell() {
+    const { data: boot, error, isLoading } = useBootstrap();
+
+    useEffect(() => {
+        if (boot) seedRemembered(boot.state);
+    }, [boot]);
+
+    if (isLoading && !boot) {
+        return <div className="t-boot"><Spinner label="Loading dashboard…" /></div>;
+    }
+
+    if (!boot) {
+        return <div className="t-boot"><ErrorState error={error} /></div>;
+    }
+
+    return (
+        <BootContext.Provider value={boot}>
+            <Shell boot={boot} />
+        </BootContext.Provider>
+    );
+}
+
+function Shell({ boot }: { boot: Bootstrap }) {
+    const location = useRouterState({ select: (s) => s.location });
+    const search = useMemo(() => parseSearch(location.searchStr), [location.searchStr]);
+    const areas = useMemo(() => buildAreas(boot), [boot]);
+    const area = activeArea(areas, location.pathname, search);
+
+    const [pinned, setPinned] = useState<boolean>(() => load('railPinned', false));
+    const [hover, setHover] = useState(false);
+    const [collapsed, setCollapsed] = useState<boolean>(() => load('subnavCollapsed', false));
+    const [paletteOpen, setPaletteOpen] = useState(false);
+
+    useEffect(() => save('railPinned', pinned), [pinned]);
+    useEffect(() => save('subnavCollapsed', collapsed), [collapsed]);
+
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            const mod = e.metaKey || e.ctrlKey;
+            if (mod && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                setPaletteOpen((o) => !o);
+            } else if (mod && e.key === '.') {
+                e.preventDefault();
+                setCollapsed((c) => !c);
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
+
+    const showSubnav = area !== undefined && area.sections.reduce((n, s) => n + s.items.length, 0) > 1;
+
+    return (
+        <div className={`t-app ${pinned ? 'is-pinned' : ''}`}>
+            <Rail boot={boot} areas={areas} active={area} pinned={pinned} expanded={pinned || hover} onPin={() => setPinned((p) => !p)} onHover={setHover} scope={scopeOf(search)} />
+            {showSubnav && area && (
+                collapsed
+                    ? <button type="button" className="t-subnav-strip" onClick={() => setCollapsed(false)} title="Expand navigation (⌘.)"><span>{area.label}</span></button>
+                    : <Subnav area={area} pathname={location.pathname} search={search} onCollapse={() => setCollapsed(true)} onSearch={() => setPaletteOpen(true)} scope={scopeOf(search)} />
+            )}
+            <div className="t-main">
+                <TopBar boot={boot} onPalette={() => setPaletteOpen(true)} />
+                <main className="t-content canvas-gradient" id="main">
+                    <Outlet />
+                </main>
+            </div>
+            <DrawerStack boot={boot} />
+            <CommandPalette boot={boot} areas={areas} open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+        </div>
+    );
+}
+
+function Rail({ boot, areas, active, pinned, expanded, onPin, onHover, scope }: {
+    boot: Bootstrap;
+    areas: NavArea[];
+    active?: NavArea;
+    pinned: boolean;
+    expanded: boolean;
+    onPin: () => void;
+    onHover: (h: boolean) => void;
+    scope: Record<string, string>;
+}) {
+    const [theme, toggleTheme] = useTheme();
+    const initials = (boot.user?.name ?? boot.app.name).split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+
+    return (
+        <>
+            {pinned && <div className="t-rail-spacer" aria-hidden="true" />}
+            <nav
+                className={`t-rail ${expanded ? 'is-expanded' : ''} ${pinned ? 'is-pinned' : ''}`}
+                aria-label="Areas"
+                onMouseEnter={() => onHover(true)}
+                onMouseLeave={() => onHover(false)}
+            >
+                <div className="t-rail-head">
+                    <Link to="/" search={scope as never} className="t-rail-logo" title={boot.app.name}>
+                        {boot.app.logo ? <img src={boot.app.logo} alt="" /> : <span>{boot.app.name.charAt(0)}</span>}
+                    </Link>
+                    <span className="t-rail-brand">{boot.app.name}</span>
+                    <button type="button" className={`t-rail-pin ${pinned ? 'is-on' : ''}`} onClick={onPin} title={pinned ? 'Unpin navigation' : 'Pin navigation'}>
+                        <Icon name="pin" size={14} />
+                    </button>
+                </div>
+                <div className="t-rail-items">
+                    {areas.map((area) => {
+                        const first = area.sections.flatMap((s) => s.items)[0];
+                        return (
+                            <Link
+                                key={area.key}
+                                to={first?.to ?? '/'}
+                                search={scope as never}
+                                className={`t-rail-item ${active?.key === area.key ? 'is-active' : ''}`}
+                                title={area.label}
+                            >
+                                <Icon name={area.icon} size={19} />
+                                <span className="t-rail-label">{area.label}</span>
+                            </Link>
+                        );
+                    })}
+                </div>
+                <div className="t-rail-foot">
+                    {boot.navLinks.map((link) => (
+                        <a key={link.key} href={link.url} className="t-rail-item" title={link.label}>
+                            <Icon name={link.icon ?? 'link'} size={18} />
+                            <span className="t-rail-label">{link.label}</span>
+                        </a>
+                    ))}
+                    <button type="button" className="t-rail-item" onClick={toggleTheme} title={theme === 'dark' ? 'Light theme' : 'Dark theme'}>
+                        <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} />
+                        <span className="t-rail-label">{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
+                    </button>
+                    <div className="t-rail-item t-rail-account" title={boot.user?.email ?? boot.user?.name ?? 'Signed in'}>
+                        <span className="t-avatar">{initials}</span>
+                        <span className="t-rail-label">{boot.user?.name ?? 'Guest'}</span>
+                    </div>
+                </div>
+            </nav>
+        </>
+    );
+}
+
+function Subnav({ area, pathname, search, onCollapse, onSearch, scope }: {
+    area: NavArea;
+    pathname: string;
+    search: Record<string, unknown>;
+    onCollapse: () => void;
+    onSearch: () => void;
+    scope: Record<string, string>;
+}) {
+    return (
+        <nav className="t-subnav" aria-label={area.label}>
+            <div className="t-subnav-head">
+                <h2>{area.label}</h2>
+                <button type="button" className="t-iconbtn" onClick={onCollapse} title="Collapse (⌘.)"><Icon name="panel" size={15} /></button>
+            </div>
+            <button type="button" className="t-subnav-search" onClick={onSearch}>
+                <Icon name="search" size={13} />
+                <span>Search</span>
+                <kbd>⌘K</kbd>
+            </button>
+            <div className="t-subnav-scroll">
+                {area.sections.map((section, i) => (
+                    <div key={section.title ?? i} className="t-subnav-section">
+                        {section.title && <div className="t-eyebrow t-subnav-title">{section.title}</div>}
+                        {section.items.map((item) => (
+                            <Link
+                                key={item.to}
+                                to={item.to}
+                                search={{ ...scope, ...(item.search ?? {}) } as never}
+                                className={`t-subnav-item ${item.match(pathname, search) ? 'is-active' : ''}`}
+                            >
+                                {item.label}
+                            </Link>
+                        ))}
+                    </div>
+                ))}
+            </div>
+        </nav>
+    );
+}

@@ -73,6 +73,8 @@ export interface Base {
     drill?: LabelledLink | null;
     controls?: Control[];
     stream?: { signal: 'logs' | 'requests'; params?: Record<string, string> } | null;
+    ticket?: TicketDraft | null;
+    copy?: { label: string; text: string } | null;
 }
 
 export interface Annotation {
@@ -107,7 +109,7 @@ export interface ChartPayload extends Base {
     max?: number;
 }
 
-export type Row = Record<string, Cell | string | number | null | undefined | Link> & { _link?: Link };
+export type Row = Record<string, Cell | string | number | null | undefined | Link | TicketDraft> & { _link?: Link; _ticket?: TicketDraft };
 
 export interface TablePayload extends Base {
     kind: 'table';
@@ -162,6 +164,15 @@ export interface CodePayload extends Base {
     kind: 'code';
     text: string;
     language?: string;
+    /** 1-based line numbers to emphasise (the throw line). */
+    highlight?: number[];
+}
+
+/** A prefilled issue draft for the compose form (POST /api/v2/issues). */
+export interface TicketDraft {
+    title: string;
+    body: string;
+    labels: string[];
 }
 
 export interface CalloutPayload extends Base {

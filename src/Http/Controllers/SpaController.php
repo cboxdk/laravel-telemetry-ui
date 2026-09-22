@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Http\Controllers;
 
 use Cbox\TelemetryUi\Events\DashboardViewed;
+use Cbox\TelemetryUi\Http\Api\Brand;
 use Cbox\TelemetryUi\Support\ViewState;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -35,11 +36,7 @@ final class SpaController
             'api' => $base.'/api/v2',
             'assets' => $base.'/build',
             'csrf' => $request->hasSession() ? $request->session()->token() : csrf_token(),
-            'brand' => [
-                'name' => (string) (config('telemetry-ui.brand.name') ?? 'Telemetry'),
-                'logo' => config('telemetry-ui.brand.logo'),
-                'accent' => config('telemetry-ui.brand.accent'),
-            ],
+            'brand' => Brand::toArray(),
         ];
 
         $title = e($boot['brand']['name']);

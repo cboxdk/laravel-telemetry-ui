@@ -1,0 +1,143 @@
+import { useRouter } from '@tanstack/react-router';
+import { type MouseEvent, type ReactNode, useCallback } from 'react';
+import type { Link as LinkData } from '../api/types';
+import { formatDrawer, parseDrawer, pushDrawer, scopeOf, stringifySearch, parseSearch, type DrawerEntry, type Search } from './search';
+
+/**
+ * v1 detail pages became entity pages: a link to one resolves to the story
+ * page for that entity instead (same param, now the entity value).
+ */
+const DETAIL_TO_ENTITY: Record<string, { type: string; param: string }> = {
+    'request-detail': { type: 'route', param: 'route' },
+    'job-detail': { type: 'job', param: 'job' },
+    'queue-detail': { type: 'queue', param: 'queue' },
+    'host-detail': { type: 'host', param: 'host' },
+    'query-detail': { type: 'query', param: 'dbq' },
+    'outgoing-detail': { type: 'outgoing', param: 'host' },
+    'page-detail': { type: 'path', param: 'path' },
+};
+
+export interface Target {
+    pathname: string;
+    search: Search;
+}
+
+/**
+ * Resolve a link to a location relative to the router base. Drawer links
+ * (trace/error/issue) stay on the current page and push onto the stack.
+ */
+export function resolve(link: LinkData, current: { pathname: string; search: Search }, replaceDrawer = false): Target | { href: string } | null {
+    const scope = scopeOf(current.search);
+    const drawer = (entry: DrawerEntry): Target => ({
+        pathname: current.pathname,
+        search: { ...current.search, drawer: formatDrawer(pushDrawer(parseDrawer(typeof current.search.drawer === 'string' ? current.search.drawer : ''), entry, replaceDrawer)) },
+    });
+
+    switch (link.to) {
+        case 'entity':
+            return { pathname: `/entity/${encodeURIComponent(link.type)}`, search: { ...scope, value: link.value } };
+        case 'trace':
+            return drawer({ type: 'trace', id: link.id });
+        case 'error':
+            return drawer({ type: 'error', id: link.group });
+        case 'issue':
+            return drawer({ type: 'issue', id: link.id });
+        case 'explore':
+            return { pathname: `/explore/${link.signal}`, search: { ...scope, where: link.where ?? [] } };
+        case 'page': {
+            const params = link.params ?? {};
+            const entity = DETAIL_TO_ENTITY[link.page];
+            if (entity && params[entity.param]) {
+                return { pathname: `/entity/${entity.type}`, search: { ...scope, value: params[entity.param] } };
+            }
+            if (link.page === 'error-detail' && params.group) {
+                return { pathname: `/errors/${params.group}`, search: scope };
+            }
+            if (link.page === 'dashboard') return { pathname: '/', search: scope };
+            return { pathname: `/p/${link.page}`, search: { ...scope, ...params } };
+        }
+        case 'url':
+            return { href: link.href };
+        case 'param':
+            return null;
+    }
+}
+
+export function useResolve() {
+    const router = useRouter();
+    return useCallback(
+        (link: LinkData, replaceDrawer = false) => {
+            const loc = router.state.location;
+            return resolve(link, { pathname: loc.pathname, search: parseSearch(loc.searchStr) }, replaceDrawer);
+        },
+        [router],
+    );
+}
+
+/** Imperative navigation to a link (row clicks, keyboard). */
+export function useGo() {
+    const router = useRouter();
+    const resolveLink = useResolve();
+    return useCallback(
+        (link: LinkData, opts: { replaceDrawer?: boolean; newTab?: boolean } = {}) => {
+            const target = resolveLink(link, opts.replaceDrawer);
+            if (!target) return;
+            if ('href' in target) {
+                window.open(target.href, opts.newTab ? '_blank' : '_self', 'noopener');
+                return;
+            }
+            if (opts.newTab) {
+                window.open(hrefFor(router.options.basepath ?? '', target), '_blank', 'noopener');
+                return;
+            }
+            void router.navigate({ to: target.pathname, search: target.search as never });
+        },
+        [router, resolveLink],
+    );
+}
+
+export function hrefFor(base: string, target: Target): string {
+    return `${base.replace(/\/$/, '')}${target.pathname}${stringifySearch(target.search)}`;
+}
+
+/**
+ * An anchor for a link payload: a real href (middle-click / copy link work),
+ * client-side navigation on a plain click.
+ */
+export function Go({ link, children, className, title, replaceDrawer, onParam }: {
+    link: LinkData;
+    children: ReactNode;
+    className?: string;
+    title?: string;
+    replaceDrawer?: boolean;
+    onParam?: (params: Record<string, string>) => void;
+}) {
+    const router = useRouter();
+    const resolveLink = useResolve();
+    const go = useGo();
+
+    if (link.to === 'param') {
+        return (
+            <button type="button" className={className ? `t-linkbtn ${className}` : 't-linkbtn'} title={title} onClick={(e) => { e.stopPropagation(); onParam?.(link.params); }}>
+                {children}
+            </button>
+        );
+    }
+
+    const target = resolveLink(link, replaceDrawer);
+    const href = !target ? '#' : 'href' in target ? target.href : hrefFor(router.options.basepath ?? '', target);
+    const external = link.to === 'url';
+
+    const onClick = (e: MouseEvent) => {
+        e.stopPropagation();
+        if (external || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        go(link, { replaceDrawer });
+    };
+
+    return (
+        <a href={href} className={className} title={title} onClick={onClick} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+            {children}
+        </a>
+    );
+}

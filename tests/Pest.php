@@ -7,6 +7,7 @@ use Cbox\TelemetryUi\Support\AnnotationWriter;
 use Cbox\TelemetryUi\Tests\DisabledTestCase;
 use Cbox\TelemetryUi\Tests\TestCase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Mockery\MockInterface;
 
 pest()->extend(TestCase::class)->in('Feature');
@@ -106,4 +107,102 @@ function apiUrl(string $path, array $params = []): string
     $query = http_build_query($params);
 
     return '/telemetry-ui/api/v2/'.ltrim($path, '/').($query !== '' ? '?'.$query : '');
+}
+
+/**
+ * OTLP key/value attributes as Tempo serialises them.
+ *
+ * @param  array<string, string|int|float|bool>  $attributes
+ * @return list<array{key: string, value: array<string, mixed>}>
+ */
+function otlpAttributes(array $attributes): array
+{
+    $out = [];
+
+    foreach ($attributes as $key => $value) {
+        $out[] = ['key' => (string) $key, 'value' => match (true) {
+            is_bool($value) => ['boolValue' => $value],
+            is_int($value) => ['intValue' => (string) $value],
+            is_float($value) => ['doubleValue' => $value],
+            default => ['stringValue' => (string) $value],
+        }];
+    }
+
+    return $out;
+}
+
+/**
+ * One Tempo `/api/search` hit: a trace whose spanSet matched one span.
+ *
+ * @param  array<string, string|int|float|bool>  $attributes
+ * @return array<string, mixed>
+ */
+function tempoHit(string $traceId, string $name, int $startSec, float $durationMs, array $attributes = [], string $service = 'shop'): array
+{
+    $startNano = (string) ($startSec * 1_000_000_000);
+
+    return [
+        'traceID' => $traceId,
+        'rootServiceName' => $service,
+        'rootTraceName' => $name,
+        'startTimeUnixNano' => $startNano,
+        'durationMs' => (int) round($durationMs),
+        'spanSets' => [[
+            'spans' => [[
+                'spanID' => substr(hash('crc32b', $traceId.$name), 0, 8).'00000001',
+                'name' => $name,
+                'startTimeUnixNano' => $startNano,
+                'durationNanos' => (string) (int) ($durationMs * 1_000_000),
+                'attributes' => otlpAttributes($attributes),
+            ]],
+            'matched' => 1,
+        ]],
+    ];
+}
+
+/**
+ * A Loki `query_range` streams response.
+ *
+ * @param  list<array{stream: array<string, string>, values: list<array{0: string, 1: string}>}>  $streams
+ * @return array<string, mixed>
+ */
+function lokiStreams(array $streams): array
+{
+    return ['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => $streams]];
+}
+
+/**
+ * The TraceQL of every Tempo search the test sent.
+ *
+ * @return list<string>
+ */
+function sentTraceql(): array
+{
+    $out = [];
+
+    foreach (Http::recorded() as [$request]) {
+        if (str_contains($request->url(), '/api/search')) {
+            $out[] = (string) (requestQuery($request)['q'] ?? '');
+        }
+    }
+
+    return $out;
+}
+
+/**
+ * The LogQL of every Loki query the test sent.
+ *
+ * @return list<string>
+ */
+function sentLogql(): array
+{
+    $out = [];
+
+    foreach (Http::recorded() as [$request]) {
+        if (str_contains($request->url(), 'loki.test') && str_contains($request->url(), 'query_range')) {
+            $out[] = (string) (requestQuery($request)['query'] ?? '');
+        }
+    }
+
+    return $out;
 }

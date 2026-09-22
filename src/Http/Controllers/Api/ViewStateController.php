@@ -32,11 +32,16 @@ final class ViewStateController
             $values['refresh'] = (int) $request->input('refresh', 0);
         }
 
+        // put() always marks the state dirty (a host moving it means it), so
+        // compare what the reader had with what they report: re-reporting the
+        // same window must stay quiet — no Set-Cookie, no event.
+        $before = $state->toArray();
+
         $state->put($values);
 
         $response = Json::ok(['state' => $state->toArray()]);
 
-        if ($state->enabled() && $state->changed()) {
+        if ($state->enabled() && $state->toArray() !== $before) {
             $response->headers->setCookie($state->cookie());
             event(new ViewStateChanged($state, Auth::user()));
         }

@@ -202,13 +202,14 @@ return [
     |--------------------------------------------------------------------------
     |
     | Rate limit for the dashboard routes, as "maxAttempts,decayMinutes".
-    | The dashboard fans out to the metrics/traces/logs backends on every
-    | render and auto-refresh tick, so this caps how hard a single client can
-    | drive them. Set to null to disable.
+    | The SPA fetches every panel, facet list and Explore query as its own
+    | small API request (and again on each auto-refresh tick), so the budget
+    | is per request, not per page. This caps how hard a single client can
+    | drive the backends. Set to null to disable.
     |
     */
 
-    'throttle' => env('TELEMETRY_UI_THROTTLE', '120,1'),
+    'throttle' => env('TELEMETRY_UI_THROTTLE', '600,1'),
 
     /*
     |--------------------------------------------------------------------------

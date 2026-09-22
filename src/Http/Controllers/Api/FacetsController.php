@@ -13,6 +13,7 @@ use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * `GET /api/v2/facets/{signal}` — top values per dimension for the facet
@@ -24,6 +25,11 @@ final class FacetsController
 {
     public function __invoke(Request $request, SpanExplorer $spans, LogExplorer $logs, ErrorExplorer $errors, string $signal): JsonResponse
     {
+        // The same per-page gate Explore applies: facet values are data.
+        if (! Gate::allows('viewTelemetryUi', [ExploreController::PAGE_FOR[$signal] ?? $signal])) {
+            return ApiError::forbidden();
+        }
+
         $scope = RequestScope::fromRequest($request);
         $keys = array_values(array_filter((array) $request->query('keys', []), static fn ($k): bool => is_string($k) && $k !== ''));
 

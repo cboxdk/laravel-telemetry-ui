@@ -89,14 +89,31 @@ function countingMetricsSource(array $names): MetricsSource
     };
 }
 
+/**
+ * Page labels the bootstrap nav lists under one group.
+ *
+ * @param  array<string, string>  $params
+ * @return list<string>
+ */
+function navGroup(string $group, array $params = []): array
+{
+    foreach ((array) test()->getJson(apiUrl('bootstrap', $params))->assertOk()->json('nav') as $entry) {
+        if ($entry['group'] === $group) {
+            return array_column($entry['pages'], 'label');
+        }
+    }
+
+    return [];
+}
+
 it('shows the statamic page when statamic metrics exist', function (): void {
     Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
     fakeMetricNames(allMetricNames());
 
     // The Statamic group and its per-family subpages appear.
-    $this->get('/telemetry-ui')->assertOk()->assertSee('Statamic')->assertSee('Static Cache')->assertSee('Stache');
-    $this->get('/telemetry-ui/statamic-cache')->assertOk()->assertSee('Static cache');
-    $this->get('/telemetry-ui/statamic-glide')->assertOk()->assertSee('Glide');
+    expect(navGroup('Statamic'))->toContain('Static Cache', 'Stache', 'Glide');
+    $this->getJson(apiUrl('pages/statamic-cache'))->assertOk()->assertJsonPath('label', 'Static Cache');
+    $this->getJson(apiUrl('pages/statamic-glide'))->assertOk()->assertJsonPath('label', 'Glide');
 
     // One selector carries every pattern the registry declares.
     Http::assertSent(fn ($request): bool => str_contains($request->url(), '/api/v1/label/__name__/values')
@@ -108,12 +125,9 @@ it('hides and 404s the statamic subpages when no statamic metrics exist', functi
     Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
     fakeMetricNames([]);
 
-    // Assert on the Statamic subpage labels, not the bare word "Statamic" —
-    // the always-on "Statamic cache purge" annotation marker legitimately
-    // carries it in the header regardless of detection.
-    $this->get('/telemetry-ui')->assertOk()->assertDontSee('Static Cache')->assertDontSee('Stache');
-    $this->get('/telemetry-ui/statamic-cache')->assertNotFound();
-    $this->get('/telemetry-ui/statamic-glide')->assertNotFound();
+    expect(navGroup('Statamic'))->toBe([]);
+    $this->getJson(apiUrl('pages/statamic-cache'))->assertNotFound()->assertJsonPath('error.type', 'not_found');
+    $this->getJson(apiUrl('pages/statamic-glide'))->assertNotFound();
 });
 
 it('resolves every detect pattern in one backend call, and sees the same pages as one call per pattern', function (): void {
@@ -196,12 +210,12 @@ it('scopes detection to the selected service', function (): void {
     });
 
     // A service that emits statamic_* keeps the group…
-    $this->get('/telemetry-ui?service=has-statamic')->assertOk()->assertSee('Statamic');
+    expect(navGroup('Statamic', ['service' => 'has-statamic']))->toContain('Static Cache', 'Stache');
+    $this->getJson(apiUrl('pages/statamic-cache', ['service' => 'has-statamic']))->assertOk();
 
     // …a service that doesn't drops it, even though the fleet has it elsewhere.
-    // (Check the subpage labels, not "Statamic": the annotation marker carries it.)
-    $this->get('/telemetry-ui?service=no-statamic')->assertOk()->assertDontSee('Static Cache')->assertDontSee('Stache');
-    $this->get('/telemetry-ui/statamic-cache?service=no-statamic')->assertNotFound();
+    expect(navGroup('Statamic', ['service' => 'no-statamic']))->toBe([]);
+    $this->getJson(apiUrl('pages/statamic-cache', ['service' => 'no-statamic']))->assertNotFound();
 
     // The batched selector carries the service matcher, so the scoped question
     // is still the scoped question.
@@ -276,5 +290,6 @@ it('applies detection to third-party pages', function (): void {
 
     TelemetryUi::page('autoscale', 'Autoscale', group: 'Activity', detectMetric: 'autoscale_.*');
 
-    $this->get('/telemetry-ui/autoscale')->assertNotFound();
+    $this->getJson(apiUrl('pages/autoscale'))->assertNotFound();
+    expect(navGroup('Activity'))->not->toContain('Autoscale');
 });

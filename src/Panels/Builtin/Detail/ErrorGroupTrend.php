@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
 use Cbox\TelemetryUi\Analysis\ErrorGroupReport;
-use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
 
 /**
  * The issue's event trend across the page period — with the standard chart

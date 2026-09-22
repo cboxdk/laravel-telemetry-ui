@@ -25,7 +25,8 @@ use Illuminate\Support\Facades\Gate;
  */
 final class ExploreController
 {
-    private const PAGE_FOR = ['requests' => 'requests', 'traces' => 'traces', 'logs' => 'logs', 'errors' => 'exceptions'];
+    /** The page whose per-page gate covers each signal. */
+    public const PAGE_FOR = ['requests' => 'requests', 'traces' => 'traces', 'logs' => 'logs', 'errors' => 'exceptions'];
 
     public function __invoke(Request $request, SpanExplorer $spans, LogExplorer $logs, ErrorExplorer $errors, string $signal): JsonResponse
     {

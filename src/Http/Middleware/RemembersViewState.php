@@ -16,9 +16,12 @@ use Symfony\Component\HttpFoundation\Response;
  * so the next request — a reload, a host link that knows nothing about the
  * dashboard's query string, a trace drill-in — starts from the same window.
  *
- * Only page renders persist. A Livewire update reads the state (off the
- * Referer) but must never write it: those requests are driven by cards, and a
- * card has no business deciding what the reader's window is.
+ * Only page renders (the SPA shell) persist. API reads — every panel, Explore
+ * and facet request carries the scope in its own query string — read the
+ * state but must never write it: they are driven by panels, which have no
+ * business deciding what the reader's window is, and a page fetching ten
+ * panels would otherwise set ten cookies and fire ten ViewStateChanged
+ * events. The SPA reports a move explicitly via `POST /api/v2/view-state`.
  */
 final class RemembersViewState
 {
@@ -31,7 +34,7 @@ final class RemembersViewState
 
         $state = app(ViewState::class);
 
-        if (! $state->enabled() || ! $request->isMethod('GET') || $request->hasHeader('X-Livewire')) {
+        if (! $state->enabled() || ! $request->isMethod('GET') || $request->route()?->getName() !== 'telemetry-ui.spa') {
             return $response;
         }
 

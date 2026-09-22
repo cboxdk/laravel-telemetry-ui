@@ -4,42 +4,38 @@ declare(strict_types=1);
 
 use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Cbox\TelemetryUi\Support\NavLink;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
-    Gate::define('viewTelemetryUi', fn (?object $user = null, ?string $page = null): bool => true);
-
     Http::fake([
         'prometheus.test:9090/api/v1/label/*' => Http::response(['status' => 'success', 'data' => []]),
         'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
     ]);
 });
 
-it('renders a host link in the rail', function (): void {
+it('offers host links in bootstrap', function (): void {
     TelemetryUi::navLink('profiles', 'Connections', '/desktop/profiles', 'connection');
+    TelemetryUi::navLink('home', 'Home', '/');
 
-    $this->get('/telemetry-ui')
+    $this->getJson(apiUrl('bootstrap'))
         ->assertOk()
-        ->assertSee('Connections')
-        ->assertSee('href="/desktop/profiles"', false);
+        ->assertJsonPath('navLinks', [
+            ['key' => 'profiles', 'label' => 'Connections', 'url' => '/desktop/profiles', 'icon' => 'connection'],
+            ['key' => 'home', 'label' => 'Home', 'url' => '/', 'icon' => null],
+        ]);
 });
 
-it('renders host links on trace pages too, so a drilled-in reader is not stranded', function (): void {
-    TelemetryUi::navLink('profiles', 'Connections', '/desktop/profiles');
-
-    $this->get('/telemetry-ui/traces/'.str_repeat('a', 32))
-        ->assertOk()
-        ->assertSee('href="/desktop/profiles"', false);
-});
-
-it('escapes the label and url rather than trusting the host', function (): void {
+it('hands the label and url over as data, byte for byte', function (): void {
     TelemetryUi::navLink('x', '<script>alert(1)</script>', '/a"onmouseover="alert(1)');
 
-    $this->get('/telemetry-ui')
+    $this->getJson(apiUrl('bootstrap'))
         ->assertOk()
-        ->assertDontSee('<script>alert(1)</script>', false)
-        ->assertDontSee('onmouseover="alert(1)"', false);
+        ->assertJsonPath('navLinks.0.label', '<script>alert(1)</script>')
+        ->assertJsonPath('navLinks.0.url', '/a"onmouseover="alert(1)');
+});
+
+it('offers no links by default', function (): void {
+    $this->getJson(apiUrl('bootstrap'))->assertOk()->assertJsonPath('navLinks', []);
 });
 
 it('draws only package-authored icon markup, whatever name the host passes', function (): void {

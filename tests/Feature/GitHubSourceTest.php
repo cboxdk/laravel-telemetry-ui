@@ -64,10 +64,12 @@ it('shows the error groups next to the tracker list on the issues page', functio
         'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
     ]);
 
-    $this->get('/telemetry-ui/issues')
+    $this->getJson(apiUrl('pages/issues'))
         ->assertOk()
-        ->assertSee('Errors')            // the unified error groups card
-        ->assertSee('Charts render blank on Safari'); // …and the tracker list
+        ->assertJsonPath('panels.*.id', ['unified-errors', 'issues-list']); // error groups next to the tracker list
+
+    $this->getJson(panelUrl('unified-errors', ['_page' => 'issues']))->assertOk()->assertSee('Errors');
+    $this->getJson(panelUrl('issues-list', ['_page' => 'issues']))->assertOk()->assertSee('Charts render blank on Safari');
 });
 
 it('lists github issues and distinguishes pull requests', function (): void {

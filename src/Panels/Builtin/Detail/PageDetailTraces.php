@@ -56,7 +56,8 @@ final class PageDetailTraces extends Panel
         $rows = array_map(static fn (TraceSummary $summary): array => [
             'time' => Ui::cell($summary->startedAt->format('H:i:s'), ['raw' => $summary->startedAt->getTimestamp() * 1000]),
             'service' => Ui::cell($summary->rootServiceName, [
-                'badge' => 'info',
+                'badge' => $summary->rootServiceName,
+                'tone' => 'info',
                 'dim' => ['key' => 'service.name', 'value' => $summary->rootServiceName],
             ]),
             'trace' => Ui::cell($summary->rootTraceName !== '' ? $summary->rootTraceName : '(unnamed)', ['link' => Ui::trace($summary->traceId)]),

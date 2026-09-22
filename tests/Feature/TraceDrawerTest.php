@@ -2,116 +2,105 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\TraceDrawer;
+use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+
+/*
+ * The v1 Livewire drawer is client-side in v2; these cover the endpoints it
+ * reads: the trace story, an error group, a tracker issue, and ticket creation.
+ */
 
 // Creating tickets requires the write ability; allow it by default so the
 // compose tests exercise the happy path (a dedicated test revokes it).
 beforeEach(fn () => Gate::define('manageTelemetryUi', fn (?object $user = null): bool => true));
 
-function fakeTrace(): void
+const DRAWER_TRACE = 'abc123abc123abc123abc123abc123ab';
+
+/**
+ * A two-span Tempo trace (server request + db query) and quiet correlation
+ * backends. The first matching fake wins, so overrides go in front.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function fakeTrace(array $overrides = []): void
 {
-    Http::fake([
+    $defaults = [
         'tempo.test:3200/api/traces/*' => Http::response([
             'batches' => [[
-                'resource' => ['attributes' => [['key' => 'service.name', 'value' => ['stringValue' => 'checkout']]]],
+                'resource' => ['attributes' => [
+                    ['key' => 'service.name', 'value' => ['stringValue' => 'checkout']],
+                    ['key' => 'host.name', 'value' => ['stringValue' => 'web-3']],
+                ]],
                 'scopeSpans' => [['spans' => [
-                    ['spanId' => 'a1', 'name' => 'GET /orders', 'kind' => 'SPAN_KIND_SERVER', 'startTimeUnixNano' => '1000000000', 'endTimeUnixNano' => '2000000000'],
-                    ['spanId' => 'a2', 'parentSpanId' => 'a1', 'name' => 'db.query', 'kind' => 3, 'startTimeUnixNano' => '1200000000', 'endTimeUnixNano' => '1400000000', 'attributes' => [['key' => 'db.query.text', 'value' => ['stringValue' => 'select * from orders']]]],
+                    ['spanId' => 'a1', 'name' => 'GET /orders', 'kind' => 'SPAN_KIND_SERVER', 'startTimeUnixNano' => '1735689600000000000', 'endTimeUnixNano' => '1735689601000000000', 'attributes' => [
+                        ['key' => 'http.request.method', 'value' => ['stringValue' => 'GET']],
+                        ['key' => 'http.route', 'value' => ['stringValue' => '/orders']],
+                        ['key' => 'http.response.status_code', 'value' => ['intValue' => '200']],
+                        ['key' => 'hubhus.customer_id', 'value' => ['stringValue' => '8655']],
+                    ]],
+                    ['spanId' => 'a2', 'parentSpanId' => 'a1', 'name' => 'db.query', 'kind' => 3, 'startTimeUnixNano' => '1735689600200000000', 'endTimeUnixNano' => '1735689600400000000', 'attributes' => [
+                        ['key' => 'db.query.text', 'value' => ['stringValue' => 'select * from orders']],
+                    ]],
                 ]]],
             ]],
         ]),
+        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'matrix', 'result' => []]]),
+        'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => [
+            ['stream' => ['service_name' => 'checkout', 'level' => 'info', 'trace_id' => DRAWER_TRACE], 'values' => [['1735689600300000000', 'Order list rendered']]],
+        ]]]),
+    ];
+
+    Http::fake([...$overrides, ...array_diff_key($defaults, $overrides)]);
+}
+
+function githubIssues(): void
+{
+    config()->set('telemetry-ui.connections.issues', [
+        'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_test',
     ]);
 }
 
-it('is closed by default', function (): void {
-    Livewire::test(TraceDrawer::class)
-        ->assertSet('traceId', '')
-        ->assertSet('stack', [])
-        ->assertDontSee('GET /orders');
-});
-
-it('stacks a trace on top of an issue and pops back to it', function (): void {
-    config()->set('telemetry-ui.connections.issues', [
-        'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_test',
-    ]);
-    fakeTrace();
-    Http::fake([
-        'api.github.com/repos/cboxdk/laravel-telemetry-ui/issues/7' => Http::response([
-            'number' => 7, 'title' => 'Flaky checkout', 'state' => 'open',
-            'html_url' => 'https://github.com/cboxdk/laravel-telemetry-ui/issues/7',
-            'body' => 'investigating', 'updated_at' => '2026-07-03T12:00:00Z',
-        ]),
-        'tempo.test:3200/api/traces/*' => Http::response([
-            'batches' => [['resource' => ['attributes' => [['key' => 'service.name', 'value' => ['stringValue' => 'checkout']]]],
-                'scopeSpans' => [['spans' => [['spanId' => 'a1', 'name' => 'GET /orders', 'kind' => 'SPAN_KIND_SERVER', 'startTimeUnixNano' => '1000000000', 'endTimeUnixNano' => '2000000000']]]]]],
-        ]),
-    ]);
-
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-issue', issueId: '#7')
-        ->assertSee('Flaky checkout')
-        // Dig into a trace from within the issue — it stacks.
-        ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab')
-        ->assertCount('stack', 2)
-        ->assertSet('traceId', 'abc123abc123abc123abc123abc123ab')
-        ->assertSet('issueId', '')
-        ->assertSee('GET /orders')
-        // Back restores the issue with its context.
-        ->call('back')
-        ->assertCount('stack', 1)
-        ->assertSet('issueId', '#7')
-        ->assertSet('traceId', '')
-        ->assertSee('Flaky checkout')
-        ->call('close')
-        ->assertSet('stack', []);
-});
-
-it('replaces the pane content instead of stacking when the click comes from the page', function (): void {
-    config()->set('telemetry-ui.connections.issues', [
-        'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_test',
-    ]);
-    fakeTrace();
-    Http::fake([
-        'api.github.com/repos/cboxdk/laravel-telemetry-ui/issues/7' => Http::response([
-            'number' => 7, 'title' => 'Flaky checkout', 'state' => 'open',
-            'html_url' => 'https://github.com/cboxdk/laravel-telemetry-ui/issues/7',
-            'body' => 'investigating', 'updated_at' => '2026-07-03T12:00:00Z',
-        ]),
-        'tempo.test:3200/api/traces/*' => Http::response([
-            'batches' => [['resource' => ['attributes' => [['key' => 'service.name', 'value' => ['stringValue' => 'checkout']]]],
-                'scopeSpans' => [['spans' => [['spanId' => 'a1', 'name' => 'GET /orders', 'kind' => 'SPAN_KIND_SERVER', 'startTimeUnixNano' => '1000000000', 'endTimeUnixNano' => '2000000000']]]]]],
-        ]),
-    ]);
-
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-issue', issueId: '#7')
-        // Selecting another row on the page swaps the pane — no crumb trail.
-        ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab', replace: true)
-        ->assertCount('stack', 1)
-        ->assertSet('traceId', 'abc123abc123abc123abc123abc123ab')
-        ->assertSet('issueId', '')
-        ->assertSee('GET /orders');
-});
-
-it('opens and renders a trace on the open-trace event', function (): void {
+it('serves the whole trace story in one payload', function (): void {
     fakeTrace();
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab')
-        ->assertSet('traceId', 'abc123abc123abc123abc123abc123ab')
-        ->assertSee('GET /orders')
-        ->assertSee('select * from orders')
-        ->assertSeeHtml('is-open')
-        // Span attributes are dimensional drill-down links (click a value → filter).
-        ->assertSeeHtml('tui-attr-filter');
+    $this->getJson(apiUrl('traces/'.DRAWER_TRACE))
+        ->assertOk()
+        ->assertJsonPath('traceId', DRAWER_TRACE)
+        ->assertJsonPath('root.name', 'GET /orders')
+        ->assertJsonPath('root.service', 'checkout')
+        ->assertJsonPath('root.kind', 'server')
+        ->assertJsonPath('durationMs', 1000)
+        ->assertJsonPath('error', false)
+        ->assertJsonPath('spanCount', 2)
+        ->assertJsonPath('waterfall.0.span.name', 'GET /orders')
+        ->assertJsonPath('waterfall.0.depth', 0)
+        ->assertJsonPath('waterfall.1.span.name', 'db.query')
+        ->assertJsonPath('waterfall.1.depth', 1)
+        ->assertJsonPath('waterfall.1.span.attributes', ['db.query.text' => 'select * from orders'])
+        ->assertJsonPath('waterfall.1.offsetPct', 20)
+        ->assertJsonPath('waterfall.1.widthPct', 20)
+        ->assertJsonStructure(['chain', 'identities', 'context', 'profile', 'report', 'logs', 'dimensionLinks', 'services']);
 });
 
-it('renders browser/RUM spans as frontend rows in a unified trace', function (): void {
-    // A server request (root) with browser spans hung off it via traceparent:
-    // the page-load span is a child of the server span, and a fetch under that.
+it('attaches the trace logs from loki', function (): void {
+    fakeTrace();
+
+    $logs = $this->getJson(apiUrl('traces/'.DRAWER_TRACE))->assertOk()->json('logs');
+
+    expect(json_encode($logs))->toContain('Order list rendered');
+});
+
+it('links declared dimensions out to the host app', function (): void {
+    fakeTrace();
+    TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus', link: 'https://crm.test/customers/{value}');
+
+    $this->getJson(apiUrl('traces/'.DRAWER_TRACE))
+        ->assertOk()
+        ->assertJsonPath('dimensionLinks', ['hubhus.customer_id' => 'https://crm.test/customers/8655']);
+});
+
+it('serves browser/RUM spans as frontend rows in a unified trace', function (): void {
     Http::fake([
         'tempo.test:3200/api/traces/*' => Http::response([
             'batches' => [[
@@ -132,34 +121,25 @@ it('renders browser/RUM spans as frontend rows in a unified trace', function ():
                 ]]],
             ]],
         ]),
+        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'matrix', 'result' => []]]),
+        'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
     ]);
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab')
-        ->assertSee('GET /orders')       // backend root
-        ->assertSee('document.load')     // browser page-load span, nested in the same trace
-        ->assertSeeHtml('tui-badge-web') // frontend spans carry the browser badge
-        ->assertSee('TTFB 120ms')        // RUM navigation-timing summary
-        ->assertSee('/api/orders → 200'); // browser fetch renders its URL + status
+    $response = $this->getJson(apiUrl('traces/'.DRAWER_TRACE))->assertOk();
+
+    expect($response->json('waterfall.0.span.browser'))->toBeFalse()
+        ->and($response->json('waterfall.1.span.name'))->toBe('document.load')
+        ->and($response->json('waterfall.1.span.browser'))->toBeTrue()
+        ->and($response->json('waterfall.1.span.summary'))->toContain('TTFB 120ms')
+        ->and($response->json('waterfall.2.span.summary'))->toContain('/api/orders → 200');
 });
 
-it('renders the host/runtime context strip beside the waterfall', function (): void {
+it('serves the host/runtime context beside the waterfall', function (): void {
     config()->set('telemetry-ui.context.signals', [
         ['label' => 'Host CPU', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_cpu_utilization_ratio{{scope}})'],
     ]);
 
-    Http::fake([
-        'tempo.test:3200/api/traces/*' => Http::response([
-            'batches' => [[
-                'resource' => ['attributes' => [
-                    ['key' => 'service.name', 'value' => ['stringValue' => 'checkout']],
-                    ['key' => 'host.name', 'value' => ['stringValue' => 'web-3']],
-                ]],
-                'scopeSpans' => [['spans' => [
-                    ['spanId' => 'a1', 'name' => 'GET /orders', 'kind' => 'SPAN_KIND_SERVER', 'startTimeUnixNano' => '1735689600000000000', 'endTimeUnixNano' => '1735689601000000000'],
-                ]]],
-            ]],
-        ]),
+    fakeTrace([
         'prometheus.test:9090/api/v1/query_range*' => Http::response([
             'status' => 'success',
             'data' => ['resultType' => 'matrix', 'result' => [
@@ -168,101 +148,191 @@ it('renders the host/runtime context strip beside the waterfall', function (): v
         ]),
     ]);
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab')
-        ->assertSee('GET /orders')
-        ->assertSee('Context')
-        ->assertSee('web-3')     // the scope cell names the host the tiles describe
-        ->assertSee('checkout')  // …and the service
-        ->assertSee('Host CPU')
-        ->assertSee('71%'); // last value of the padded window
+    $this->getJson(apiUrl('traces/'.DRAWER_TRACE))
+        ->assertOk()
+        ->assertJsonPath('context.0.label', 'Host CPU')
+        ->assertJsonPath('context.0.current', 0.71);
+
+    Http::assertSent(fn ($request): bool => str_contains(rawurldecode($request->url()), 'host_name="web-3"'));
 });
 
-it('opens from a deep-linked ?trace= id and closes cleanly', function (): void {
-    fakeTrace();
+it('keeps the waterfall when correlation backends are down', function (): void {
+    fakeTrace([
+        'prometheus.test:9090/*' => Http::response('down', 503),
+        'loki.test:3100/*' => Http::response('down', 503),
+    ]);
 
-    Livewire::withQueryParams(['trace' => 'abc123abc123abc123abc123abc123ab'])
-        ->test(TraceDrawer::class)
-        ->assertSee('GET /orders')
-        ->call('close')
-        ->assertSet('traceId', '')
-        ->assertDontSee('GET /orders');
+    $this->getJson(apiUrl('traces/'.DRAWER_TRACE))
+        ->assertOk()
+        ->assertJsonPath('root.name', 'GET /orders')
+        ->assertJsonPath('context', [])
+        ->assertJsonPath('logs', []);
 });
 
-it('surfaces a backend error inside the drawer', function (): void {
+it('404s a trace the backend no longer has, with a typed error', function (): void {
+    Http::fake(['tempo.test:3200/*' => Http::response(['batches' => []])]);
+
+    $this->getJson(apiUrl('traces/'.DRAWER_TRACE))
+        ->assertNotFound()
+        ->assertJsonPath('error.type', 'not_found');
+});
+
+it('surfaces a trace backend failure as a typed 502', function (): void {
     Http::fake(['tempo.test:3200/*' => Http::response('boom', 502)]);
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab')
-        ->assertSee('status 502');
+    $this->getJson(apiUrl('traces/'.DRAWER_TRACE))
+        ->assertStatus(502)
+        ->assertJsonPath('error.type', 'backend')
+        ->assertJsonPath('error.message', fn (string $m): bool => str_contains($m, '502'));
 });
 
-it('composes and creates a ticket, then lands on the new issue', function (): void {
-    config()->set('telemetry-ui.connections.issues', [
-        'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_write',
-    ]);
+it('rejects a trace id that is not hex at the route', function (): void {
+    $this->getJson(apiUrl('traces/not-a-trace'))->assertNotFound();
+});
+
+it('rejects an error-group id carrying query metacharacters', function (): void {
+    Http::fake();
+
+    // The route admits only alphanumerics (stricter than the report's own
+    // validId(), whose 422 is a second line of defence), so a crafted id
+    // never reaches a LogQL/TraceQL builder at all.
+    $this->getJson(apiUrl('errors/'.rawurlencode('abc"} |= "x')))->assertNotFound();
+    $this->getJson(apiUrl('errors/'.str_repeat('a', 65)))->assertNotFound();
+
+    Http::assertNothingSent();
+});
+
+it('serves an error group report with the compose draft when the viewer can file tickets', function (): void {
+    githubIssues();
+    $now = time();
 
     Http::fake([
-        'api.github.com/repos/cboxdk/laravel-telemetry-ui/issues' => Http::response([
-            'number' => 100, 'title' => 'TimeoutException — 12', 'state' => 'open',
-            'html_url' => 'https://github.com/cboxdk/laravel-telemetry-ui/issues/100',
-            'body' => 'the analysis',
-        ], 201),
-        'api.github.com/repos/cboxdk/laravel-telemetry-ui/issues/100' => Http::response([
-            'number' => 100, 'title' => 'TimeoutException — 12', 'state' => 'open',
-            'html_url' => 'https://github.com/cboxdk/laravel-telemetry-ui/issues/100', 'body' => 'the analysis',
-        ]),
+        'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => [
+            ['stream' => ['service_name' => 'checkout', 'exception_group' => 'abc123def456', 'exception_type' => 'TimeoutException', 'exception_message' => 'cURL timed out', 'trace_id' => DRAWER_TRACE, 'user_id' => '7'], 'values' => [
+                [(string) (($now - 120) * 1_000_000_000), 'TimeoutException: cURL timed out'],
+                [(string) (($now - 60) * 1_000_000_000), 'TimeoutException: cURL timed out'],
+            ]],
+        ]]]),
+        'tempo.test:3200/*' => Http::response(['traces' => []]),
+        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
     ]);
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:compose-ticket', title: 'TimeoutException — 12', body: 'the analysis', labels: ['bug'])
-        ->assertSet('composing', true)
-        ->assertSee('Create ticket')
-        ->call('submitTicket')
-        ->assertSet('composing', false)
-        ->assertCount('stack', 1)
-        ->assertSet('issueId', '#100')
-        ->assertSee('TimeoutException — 12');
+    $response = $this->getJson(apiUrl('errors/abc123def456'))
+        ->assertOk()
+        ->assertJsonPath('group', 'abc123def456')
+        ->assertJsonPath('canCreateIssue', true)
+        ->assertJsonPath('tracker', 'cboxdk/laravel-telemetry-ui')
+        ->assertJsonStructure(['stats', 'occurrences', 'detail', 'request', 'suspect', 'releases', 'lookbackDays', 'draft' => ['title', 'body'], 'llm']);
+
+    expect($response->json('draft.title'))->toContain('TimeoutException')
+        ->and($response->json('llm'))->toContain('TimeoutException');
+
+    Http::assertSent(fn ($request): bool => str_contains(rawurldecode($request->url()), 'exception_group="abc123def456"'));
 });
 
-it('keeps the compose form open and shows an error when title is empty', function (): void {
-    config()->set('telemetry-ui.connections.issues', [
-        'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_write',
+it('offers no draft when the viewer cannot file tickets', function (): void {
+    githubIssues();
+    Gate::define('manageTelemetryUi', fn (?object $user = null): bool => false);
+
+    Http::fake([
+        'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
+        'tempo.test:3200/*' => Http::response(['traces' => []]),
+        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
     ]);
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:compose-ticket', title: '', body: 'x', labels: [])
-        ->call('submitTicket')
-        ->assertSet('composing', true)
-        ->assertSee('title is required');
+    $this->getJson(apiUrl('errors/abc123def456'))
+        ->assertOk()
+        ->assertJsonPath('canCreateIssue', false)
+        ->assertJsonPath('draft', null);
 });
 
-it('opens an issue in the drawer and clears any open trace', function (): void {
-    config()->set('telemetry-ui.connections.issues', [
-        'driver' => 'github', 'repo' => 'cboxdk/laravel-telemetry-ui', 'token' => 'ghp_test',
-    ]);
+it('serves a tracker issue with the trace ids it mentions', function (): void {
+    githubIssues();
 
     Http::fake([
         'api.github.com/repos/cboxdk/laravel-telemetry-ui/issues/7' => Http::response([
             'number' => 7,
-            'title' => 'Timeout on trace abc123abc123abc123abc123abc123ab',
+            'title' => 'Timeout on trace '.DRAWER_TRACE,
             'state' => 'open',
             'html_url' => 'https://github.com/cboxdk/laravel-telemetry-ui/issues/7',
             'user' => ['login' => 'octocat'],
             'labels' => [['name' => 'bug']],
             'comments' => 2,
-            'body' => 'Seen in production. trace abc123abc123abc123abc123abc123ab',
+            'body' => 'Seen in production. trace '.DRAWER_TRACE,
             'updated_at' => '2026-07-03T12:00:00Z',
         ]),
     ]);
 
-    Livewire::test(TraceDrawer::class)
-        ->set('traceId', 'ffffffffffffffffffffffffffffffff')
-        ->dispatch('telemetry-ui:open-issue', issueId: '#7')
-        ->assertSet('issueId', '#7')
-        ->assertSet('traceId', '')
-        ->assertSee('Timeout on trace')
-        ->assertSee('Seen in production')
-        // The trace id in the body becomes a drawer link.
-        ->assertSeeHtml('data-trace-id="abc123abc123abc123abc123abc123ab"');
+    $this->getJson(apiUrl('issues/'.rawurlencode('#7')))
+        ->assertOk()
+        ->assertJsonPath('id', '#7')
+        ->assertJsonPath('title', 'Timeout on trace '.DRAWER_TRACE)
+        ->assertJsonPath('open', true)
+        ->assertJsonPath('author', 'octocat')
+        ->assertJsonPath('labels', ['bug'])
+        ->assertJsonPath('traceIds', [DRAWER_TRACE]);
+});
+
+it('404s an issue when no tracker is configured, or the tracker lacks it', function (): void {
+    $this->getJson(apiUrl('issues/7'))->assertNotFound()->assertJsonPath('error.type', 'not_found');
+
+    githubIssues();
+    Http::fake(['api.github.com/*' => Http::response(['message' => 'Not Found'], 404)]);
+
+    $response = $this->getJson(apiUrl('issues/7'));
+
+    expect($response->status())->toBeIn([404, 502])
+        ->and($response->json('error.type'))->toBeIn(['not_found', 'backend']);
+});
+
+it('creates a ticket via the tracker and returns the new issue', function (): void {
+    githubIssues();
+
+    Http::fake([
+        'api.github.com/repos/cboxdk/laravel-telemetry-ui/issues' => Http::response([
+            'number' => 100, 'title' => 'TimeoutException — 12', 'state' => 'open',
+            'html_url' => 'https://github.com/cboxdk/laravel-telemetry-ui/issues/100',
+            'body' => 'the analysis', 'labels' => [['name' => 'bug']],
+        ], 201),
+    ]);
+
+    $this->postJson(apiUrl('issues'), ['title' => 'TimeoutException — 12', 'body' => 'the analysis', 'labels' => ['bug']])
+        ->assertCreated()
+        ->assertJsonPath('id', '#100')
+        ->assertJsonPath('title', 'TimeoutException — 12')
+        ->assertJsonPath('url', 'https://github.com/cboxdk/laravel-telemetry-ui/issues/100');
+
+    Http::assertSent(fn ($request): bool => $request->method() === 'POST'
+        && str_ends_with($request->url(), '/repos/cboxdk/laravel-telemetry-ui/issues')
+        && $request['title'] === 'TimeoutException — 12'
+        && $request['body'] === 'the analysis'
+        && $request['labels'] === ['bug']);
+});
+
+it('requires a title to create a ticket', function (): void {
+    githubIssues();
+    Http::fake();
+
+    $this->postJson(apiUrl('issues'), ['title' => '   ', 'body' => 'x'])
+        ->assertStatus(422)
+        ->assertJsonPath('error.type', 'invalid')
+        ->assertJsonPath('error.message', 'A title is required.');
+
+    Http::assertNothingSent();
+});
+
+it('refuses to create a ticket when no writable tracker is configured', function (): void {
+    $this->postJson(apiUrl('issues'), ['title' => 'Boom'])
+        ->assertStatus(422)
+        ->assertJsonPath('error.type', 'invalid');
+});
+
+it('forbids ticket creation without the manage ability', function (): void {
+    githubIssues();
+    Gate::define('manageTelemetryUi', fn (?object $user = null): bool => false);
+    Http::fake();
+
+    $this->postJson(apiUrl('issues'), ['title' => 'Boom'])->assertForbidden()->assertJsonPath('error.type', 'forbidden');
+
+    Http::assertNothingSent();
 });

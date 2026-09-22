@@ -45,11 +45,14 @@ final class LogExplorer
 
         foreach ($scope->where as $filter) {
             if ($filter->key === 'level') {
+                // `level=error` matches either label; `level!=debug` must
+                // match neither (De Morgan), not flip into a positive match.
                 $pattern = '(?i)'.self::levelPattern($filter->value);
+                $op = $filter->negated() ? MatchOp::Nre : MatchOp::Re;
                 $query = $query->pipe(new LabelFilter([
-                    new LabelMatcher('level', MatchOp::Re, $pattern),
-                    new LabelMatcher('detected_level', MatchOp::Re, $pattern),
-                ], or: true));
+                    new LabelMatcher('level', $op, $pattern),
+                    new LabelMatcher('detected_level', $op, $pattern),
+                ], or: ! $filter->negated()));
 
                 continue;
             }

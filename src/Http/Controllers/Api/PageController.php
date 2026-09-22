@@ -6,8 +6,12 @@ namespace Cbox\TelemetryUi\Http\Controllers\Api;
 
 use Cbox\TelemetryUi\Http\Api\ApiError;
 use Cbox\TelemetryUi\Http\Api\Json;
+use Cbox\TelemetryUi\Http\Api\RequestScope;
+use Cbox\TelemetryUi\Support\MetricScope;
+use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -17,7 +21,7 @@ use Illuminate\Support\Facades\Gate;
  */
 final class PageController
 {
-    public function __invoke(TelemetryUiManager $manager, string $page): JsonResponse
+    public function __invoke(Request $request, TelemetryUiManager $manager, SchemaDetector $detector, string $page): JsonResponse
     {
         $meta = $manager->pages()[$page] ?? null;
 
@@ -27,6 +31,18 @@ final class PageController
 
         if (! Gate::allows('viewTelemetryUi', [$page])) {
             return ApiError::forbidden();
+        }
+
+        // A page whose metric family the backends don't carry (for the scoped
+        // service) is not in the nav, and a deep link to it 404s rather than
+        // rendering a grid of empty panels — as v1's page route did.
+        if (($meta['detect'] ?? null) !== null) {
+            $scope = RequestScope::fromRequest($request);
+            $visible = $manager->visiblePages($detector, app(MetricScope::class)->promMatchers($scope->service, $scope->environment));
+
+            if (! isset($visible[$page])) {
+                return ApiError::notFound("Page [{$page}] has no data in this scope.");
+            }
         }
 
         return Json::ok([

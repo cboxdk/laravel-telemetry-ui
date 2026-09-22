@@ -2,16 +2,11 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
-use Cbox\TelemetryUi\Cards\Builtin\RequestsActivity;
 use Cbox\TelemetryUi\Support\Period;
-use Illuminate\Support\Facades\Gate;
+use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 beforeEach(function (): void {
-    Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
-
     // Generic fakes shaped like the real backends, so every card can render.
     Http::fake([
         'prometheus.test:9090/api/v1/query_range*' => Http::response([
@@ -67,42 +62,84 @@ beforeEach(function (): void {
     ]);
 });
 
-it('renders every built-in page', function (string $page): void {
-    $path = $page === 'dashboard' ? '/telemetry-ui' : '/telemetry-ui/'.$page;
+/** Every built-in page slug, including hidden detail pages. */
+function builtinPages(): array
+{
+    return array_keys(app(TelemetryUiManager::class)->pages());
+}
 
-    $this->get($path)->assertOk();
+it('serves every built-in page and every panel on it as typed json', function (string $page): void {
+    $response = $this->getJson(apiUrl('pages/'.$page))
+        ->assertOk()
+        ->assertJsonPath('page', $page);
+
+    foreach ((array) $response->json('panels') as $panel) {
+        $data = $this->getJson(panelUrl($panel['id'], ['_page' => $page]))
+            ->assertOk()
+            ->json();
+
+        expect($data['kind'] ?? null)->toBeString("panel {$panel['id']} on {$page} has no kind");
+    }
 })->with([
     'dashboard', 'traces', 'requests', 'jobs', 'queues', 'autoscale', 'commands', 'schedule',
     'exceptions', 'queries', 'cache', 'storage', 'livewire', 'features',
     'horizon', 'reverb', 'outgoing', 'mail',
     'statamic-cache', 'statamic-stache', 'statamic-glide', 'statamic-forms',
     'statamic-content', 'statamic-inventory',
-    'analytics', 'frontend', 'users', 'logs', 'system',
+    'analytics', 'frontend', 'users', 'logs', 'system', 'hosts',
 ]);
 
-it('renders every built-in page in every period', function (string $period): void {
-    $this->get('/telemetry-ui?period='.$period)->assertOk();
+it('serves every hidden detail page with its entity param', function (string $page, array $params): void {
+    $response = $this->getJson(apiUrl('pages/'.$page))->assertOk();
+
+    foreach ((array) $response->json('panels') as $panel) {
+        $data = $this->getJson(panelUrl($panel['id'], [...$params, '_page' => $page]))->assertOk()->json();
+
+        expect($data['kind'] ?? null)->toBeString("panel {$panel['id']} on {$page} has no kind");
+    }
+})->with([
+    'request' => ['request-detail', ['route' => '/orders']],
+    'job' => ['job-detail', ['job' => 'App\\Jobs\\Ship']],
+    'queue' => ['queue-detail', ['queue' => 'default']],
+    'exception' => ['exception-detail', ['exception' => 'RuntimeException']],
+    'query' => ['query-detail', ['dbq' => 'select * from orders']],
+    'outgoing' => ['outgoing-detail', ['host' => 'api.test']],
+    'host' => ['host-detail', ['host' => 'web-1']],
+    'page' => ['page-detail', ['path' => '/orders']],
+]);
+
+it('covers every registered page in the smoke list', function (): void {
+    // A new built-in page must be added to one of the datasets above.
+    expect(builtinPages())->toEqualCanonicalizing([
+        'dashboard', 'traces', 'requests', 'request-detail', 'jobs', 'job-detail', 'queues', 'queue-detail',
+        'autoscale', 'horizon', 'commands', 'schedule', 'exceptions', 'exception-detail', 'error-detail',
+        'queries', 'query-detail', 'cache', 'storage', 'livewire', 'features', 'reverb', 'outgoing',
+        'outgoing-detail', 'mail', 'analytics', 'page-detail', 'frontend', 'hosts', 'host-detail', 'users',
+        'logs', 'system', 'statamic-cache', 'statamic-stache', 'statamic-glide', 'statamic-forms',
+        'statamic-content', 'statamic-inventory',
+    ]);
+});
+
+it('serves the dashboard panels in every period', function (string $period): void {
+    foreach (app(TelemetryUiManager::class)->panels('dashboard') as $panel) {
+        $this->getJson(panelUrl($panel::id(), ['period' => $period]))->assertOk()->assertJsonStructure(['kind']);
+    }
 })->with(array_map(fn (Period $period): string => $period->value, Period::cases()));
 
-it('links dashboard cards through to their dedicated pages', function (): void {
-    // On the dashboard (the default when no page route param is present)
-    // a summarising card carries a drill link to its page…
-    Livewire::test(JobsOverview::class)
-        ->assertSee('Jobs →')
-        ->assertSee('/telemetry-ui/jobs', false);
+it('drill-links dashboard panels through to their pages, but not on their own page', function (): void {
+    $this->getJson(panelUrl('jobs-overview'))
+        ->assertOk()
+        ->assertJsonPath('drill.to', 'page')
+        ->assertJsonPath('drill.page', 'jobs')
+        ->assertJsonPath('drill.label', 'Jobs');
 
-    Livewire::test(RequestsActivity::class)
-        ->assertSee('Requests →');
-
-    // …but on its own page the link is suppressed. onPage arrives as a
-    // mount param (the page view passes it; lazy cards mount in a later
-    // request with no page route param).
-    Livewire::test(JobsOverview::class, ['onPage' => 'jobs'])
-        ->assertDontSee('Jobs →');
+    $this->getJson(panelUrl('jobs-overview', ['_page' => 'jobs']))
+        ->assertOk()
+        ->assertJsonPath('drill', null);
 });
 
 it('applies the service and environment scope to metric queries', function (): void {
-    $this->get('/telemetry-ui/requests?service=checkout&env=prod')->assertOk();
+    $this->getJson(panelUrl('requests-activity', ['service' => 'checkout', 'env' => 'prod']))->assertOk();
 
     Http::assertSent(function ($request): bool {
         $query = requestQuery($request)['query'] ?? null;
@@ -114,7 +151,7 @@ it('applies the service and environment scope to metric queries', function (): v
 });
 
 it('applies the scope to traceql searches', function (): void {
-    $this->get('/telemetry-ui/users?service=checkout&env=prod')->assertOk();
+    $this->getJson(panelUrl('traffic-by-facet', ['service' => 'checkout', 'env' => 'prod']))->assertOk();
 
     Http::assertSent(function ($request): bool {
         if (! str_contains($request->url(), '/api/search')) {
@@ -128,29 +165,25 @@ it('applies the scope to traceql searches', function (): void {
     });
 });
 
-it('renders the trace waterfall page', function (): void {
-    Http::fake([
-        'tempo.test:3200/api/traces/*' => Http::response([
-            'batches' => [[
-                'resource' => ['attributes' => [['key' => 'service.name', 'value' => ['stringValue' => 'demo']]]],
-                'scopeSpans' => [['spans' => [
-                    ['spanId' => 'a1', 'name' => 'GET /orders', 'kind' => 'SPAN_KIND_SERVER', 'startTimeUnixNano' => '1000000000', 'endTimeUnixNano' => '2000000000'],
-                    ['spanId' => 'a2', 'parentSpanId' => 'a1', 'name' => 'db.query', 'kind' => 3, 'startTimeUnixNano' => '1200000000', 'endTimeUnixNano' => '1400000000'],
-                ]]],
-            ]],
-        ]),
-    ]);
-
-    $this->get('/telemetry-ui/traces/abc123abc123abc123abc123abc123ab')
+it('serves the spa shell for any dashboard path, with the boot json', function (string $path): void {
+    $html = $this->get($path)
         ->assertOk()
-        ->assertSee('GET /orders')
-        ->assertSee('db.query');
-});
+        ->assertHeader('Content-Type', 'text/html; charset=utf-8')
+        ->assertSee('<div id="app">', false)
+        ->getContent();
 
-it('shows a friendly error when the trace backend fails', function (): void {
-    Http::fake(['tempo.test:3200/*' => Http::response('boom', 502)]);
+    preg_match('~<script type="application/json" id="telemetry-ui-boot">(.*?)</script>~s', (string) $html, $m);
+    $boot = json_decode($m[1] ?? '', true);
 
-    $this->get('/telemetry-ui/traces/abc123abc123abc123abc123abc123ab')
-        ->assertOk()
-        ->assertSee('status 502');
-});
+    expect($boot)->toBeArray()
+        ->and($boot['base'])->toBe('/telemetry-ui')
+        ->and($boot['api'])->toBe('/telemetry-ui/api/v2')
+        ->and($boot['assets'])->toBe('/telemetry-ui/build')
+        ->and($boot['csrf'])->toBeString();
+})->with([
+    '/telemetry-ui',
+    '/telemetry-ui/p/requests',
+    '/telemetry-ui/explore/requests',
+    '/telemetry-ui/traces/abc123abc123abc123abc123abc123ab',
+    '/telemetry-ui/anything/at/all',
+]);
