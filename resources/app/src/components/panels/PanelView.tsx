@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { usePanel } from '../../api/hooks';
 import type { Control, TicketDraft } from '../../api/types';
 import { Go } from '../../lib/links';
@@ -40,6 +40,13 @@ export function PanelView({ id, span = 1, params = {} }: { id: string; span?: nu
     const { data, error, isLoading, isFetching } = usePanel(id, { ...controlParams, ...params }, live);
 
     if (data?.controls) knownControls.set(id, data.controls.map((c) => c.param));
+
+    // A detail page's header names the thing (the exception, the route, the
+    // host): the tab title should too. Runs after the page's own title.
+    const headerTitle = data?.kind === 'header' ? data.title : undefined;
+    useEffect(() => {
+        if (headerTitle) document.title = `${headerTitle} · ${document.title.split(' · ').slice(-2).join(' · ')}`;
+    }, [headerTitle]);
 
     if (data?.kind === 'hidden') return null;
 

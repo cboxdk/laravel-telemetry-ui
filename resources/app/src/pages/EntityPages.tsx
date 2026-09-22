@@ -5,6 +5,7 @@ import type { EntityStory, Link as LinkData, SpanRow } from '../api/types';
 import { useBoot, useDimension, DimensionValue, useDrill, useValueLabel, ValueText } from '../components/DimensionValue';
 import { Empty, ErrorState, Skeleton } from '../components/States';
 import { PanelView } from '../components/panels/PanelView';
+import { fillRows } from './PanelPage';
 import { HeatmapChart } from '../components/charts/HeatmapChart';
 import { TimeChart } from '../components/charts/TimeChart';
 import { SpanList } from '../components/explore/Results';
@@ -123,7 +124,8 @@ export function EntityPage() {
 
             {isLoading && !data ? <Skeleton height={400} /> : error && !data ? <ErrorState error={error} /> : data ? (
                 tab === 'raw' ? <RawTab data={data} /> : tab === 'metrics' ? (
-                    <div className="t-grid">{data.panels.map((p) => <PanelView key={p.id} id={p.id} span={p.span} params={p.params} />)}</div>
+                    // The entity header above already names it: skip the detail page's own header.
+                    <div className="t-grid">{fillRows(data.panels.filter((p) => !p.id.endsWith('-header'))).map((p) => <PanelView key={p.id} id={p.id} span={p.span} params={p.params} />)}</div>
                 ) : <StoryTab data={data} />
             ) : null}
         </div>
