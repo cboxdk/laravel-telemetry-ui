@@ -510,6 +510,7 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
     .t-drawer { width: 100vw; }
 }
 .t-facets { border-right: 1px solid var(--border); background: var(--sidebar); padding: 12px 10px 24px; overflow-y: auto; }
+.t-facet-empty { margin: 4px 6px 10px; font-size: 11px; color: var(--muted-foreground); line-height: 1.5; }
 .t-facets-meta { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 6px; }
 .t-facets-fold { display: none; margin-right: auto; font-size: 12px; font-weight: 600; color: var(--foreground); align-items: center; gap: 4px; }
 @media (max-width: 1000px) { .t-facets-fold { display: inline-flex; } }

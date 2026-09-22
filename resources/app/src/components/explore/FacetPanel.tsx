@@ -31,7 +31,12 @@ export function FacetPanel({ data, loading, where, onWhere, onGroupBy, groupBy, 
         return <aside className="t-facets"><Skeleton height={300} /></aside>;
     }
 
-    const facets = data?.facets ?? [];
+    // Facets with no values in this sample collapse into one quiet line at the
+    // bottom (unless you added them yourself or they're filtered on).
+    const all = data?.facets ?? [];
+    const isEmpty = (f: Facet) => f.values.length === 0 && !extraKeys.includes(f.key) && !where.some((w) => parseFilter(w)?.key === f.key);
+    const facets = all.filter((f) => !isEmpty(f));
+    const empty = all.filter(isEmpty);
     const groups = new Map<string, Facet[]>();
     for (const f of facets) {
         const g = f.custom ? f.group ?? 'Custom' : f.group ?? 'Other';
@@ -88,6 +93,11 @@ export function FacetPanel({ data, loading, where, onWhere, onGroupBy, groupBy, 
                     })}
                 </div>
             ))}
+            {empty.length > 0 && (
+                <p className="t-facet-empty" title="No values in this sample">
+                    No values: {empty.map((f) => f.label).join(' · ')}
+                </p>
+            )}
             <form
                 className="t-facet-add"
                 onSubmit={(e) => {
