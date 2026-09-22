@@ -151,6 +151,14 @@ change with before/after code.
   values open the route. Issue occurrences open Explore logs
   (`exception_group=`), grouped by user or filtered by release; occurrences
   whose trace was sampled away open the service's logs around them.
+- **`Panel::statLinks()`**: a panel names where each headline number leads
+  (label → link); the API fills it in for stats without a link. Used across
+  the built-ins: job/command outcomes → their spans (failed →
+  `status=error`), rate-limit rejections → 429s, N+1 → requests with
+  duplicate queries, cache/storage → requests that touched them, analytics
+  and page views → the analytics events (grouped by session for visitors),
+  outgoing failures → client spans that failed. Commands, duplicate queries
+  and a query's callers link their rows too (`Ui::rootOperation()`).
 - **Context everywhere.** The trace story ends with "Around this request"
   (same route ±15 min, service logs ±2 min, errors ±15 min, this user, this
   IP, everything ±1 min); report rows open the query/view/outgoing host/job

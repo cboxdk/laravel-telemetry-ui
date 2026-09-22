@@ -64,4 +64,9 @@ final class RequestDetailHeader extends Panel
             ], static fn ($v): bool => $v !== null),
         );
     }
+
+    protected function statLinks(): array
+    {
+        return ['AVG' => Ui::explore('requests', ['http.route='.$this->route])];
+    }
 }

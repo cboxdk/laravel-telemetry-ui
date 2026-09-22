@@ -50,4 +50,9 @@ class OutgoingActivity extends Panel
             span: 2,
         );
     }
+
+    protected function statLinks(): array
+    {
+        return ['Conn. failures' => Ui::explore('traces', ['kind=client', 'status=error'])];
+    }
 }

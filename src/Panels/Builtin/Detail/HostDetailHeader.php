@@ -50,4 +50,9 @@ final class HostDetailHeader extends Panel
             'span' => 2,
         ]);
     }
+
+    protected function statLinks(): array
+    {
+        return ['Requests' => Ui::explore('requests', ['host.name='.$this->host])];
+    }
 }

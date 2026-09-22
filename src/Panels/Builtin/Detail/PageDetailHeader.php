@@ -117,4 +117,13 @@ final class PageDetailHeader extends Panel
             ], static fn (mixed $v): bool => $v !== null),
         );
     }
+
+    protected function statLinks(): array
+    {
+        return [
+            'Views' => Ui::explore('logs', ['analytics_event=page_view', 'url.path='.$this->page]),
+            'Unique visitors' => Ui::explore('logs', ['analytics_event=page_view', 'url.path='.$this->page], ['groupBy' => 'session.id']),
+            'Errors' => Ui::explore('requests', ['url.path='.$this->page, 'status=error']),
+        ];
+    }
 }

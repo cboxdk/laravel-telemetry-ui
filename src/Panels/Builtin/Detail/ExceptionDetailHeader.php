@@ -39,4 +39,9 @@ final class ExceptionDetailHeader extends Panel
             'span' => 2,
         ]);
     }
+
+    protected function statLinks(): array
+    {
+        return ['Occurrences' => Ui::explore('logs', ['exception_type='.$this->exception])];
+    }
 }

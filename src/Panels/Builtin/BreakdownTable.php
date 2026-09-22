@@ -12,6 +12,8 @@ use Cbox\TelemetryUi\Support\Format;
 /**
  * Shared shape for "name → outcome counters + duration histogram" tables
  * (commands, scheduled tasks).
+ *
+ * @phpstan-import-type Link from Ui
  */
 abstract class BreakdownTable extends Panel
 {
@@ -23,6 +25,26 @@ abstract class BreakdownTable extends Panel
     public static function span(): int
     {
         return 2;
+    }
+
+    /**
+     * Where a row leads (e.g. the command's entity page); null for no link.
+     *
+     * @return Link|null
+     */
+    protected function rowLink(string $name): ?array
+    {
+        return null;
+    }
+
+    /**
+     * Where a row's failure count leads; null for no link.
+     *
+     * @return Link|null
+     */
+    protected function failedLink(string $name): ?array
+    {
+        return null;
     }
 
     /**
@@ -106,11 +128,13 @@ abstract class BreakdownTable extends Panel
 
             foreach ($outcomes as $outcome) {
                 $value = $row['outcomes'][$outcome];
-                $cells['o_'.$outcome] = Ui::cell(Format::count($value), [
+                $opts = [
                     'raw' => $value,
                     'mono' => true,
                     'tone' => $outcome === 'failed' && $value > 0 ? 'danger' : null,
-                ]);
+                ];
+                $failed = $outcome === 'failed' && $value > 0 ? $this->failedLink($row['name']) : null;
+                $cells['o_'.$outcome] = Ui::cell(Format::count($value), $failed !== null ? [...$opts, 'link' => $failed] : $opts);
             }
 
             $cells['avg'] = $row['count'] > 0
@@ -120,7 +144,8 @@ abstract class BreakdownTable extends Panel
                 ? Ui::cell(Format::ms($row['p95']), ['raw' => $row['p95'], 'mono' => true])
                 : Ui::cell('—', ['mono' => true]);
 
-            $table[] = $cells;
+            $link = $this->rowLink($row['name']);
+            $table[] = $link !== null ? [...$cells, '_link' => $link] : $cells;
         }
 
         return Ui::table($spec['title'], $columns, $table, [

@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -56,5 +57,10 @@ final class StorageOperations extends Panel
             unit: 'ops/min',
             span: 2,
         );
+    }
+
+    protected function statLinks(): array
+    {
+        return ['Operations' => Ui::explore('requests', ['storage.operation.count>0'])];
     }
 }

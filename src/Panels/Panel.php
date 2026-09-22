@@ -109,6 +109,56 @@ abstract class Panel
     abstract public function data(): array;
 
     /**
+     * {@see data()} with {@see statLinks()} applied: what the API serves.
+     *
+     * @return array<string, mixed>
+     */
+    final public function serve(): array
+    {
+        $links = $this->statLinks();
+
+        return $links === [] ? $this->data() : self::linkStats($this->data(), $links);
+    }
+
+    /**
+     * Where each headline number leads, by stat label — so a tile never dead-
+     * ends. Only fills stats that don't already carry a link; recurses into
+     * composite parts. Return an empty array for none.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    protected function statLinks(): array
+    {
+        return [];
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, array<string, mixed>>  $links
+     * @return array<string, mixed>
+     */
+    private static function linkStats(array $payload, array $links): array
+    {
+        if (isset($payload['stats']) && is_array($payload['stats'])) {
+            foreach ($payload['stats'] as $i => $stat) {
+                if (is_array($stat) && ! isset($stat['link']) && isset($links[$stat['label'] ?? ''])) {
+                    $payload['stats'][$i]['link'] = $links[$stat['label']];
+                }
+            }
+        }
+
+        if (isset($payload['parts']) && is_array($payload['parts'])) {
+            foreach ($payload['parts'] as $i => $part) {
+                if (is_array($part)) {
+                    $payload['parts'][$i] = self::linkStats($part, $links);
+                }
+            }
+        }
+
+        return $payload;
+    }
+
+    /**
      * Hook for panels that need to normalise their params after binding.
      */
     protected function boot(): void {}

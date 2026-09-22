@@ -48,6 +48,22 @@ final class Ui
     }
 
     /**
+     * A trace's root operation name ("GET /users/{id}", "App\\Jobs\\X process")
+     * as a destination: the route's page when it is an HTTP route, else a
+     * span-name search in Explore.
+     *
+     * @return Link
+     */
+    public static function rootOperation(string $root): array
+    {
+        if (preg_match('#^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) (/\S*)$#', $root, $m) === 1) {
+            return self::entity('route', $m[2]);
+        }
+
+        return self::explore('traces', [], ['q' => $root]);
+    }
+
+    /**
      * The list of every value of an entity type (all routes, all queries…).
      *
      * @return Link

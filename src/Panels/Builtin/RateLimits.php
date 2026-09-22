@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 
 /**
  * Requests rejected by a rate limiter (429s), by limiter name — a traffic
@@ -26,5 +27,10 @@ final class RateLimits extends Panel
             stat: 'Rejected',
             statQuery: $metric->increase($this->promDuration())->sumBy(),
         );
+    }
+
+    protected function statLinks(): array
+    {
+        return ['Rejected' => Ui::explore('requests', ['http.response.status_code=429'])];
     }
 }

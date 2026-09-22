@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -57,5 +58,14 @@ class JobsOverview extends Panel
             type: 'bar',
             unit: 'jobs/min',
         );
+    }
+
+    protected function statLinks(): array
+    {
+        return [
+            'Processed' => Ui::explore('traces', ['laravel.job.class!=']),
+            'Released' => Ui::entityIndex('job'),
+            'Failed' => Ui::explore('traces', ['laravel.job.class!=', 'status=error']),
+        ];
     }
 }

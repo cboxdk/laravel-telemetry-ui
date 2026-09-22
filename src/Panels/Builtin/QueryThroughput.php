@@ -53,4 +53,12 @@ final class QueryThroughput extends Panel
             span: 2,
         );
     }
+
+    protected function statLinks(): array
+    {
+        return [
+            'Per minute' => Ui::entityIndex('query'),
+            'N+1 detected' => Ui::explore('requests', ['db.query.duplicate.count>0']),
+        ];
+    }
 }

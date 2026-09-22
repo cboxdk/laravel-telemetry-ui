@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -45,5 +46,10 @@ final class QueueLag extends Panel
             ],
             unit: 'ms',
         );
+    }
+
+    protected function statLinks(): array
+    {
+        return ['P95 wait' => Ui::entityIndex('queue')];
     }
 }

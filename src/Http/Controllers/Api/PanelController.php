@@ -35,7 +35,7 @@ final class PanelController
         }
 
         try {
-            $data = (new $class(RequestScope::fromRequest($request)))->data();
+            $data = (new $class(RequestScope::fromRequest($request)))->serve();
         } catch (SourceException $exception) {
             return ApiError::backend($exception->getMessage());
         }

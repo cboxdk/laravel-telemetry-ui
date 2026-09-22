@@ -80,7 +80,7 @@ final class DuplicateQueries extends Panel
         $table = array_map(static function (array $row): array {
             $trace = $row['traceId'] !== '' ? Ui::trace($row['traceId']) : null;
 
-            return array_filter([
+            return [
                 'query' => Ui::cell($row['query'], ['mono' => true]),
                 'connection' => Ui::cell($row['connection'] !== '' ? $row['connection'] : '—'),
                 'traces' => Ui::cell(Format::count($row['traces']), ['raw' => $row['traces'], 'tone' => 'warn']),
@@ -88,8 +88,8 @@ final class DuplicateQueries extends Panel
                 'trace' => $trace !== null
                     ? Ui::cell(substr($row['traceId'], 0, 8).'…', ['mono' => true, 'link' => $trace])
                     : Ui::cell('—'),
-                '_link' => $trace,
-            ], static fn ($v): bool => $v !== null);
+                '_link' => Ui::entity('query', $row['query']),
+            ];
         }, array_slice($rows, 0, 50));
 
         return Ui::table('Duplicate queries (N+1)', [

@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Support\Format;
 
@@ -66,5 +67,15 @@ final class CacheOperations extends Panel
             span: 2,
             note: 'Cache instrumentation is opt-in: TELEMETRY_INSTRUMENT_CACHE=true.',
         );
+    }
+
+    protected function statLinks(): array
+    {
+        return [
+            'Hit ratio' => Ui::explore('requests', ['cache.event.count>0']),
+            'Hits' => Ui::explore('requests', ['cache.event.count>0']),
+            'Misses' => Ui::explore('requests', ['cache.event.count>0']),
+            'Writes' => Ui::explore('requests', ['cache.event.count>0']),
+        ];
     }
 }

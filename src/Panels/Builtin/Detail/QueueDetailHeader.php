@@ -52,4 +52,12 @@ final class QueueDetailHeader extends Panel
             'span' => 2,
         ]);
     }
+
+    protected function statLinks(): array
+    {
+        return [
+            'Jobs/min' => Ui::explore('traces', ['messaging.destination.name='.$this->queue]),
+            'Failure' => Ui::explore('traces', ['messaging.destination.name='.$this->queue, 'status=error']),
+        ];
+    }
 }

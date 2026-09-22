@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Analytics;
 use Cbox\TelemetryUi\Support\Format;
 
@@ -69,5 +70,14 @@ final class AnalyticsOverview extends Panel
             span: 2,
             subtitle: 'Real visits from the unsampled page-view stream. Unique visitors are the cookieless daily session hash — no cookies, no PII.',
         );
+    }
+
+    protected function statLinks(): array
+    {
+        return [
+            'Page views' => Ui::explore('logs', ['analytics_event=page_view']),
+            'Unique visitors' => Ui::explore('logs', ['analytics_event=page_view'], ['groupBy' => 'session.id']),
+            'Views / visit' => Ui::explore('logs', ['analytics_event=page_view'], ['groupBy' => 'session.id']),
+        ];
     }
 }

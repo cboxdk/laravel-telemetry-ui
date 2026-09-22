@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -53,5 +54,13 @@ final class CommandsOverview extends Panel
             span: 2,
             note: 'Command instrumentation is opt-in: TELEMETRY_INSTRUMENT_COMMANDS=true.',
         );
+    }
+
+    protected function statLinks(): array
+    {
+        return [
+            'Completed' => Ui::explore('traces', ['laravel.command!=']),
+            'Failed' => Ui::explore('traces', ['laravel.command!=', 'status=error']),
+        ];
     }
 }

@@ -60,4 +60,12 @@ final class OutgoingHostHeader extends Panel
             ], static fn ($v): bool => $v !== null),
         );
     }
+
+    protected function statLinks(): array
+    {
+        return [
+            'Failures' => Ui::explore('traces', ['server.address='.$this->host, 'status=error']),
+            'AVG' => Ui::explore('traces', ['server.address='.$this->host]),
+        ];
+    }
 }

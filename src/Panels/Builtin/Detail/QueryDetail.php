@@ -89,8 +89,9 @@ final class QueryDetail extends Panel
             Ui::num('calls', 'Calls'),
             Ui::num('total', 'Total'),
         ], array_map(static fn (array $caller): array => [
-            'origin' => Ui::cell($caller['origin']),
+            'origin' => Ui::cell($caller['origin'], ['mono' => true]),
             'calls' => Ui::cell(Format::count($caller['calls']), ['raw' => $caller['calls']]),
+            '_link' => Ui::rootOperation($caller['origin']),
             'total' => Ui::cell(Format::ms($caller['totalMs']), ['raw' => $caller['totalMs']]),
         ], $callers), ['empty' => 'No callers.']);
 

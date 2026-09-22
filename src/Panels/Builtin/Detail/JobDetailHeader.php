@@ -55,4 +55,13 @@ final class JobDetailHeader extends Panel
             'span' => 2,
         ]);
     }
+
+    protected function statLinks(): array
+    {
+        return [
+            'Processed' => Ui::explore('traces', ['laravel.job.class='.$this->job]),
+            'Failed' => Ui::explore('traces', ['laravel.job.class='.$this->job, 'status=error']),
+            'AVG' => Ui::explore('traces', ['laravel.job.class='.$this->job]),
+        ];
+    }
 }
