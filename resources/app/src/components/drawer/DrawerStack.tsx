@@ -9,7 +9,7 @@ import { IssueView } from './IssueView';
 import { TraceView } from './TraceView';
 
 function label(e: DrawerEntry): string {
-    return e.type === 'trace' ? `trace ${e.id.slice(0, 8)}` : e.type === 'error' ? `issue ${e.id.slice(0, 8)}` : `#${e.id}`;
+    return e.type === 'trace' ? `trace ${e.id.slice(0, 8)}` : e.type === 'error' ? `error ${e.id.slice(0, 8)}` : `#${e.id.replace(/^#/, '')}`;
 }
 
 /**

@@ -108,6 +108,39 @@ change with before/after code.
   (`times()`) on histogram quantiles, so a seconds histogram scaled ×1000 to
   milliseconds charted its quantiles unscaled. The scalar now applies to
   `histogram_quantile(...)` too.
+- **Web Vitals from both browser SDKs.** `@cboxdk/telemetry-browser` sends one
+  `browser.web_vital` marker span per metric (`web_vital.name/value/rating`);
+  the Web Vitals and page-performance panels only read laravel-telemetry's
+  `web-vitals` span. Both are read now (`Panels\Concerns\ReadsWebVitals`), and
+  FCP/TTFB are shown when present.
+- **Hosts on backends whose metrics carry no host label** (telemetryd keeps
+  `host.name` on the resource only). The hosts table lists hosts from traces
+  and attributes unlabelled metrics to a single host; host-detail charts match
+  unlabelled series; `_ratio`/bare metric-name variants both match.
+- **Host services** no longer fail as a whole when one probe can't run; the
+  default observed-service probes drop the `> 0` PromQL comparison some
+  backends reject.
+- **Bounded payloads on span-heavy searches.** Some backends return every
+  matched span per trace; unfiltered trace searches default to server spans,
+  span-level entities (queries, views, jobs, outgoing hosts) sample adaptively
+  and count each matched span as an occurrence.
+- **Failures without an HTTP status** (a failed job, a failing query) are found
+  via a `status = error` search, so entity stories and trace rows report them.
+- **Negated regex on backends that refuse it** (`!~` on telemetryd) is applied
+  read-side on a wider sample, and the UI says so.
+- **"Why it failed"** in the trace story names the exception (Loki records by
+  trace id, else the service's records in the request's own time window,
+  marked as a likely match); trace logs use the same fallback.
+
+### Added (polish)
+
+- Service graph derived from sampled client and database spans when Tempo's
+  service-graph metrics are absent.
+- "Called from" breakdown (the trace's root operation) on query/view/job/
+  outgoing entity pages; occurrence wording for span-level entities.
+- Content-aware table column widths, two-line cells (`sub`), two-column panel
+  grid, per-route document titles, favicon, safe Markdown for issue bodies,
+  panel links inside dimension menus ("filter this panel"), phone layout.
 
 ## [Unreleased] - 1.x
 

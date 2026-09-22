@@ -2,6 +2,7 @@ import { useIssue } from '../../api/hooks';
 import { ago } from '../../lib/format';
 import { Go } from '../../lib/links';
 import { Icon } from '../Icon';
+import { Markdown } from '../Markdown';
 import { ErrorState, Skeleton } from '../States';
 
 export function IssueView({ id }: { id: string }) {
@@ -17,7 +18,7 @@ export function IssueView({ id }: { id: string }) {
                     <h2>{data.title}</h2>
                 </div>
                 <div className="t-dhead-meta">
-                    <span className="mono t-dim">#{data.id}</span>
+                    <span className="mono t-dim">#{data.id.replace(/^#/, '')}</span>
                     {data.author && <span className="t-dim">by {data.author}</span>}
                     {data.updatedAt && <span className="t-dim">updated {ago(Date.parse(data.updatedAt))}</span>}
                     {data.url && <a href={data.url} target="_blank" rel="noopener noreferrer" className="t-btn t-btn-sm t-btn-secondary">Open in tracker <Icon name="external" size={12} /></a>}
@@ -31,7 +32,7 @@ export function IssueView({ id }: { id: string }) {
                         <div className="t-chips">{data.traceIds.map((t) => <Go key={t} link={{ to: 'trace', id: t }} className="t-minchip mono">{t.slice(0, 12)}</Go>)}</div>
                     </section>
                 )}
-                <pre className="t-issue-body">{data.body || 'No description.'}</pre>
+                {data.body ? <Markdown text={data.body} /> : <p className="t-dim">No description.</p>}
             </div>
         </div>
     );
