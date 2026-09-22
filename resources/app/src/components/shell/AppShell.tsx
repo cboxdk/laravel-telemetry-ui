@@ -51,6 +51,10 @@ function Shell({ boot }: { boot: Bootstrap }) {
     const [pinned, setPinned] = useState<boolean>(() => load('railPinned', false));
     const [hover, setHover] = useState(false);
     const [collapsed, setCollapsed] = useState<boolean>(() => load('subnavCollapsed', false));
+    // Phones: the subnav is a strip that opens as an overlay and closes on navigation.
+    const narrow = useNarrow();
+    const [mobileOpen, setMobileOpen] = useState(false);
+    useEffect(() => setMobileOpen(false), [location.pathname]);
     const [paletteOpen, setPaletteOpen] = useState(false);
 
     useEffect(() => save('railPinned', pinned), [pinned]);
@@ -77,9 +81,9 @@ function Shell({ boot }: { boot: Bootstrap }) {
         <div className={`t-app ${pinned ? 'is-pinned' : ''}`}>
             <Rail boot={boot} areas={areas} active={area} pinned={pinned} expanded={pinned || hover} onPin={() => setPinned((p) => !p)} onHover={setHover} scope={scopeOf(search)} />
             {showSubnav && area && (
-                collapsed
-                    ? <button type="button" className="t-subnav-strip" onClick={() => setCollapsed(false)} title="Expand navigation (⌘.)"><span>{area.label}</span></button>
-                    : <Subnav area={area} pathname={location.pathname} search={search} onCollapse={() => setCollapsed(true)} onSearch={() => setPaletteOpen(true)} scope={scopeOf(search)} />
+                (narrow ? !mobileOpen : collapsed)
+                    ? <button type="button" className="t-subnav-strip" onClick={() => (narrow ? setMobileOpen(true) : setCollapsed(false))} title="Expand navigation (⌘.)"><span>{area.label}</span></button>
+                    : <Subnav area={area} overlay={narrow} pathname={location.pathname} search={search} onCollapse={() => (narrow ? setMobileOpen(false) : setCollapsed(true))} onSearch={() => setPaletteOpen(true)} scope={scopeOf(search)} />
             )}
             <div className="t-main">
                 <TopBar boot={boot} onPalette={() => setPaletteOpen(true)} />
@@ -162,8 +166,22 @@ function Rail({ boot, areas, active, pinned, expanded, onPin, onHover, scope }: 
     );
 }
 
-function Subnav({ area, pathname, search, onCollapse, onSearch, scope }: {
+function useNarrow(): boolean {
+    const query = '(max-width: 760px)';
+    const [narrow, setNarrow] = useState(() => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia(query).matches);
+    useEffect(() => {
+        if (typeof window.matchMedia !== 'function') return;
+        const mq = window.matchMedia(query);
+        const on = () => setNarrow(mq.matches);
+        mq.addEventListener('change', on);
+        return () => mq.removeEventListener('change', on);
+    }, []);
+    return narrow;
+}
+
+function Subnav({ area, overlay, pathname, search, onCollapse, onSearch, scope }: {
     area: NavArea;
+    overlay?: boolean;
     pathname: string;
     search: Record<string, unknown>;
     onCollapse: () => void;
@@ -171,7 +189,7 @@ function Subnav({ area, pathname, search, onCollapse, onSearch, scope }: {
     scope: Record<string, string>;
 }) {
     return (
-        <nav className="t-subnav" aria-label={area.label}>
+        <nav className={`t-subnav ${overlay ? 'is-overlay' : ''}`} aria-label={area.label}>
             <div className="t-subnav-head">
                 <h2>{area.label}</h2>
                 <button type="button" className="t-iconbtn" onClick={onCollapse} title="Collapse (⌘.)"><Icon name="panel" size={15} /></button>
