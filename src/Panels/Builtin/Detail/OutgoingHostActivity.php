@@ -14,6 +14,11 @@ final class OutgoingHostActivity extends OutgoingActivity
 {
     use ScopesToHost;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
     protected function statLinks(): array
     {
         return ['Conn. failures' => Ui::explore('traces', ['server.address='.$this->host, 'status=error'])];

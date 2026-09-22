@@ -22,6 +22,11 @@ use Cbox\TelemetryUi\Support\ServiceIdentity;
  */
 final class ServiceGraph extends Panel
 {
+    public static function span(): int
+    {
+        return 2;
+    }
+
     public function data(): array
     {
         $p = $this->promDuration();

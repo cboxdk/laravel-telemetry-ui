@@ -17,6 +17,11 @@ use Cbox\TelemetryUi\Support\Format;
  */
 final class AnalyticsOverview extends Panel
 {
+    public static function span(): int
+    {
+        return 2;
+    }
+
     private const SAMPLE_LIMIT = 5000;
 
     public function data(): array

@@ -20,6 +20,11 @@ use Cbox\TelemetryUi\Queries\Results\LogEntry;
  */
 final class LogViewer extends Panel
 {
+    public static function span(): int
+    {
+        return 2;
+    }
+
     #[Param('log_search')]
     public string $search = '';
 

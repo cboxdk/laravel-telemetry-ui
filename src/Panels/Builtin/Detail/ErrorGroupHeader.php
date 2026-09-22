@@ -18,6 +18,11 @@ final class ErrorGroupHeader extends Panel
 {
     use ScopesToGroup;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
     public function data(): array
     {
         $error = null;

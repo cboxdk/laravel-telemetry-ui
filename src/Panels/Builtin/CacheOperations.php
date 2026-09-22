@@ -15,6 +15,11 @@ use Cbox\TelemetryUi\Support\Format;
  */
 final class CacheOperations extends Panel
 {
+    public static function span(): int
+    {
+        return 2;
+    }
+
     public function data(): array
     {
         [$start, $end] = $this->range();

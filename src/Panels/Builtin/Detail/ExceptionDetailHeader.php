@@ -17,6 +17,11 @@ final class ExceptionDetailHeader extends Panel
 {
     use ScopesToException;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
     public function data(): array
     {
         $metric = $this->metric('exceptions_reported_total');

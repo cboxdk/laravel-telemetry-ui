@@ -17,6 +17,11 @@ final class ErrorGroupTags extends Panel
 {
     use ScopesToGroup;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
     /** occurrence field → display label */
     private const TAGS = [
         'host' => 'host',

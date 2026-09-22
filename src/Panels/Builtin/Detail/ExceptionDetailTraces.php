@@ -20,6 +20,11 @@ final class ExceptionDetailTraces extends Panel
 {
     use ScopesToException;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
     public function data(): array
     {
         [$start, $end] = $this->range();

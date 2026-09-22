@@ -100,6 +100,7 @@ function ControlView({ control, value, onChange }: { control: Control; value: st
                 : <Icon name="search" size={12} />}
             <input
                 className="t-input t-input-sm"
+                style={{ width: Math.min(260, Math.max(140, (control.placeholder || control.label).length * 6.4 + 36)) }}
                 value={text}
                 placeholder={control.placeholder || control.label}
                 aria-label={control.label}

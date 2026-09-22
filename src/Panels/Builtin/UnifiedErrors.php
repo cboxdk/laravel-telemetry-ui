@@ -41,6 +41,11 @@ final class UnifiedErrors extends Panel
 {
     use CoercesAttributes;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
     private const SEARCH_LIMIT = 500;
 
     private const TRACE_SEARCH_LIMIT = 100;

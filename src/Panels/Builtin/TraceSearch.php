@@ -28,6 +28,11 @@ final class TraceSearch extends Panel
 {
     use CoercesAttributes;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
     #[Param('q')]
     public string $query = '';
 

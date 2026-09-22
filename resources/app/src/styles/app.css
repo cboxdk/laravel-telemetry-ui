@@ -362,11 +362,14 @@ pre { margin: 0; }
 .t-tr.is-link { cursor: pointer; }
 .t-tbody .t-tr:hover { background: var(--secondary); }
 .t-td { min-width: 0; display: flex; }
+.t-cell-main .t-cell-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.t-cell-main .t-badge, .t-cell-main .t-badges { flex: none; }
+.t-cell-main > .t-cell-link, .t-cell-main > .t-dimval { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; overflow: hidden; }
 .t-cell { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; position: relative; }
 .t-td.is-num .t-cell, .t-td.is-num .t-cell-main { justify-content: flex-end; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .t-cell-link { color: var(--foreground); overflow: hidden; text-overflow: ellipsis; }
 .t-cell-link:hover { color: var(--primary); }
-.t-cell-main { display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.t-cell-main { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .t-cell.has-sub { flex-direction: column; align-items: flex-start; gap: 1px; padding: 5px 0; }
 .t-cell-sub { color: var(--muted-foreground); font-size: 11px; font-family: var(--font-sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .t-cellbar { width: 48px; height: 4px; border-radius: 2px; background: var(--secondary); flex: none; overflow: hidden; }

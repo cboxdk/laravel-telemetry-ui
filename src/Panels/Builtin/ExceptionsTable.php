@@ -19,6 +19,11 @@ use Illuminate\Support\Str;
  */
 final class ExceptionsTable extends Panel
 {
+    public static function span(): int
+    {
+        return 2;
+    }
+
     public function data(): array
     {
         $rows = [];

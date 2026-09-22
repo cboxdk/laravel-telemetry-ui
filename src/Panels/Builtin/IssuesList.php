@@ -16,6 +16,11 @@ use Cbox\TelemetryUi\Panels\Ui;
  */
 final class IssuesList extends Panel
 {
+    public static function span(): int
+    {
+        return 2;
+    }
+
     #[Param('issue_state')]
     public string $state = 'open';
 

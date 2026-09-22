@@ -27,6 +27,11 @@ final class ErrorGroupDetail extends Panel
 {
     use ScopesToGroup;
 
+    public static function span(): int
+    {
+        return 2;
+    }
+
     private const TITLE = 'Latest occurrence';
 
     public function data(): array
