@@ -291,7 +291,7 @@ pre { margin: 0; }
 /* ── Pages & panels ───────────────────────────────────────────────────── */
 .t-page { padding: 22px 24px 48px; max-width: 1680px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
 .t-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-.t-page-title { font-size: 21px; font-weight: 700; line-height: 1.2; }
+.t-page-title { font-size: 21px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .t-page-sub { margin: 3px 0 0; color: var(--muted-foreground); font-size: 12px; }
 .t-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
 .t-grid > .span-2, .t-grid > .span-3, .t-grid > .is-header { grid-column: 1 / -1; }

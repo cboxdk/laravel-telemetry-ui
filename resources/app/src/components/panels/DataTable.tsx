@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Cell, Column, Link, Row, TicketDraft } from '../../api/types';
 import { Go, useGo } from '../../lib/links';
 import { useScrollParent } from '../../lib/scrollParent';
@@ -122,9 +122,13 @@ export function templateMinWidth(template: string): number {
 
 function useWidth(ref: React.RefObject<HTMLElement | null>): number {
     const [width, setWidth] = useState(0);
-    useEffect(() => {
+    // Measure before paint (no flash of a table that then turns into cards),
+    // then follow resizes.
+    useLayoutEffect(() => {
         const el = ref.current;
-        if (!el || typeof ResizeObserver === 'undefined') return;
+        if (!el) return;
+        setWidth(Math.round(el.getBoundingClientRect().width));
+        if (typeof ResizeObserver === 'undefined') return;
         const observer = new ResizeObserver(([entry]) => setWidth(Math.round(entry?.contentRect.width ?? 0)));
         observer.observe(el);
         return () => observer.disconnect();
