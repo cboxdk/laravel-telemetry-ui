@@ -97,7 +97,7 @@ export function ErrorGroupView({ group }: { group: string }) {
                 {d?.stacktrace && (
                     <section className="t-sect">
                         <h4 className="t-sect-title">Stacktrace</h4>
-                        <CodeBody data={{ text: d.stacktrace }} />
+                        <CodeBody data={{ text: d.stacktrace, language: 'stacktrace' }} />
                     </section>
                 )}
 

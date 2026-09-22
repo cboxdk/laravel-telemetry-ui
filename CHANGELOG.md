@@ -174,6 +174,9 @@ change with before/after code.
 - **Waterfall**: time ruler with gridlines, bars coloured by what the span does
   (app, database, cache/Redis, outgoing HTTP, queue, views) with a legend,
   duration labels beside the bar, no repeated names.
+- **Stacktraces read like Sentry's**: paths relative to the project root, app
+  frames emphasised, runs of framework frames folded to one expandable line,
+  a raw view one click away (`Ui::code(..., 'stacktrace')`).
 - **⌘K** never dead-ends: free text offers "search requests / logs /
   exceptions", a path offers its route page.
 - **Context everywhere.** The trace story ends with "Around this request"

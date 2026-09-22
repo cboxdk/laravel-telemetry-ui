@@ -57,7 +57,8 @@ export function FacetPanel({ data, loading, where, onWhere, onGroupBy, groupBy, 
             </div>
             {ordered.map(([group, list]) => (
                 <div key={group} className={`t-facet-group ${list[0]?.custom ? 'is-custom' : ''}`}>
-                    <div className="t-facet-group-title"><span>{group}</span>{list[0]?.custom && <span className="t-tag">custom</span>}</div>
+                    {/* One unnamed group needs no heading ("Other" over everything says nothing). */}
+                    {(ordered.length > 1 || group !== 'Other') && <div className="t-facet-group-title"><span>{group}</span>{list[0]?.custom && <span className="t-tag">custom</span>}</div>}
                     {list.map((facet) => {
                         const max = Math.max(1, ...facet.values.map((v) => v.count));
                         return (

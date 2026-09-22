@@ -89,7 +89,7 @@ final class ErrorGroupDetail extends Panel
         }
 
         if ($detail !== null && $detail['stacktrace'] !== '') {
-            $parts[] = Ui::code('Stacktrace · latest occurrence', $detail['stacktrace']);
+            $parts[] = Ui::code('Stacktrace · latest occurrence', $detail['stacktrace'], 'stacktrace');
         } elseif ($stats['source'] === 'frontend') {
             $parts[] = Ui::callout('', 'Browser errors carry no stacktrace — the SDK ships type, message and file:line only.');
         }

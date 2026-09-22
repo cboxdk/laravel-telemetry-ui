@@ -14,6 +14,7 @@ import { Empty } from '../States';
 import { DataTable } from './DataTable';
 import { LogList } from '../explore/LogList';
 import { Icon } from '../Icon';
+import { StackTrace } from '../StackTrace';
 
 export interface BodyProps {
     onParam?: (params: Record<string, string>) => void;
@@ -174,6 +175,11 @@ function KvBody({ data }: { data: KvPayload }) {
 const CODE_PREVIEW = 24;
 
 export function CodeBody({ data }: { data: Pick<CodePayload, 'text' | 'language' | 'highlight'> }) {
+    if (data.language === 'stacktrace') return <StackTrace text={data.text} />;
+    return <PlainCode data={data} />;
+}
+
+function PlainCode({ data }: { data: Pick<CodePayload, 'text' | 'language' | 'highlight'> }) {
     const lines = data.text.split('\n');
     const highlight = new Set(data.highlight ?? []);
     const [wrap, setWrap] = useState(false);
