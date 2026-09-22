@@ -169,6 +169,13 @@ change with before/after code.
 - **Cache by store** and **Storage by disk** panels: per-store hits, misses,
   writes and hit ratio (a cold store no longer hides behind a hot one), and
   filesystem operations per disk and operation.
+- **Dashboard: Routes needing attention** — the eight routes with the most
+  server errors, then the slowest p95, with a link to the full routes table.
+- **Waterfall**: time ruler with gridlines, bars coloured by what the span does
+  (app, database, cache/Redis, outgoing HTTP, queue, views) with a legend,
+  duration labels beside the bar, no repeated names.
+- **⌘K** never dead-ends: free text offers "search requests / logs /
+  exceptions", a path offers its route page.
 - **Context everywhere.** The trace story ends with "Around this request"
   (same route ±15 min, service logs ±2 min, errors ±15 min, this user, this
   IP, everything ±1 min); report rows open the query/view/outgoing host/job

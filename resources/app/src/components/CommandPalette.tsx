@@ -80,7 +80,15 @@ export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap
         const needle = q.toLowerCase();
         const matched = needle === '' ? all : f || dynamic.length > 0 ? [] : all.filter((c) => `${c.label} ${c.group} ${c.hint ?? ''}`.toLowerCase().includes(needle));
 
-        return [...dynamic, ...matched].slice(0, 60);
+        // Free text is never a dead end: search it across the signals.
+        const search: Command[] = q === '' || f ? [] : [
+            ...(q.startsWith('/') ? [{ id: 'route', group: 'Open', label: `Route ${q}`, hint: 'entity page', icon: 'chevronRight', run: () => go({ to: 'entity', type: 'route', value: q }) }] : []),
+            { id: 'q-requests', group: 'Search', label: `“${q}”`, hint: 'in request and span names', icon: 'search', run: nav('/explore/requests', { q }) },
+            { id: 'q-logs', group: 'Search', label: `“${q}”`, hint: 'in log lines', icon: 'search', run: nav('/explore/logs', { q }) },
+            { id: 'q-errors', group: 'Search', label: `“${q}”`, hint: 'in exceptions', icon: 'search', run: nav('/explore/errors', { q }) },
+        ];
+
+        return [...dynamic, ...matched, ...search].slice(0, 60);
     }, [query, areas, boot, router, go, set, toggleTheme]);
 
     if (!open) return null;
@@ -101,7 +109,7 @@ export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap
                     <input
                         ref={input}
                         value={query}
-                        placeholder="Jump to a page, paste a trace id, or type key=value…"
+                        placeholder="Jump to a page, search, paste a trace id, or type key=value…"
                         onChange={(e) => { setQuery(e.target.value); setActive(0); }}
                         onKeyDown={(e) => {
                             if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(commands.length - 1, a + 1)); }

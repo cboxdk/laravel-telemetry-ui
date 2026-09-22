@@ -6,6 +6,7 @@ use Cbox\TelemetryUi\Panels\Builtin\ExceptionsOverview;
 use Cbox\TelemetryUi\Panels\Builtin\JobsOverview;
 use Cbox\TelemetryUi\Panels\Builtin\RequestDuration;
 use Cbox\TelemetryUi\Panels\Builtin\RequestsActivity;
+use Cbox\TelemetryUi\Panels\Builtin\RoutesNeedingAttention;
 
 return [
 
@@ -666,6 +667,7 @@ return [
         RequestDuration::class,
         ExceptionsOverview::class,
         JobsOverview::class,
+        RoutesNeedingAttention::class,
         DeploysTimeline::class,
     ],
 

@@ -427,6 +427,8 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
 .t-spinner { display: inline-flex; align-items: center; gap: 10px; color: var(--muted-foreground); font-size: 12.5px; }
 .t-spinner-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--primary); animation: t-spin 0.8s linear infinite; }
 @keyframes t-spin { to { transform: rotate(360deg); } }
+.t-skel-line { display: block; height: 11px; border-radius: 4px; background: var(--secondary); animation: t-pulse 1.4s ease-in-out infinite; margin: 3px 0 7px; max-width: 100%; }
+.t-skel-line.is-sub { height: 8px; opacity: 0.7; margin-bottom: 0; }
 .t-skeleton {
     border-radius: var(--radius-md);
     background: linear-gradient(90deg, var(--secondary) 0%, var(--muted) 50%, var(--secondary) 100%);
@@ -776,9 +778,23 @@ a.t-corr-item:hover { border-color: var(--border-strong); color: var(--foregroun
 .t-wf-toggle { width: 14px; height: 14px; display: grid; place-items: center; flex: none; color: var(--muted-foreground); }
 .t-wf-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; background: var(--primary); }
 .t-wf-summary { color: var(--muted-foreground); font-size: 11px; }
-.t-wf-track { position: relative; height: 28px; border-left: 1px solid var(--border-subtle); }
-.t-wf-bar { position: absolute; top: 9px; height: 10px; min-width: 2px; border-radius: 3px; background: var(--primary); opacity: 0.85; }
-.t-wf-dur { position: absolute; right: 6px; top: 6px; font-size: 10.5px; color: var(--muted-foreground); background: color-mix(in oklch, var(--card) 80%, transparent); padding: 0 3px; border-radius: 3px; }
+.t-wf-track { position: relative; height: 28px; border-left: 1px solid var(--border-subtle); background-image: linear-gradient(90deg, transparent calc(25% - 0.5px), var(--border-subtle) calc(25% - 0.5px), var(--border-subtle) calc(25% + 0.5px), transparent calc(25% + 0.5px), transparent calc(50% - 0.5px), var(--border-subtle) calc(50% - 0.5px), var(--border-subtle) calc(50% + 0.5px), transparent calc(50% + 0.5px), transparent calc(75% - 0.5px), var(--border-subtle) calc(75% - 0.5px), var(--border-subtle) calc(75% + 0.5px), transparent calc(75% + 0.5px)); }
+.t-wf-head { min-height: 24px; cursor: default; position: sticky; top: 0; z-index: 1; background: var(--card); }
+.t-wf-head:hover { background: var(--card); }
+.t-wf-ruler { height: 24px; }
+.t-wf-tick { position: absolute; top: 5px; font-family: var(--font-mono); font-size: 10px; color: var(--muted-foreground); }
+.t-wf-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; font-size: 11px; color: var(--muted-foreground); }
+.t-wf-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.t-wf-legend i { width: 10px; height: 6px; border-radius: 2px; display: inline-block; }
+.t-wf-c-app { background: var(--chart-1); }
+.t-wf-c-db { background: var(--chart-3); }
+.t-wf-c-cache { background: var(--chart-5); }
+.t-wf-c-http { background: var(--chart-6); }
+.t-wf-c-queue { background: var(--chart-2); }
+.t-wf-c-view { background: color-mix(in oklch, var(--muted-foreground) 70%, var(--chart-1)); }
+.t-wf-bar { position: absolute; top: 9px; height: 10px; min-width: 2px; border-radius: 3px; opacity: 0.9; }
+.t-wf-dur { position: absolute; top: 6px; font-size: 10.5px; color: var(--muted-foreground); padding: 0 2px; white-space: nowrap; }
+.t-wf-dur.is-inside { top: 7px; font-size: 9.5px; color: var(--primary-foreground); }
 .t-spandetail { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 12px; background: var(--canvas); }
 .t-spandetail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .t-spandetail-head .t-iconbtn { margin-left: auto; }

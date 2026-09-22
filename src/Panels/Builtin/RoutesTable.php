@@ -13,6 +13,8 @@ use Cbox\TelemetryUi\Support\Format;
 /**
  * Per-route request table: status classes, totals, avg and p95, with
  * drill-down links to matching traces.
+ *
+ * @phpstan-type RouteRow array{method: string, route: string, ok: float, '4xx': float, '5xx': float, total: float, time: float, p95: float|null, spark: list<float>}
  */
 class RoutesTable extends Panel
 {
@@ -106,9 +108,7 @@ class RoutesTable extends Panel
             $rows = array_filter($rows, fn (array $row): bool => stripos($row['method'].' '.$row['route'], $this->search) !== false);
         }
 
-        usort($rows, static fn (array $a, array $b): int => $b['total'] <=> $a['total']);
-
-        return $this->payload(array_values(array_slice($rows, 0, 100)), $error);
+        return $this->payload(array_values(array_slice($this->rank(array_values($rows)), 0, $this->limit())), $error);
     }
 
     /**
@@ -154,8 +154,32 @@ class RoutesTable extends Panel
             'subtitle' => $this->tableSubtitle(),
             'error' => $error,
             'empty' => 'No requests in this period.',
-            'controls' => [Ui::search('route_search', 'Search', $this->search, 'Search routes…')],
+            'controls' => $this->searchable() ? [Ui::search('route_search', 'Search', $this->search, 'Search routes…')] : null,
+            'drill' => $this->drillLink(),
         ], static fn ($v): bool => $v !== null));
+    }
+
+    /**
+     * Row order: busiest first.
+     *
+     * @param  list<RouteRow>  $rows
+     * @return list<RouteRow>
+     */
+    protected function rank(array $rows): array
+    {
+        usort($rows, static fn (array $a, array $b): int => $b['total'] <=> $a['total']);
+
+        return $rows;
+    }
+
+    protected function limit(): int
+    {
+        return 100;
+    }
+
+    protected function searchable(): bool
+    {
+        return true;
     }
 
     protected function tableTitle(): string

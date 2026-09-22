@@ -159,3 +159,20 @@ it('narrows the livewire request log to livewire routes', function (): void {
         return str_contains($q, 'span.http.route =~ "livewire:.*"');
     });
 });
+
+it('puts routes with server errors first on the dashboard short list', function (): void {
+    Http::fake([
+        'prometheus.test:9090/api/v1/query_range*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'matrix', 'result' => []]]),
+        'prometheus.test:9090/api/v1/query*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => [
+            ['metric' => ['http_route' => '/busy', 'http_request_method' => 'GET', 'http_response_status_code' => '200'], 'value' => [1735689600, '900']],
+            ['metric' => ['http_route' => '/broken', 'http_request_method' => 'POST', 'http_response_status_code' => '500'], 'value' => [1735689600, '3']],
+        ]]]),
+    ]);
+
+    $this->getJson(panelUrl('routes-needing-attention', ['_page' => 'dashboard']))
+        ->assertOk()
+        ->assertJsonPath('title', 'Routes needing attention')
+        ->assertJsonPath('rows.0.route.v', '/broken')
+        ->assertJsonPath('drill.page', 'requests')
+        ->assertJsonMissingPath('controls');
+});

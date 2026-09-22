@@ -60,7 +60,10 @@ export function PanelView({ id, span = 1, params = {} }: { id: string; span?: nu
             {(data?.title || !data) && (
                 <header className="t-panel-head">
                     <div className="t-panel-titles">
-                        {isHeader ? <h1 className="t-page-title">{data?.title}</h1> : <h3 className="t-panel-title">{data?.title ?? ' '}</h3>}
+                        {!data ? (
+                            // Loading: placeholder lines where the title and subtitle will be.
+                            <><span className="t-skel-line" style={{ width: 120 }} /><span className="t-skel-line is-sub" style={{ width: 220 }} /></>
+                        ) : isHeader ? <h1 className="t-page-title">{data.title}</h1> : <h3 className="t-panel-title">{data.title || '\u00a0'}</h3>}
                         {data?.subtitle && <p className="t-panel-sub">{data.subtitle}</p>}
                     </div>
                     <div className="t-panel-actions">

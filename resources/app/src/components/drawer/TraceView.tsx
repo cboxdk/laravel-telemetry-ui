@@ -248,18 +248,64 @@ function ReportSection({ title, items, duplicates, summary, icon, spans }: { tit
     );
 }
 
+/** What a span does, for the bar colour: the waterfall reads by category at a glance. */
+const CATEGORIES: { key: string; label: string; test: (a: Record<string, string>, s: SpanData) => boolean }[] = [
+    { key: 'db', label: 'Database', test: (a) => Boolean(a['db.system.name'] ?? a['db.system']) && !(a['db.system.name'] ?? a['db.system'] ?? '').includes('redis') },
+    { key: 'cache', label: 'Cache / Redis', test: (a, s) => Boolean(a['cache.key'] ?? a['cache.store']) || (a['db.system.name'] ?? a['db.system'] ?? '') === 'redis' || s.name.startsWith('cache.') },
+    { key: 'http', label: 'Outgoing HTTP', test: (a, s) => s.kind === 'client' && Boolean(a['server.address'] ?? a['url.full']) },
+    { key: 'queue', label: 'Queue', test: (a) => Boolean(a['messaging.system'] ?? a['messaging.destination.name']) },
+    { key: 'view', label: 'Views', test: (a, s) => Boolean(a['view.name']) || s.name.startsWith('view.') },
+];
+
+function categoryOf(s: SpanData): string {
+    return CATEGORIES.find((c) => c.test(s.attributes, s))?.key ?? 'app';
+}
+
+/** The part of a span's summary that doesn't repeat its name ("GET /x → 200" → "→ 200"). */
+function extraSummary(name: string, summary: string | null): string | null {
+    if (!summary) return null;
+    if (summary === name) return null;
+    return summary.startsWith(name) ? summary.slice(name.length).trim() || null : summary;
+}
+
 function Waterfall({ data }: { data: TraceData }) {
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
     const [selected, setSelected] = useState<string | null>(null);
     const rows = useMemo(() => data.waterfall.filter((r) => !r.ancestors.some((a) => collapsed.has(a))), [data.waterfall, collapsed]);
     const span = data.waterfall.find((r) => r.span.spanId === selected)?.span;
+    const used = useMemo(() => new Set(data.waterfall.map((r) => categoryOf(r.span))), [data.waterfall]);
+    const ticks = [0, 0.25, 0.5, 0.75, 1];
 
     return (
         <div className="t-waterfall-wrap">
+            {used.size > 1 && (
+                <div className="t-wf-legend">
+                    {[{ key: 'app', label: 'App' }, ...CATEGORIES].filter((c) => used.has(c.key)).map((c) => (
+                        <span key={c.key}><i className={`t-wf-c-${c.key}`} />{c.label}</span>
+                    ))}
+                </div>
+            )}
             <div className="t-waterfall">
+                <div className="t-wf-row t-wf-head" aria-hidden="true">
+                    <div className="t-wf-name"><span className="t-eyebrow">Span</span></div>
+                    <div className="t-wf-track t-wf-ruler">
+                        {ticks.map((t) => (
+                            <span key={t} className="t-wf-tick" style={t === 1 ? { right: 4 } : { left: `calc(${t * 100}% + 4px)` }}>{ms(data.durationMs * t)}</span>
+                        ))}
+                    </div>
+                </div>
                 {rows.map((row) => {
                     const s = row.span;
                     const identity = data.identities[s.service];
+                    const end = row.offsetPct + row.widthPct;
+                    // Duration label beside the bar: after it, else before it, else inside.
+                    const durStyle = end < 78
+                        ? { left: `calc(${end}% + 4px)` }
+                        : row.offsetPct > 18
+                            ? { right: `calc(${100 - row.offsetPct}% + 4px)` }
+                            : { right: `calc(${100 - end}% + 4px)` };
+                    const inside = end >= 78 && row.offsetPct <= 18;
+                    const extra = extraSummary(s.name, s.summary);
                     return (
                         <div key={s.spanId} className={`t-wf-row ${s.error ? 'is-error' : ''} ${selected === s.spanId ? 'is-sel' : ''}`} onClick={() => setSelected(selected === s.spanId ? null : s.spanId)}>
                             <div className="t-wf-name" style={{ paddingLeft: 6 + row.depth * 12 }}>
@@ -270,12 +316,12 @@ function Waterfall({ data }: { data: TraceData }) {
                                 ) : <span className="t-wf-toggle" />}
                                 <span className="t-wf-dot" style={{ background: identity?.color }} title={s.service} />
                                 {s.browser && <span className="t-badge t-badge-warn">web</span>}
-                                <span className="mono t-ellipsis">{s.name}</span>
-                                {s.summary && <span className="t-wf-summary mono t-ellipsis">{s.summary}</span>}
+                                <span className="mono t-ellipsis" title={s.summary ?? s.name}>{s.name}</span>
+                                {extra && <span className="t-wf-summary mono t-ellipsis">{extra}</span>}
                             </div>
                             <div className="t-wf-track">
-                                <span className="t-wf-bar" style={{ left: `${row.offsetPct}%`, width: `${row.widthPct}%` }} />
-                                <span className="t-wf-dur mono">{ms(s.durationMs)}</span>
+                                <span className={`t-wf-bar t-wf-c-${categoryOf(s)}`} style={{ left: `${row.offsetPct}%`, width: `${row.widthPct}%` }} />
+                                <span className={`t-wf-dur mono ${inside ? 'is-inside' : ''}`} style={durStyle}>{ms(s.durationMs)}</span>
                             </div>
                         </div>
                     );

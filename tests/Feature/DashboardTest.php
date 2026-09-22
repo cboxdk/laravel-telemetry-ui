@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Panels\Builtin\ExceptionsOverview;
 use Cbox\TelemetryUi\Panels\Builtin\JobsOverview;
 use Cbox\TelemetryUi\Panels\Builtin\RequestDuration;
 use Cbox\TelemetryUi\Panels\Builtin\RequestsActivity;
+use Cbox\TelemetryUi\Panels\Builtin\RoutesNeedingAttention;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Cbox\TelemetryUi\Tests\Fixtures\DummyPanel;
 use Illuminate\Support\Facades\Gate;
@@ -31,6 +32,7 @@ it('lists the dashboard panels when the gate permits', function (): void {
             'request-duration',
             'exceptions-overview',
             'jobs-overview',
+            'routes-needing-attention',
             'deploys-timeline',
         ]);
 });
@@ -48,7 +50,7 @@ it('serves each dashboard panel as typed json', function (string $panel): void {
         ->assertOk()
         ->assertJsonPath('id', $panel)
         ->assertJsonStructure(['kind', 'span']);
-})->with(['requests-activity', 'request-duration', 'exceptions-overview', 'jobs-overview', 'deploys-timeline']);
+})->with(['requests-activity', 'request-duration', 'exceptions-overview', 'jobs-overview', 'routes-needing-attention', 'deploys-timeline']);
 
 it('removes and replaces the config-declared dashboard panels', function (): void {
     $manager = app(TelemetryUiManager::class);
@@ -111,6 +113,7 @@ it('registers panels from config and runtime, deduplicated and in order', functi
         RequestDuration::class,
         ExceptionsOverview::class,
         JobsOverview::class,
+        RoutesNeedingAttention::class,
         DeploysTimeline::class,
         DummyPanel::class,
     ]);

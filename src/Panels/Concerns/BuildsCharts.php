@@ -189,7 +189,7 @@ trait BuildsCharts
      *
      * @return array<string, mixed>|null
      */
-    private function drillLink(): ?array
+    protected function drillLink(): ?array
     {
         if ($this->drillPage === null || $this->onPage !== 'dashboard') {
             return null;
