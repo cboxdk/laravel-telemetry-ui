@@ -43,6 +43,9 @@ final class SpanExplorer
         'user.id', 'client.address', 'host.name', 'http.url', 'browser',
     ];
 
+    /** Set when a filter the backend refused was applied read-side. */
+    private bool $readSideFiltered = false;
+
     public function __construct(
         private readonly ConnectionManager $connections,
         private readonly Dimensions $dimensions,
@@ -128,8 +131,11 @@ final class SpanExplorer
             $relaxed = $scope->withWhere(array_values(array_filter($scope->where, static fn (Filter $f): bool => $f->op !== '!~')));
             $keys = [...$keys, ...array_map(static fn (Filter $f): string => $f->key, $negated)];
 
+            // Filtering after the fact thins the sample, so fetch a wider one.
+            $this->readSideFiltered = true;
+
             return array_values(array_filter(
-                $this->connections->traces()->search($this->query($relaxed, $signal, $extra, $keys), $start, $end, $limit),
+                $this->connections->traces()->search($this->query($relaxed, $signal, $extra, $keys), $start, $end, min(self::MAX_LIMIT, $limit * 4)),
                 function (TraceSummary $summary) use ($negated, $signal): bool {
                     $attributes = $this->representative($summary, $signal)->attributes ?? [];
 
@@ -301,6 +307,7 @@ final class SpanExplorer
                 'truncated' => count($rows) >= $limit,
                 'exact' => false,
                 'groupsExact' => $exact,
+                'readSideFiltered' => $this->readSideFiltered,
             ],
             'range' => ['start' => $startMs, 'end' => $endMs],
         ];

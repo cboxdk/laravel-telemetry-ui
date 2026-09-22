@@ -132,7 +132,7 @@ export function ExplorePage() {
                                 )}
                             </div>
 
-                            {data.groupBy && data.groups && <GroupTable groupKey={data.groupBy} groups={data.groups} exact={data.sample.groupsExact} />}
+                            {data.groupBy && data.groups && data.groups.length > 0 && <GroupTable groupKey={data.groupBy} groups={data.groups} exact={data.sample.groupsExact} />}
 
                             {rows.length === 0 ? (
                                 <Empty>Nothing matches in this window. Widen the period or remove a filter.</Empty>
@@ -155,7 +155,7 @@ function defaultKeys(boot: ReturnType<typeof useBoot>, signal: Signal): string[]
     return boot.dimensions.filter((d) => !d.builtin || d.signals.includes(signal)).map((d) => d.key);
 }
 
-function StatsLine({ signal, stats, sample }: { signal: Signal; stats: Record<string, unknown>; sample: { size: number; truncated: boolean; exact: boolean } }) {
+function StatsLine({ signal, stats, sample }: { signal: Signal; stats: Record<string, unknown>; sample: { size: number; truncated: boolean; exact: boolean; readSideFiltered?: boolean } }) {
     const n = (k: string) => (typeof stats[k] === 'number' ? (stats[k] as number) : null);
     const items: { k: string; v: string; tone?: string }[] =
         signal === 'errors'
@@ -191,6 +191,11 @@ function StatsLine({ signal, stats, sample }: { signal: Signal; stats: Record<st
             <span className="t-pill" title={sample.exact ? 'Exact' : 'Computed over the newest matching results'}>
                 {sample.exact ? 'exact' : `${sample.truncated ? 'newest ' : ''}${count(sample.size)} ${sample.truncated ? 'sampled' : 'results'}`}
             </span>
+            {sample.readSideFiltered && (
+                <span className="t-pill t-pill-warn" title="The backend can't evaluate one of the filters (e.g. !~), so it was applied to a wider sample after fetching — counts may be low.">
+                    filtered after sampling
+                </span>
+            )}
         </div>
     );
 }

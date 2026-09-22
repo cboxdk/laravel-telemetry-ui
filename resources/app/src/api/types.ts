@@ -357,6 +357,8 @@ export interface Sample {
     truncated: boolean;
     exact: boolean;
     groupsExact?: boolean;
+    /** A filter the backend can't evaluate (e.g. `!~` on telemetryd) was applied after sampling. */
+    readSideFiltered?: boolean;
 }
 
 export interface ExploreResult<R = SpanRow | LogEntryRow | ErrorRow> {
