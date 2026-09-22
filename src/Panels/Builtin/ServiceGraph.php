@@ -8,6 +8,8 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Support\Format;
 use Cbox\TelemetryUi\Support\ServiceIdentity;
 
@@ -67,13 +69,23 @@ final class ServiceGraph extends Panel
         }
 
         $edges = array_filter($edges, static fn (array $edge): bool => $edge['requests'] >= 0.5);
+        $derived = null;
+
+        // No metrics-generator? Derive the map from what the traces already
+        // say: every client span is an edge from its service to what it
+        // called (another service, a database, a queue, an HTTP host).
+        if ($edges === [] && $error === null) {
+            [$edges, $derived] = $this->edgesFromSpans();
+        }
 
         usort($edges, static fn (array $a, array $b): int => $b['requests'] <=> $a['requests']);
 
         $graph = [
             'kind' => 'graph',
             'title' => 'Service graph',
-            'subtitle' => 'Who-calls-whom across proxies, Beyla-instrumented infra and apps (from Tempo)',
+            'subtitle' => $derived === null
+                ? 'Who-calls-whom across proxies, Beyla-instrumented infra and apps (from Tempo)'
+                : 'Who-calls-whom, derived from sampled client spans — databases, queues and upstream hosts',
             'span' => 2,
             ...$this->graphData($edges),
         ];
@@ -110,7 +122,84 @@ final class ServiceGraph extends Panel
         ], [
             'subtitle' => $graph['subtitle'],
             'span' => 2,
+            'note' => $derived !== null ? "Derived from {$derived} sampled client spans; volumes are relative, not totals. Enable Tempo's service-graphs processor for exact edges." : null,
         ]);
+    }
+
+    /**
+     * Edges from a bounded sample of client spans: service → peer, where the
+     * peer is `peer.service`, else the database system, else the messaging
+     * system, else the upstream host.
+     *
+     * @return array{0: list<array{client: string, server: string, requests: float, failed: float, p95: float|null}>, 1: int}
+     */
+    private function edgesFromSpans(): array
+    {
+        [$start, $end] = $this->range();
+
+        $select = ['span.peer.service', 'span.db.system.name', 'span.messaging.system', 'span.server.address', 'span.http.response.status_code'];
+
+        try {
+            // Client spans (HTTP, queues) — and database spans, which some
+            // emitters record as internal rather than client kind.
+            $summaries = [
+                ...$this->traces()->search($this->traceQuery(TraceCondition::token('kind', TraceOp::Eq, 'client'))->select(...$select), $start, $end, 30),
+                ...$this->traces()->search($this->traceQuery(TraceCondition::nil('span.db.system.name'))->select(...$select), $start, $end, 10),
+            ];
+        } catch (SourceException) {
+            return [[], 0];
+        }
+
+        $seen = [];
+
+        /** @var array<string, array{client: string, server: string, durations: list<float>, failed: float}> $acc */
+        $acc = [];
+        $spans = 0;
+
+        foreach ($summaries as $summary) {
+            foreach ($summary->matchedSpans as $span) {
+                if (isset($seen[$summary->traceId.$span->spanId])) {
+                    continue; // a db span of kind client matches both searches
+                }
+
+                $seen[$summary->traceId.$span->spanId] = true;
+                $a = $span->attributes;
+                $peer = match (true) {
+                    is_scalar($a['peer.service'] ?? null) && (string) $a['peer.service'] !== '' => (string) $a['peer.service'],
+                    is_scalar($a['db.system.name'] ?? null) && (string) $a['db.system.name'] !== '' => 'db:'.$a['db.system.name'],
+                    is_scalar($a['messaging.system'] ?? null) && (string) $a['messaging.system'] !== '' => 'queue:'.$a['messaging.system'],
+                    is_scalar($a['server.address'] ?? null) && (string) $a['server.address'] !== '' => (string) $a['server.address'],
+                    default => null,
+                };
+
+                if ($peer === null || $summary->rootServiceName === '') {
+                    continue;
+                }
+
+                $spans++;
+                $key = $summary->rootServiceName.'→'.$peer;
+                $acc[$key] ??= ['client' => $summary->rootServiceName, 'server' => $peer, 'durations' => [], 'failed' => 0.0];
+                $acc[$key]['durations'][] = $span->durationMs;
+                $status = $a['http.response.status_code'] ?? null;
+                $acc[$key]['failed'] += is_numeric($status) && (int) $status >= 500 ? 1.0 : 0.0;
+            }
+        }
+
+        $edges = [];
+
+        foreach ($acc as $edge) {
+            $durations = $edge['durations'];
+            sort($durations);
+            $edges[] = [
+                'client' => $edge['client'],
+                'server' => $edge['server'],
+                'requests' => (float) count($durations),
+                'failed' => $edge['failed'],
+                'p95' => $durations[(int) max(0, ceil(0.95 * count($durations)) - 1)] ?? null,
+            ];
+        }
+
+        return [$edges, $spans];
     }
 
     /**

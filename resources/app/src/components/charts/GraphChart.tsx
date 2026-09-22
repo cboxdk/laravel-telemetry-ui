@@ -1,7 +1,10 @@
 import type { ECharts } from 'echarts/core';
 import { useCallback } from 'react';
 import type { GraphPayload, Link } from '../../api/types';
-import { seriesColor, tokenColor } from '../../lib/colors';
+import { tokenColor } from '../../lib/colors';
+
+// Red is reserved for failure in the graph, so healthy nodes never use it.
+const CALM = ['chart-1', 'chart-2', 'chart-3', 'chart-5', 'chart-6'];
 import { count, ms, percent } from '../../lib/format';
 import { EChart } from './EChart';
 
@@ -44,7 +47,7 @@ export function GraphChart({ data, height = 320, onNode }: { data: GraphPayload;
                     id: n.id,
                     name: n.label,
                     symbolSize: 18 + Math.min(18, Math.log10(1 + (n.requests ?? 0)) * 5),
-                    itemStyle: { color: n.errors ? tokenColor('destructive') : seriesColor(i), borderColor: tokenColor('card'), borderWidth: 2 },
+                    itemStyle: { color: n.errors ? tokenColor('destructive') : tokenColor(CALM[i % CALM.length]!), borderColor: tokenColor('card'), borderWidth: 2 },
                     requests: n.requests,
                     link: n.link,
                 })),
