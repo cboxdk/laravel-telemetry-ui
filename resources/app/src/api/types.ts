@@ -512,6 +512,8 @@ export interface TraceData {
         storage: ReportItem[];
     };
     logs: { time: string; level: string; tone: string; message: string }[];
+    logsMatch?: 'trace' | 'time' | null;
+    exceptions: { group: string; type: string; message: string; file: string; line: number; source: string; match: 'trace' | 'time' | 'span' }[];
     dimensionLinks: Record<string, string>;
 }
 

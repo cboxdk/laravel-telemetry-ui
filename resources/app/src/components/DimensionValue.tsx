@@ -1,6 +1,7 @@
 import { useRouter, useRouterState } from '@tanstack/react-router';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import type { Bootstrap, DimensionDef, Signal } from '../api/types';
+import type { Bootstrap, DimensionDef, Link as LinkData, Signal } from '../api/types';
+import { useGo } from '../lib/links';
 import { formatFilter, list, parseSearch, scopeOf, withFilter, type Op } from '../lib/search';
 import { Icon } from './Icon';
 import { Popover } from './Popover';
@@ -61,14 +62,18 @@ export function useDrill() {
  * A dimension value you can act on. Declared (custom) dimensions render as
  * violet chips; built-ins stay quiet until hovered.
  */
-export function DimensionValue({ dimKey, value, children, chip, label, linkOut }: {
+export function DimensionValue({ dimKey, value, children, chip, label, linkOut, link, onParam }: {
     dimKey: string;
     value: string;
     children?: ReactNode;
     chip?: boolean;
     label?: boolean;
     linkOut?: string | null;
+    /** The cell's own drill-down, offered first (e.g. "filter this panel"). */
+    link?: LinkData;
+    onParam?: (params: Record<string, string>) => void;
 }) {
+    const go = useGo();
     const dim = useDimension(dimKey);
     const drill = useDrill();
     const custom = dim ? !dim.builtin : false;
@@ -96,7 +101,13 @@ export function DimensionValue({ dimKey, value, children, chip, label, linkOut }
                         <span className="t-eyebrow">{dim?.label ?? dimKey}</span>
                         <code>{value}</code>
                     </div>
-                    <button type="button" onClick={() => { close(); drill.filter(dimKey, value); }}><Icon name="filter" size={13} />Filter to this</button>
+                    {link && link.to === 'param' && onParam && (
+                        <button type="button" onClick={() => { close(); onParam(link.params); }}><Icon name="filter" size={13} />Filter this panel</button>
+                    )}
+                    {link && link.to !== 'param' && (
+                        <button type="button" onClick={() => { close(); go(link); }}><Icon name="chevronRight" size={13} />Open</button>
+                    )}
+                    <button type="button" onClick={() => { close(); drill.filter(dimKey, value); }}><Icon name="filter" size={13} />{link?.to === "param" ? "Filter Explore to this" : "Filter to this"}</button>
                     <button type="button" onClick={() => { close(); drill.exclude(dimKey, value); }}><Icon name="x" size={13} />Exclude</button>
                     <button type="button" onClick={() => { close(); drill.groupBy(dimKey); }}><Icon name="group" size={13} />Group by {dim?.label ?? dimKey}</button>
                     {canOpen && entity && (

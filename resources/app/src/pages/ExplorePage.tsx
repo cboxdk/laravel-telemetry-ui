@@ -14,6 +14,7 @@ import { TimeChart } from '../components/charts/TimeChart';
 import { Icon } from '../components/Icon';
 import { count, ms, percent } from '../lib/format';
 import { useLiveTail } from '../lib/liveTail';
+import { useTitle } from '../lib/title';
 import { list, parseDrawer, scopeOf, str } from '../lib/search';
 import { useScope, useSearchState, useSetSearch } from '../lib/state';
 
@@ -32,6 +33,7 @@ export function ExplorePage() {
     const set = useSetSearch();
     const scope = useScope();
     const [live, setLive] = useState(false);
+    useTitle(TITLES[signal], 'Explore');
 
     const where = list(search, 'where');
     const q = str(search, 'q');

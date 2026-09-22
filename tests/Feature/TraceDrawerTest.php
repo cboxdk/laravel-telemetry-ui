@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\Facades\TelemetryUi;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 
@@ -335,4 +336,34 @@ it('forbids ticket creation without the manage ability', function (): void {
     $this->postJson(apiUrl('issues'), ['title' => 'Boom'])->assertForbidden()->assertJsonPath('error.type', 'forbidden');
 
     Http::assertNothingSent();
+});
+
+it('explains why a trace failed with the exception its trace id carries', function (): void {
+    fakeTrace(['loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => [
+        ['stream' => ['service_name' => 'checkout', 'level' => 'error', 'trace_id' => DRAWER_TRACE, 'exception_group' => '0f3a9c2b1d4e', 'exception_type' => 'App\\PaymentFailed', 'exception_message' => 'Card declined', 'exception_file' => 'app/Payments/Charge.php', 'exception_line' => '42'], 'values' => [['1735689600500000000', 'exception']]],
+    ]]])]);
+
+    $this->getJson(apiUrl('traces/'.DRAWER_TRACE))
+        ->assertOk()
+        ->assertJsonPath('exceptions.0.group', '0f3a9c2b1d4e')
+        ->assertJsonPath('exceptions.0.type', 'App\\PaymentFailed')
+        ->assertJsonPath('exceptions.0.line', 42)
+        ->assertJsonPath('exceptions.0.match', 'trace');
+});
+
+it('falls back to the service and time window when exception records carry no trace id', function (): void {
+    fakeTrace(['loki.test:3100/*' => function (Request $request) {
+        $q = (string) (requestQuery($request)['query'] ?? '');
+
+        // The trace-id lookup finds nothing; the time-window lookup finds the record.
+        return Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => str_contains($q, 'trace_id')
+            ? []
+            : [['stream' => ['service_name' => 'checkout', 'exception_group' => 'ab12cd34ef56', 'exception_type' => 'RuntimeException', 'exception_message' => 'boom'], 'values' => [['1735689600700000000', 'exception']]]],
+        ]]);
+    }]);
+
+    $this->getJson(apiUrl('traces/'.DRAWER_TRACE))
+        ->assertOk()
+        ->assertJsonPath('exceptions.0.group', 'ab12cd34ef56')
+        ->assertJsonPath('exceptions.0.match', 'time');
 });

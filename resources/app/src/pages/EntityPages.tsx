@@ -11,6 +11,7 @@ import { ago, clock, count, ms, percent, statusTone } from '../lib/format';
 import { Go, useGo } from '../lib/links';
 import { scopeOf, str } from '../lib/search';
 import { useSearchState, useSetSearch } from '../lib/state';
+import { useTitle } from '../lib/title';
 
 /** Every value of an entity type (routes, queries, customers…) with RED. */
 export function EntityIndexPage() {
@@ -20,6 +21,7 @@ export function EntityIndexPage() {
     const [filter, setFilter] = useState('');
     const { data, error, isLoading } = useEntityIndex(type);
     const def = boot.entities.find((e) => e.type === type);
+    useTitle(def?.plural ?? type);
 
     const values = (data?.values ?? []).filter((v) => filter === '' || v.value.toLowerCase().includes(filter.toLowerCase()));
     const max = Math.max(1, ...values.map((v) => v.count));
@@ -85,6 +87,7 @@ export function EntityPage() {
     const tab = str(search, 'tab') || 'story';
     const { data, error, isLoading } = useEntityStory(type, value);
     const dim = useDimension(data?.entity.key ?? '');
+    useTitle(value, data?.entity.label ?? dim?.label ?? type);
 
     if (value === '') return <div className="t-page"><Empty>Pick a value from the {type} list.</Empty></div>;
 

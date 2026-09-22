@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Analysis\TraceLogs;
 use Cbox\TelemetryUi\Analysis\TraceProfile;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Explore\TraceExceptions;
 use Cbox\TelemetryUi\Http\Api\ApiError;
 use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\Http\Api\Serializer;
@@ -30,6 +31,7 @@ final class TraceController
         SignalContext $context,
         TraceProfile $profile,
         TraceLogs $traceLogs,
+        TraceExceptions $exceptions,
         string $traceId,
     ): JsonResponse {
         if (! Gate::allows('viewTelemetryUi', ['traces'])) {
@@ -47,6 +49,14 @@ final class TraceController
         }
 
         $root = $trace->root();
+
+        $logs = self::safe(static fn (): array => $traceLogs->forTrace($trace));
+        $logsMatch = $logs !== [] ? 'trace' : null;
+
+        if ($logs === []) {
+            $logs = $exceptions->logsByWindow($trace);
+            $logsMatch = $logs !== [] ? 'time' : null;
+        }
 
         return Json::ok([
             'traceId' => $trace->traceId,
@@ -75,7 +85,11 @@ final class TraceController
             'context' => array_map(Serializer::metricSummary(...), self::safe(static fn (): array => $context->forTrace($trace))),
             'profile' => self::safe(static fn (): array => $profile->forTrace($trace)),
             'report' => RequestReport::from($trace),
-            'logs' => self::safe(static fn (): array => $traceLogs->forTrace($trace)),
+            'logs' => $logs,
+            // 'trace' = joined on trace id; 'time' = the service's lines in the
+            // root span's window (records without trace context).
+            'logsMatch' => $logsMatch,
+            'exceptions' => $exceptions->forTrace($trace),
             'dimensionLinks' => Serializer::dimensionLinks($trace),
         ]);
     }

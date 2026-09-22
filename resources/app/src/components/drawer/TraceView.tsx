@@ -88,10 +88,22 @@ function Story({ data }: { data: TraceData }) {
 
     return (
         <div className="t-story-trace">
-            {errorSpans.length > 0 && (
+            {(data.exceptions.length > 0 || errorSpans.length > 0) && (
                 <div className="t-why">
                     <div className="t-why-title">Why it failed</div>
-                    {errorSpans.slice(0, 3).map((s) => (
+                    {data.exceptions.map((e) => (
+                        <div key={e.group || e.type} className="t-why-exc">
+                            <p>
+                                <code>{e.type}</code> {e.message}
+                                {e.file && <span className="t-dim mono"> · {e.file.split('/').slice(-2).join('/')}{e.line ? `:${e.line}` : ''}</span>}
+                            </p>
+                            <div className="t-row-gap">
+                                {e.group && <Go link={{ to: 'error', group: e.group }} className="t-linkbtn">Open issue →</Go>}
+                                {e.match === 'time' && <span className="t-pill" title="The exception record carries no trace id; matched by service and time window">likely match</span>}
+                            </div>
+                        </div>
+                    ))}
+                    {data.exceptions.length === 0 && errorSpans.slice(0, 3).map((s) => (
                         <p key={s.spanId}><code>{s.name}</code> failed{s.attributes['exception.type'] ? <> with <code>{s.attributes['exception.type']}</code></> : null}{s.attributes['exception.message'] ? `: ${s.attributes['exception.message']}` : ''} <span className="t-dim">({ms(s.durationMs)})</span></p>
                     ))}
                 </div>
@@ -238,6 +250,7 @@ function Logs({ data }: { data: TraceData }) {
     if (data.logs.length === 0) return <Empty>No log lines carry this trace id.</Empty>;
     return (
         <div className="t-tracelogs">
+            {data.logsMatch === 'time' && <p className="t-note">These lines carry no trace id — shown because the same service logged them during this request.</p>}
             {data.logs.map((l, i) => (
                 <div key={i} className={`t-log t-log-${l.tone}`}>
                     <div className="t-log-line is-static">

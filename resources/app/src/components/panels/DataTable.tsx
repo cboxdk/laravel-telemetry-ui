@@ -48,7 +48,7 @@ export function CellView({ cell, onParam }: { cell: Cell | null; onParam?: (p: R
     }
 
     if (cell.dim && cell.v !== null && cell.v !== '') {
-        content = <DimensionValue dimKey={cell.dim.key} value={cell.dim.value}>{content}</DimensionValue>;
+        content = <DimensionValue dimKey={cell.dim.key} value={cell.dim.value} link={cell.link} onParam={onParam}>{content}</DimensionValue>;
     } else if (cell.link) {
         content = <Go link={cell.link} onParam={onParam} className="t-cell-link">{content}</Go>;
     }
@@ -181,7 +181,8 @@ export function DataTable({ columns, rows, onParam, onTicket, maxHeight = 520 }:
                 ))}
                 {hasTicket && <span />}
             </div>
-            <div className="t-tbody" ref={scroller} style={{ maxHeight }}>
+            {/* Only long (virtualised) tables scroll inside the panel; short ones grow, so the page scroll isn't trapped. */}
+            <div className="t-tbody" ref={scroller} style={virtual ? { maxHeight } : undefined}>
                 {virtual ? (
                     <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
                         {virtualizer.getVirtualItems().map((v) =>

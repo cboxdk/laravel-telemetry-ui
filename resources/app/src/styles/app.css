@@ -605,7 +605,7 @@ a.t-corr-item:hover { border-color: var(--border-strong); color: var(--foregroun
 
 /* ── Drawer ───────────────────────────────────────────────────────────── */
 .t-drawer {
-    position: fixed; z-index: 50; top: 0; right: 0; bottom: 0; width: min(780px, 62vw);
+    position: fixed; z-index: 50; top: 0; right: 0; bottom: 0; width: min(920px, 66vw);
     display: flex; flex-direction: column; background: var(--card); border-left: 1px solid var(--border); box-shadow: var(--shadow-popover);
     animation: t-slide var(--dur-layout) var(--ease);
 }
@@ -631,6 +631,7 @@ a.t-corr-item:hover { border-color: var(--border-strong); color: var(--foregroun
 .t-why { padding: 11px 13px; border-radius: 10px; background: var(--destructive-soft); border: 1px solid color-mix(in oklch, var(--destructive) 30%, transparent); }
 .t-why-title { font-family: var(--font-display); font-weight: 600; font-size: 12.5px; color: var(--destructive); margin-bottom: 4px; }
 .t-why p { margin: 3px 0; font-size: 12.5px; color: var(--foreground); }
+.t-why-exc + .t-why-exc { margin-top: 8px; padding-top: 8px; border-top: 1px solid color-mix(in oklch, var(--destructive) 20%, transparent); }
 .t-sect-title { font-family: var(--font-sans); display: flex; align-items: center; gap: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground); font-weight: 600; margin-bottom: 8px; }
 .t-sect-title span { text-transform: none; letter-spacing: 0; font-weight: 400; }
 .t-report { display: flex; flex-direction: column; }
