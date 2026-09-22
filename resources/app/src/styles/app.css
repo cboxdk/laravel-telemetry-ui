@@ -350,7 +350,9 @@ pre { margin: 0; }
 .t-card-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 8px; border-bottom: 1px solid var(--border-subtle); min-width: 0; }
 .t-card-row.is-link { cursor: pointer; }
 .t-card-row.is-link:active, .t-card-row.is-link:hover { background: var(--secondary); }
-.t-card-title { min-width: 0; font-weight: 500; overflow-wrap: anywhere; }
+.t-card-title { min-width: 0; font-weight: 500; overflow-wrap: anywhere; display: flex; align-items: flex-start; gap: 6px; }
+.t-card-title > .t-cell { flex: 0 1 auto; min-width: 0; }
+.t-card-title .t-cell, .t-card-title .t-cell-main, .t-card-title .t-dimval, .t-card-title .t-dimval .v, .t-card-title .t-cell-link { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; text-align: left; }
 .t-card-title .t-cell-main { flex-wrap: wrap; }
 .t-card-kv { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 0; }
 .t-card-pair { display: flex; flex-direction: column; gap: 1px; min-width: 0; max-width: 100%; }

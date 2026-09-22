@@ -23,3 +23,16 @@ describe('column tracks', () => {
         expect(tpl).toMatch(/^\d+px minmax\(\d+px, 1fr\) \d+px$/);
     });
 });
+
+describe('card layout', () => {
+    it('titles a card with the longest text column and puts short badges inline', async () => {
+        const { cardLayout } = await import('./DataTable');
+        const layout = cardLayout(
+            [{ key: 'method', label: 'Method' }, { key: 'route', label: 'Route' }, { key: 'total', label: 'Total', align: 'right' }],
+            [{ method: { v: 'GET', badge: 'GET' }, route: { v: '/orders/{id}/checkout' }, total: { v: '12' } }],
+        );
+        expect(layout.head?.key).toBe('route');
+        expect(layout.badges.map((c) => c.key)).toEqual(['method']);
+        expect(layout.rest.map((c) => c.key)).toEqual(['total']);
+    });
+});

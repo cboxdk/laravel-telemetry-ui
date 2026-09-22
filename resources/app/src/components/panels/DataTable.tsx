@@ -139,6 +139,24 @@ function useWidth(ref: React.RefObject<HTMLElement | null>): number {
 const CARD_LIMIT = 60;
 
 /**
+ * How a row reads as a card: the column with the longest text is the title
+ * (the route, not the method badge), short badge columns sit inline before
+ * it, everything else becomes labelled values.
+ */
+export function cardLayout(columns: Column[], rows: Row[]): { head: Column | undefined; badges: Column[]; rest: Column[] } {
+    const sample = rows.slice(0, 40);
+    const cellsOf = (c: Column) => sample.map((r) => asCell(r[c.key])).filter((x): x is Cell => x !== null);
+    const isBadge = (c: Column) => { const cells = cellsOf(c); return cells.length > 0 && cells.every((x) => x.badge !== undefined && String(x.v ?? '').length <= 8); };
+    const textLength = (c: Column) => { const cells = cellsOf(c); return cells.length === 0 || c.align === 'right' || cells.every((x) => x.spark) ? -1 : cells.reduce((n, x) => n + String(x.v ?? '').length, 0) / cells.length; };
+
+    const badges = columns.filter(isBadge);
+    const candidates = columns.filter((c) => !badges.includes(c));
+    const head = candidates.reduce<Column | undefined>((best, c) => (best === undefined || textLength(c) > textLength(best) ? c : best), undefined) ?? columns[0];
+
+    return { head, badges: badges.filter((c) => c !== head), rest: columns.filter((c) => c !== head && !badges.includes(c)) };
+}
+
+/**
  * The panel table: whole-row drill-down (`_link`), client-side sort by the
  * cell's raw value, and virtualised rendering for long lists.
  */
@@ -220,7 +238,7 @@ export function DataTable({ columns, rows, onParam, onTicket }: {
     return <div className="t-table-host" ref={table}>{cards ? renderCards() : renderTable()}</div>;
 
     function renderCards() {
-        const [head, ...rest] = columns;
+        const { head, badges, rest } = cardLayout(columns, rows);
         const shown = allCards ? sorted : sorted.slice(0, CARD_LIMIT);
         return (
             <div className="t-table is-cards" role="table">
@@ -233,7 +251,12 @@ export function DataTable({ columns, rows, onParam, onTicket }: {
                         tabIndex={row._link ? 0 : undefined}
                         onKeyDown={(e) => { if (e.key === 'Enter' && row._link) go(row._link); }}
                     >
-                        {head && <div role="cell" className="t-card-title"><CellView cell={asCell(row[head.key])} onParam={onParam} /></div>}
+                        {head && (
+                            <div role="cell" className="t-card-title">
+                                {badges.map((c) => { const cell = asCell(row[c.key]); return cell && cell.v !== null && cell.v !== '' ? <CellView key={c.key} cell={cell} onParam={onParam} /> : null; })}
+                                <CellView cell={asCell(row[head.key])} onParam={onParam} />
+                            </div>
+                        )}
                         <dl className="t-card-kv">
                             {rest.map((c) => {
                                 const cell = asCell(row[c.key]);
