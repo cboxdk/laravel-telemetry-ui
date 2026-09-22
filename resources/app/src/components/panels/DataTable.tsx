@@ -85,6 +85,8 @@ export function columnTemplate(columns: Column[], rows: Row[]): string {
         const longest = Math.max(c.label.length, ...cells.map(text));
         const hasSub = cells.some((x) => x.sub);
 
+        // A value plus its inline share bar needs room for both.
+        if (cells.some((x) => x.bar !== undefined)) return px(longest + 9, 110, 170);
         if (c.align === 'right') return px(longest, 56, 150);
         if (cells.length > 0 && cells.every((x) => x.spark)) return '96px';
         if (hasSub) return 'minmax(220px, 6fr)';

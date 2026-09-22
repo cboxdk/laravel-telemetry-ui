@@ -299,7 +299,8 @@ pre { margin: 0; }
 }
 .t-panel.is-refreshing { border-color: var(--accent-edge); }
 .t-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 16px 10px; flex-wrap: wrap; }
-.t-panel-titles { min-width: 0; }
+.t-panel-titles { min-width: 0; flex: 1 1 240px; }
+.t-panel-head > .t-panel-actions { margin-left: auto; }
 .t-panel-title { font-size: 14px; font-weight: 600; line-height: 1.3; }
 .t-panel-sub { margin: 3px 0 0; color: var(--muted-foreground); font-size: 12px; }
 .t-panel-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
