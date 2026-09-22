@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTrace } from '../../api/hooks';
-import type { ReportItem, SpanData, TraceData } from '../../api/types';
+import type { Link as LinkData, ReportItem, SpanData, TraceData } from '../../api/types';
 import { count, ms, shortId, statusTone } from '../../lib/format';
 import { Go } from '../../lib/links';
 import { useBoot, DimensionValue } from '../DimensionValue';
@@ -50,7 +50,7 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
                             {data.chain.map((hop, i) => (
                                 <span key={hop.spanId} className="t-chain-hop">
                                     {i > 0 && <Icon name="chevronRight" size={11} />}
-                                    <span className="mono">{hop.service}</span>
+                                    <Go link={{ to: 'entity', type: 'service', value: hop.service }} className="mono t-linkish" title={`Open service ${hop.service}`}>{hop.service}</Go>
                                     <span className="t-dim mono">{ms(hop.durationMs)}</span>
                                 </span>
                             ))}
@@ -69,7 +69,7 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
                 {tab === 'story' && <Story data={data} />}
                 {tab === 'waterfall' && <Waterfall data={data} />}
                 {tab === 'logs' && <Logs data={data} />}
-                {tab === 'context' && <Context data={data} />}
+                {tab === 'context' && <><Context data={data} /><Around data={data} attrs={Object.assign({}, ...[...data.waterfall].reverse().map((r) => r.span.attributes), data.root?.attributes ?? {}) as Record<string, string>} /></>}
                 {tab === 'profile' && <Profile data={data} />}
             </div>
         </div>
@@ -85,6 +85,7 @@ function Story({ data }: { data: TraceData }) {
     const builtins = ['http.route', 'user.id', 'client.address', 'host.name', 'service.name'].filter((k) => attrs[k]);
     const report = data.report;
     const errorSpans = data.waterfall.filter((r) => r.span.error).map((r) => r.span);
+    const spans = useMemo(() => new Map(data.waterfall.map((r) => [r.span.spanId, r.span])), [data]);
 
     return (
         <div className="t-story-trace">
@@ -142,13 +143,13 @@ function Story({ data }: { data: TraceData }) {
                 </section>
             )}
 
-            <ReportSection title="Database" items={report.db.items} duplicates={report.db.duplicates} icon="database" />
-            <ReportSection title="Cache" items={report.cache.items} summary={report.cache.summary} icon="zap" />
-            <ReportSection title="Redis" items={report.redis} icon="database" />
-            <ReportSection title="Outgoing" items={report.outgoing} icon="globe" />
-            <ReportSection title="Queued jobs" items={report.queued} icon="layers" />
-            <ReportSection title="Views" items={report.views} icon="file" />
-            <ReportSection title="Storage" items={report.storage} icon="box" />
+            <ReportSection spans={spans} title="Database" items={report.db.items} duplicates={report.db.duplicates} icon="database" />
+            <ReportSection spans={spans} title="Cache" items={report.cache.items} summary={report.cache.summary} icon="zap" />
+            <ReportSection spans={spans} title="Redis" items={report.redis} icon="database" />
+            <ReportSection spans={spans} title="Outgoing" items={report.outgoing} icon="globe" />
+            <ReportSection spans={spans} title="Queued jobs" items={report.queued} icon="layers" />
+            <ReportSection spans={spans} title="Views" items={report.views} icon="file" />
+            <ReportSection spans={spans} title="Storage" items={report.storage} icon="box" />
 
             {data.logs.length > 0 && (
                 <section className="t-sect">
@@ -162,11 +163,64 @@ function Story({ data }: { data: TraceData }) {
                     <Context data={{ ...data, context: data.context.filter((c) => c.outlier) }} />
                 </section>
             )}
+
+            <Around data={data} attrs={attrs} />
         </div>
     );
 }
 
-function ReportSection({ title, items, duplicates, summary, icon }: { title: string; items: ReportItem[]; duplicates?: Record<string, number>; summary?: Record<string, number>; icon: string }) {
+/**
+ * Where to look next: the same route, the same user, the service's log lines
+ * and the errors in the minutes around this request — every one a filtered
+ * Explore view, so the trace is never a dead end.
+ */
+function Around({ data, attrs }: { data: TraceData; attrs: Record<string, string> }) {
+    const root = data.root;
+    if (!root) return null;
+    const at = Math.floor(root.startMs / 1000);
+    const win = (before: number, after: number) => ({ from: String(at - before), to: String(at + after + Math.ceil(data.durationMs / 1000)) });
+    const route = attrs['http.route'];
+    const service = root.service || attrs['service.name'];
+    const user = attrs['user.id'];
+    const ip = attrs['client.address'];
+    const items: { label: string; hint: string; link: LinkData; icon: string }[] = [
+        ...(route ? [{ label: `Same route ±15 min`, hint: route, icon: 'trace', link: { to: 'explore', signal: 'requests', where: [`http.route=${route}`], params: win(900, 900) } as LinkData }] : []),
+        ...(route ? [{ label: 'Route overview', hint: route, icon: 'activity', link: { to: 'entity', type: 'route', value: route } as LinkData }] : []),
+        ...(service ? [{ label: 'Logs ±2 min', hint: service, icon: 'file', link: { to: 'explore', signal: 'logs', where: [`service.name=${service}`], params: win(120, 120) } as LinkData }] : []),
+        { label: 'Errors ±15 min', hint: 'all services', icon: 'alert', link: { to: 'explore', signal: 'errors', where: [], params: win(900, 900) } },
+        ...(user ? [{ label: 'This user’s requests', hint: `#${user}`, icon: 'user', link: { to: 'explore', signal: 'requests', where: [`user.id=${user}`] } as LinkData }] : []),
+        ...(ip ? [{ label: 'This IP’s requests', hint: ip, icon: 'globe', link: { to: 'explore', signal: 'requests', where: [`client.address=${ip}`] } as LinkData }] : []),
+        { label: 'Everything ±1 min', hint: 'all traces', icon: 'compass', link: { to: 'explore', signal: 'traces', where: [], params: win(60, 60) } },
+    ];
+    return (
+        <section className="t-sect">
+            <h4 className="t-sect-title">Around this request <span>· jump to context</span></h4>
+            <div className="t-around">
+                {items.map((i) => (
+                    <Go key={i.label} link={i.link} className="t-around-item">
+                        <Icon name={i.icon} size={13} />
+                        <span className="t-around-label">{i.label}</span>
+                        <span className="t-around-hint mono">{i.hint}</span>
+                        <Icon name="chevronRight" size={12} />
+                    </Go>
+                ))}
+            </div>
+        </section>
+    );
+}
+
+/** A report row's span, opened as the entity it names (query, view, outgoing host, job). */
+const ITEM_ENTITIES: [string, string][] = [['db.query.text', 'query'], ['view.name', 'view'], ['server.address', 'outgoing'], ['laravel.job.class', 'job'], ['messaging.destination.name', 'queue']];
+
+function itemLink(span: SpanData | undefined): LinkData | null {
+    for (const [key, type] of ITEM_ENTITIES) {
+        const value = span?.attributes[key];
+        if (value) return { to: 'entity', type, value };
+    }
+    return null;
+}
+
+function ReportSection({ title, items, duplicates, summary, icon, spans }: { title: string; items: ReportItem[]; duplicates?: Record<string, number>; summary?: Record<string, number>; icon: string; spans: Map<string, SpanData> }) {
     if (items.length === 0) return null;
     const total = items.reduce((s, i) => s + i.durationMs, 0);
     const dupes = Object.entries(duplicates ?? {}).filter(([, n]) => n > 1);
@@ -176,12 +230,18 @@ function ReportSection({ title, items, duplicates, summary, icon }: { title: str
             {summary && Object.keys(summary).length > 0 && <div className="t-chips">{Object.entries(summary).map(([k, v]) => <span key={k} className="t-minchip"><span className="k">{k}</span>{v}</span>)}</div>}
             {dupes.length > 0 && <div className="t-callout t-callout-warn"><p>{dupes.length} duplicated quer{dupes.length === 1 ? 'y' : 'ies'} — N+1 suspect.</p></div>}
             <div className="t-report">
-                {items.slice(0, 12).map((item, i) => (
-                    <div key={`${item.spanId}-${i}`} className="t-report-row">
-                        <span className="mono t-report-detail" title={item.detail}>{item.detail || item.name}</span>
-                        <span className="mono t-dim">{ms(item.durationMs)}</span>
-                    </div>
-                ))}
+                {items.slice(0, 12).map((item, i) => {
+                    const link = itemLink(spans.get(item.spanId));
+                    const body = (
+                        <>
+                            <span className="mono t-report-detail" title={item.detail}>{item.detail || item.name}</span>
+                            <span className="mono t-dim">{ms(item.durationMs)}</span>
+                        </>
+                    );
+                    return link
+                        ? <Go key={`${item.spanId}-${i}`} link={link} className="t-report-row is-link" title="Open its page: every occurrence, not just this trace">{body}</Go>
+                        : <div key={`${item.spanId}-${i}`} className="t-report-row">{body}</div>;
+                })}
                 {items.length > 12 && <div className="t-dim t-report-more">+ {items.length - 12} more in the waterfall</div>}
             </div>
         </section>

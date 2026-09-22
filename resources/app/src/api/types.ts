@@ -11,7 +11,8 @@ export type Link =
     | { to: 'error'; group: string }
     | { to: 'issue'; id: string }
     | { to: 'page'; page: string; params?: Record<string, string> }
-    | { to: 'explore'; signal: Signal; where?: string[] }
+    | { to: 'explore'; signal: Signal; where?: string[]; params?: Record<string, string> }
+    | { to: 'entities'; type: string }
     | { to: 'param'; params: Record<string, string> }
     | { to: 'url'; href: string };
 
@@ -29,6 +30,7 @@ export interface Stat {
     deltaTone?: string;
     points?: number[];
     sparkColor?: string;
+    link?: Link;
 }
 
 export interface Control {
@@ -349,6 +351,10 @@ export interface Heatmap {
     ys: string[];
     cells: [number, number, number][];
     max: number;
+    /** ms per column. */
+    width?: number;
+    /** [lower, upper) ms per row; upper null = open. */
+    bands?: [number, number | null][];
 }
 
 export interface Sample {

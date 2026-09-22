@@ -37,9 +37,11 @@ final class DeploysTimeline extends Panel
                     : Ui::cell('—', ['tone' => 'dim']),
             ];
 
-            if ($deploy->traceId !== null && $deploy->traceId !== '') {
-                $row['_link'] = Ui::trace($deploy->traceId);
-            }
+            // What happened after it: the errors from just before the deploy
+            // to an hour after — the "did this deploy break something" view.
+            $seconds = (int) ($deploy->timestampMs / 1000);
+            $row['after'] = Ui::cell('errors after →', ['link' => Ui::around('errors', $seconds, 15 * 60, 60 * 60), 'tone' => 'info']);
+            $row['_link'] = Ui::around('errors', $seconds, 15 * 60, 60 * 60);
 
             return $row;
         }, $this->annotations());
@@ -49,6 +51,7 @@ final class DeploysTimeline extends Panel
             Ui::col('marker', 'Marker'),
             Ui::col('notes', 'Notes'),
             Ui::num('trace', 'Trace'),
+            Ui::col('after', ''),
         ], $rows, [
             'span' => 2,
             'empty' => 'No deploys in this period. Emit markers from your pipeline with `php artisan telemetry:deploy --notes="…"`.',

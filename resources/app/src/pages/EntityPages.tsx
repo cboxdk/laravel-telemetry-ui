@@ -1,11 +1,13 @@
 import { Link, useParams } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useEntityIndex, useEntityStory } from '../api/hooks';
-import type { EntityStory, SpanRow } from '../api/types';
+import type { EntityStory, Link as LinkData, SpanRow } from '../api/types';
 import { useBoot, useDimension, DimensionValue, useDrill } from '../components/DimensionValue';
 import { Empty, ErrorState, Skeleton } from '../components/States';
 import { PanelView } from '../components/panels/PanelView';
+import { HeatmapChart } from '../components/charts/HeatmapChart';
 import { TimeChart } from '../components/charts/TimeChart';
+import { SpanList } from '../components/explore/Results';
 import { Icon } from '../components/Icon';
 import { ago, clock, count, ms, percent, statusTone } from '../lib/format';
 import { Go, useGo } from '../lib/links';
@@ -129,6 +131,7 @@ function StoryTab({ data }: { data: EntityStory }) {
     const drill = useDrill();
     const go = useGo();
     const red = data.red;
+    const explore = (extra: string[] = [], params?: Record<string, string>): LinkData => ({ to: 'explore', signal: data.signal, where: [...data.where, ...extra], ...(params ? { params } : {}) });
 
     if (data.sample.size === 0) {
         return <Empty>No spans for this {data.entity.label.toLowerCase()} in this window. Try a longer period.</Empty>;
@@ -148,11 +151,11 @@ function StoryTab({ data }: { data: EntityStory }) {
             </div>
 
             <div className="t-redrow">
-                <Tile k={data.signal === 'requests' ? 'Requests' : 'Occurrences'} v={count(red.count)} sub={`${count(red.perMinute)}/min`} />
-                <Tile k="Error rate" v={percent(red.errorRate)} tone={red.errorRate > 0.01 ? 'danger' : undefined} sub={data.signal === 'requests' ? `${count(red.errors)} server errors` : `${count(red.errors)} failed`} />
-                <Tile k="p50" v={ms(red.p50)} />
-                <Tile k="p95" v={ms(red.p95)} tone={(red.p95 ?? 0) > 1000 ? 'warn' : undefined} />
-                <Tile k="Traces" v={count(red.traces)} />
+                <Tile k={data.signal === 'requests' ? 'Requests' : 'Occurrences'} v={count(red.count)} sub={`${count(red.perMinute)}/min`} link={explore()} />
+                <Tile k="Error rate" v={percent(red.errorRate)} tone={red.errorRate > 0.01 ? 'danger' : undefined} sub={data.signal === 'requests' ? `${count(red.errors)} server errors` : `${count(red.errors)} failed`} link={red.errors > 0 ? explore(['status=error']) : undefined} />
+                <Tile k="p50" v={ms(red.p50)} link={red.p50 ? explore([`duration>=${Math.floor(red.p50)}ms`]) : undefined} />
+                <Tile k="p95" v={ms(red.p95)} tone={(red.p95 ?? 0) > 1000 ? 'warn' : undefined} link={red.p95 ? explore([`duration>=${Math.floor(red.p95)}ms`]) : undefined} />
+                <Tile k="Traces" v={count(red.traces)} link={{ to: 'explore', signal: 'traces', where: data.where }} />
             </div>
 
             <section className="t-panel span-3">
@@ -164,6 +167,28 @@ function StoryTab({ data }: { data: EntityStory }) {
                     ]} />
                     <TimeChart height={150} unit="ms" min={data.range.start} max={data.range.end} annotations={data.deploys} series={[{ name: 'p95', data: data.series.p95, color: 'var(--chart-3)' }]} />
                 </div>
+                {data.heatmap.cells.length > 0 && (
+                    <div className="t-panel-body t-trend-heat">
+                        <div className="t-cap">Latency × time · click a cell to open those {data.signal === 'requests' ? 'requests' : 'spans'}</div>
+                        <HeatmapChart
+                            xs={data.heatmap.xs}
+                            ys={data.heatmap.ys}
+                            cells={data.heatmap.cells}
+                            height={120}
+                            unit={data.signal === 'requests' ? 'requests' : 'spans'}
+                            onCell={(x, y) => {
+                                const from = data.heatmap.xs[x];
+                                const band = data.heatmap.bands?.[y];
+                                const width = data.heatmap.width;
+                                if (from === undefined || !band || !width) return;
+                                go(explore(
+                                    [...(band[0] > 0 ? [`duration>=${band[0]}ms`] : []), ...(band[1] !== null ? [`duration<${band[1]}ms`] : [])],
+                                    { from: String(Math.floor(from / 1000)), to: String(Math.ceil((from + width) / 1000)) },
+                                ));
+                            }}
+                        />
+                    </div>
+                )}
             </section>
 
             <div className="t-story-cols">
@@ -177,7 +202,7 @@ function StoryTab({ data }: { data: EntityStory }) {
                                 {b.values.map((v) => (
                                     <div key={v.value} className="t-breakdown-row">
                                         {b.drill === false
-                                            ? <span className="mono t-ellipsis" title={v.value}>{v.value}</span>
+                                            ? <Go link={calledFrom(v.value)} className="mono t-ellipsis t-linkish" title={`${v.value} · open`}>{v.value}</Go>
                                             : <DimensionValue dimKey={b.key} value={v.value}><span className="mono">{v.value}</span></DimensionValue>}
                                         <span className="t-breakdown-bar"><i style={{ width: `${v.share * 100}%` }} className={v.lift !== null && v.lift > 1.5 && v.failing > 0 ? 'is-hot' : ''} /></span>
                                         <span className="mono t-dim">{count(v.count)}</span>
@@ -232,19 +257,42 @@ function StoryTab({ data }: { data: EntityStory }) {
                 <TraceTable title="Slowest" rows={data.slowest} empty="No spans." onOpen={(r) => go({ to: 'trace', id: r.traceId })} />
             </div>
 
+            {data.recent.length > 0 && (
+                <section className="t-panel span-3">
+                    <header className="t-panel-head">
+                        <div className="t-panel-titles">
+                            <h3 className="t-panel-title">Recent</h3>
+                            <p className="t-panel-sub">Newest {count(data.recent.length)} · click one for its trace</p>
+                        </div>
+                        <Go link={explore()} className="t-linkbtn">All in Explore →</Go>
+                    </header>
+                    <div className="t-panel-body t-tight"><SpanList rows={data.recent} /></div>
+                </section>
+            )}
+
             <p className="t-note">{data.sample.truncated ? `Story computed over the newest ${count(data.sample.size)} matching spans.` : `Story computed over ${count(data.sample.size)} spans in this window.`}</p>
         </div>
     );
 }
 
-function Tile({ k, v, sub, tone }: { k: string; v: string; sub?: string; tone?: string }) {
-    return (
-        <div className="t-tile">
-            <span className="k">{k}</span>
+/**
+ * "Called from" values are trace root names: `GET /users/{id}` is a route
+ * (open its page); anything else (a job, a command) is a span-name search.
+ */
+function calledFrom(root: string): LinkData {
+    const m = /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) (\/\S*)$/.exec(root);
+    return m ? { to: 'entity', type: 'route', value: m[2]! } : { to: 'explore', signal: 'traces', where: [], params: { q: root } };
+}
+
+function Tile({ k, v, sub, tone, link }: { k: string; v: string; sub?: string; tone?: string; link?: LinkData }) {
+    const body = (
+        <>
+            <span className="k">{k}{link && <Icon name="chevronRight" size={11} />}</span>
             <span className={`v ${tone ? `t-tone-${tone}` : ''}`}>{v}</span>
             {sub && <span className="s">{sub}</span>}
-        </div>
+        </>
     );
+    return link ? <Go link={link} className="t-tile is-link">{body}</Go> : <div className="t-tile">{body}</div>;
 }
 
 function TraceTable({ title, rows, empty, onOpen }: { title: string; rows: SpanRow[]; empty: string; onOpen: (r: SpanRow) => void }) {

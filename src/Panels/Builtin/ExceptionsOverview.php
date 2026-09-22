@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -42,7 +43,7 @@ class ExceptionsOverview extends Panel
             subtitle: 'Exceptions reported via report()/the exception handler, per minute',
             series: $series,
             stats: [
-                $this->stat('Reported', Format::count($total), $total > 0 ? 'danger' : 'dim'),
+                $this->stat('Reported', Format::count($total), $total > 0 ? 'danger' : 'dim', Ui::explore('errors')),
             ],
             type: 'bar',
             unit: '/min',

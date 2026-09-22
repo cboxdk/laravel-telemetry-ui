@@ -141,6 +141,35 @@ change with before/after code.
 - Content-aware table column widths, two-line cells (`sub`), two-column panel
   grid, per-route document titles, favicon, safe Markdown for issue bodies,
   panel links inside dimension menus ("filter this panel"), phone layout.
+- **No dead ends.** Every number that names a subset opens it: KPI tiles on
+  panel pages (status classes, error rate, p95, events/users of an issue),
+  Explore headline stats toggle a filter (error rate → `status=error`, p95 →
+  `duration>=p95`, log errors → `level=error`), heatmap cells open their time
+  window + latency band, group-table counts and error rates filter to that
+  value, entity-story tiles and a new **Recent** list, deploy rows open the
+  errors after the deploy, service-graph edges open the peer, "Called from"
+  values open the route. Issue occurrences open Explore logs
+  (`exception_group=`), grouped by user or filtered by release; occurrences
+  whose trace was sampled away open the service's logs around them.
+- **Context everywhere.** The trace story ends with "Around this request"
+  (same route ±15 min, service logs ±2 min, errors ±15 min, this user, this
+  IP, everything ±1 min); report rows open the query/view/outgoing host/job
+  entity; chain hops open the service. Expanded log lines offer lines around
+  (this service or all), requests around, the whole trace and the issue.
+- **Ignores its own traffic**: with `cboxdk/laravel-telemetry`'s
+  `ignorePaths()`, the dashboard's path is no longer traced
+  (`telemetry-ui.ignore_own_requests`, default on).
+- **No nested scroll boxes**: long tables, result lists and log lists
+  virtualise against the page scroll; code blocks fold with "Show all";
+  facets fold on narrow screens.
+- **Phones**: the rail becomes a bottom tab bar and the area's pages open from
+  a section bar; the topbar wraps; tables that can't fit become cards; result
+  and log rows reflow.
+
+### Fixed (polish)
+
+- Switching Explore signals no longer renders the previous signal's rows with
+  the wrong list (it crashed going from requests to logs).
 
 ## [Unreleased] - 1.x
 

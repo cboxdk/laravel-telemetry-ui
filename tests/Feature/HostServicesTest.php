@@ -90,8 +90,7 @@ it('lists hosts linking to the host page and to their requests', function (): vo
         ->assertOk()
         ->assertJsonPath('rows.0._link', ['to' => 'entity', 'type' => 'host', 'value' => 'web-3'])
         ->assertJsonPath('rows.0.host.dim', ['key' => 'host.name', 'value' => 'web-3'])
-        ->assertJsonPath('rows.0.requests.link.page', 'traces')
-        ->assertJsonPath('rows.0.requests.link.params.q', fn (string $q): bool => str_contains($q, '.host.name = "web-3"'))
+        ->assertJsonPath('rows.0.requests.link', ['to' => 'explore', 'signal' => 'requests', 'where' => ['host.name=web-3']])
         ->assertJsonPath('rows.0.errors.tone', 'danger')
         ->assertJsonPath('rows.0.memory.tone', 'warn');
 });

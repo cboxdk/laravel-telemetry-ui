@@ -48,8 +48,8 @@ final class OutgoingHostHeader extends Panel
             $this->host === '' ? '(all hosts)' : $this->host,
             'Outgoing host detail',
             [
-                $this->stat('Requests', Format::count($total)),
-                $this->stat('Errors', Format::count($err), $err > 0 ? 'danger' : 'dim'),
+                $this->stat('Requests', Format::count($total), null, Ui::explore('traces', ['server.address='.$this->host])),
+                $this->stat('Errors', Format::count($err), $err > 0 ? 'danger' : 'dim', Ui::explore('traces', ['server.address='.$this->host, 'http.response.status_code>=500'])),
                 $this->stat('Failures', Format::count($fail), $fail > 0 ? 'danger' : 'dim'),
                 $this->stat('AVG', $total > 0 ? Format::ms($time / $total * 1000) : '—', $total > 0 && $bad > 0 ? 'warn' : 'dim'),
             ],

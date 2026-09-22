@@ -121,7 +121,7 @@ final class HostsTable extends Panel
                 'requests' => Ui::cell(Format::count($row['requests']), [
                     'raw' => $row['requests'],
                     'mono' => true,
-                    'link' => Ui::page('traces', ['q' => $this->tracesQuery($host)]),
+                    'link' => Ui::explore('requests', ['host.name='.$host]),
                 ]),
                 'errors' => Ui::cell(Format::count($row['errors']), ['raw' => $row['errors'], 'mono' => true, 'tone' => $row['errors'] > 0 ? 'danger' : null]),
                 'cpu' => Ui::cell($row['cpu'] !== null && ! is_nan($row['cpu']) ? Format::percent($row['cpu']) : '—', ['raw' => $row['cpu'], 'mono' => true]),
@@ -146,13 +146,5 @@ final class HostsTable extends Panel
             'note' => $note,
             'empty' => 'No hosts reporting in this period.',
         ]);
-    }
-
-    /**
-     * The TraceQL for requests from this host.
-     */
-    private function tracesQuery(string $host): string
-    {
-        return '{ '.$this->traceScope('.host.name = "'.addcslashes($host, '"\\').'"').' }';
     }
 }

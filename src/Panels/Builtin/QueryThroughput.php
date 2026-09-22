@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -42,7 +43,7 @@ final class QueryThroughput extends Panel
             subtitle: 'Queries per minute across the period — the DB load behind the statements below',
             series: $this->toChartSeries($perMinute, 'queries/min'),
             stats: [
-                $this->stat('Queries', Format::count($total)),
+                $this->stat('Queries', Format::count($total), null, Ui::entityIndex('query')),
                 $this->stat('Per minute', Format::count($total / $minutes)),
                 $this->stat('Rolled back', Format::count($rolledBack), $rolledBack > 0 ? 'danger' : 'dim'),
                 $this->stat('N+1 detected', Format::count($duplicates), $duplicates > 0 ? 'warn' : 'dim'),

@@ -133,17 +133,13 @@ final class TrafficByFacet extends Panel
     }
 
     /**
-     * The traces page pre-filtered to one facet value.
+     * Explore → Requests filtered to one facet value.
      *
      * @return Link
      */
     private function tracesLink(string $value): array
     {
-        $attribute = $this->attribute() ?? 'user.id';
-
-        return Ui::page('traces', [
-            'q' => '{ '.$this->traceScope('span.'.$attribute.' = "'.addcslashes($value, '"\\').'"').' }',
-        ]);
+        return Ui::explore('requests', [($this->attribute() ?? 'user.id').'='.$value]);
     }
 
     /**

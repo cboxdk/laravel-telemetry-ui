@@ -38,8 +38,8 @@ final class ErrorGroupHeader extends Panel
             $detail !== null && $detail['type'] !== '' ? $detail['type'] : 'Error group '.$this->group,
             $detail !== null ? Str::limit($detail['message'], 160) : 'Error group',
             [
-                $this->stat('Events', $stats !== null ? Format::count((float) $stats['count']).$plus : '—', 'danger'),
-                $this->stat('Users', $stats !== null && $stats['users'] > 0 ? Format::count((float) $stats['users']).$plus : '—'),
+                $this->stat('Events', $stats !== null ? Format::count((float) $stats['count']).$plus : '—', 'danger', $this->occurrencesLink()),
+                $this->stat('Users', $stats !== null && $stats['users'] > 0 ? Format::count((float) $stats['users']).$plus : '—', null, $this->occurrencesLink(['groupBy' => 'user.id'])),
                 $this->stat('First seen', $stats['firstSeen'] ?? '—', 'dim'),
                 $this->stat('Last seen', $stats['lastSeen'] ?? '—', 'dim'),
             ],

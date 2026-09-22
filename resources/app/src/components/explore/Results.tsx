@@ -3,6 +3,7 @@ import { useContext, useRef } from 'react';
 import type { ErrorRow, Group, SpanRow } from '../../api/types';
 import { ago, clock, count, ms, percent, statusTone } from '../../lib/format';
 import { useGo } from '../../lib/links';
+import { useScrollParent } from '../../lib/scrollParent';
 import { BootContext, DimensionValue, useDimension } from '../DimensionValue';
 import { Sparkline } from '../charts/Sparkline';
 
@@ -17,13 +18,14 @@ function focusSibling(row: HTMLElement, dir: 1 | -1): void {
 }
 
 /** Request/trace rows: time · status · target + dimension chips · duration. */
-export function SpanList({ rows, selected, height = 640, onSelect }: { rows: SpanRow[]; selected?: string; height?: number; onSelect?: (row: SpanRow) => void }) {
-    const scroller = useRef<HTMLDivElement>(null);
+export function SpanList({ rows, selected, onSelect }: { rows: SpanRow[]; selected?: string; onSelect?: (row: SpanRow) => void }) {
+    const list = useRef<HTMLDivElement>(null);
+    const scroll = useScrollParent(list);
     const boot = useContext(BootContext);
     const go = useGo();
     const custom = (boot?.dimensions ?? []).filter((d) => !d.builtin).map((d) => d.key);
 
-    const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scroller.current, estimateSize: () => 52, overscan: 16 });
+    const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scroll.element, estimateSize: () => 52, overscan: 16, scrollMargin: scroll.margin });
     const items = virtualizer.getVirtualItems();
     const render = (row: SpanRow) => {
         const chips = [...custom, ...CHIP_KEYS].filter((k) => row.attributes[k]);
@@ -62,13 +64,13 @@ export function SpanList({ rows, selected, height = 640, onSelect }: { rows: Spa
     };
 
     return (
-        <div className="t-list" ref={scroller} style={{ maxHeight: height }}>
+        <div className="t-list" ref={list}>
             {items.length === 0 && rows.length > 0
                 ? rows.slice(0, 60).map((r, i) => <div key={`${r.traceId}-${i}`}>{render(r)}</div>)
                 : (
                     <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
                         {items.map((v) => (
-                            <div key={v.key} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: v.size, transform: `translateY(${v.start}px)` }}>
+                            <div key={v.key} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: v.size, transform: `translateY(${v.start - scroll.margin}px)` }}>
                                 {render(rows[v.index]!)}
                             </div>
                         ))}
@@ -104,7 +106,7 @@ export function ErrorList({ rows }: { rows: ErrorRow[] }) {
 }
 
 /** Group-by breakdown: each value is a drill-down (filter / open entity). */
-export function GroupTable({ groupKey, groups, exact }: { groupKey: string; groups: Group[]; exact?: boolean }) {
+export function GroupTable({ groupKey, groups, exact, onFilter }: { groupKey: string; groups: Group[]; exact?: boolean; onFilter?: (value: string, errorsOnly: boolean) => void }) {
     const max = Math.max(1, ...groups.map((g) => g.count));
     const label = useDimension(groupKey)?.label ?? groupKey;
     return (
@@ -122,8 +124,12 @@ export function GroupTable({ groupKey, groups, exact }: { groupKey: string; grou
                         <i style={{ width: `${(g.count / max) * 100}%` }} />
                         {g.value === '(none)' ? <span className="t-dim mono">(none)</span> : <DimensionValue dimKey={groupKey} value={g.value}><span className="mono">{g.value}</span></DimensionValue>}
                     </span>
-                    <span className="is-num mono">{count(g.count)}</span>
-                    <span className={`is-num mono ${g.errorRate > 0.01 ? 't-tone-danger' : 't-dim'}`}>{exact && g.errors === 0 ? '—' : percent(g.errorRate)}</span>
+                    {onFilter ? (
+                        <button type="button" className="is-num mono t-groups-hit" onClick={() => onFilter(g.value, false)} title="Show these">{count(g.count)}</button>
+                    ) : <span className="is-num mono">{count(g.count)}</span>}
+                    {onFilter && g.errorRate > 0 ? (
+                        <button type="button" className={`is-num mono t-groups-hit ${g.errorRate > 0.01 ? 't-tone-danger' : 't-dim'}`} onClick={() => onFilter(g.value, true)} title="Show the failed ones">{percent(g.errorRate)}</button>
+                    ) : <span className={`is-num mono ${g.errorRate > 0.01 ? 't-tone-danger' : 't-dim'}`}>{exact && g.errors === 0 ? '—' : percent(g.errorRate)}</span>}
                     <span className="is-num mono">{ms(g.avg)}</span>
                     <span className="is-num mono">{ms(g.p95)}</span>
                 </div>

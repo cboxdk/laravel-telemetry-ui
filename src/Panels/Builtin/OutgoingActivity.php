@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -40,8 +41,8 @@ class OutgoingActivity extends Panel
             subtitle: 'HTTP calls your app makes to upstream services, per host per minute',
             series: $this->toChartSeries($range, 'server_address'),
             stats: [
-                $this->stat('Requests', Format::count($total)),
-                $this->stat('5XX', Format::count($serverErrors), $serverErrors > 0 ? 'danger' : 'dim'),
+                $this->stat('Requests', Format::count($total), null, Ui::entityIndex('outgoing')),
+                $this->stat('5XX', Format::count($serverErrors), $serverErrors > 0 ? 'danger' : 'dim', Ui::explore('traces', ['server.address!=', 'http.response.status_code>=500'])),
                 $this->stat('Conn. failures', Format::count($failed), $failed > 0 ? 'danger' : 'dim'),
             ],
             type: 'area',

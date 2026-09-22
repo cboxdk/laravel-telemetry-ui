@@ -15,7 +15,7 @@ import { Icon } from '../components/Icon';
 import { count, ms, percent } from '../lib/format';
 import { useLiveTail } from '../lib/liveTail';
 import { useTitle } from '../lib/title';
-import { list, parseDrawer, scopeOf, str } from '../lib/search';
+import { formatFilter, list, parseDrawer, parseFilter, scopeOf, str, toggleFilter, withFilter } from '../lib/search';
 import { useScope, useSearchState, useSetSearch } from '../lib/state';
 
 const TITLES: Record<Signal, string> = { requests: 'Requests', traces: 'Traces', logs: 'Logs', errors: 'Errors' };
@@ -103,7 +103,7 @@ export function ExplorePage() {
                     {explore.error && !data ? <div className="t-pad"><ErrorState error={explore.error} /></div> : !data ? <div className="t-pad"><Skeleton height={380} /></div> : (
                         <>
                             <div className="t-rtop">
-                                <StatsLine signal={signal} stats={data.stats} sample={data.sample} />
+                                <StatsLine signal={signal} stats={data.stats} sample={data.sample} where={where} onWhere={(w) => set({ where: w })} />
                                 {signal !== 'errors' && (
                                     <div className="t-groupby">
                                         <span>Sample</span>
@@ -137,12 +137,42 @@ export function ExplorePage() {
                                 {data.heatmap && data.heatmap.cells.length > 0 && (
                                     <div className="t-dist-heat">
                                         <div className="t-cap">Latency × time</div>
-                                        <HeatmapChart xs={data.heatmap.xs} ys={data.heatmap.ys} cells={data.heatmap.cells} height={130} />
+                                        <HeatmapChart
+                                            xs={data.heatmap.xs}
+                                            ys={data.heatmap.ys}
+                                            cells={data.heatmap.cells}
+                                            height={130}
+                                            onCell={(x, y) => {
+                                                const heat = data.heatmap!;
+                                                const from = heat.xs[x];
+                                                const band = heat.bands?.[y];
+                                                if (from === undefined || !band || !heat.width) return;
+                                                // The cell's window + latency band, as filters you can see and remove.
+                                                const bare = where.filter((w) => parseFilter(w)?.key !== 'duration');
+                                                const banded = [
+                                                    ...bare,
+                                                    ...(band[0] > 0 ? [formatFilter({ key: 'duration', op: '>=', value: `${band[0]}ms` })] : []),
+                                                    ...(band[1] !== null ? [formatFilter({ key: 'duration', op: '<', value: `${band[1]}ms` })] : []),
+                                                ];
+                                                set({ where: banded, period: undefined, from: String(Math.floor(from / 1000)), to: String(Math.ceil((from + heat.width) / 1000)) });
+                                            }}
+                                        />
                                     </div>
                                 )}
                             </div>
 
-                            {data.groupBy && data.groups && data.groups.length > 0 && <GroupTable groupKey={data.groupBy} groups={data.groups} exact={data.sample.groupsExact} />}
+                            {data.groupBy && data.groups && data.groups.length > 0 && (
+                                <GroupTable
+                                    groupKey={data.groupBy}
+                                    groups={data.groups}
+                                    exact={data.sample.groupsExact}
+                                    onFilter={(value, errorsOnly) => {
+                                        const key = data.groupBy!;
+                                        const scoped = value === '(none)' ? where : withFilter(where, { key, op: '=', value });
+                                        set({ where: errorsOnly ? withFilter(scoped, { key: 'status', op: '=', value: 'error' }) : scoped, groupBy: undefined });
+                                    }}
+                                />
+                            )}
 
                             {rows.length === 0 ? (
                                 <Empty>Nothing matches in this window. Widen the period or remove a filter.</Empty>
@@ -165,39 +195,63 @@ function defaultKeys(boot: ReturnType<typeof useBoot>, signal: Signal): string[]
     return boot.dimensions.filter((d) => !d.builtin || d.signals.includes(signal)).map((d) => d.key);
 }
 
-function StatsLine({ signal, stats, sample }: { signal: Signal; stats: Record<string, unknown>; sample: { size: number; truncated: boolean; exact: boolean; readSideFiltered?: boolean } }) {
+function StatsLine({ signal, stats, sample, where, onWhere }: {
+    signal: Signal;
+    stats: Record<string, unknown>;
+    sample: { size: number; truncated: boolean; exact: boolean; readSideFiltered?: boolean };
+    where: string[];
+    onWhere: (where: string[]) => void;
+}) {
     const n = (k: string) => (typeof stats[k] === 'number' ? (stats[k] as number) : null);
-    const items: { k: string; v: string; tone?: string }[] =
+    const p95 = n('p95');
+    // Every number that names a subset is a filter to that subset (click again to drop it).
+    const items: { k: string; v: string; tone?: string; filter?: { key: string; op: '=' | '>='; value: string }; title?: string }[] =
         signal === 'errors'
             ? [
                 { k: 'Events', v: count(n('count')) },
                 { k: 'Issues', v: count(n('groups')) },
                 { k: 'Users hit', v: count(n('users')) },
-                { k: 'Frontend', v: count(n('frontend')) },
+                { k: 'Frontend', v: count(n('frontend')), filter: { key: 'source', op: '=', value: 'frontend' } },
             ]
             : signal === 'logs'
               ? [
                   { k: 'Lines', v: count(n('count')) },
-                  { k: 'Errors', v: count(n('errors')), tone: (n('errors') ?? 0) > 0 ? 'danger' : undefined },
+                  { k: 'Errors', v: count(n('errors')), tone: (n('errors') ?? 0) > 0 ? 'danger' : undefined, filter: { key: 'level', op: '=', value: 'error' } },
                   { k: 'Traces', v: count(n('traces')) },
                   { k: 'Per min', v: count(n('perMinute')) },
               ]
               : [
                   { k: signal === 'requests' ? 'Requests' : 'Spans', v: count(n('count')) },
-                  { k: 'Error rate', v: percent(n('errorRate')), tone: (n('errorRate') ?? 0) > 0.01 ? 'danger' : undefined },
+                  { k: 'Error rate', v: percent(n('errorRate')), tone: (n('errorRate') ?? 0) > 0.01 ? 'danger' : undefined, filter: { key: 'status', op: '=', value: 'error' }, title: 'Show only failed' },
                   { k: 'p50', v: ms(n('p50')) },
-                  { k: 'p95', v: ms(n('p95')), tone: (n('p95') ?? 0) > 1000 ? 'warn' : undefined },
+                  { k: 'p95', v: ms(p95), tone: (p95 ?? 0) > 1000 ? 'warn' : undefined, filter: p95 ? { key: 'duration', op: '>=', value: `${Math.floor(p95)}ms` } : undefined, title: 'Show the slowest 5%' },
                   { k: 'Traces', v: count(n('traces')) },
               ];
 
     return (
         <div className="t-rstats">
-            {items.map((i) => (
-                <div key={i.k} className="t-rstat">
-                    <span className="k">{i.k}</span>
-                    <span className={`v ${i.tone ? `t-tone-${i.tone}` : ''}`}>{i.v}</span>
-                </div>
-            ))}
+            {items.map((i) => {
+                const body = (
+                    <>
+                        <span className="k">{i.k}</span>
+                        <span className={`v ${i.tone ? `t-tone-${i.tone}` : ''}`}>{i.v}</span>
+                    </>
+                );
+                if (!i.filter) return <div key={i.k} className="t-rstat">{body}</div>;
+                const f = i.filter;
+                const on = where.some((w) => { const p = parseFilter(w); return p?.key === f.key && p.op === f.op && (f.op !== '=' || p.value === f.value); });
+                return (
+                    <button
+                        key={i.k}
+                        type="button"
+                        className={`t-rstat is-link ${on ? 'is-on' : ''}`}
+                        title={on ? 'Remove this filter' : `${i.title ?? 'Filter to these'} · ${formatFilter(f)}`}
+                        onClick={() => onWhere(on ? where.filter((w) => { const p = parseFilter(w); return !(p?.key === f.key && p.op === f.op); }) : toggleFilter(where, f))}
+                    >
+                        {body}
+                    </button>
+                );
+            })}
             <span className="t-pill" title={sample.exact ? 'Exact' : 'Computed over the newest matching results'}>
                 {sample.exact ? 'exact' : `${sample.truncated ? 'newest ' : ''}${count(sample.size)} ${sample.truncated ? 'sampled' : 'results'}`}
             </span>

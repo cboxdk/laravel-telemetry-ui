@@ -1,7 +1,8 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Cell, Column, Link, Row, TicketDraft } from '../../api/types';
 import { Go, useGo } from '../../lib/links';
+import { useScrollParent } from '../../lib/scrollParent';
 import { DimensionValue } from '../DimensionValue';
 import { Sparkline } from '../charts/Sparkline';
 import { Icon } from '../Icon';
@@ -95,20 +96,43 @@ export function columnTemplate(columns: Column[], rows: Row[]): string {
     }).join(' ');
 }
 
+/** The narrowest the grid template can get: px tracks + minmax() minimums + gaps + padding. */
+export function templateMinWidth(template: string): number {
+    const tracks = template.match(/minmax\([^)]*\)|\S+/g) ?? [];
+    const widths = tracks.map((t) => Number(/(\d+(?:\.\d+)?)px/.exec(t)?.[1] ?? 40));
+    return widths.reduce((a, b) => a + b, 0) + 12 * Math.max(0, tracks.length - 1) + 16;
+}
+
+function useWidth(ref: React.RefObject<HTMLElement | null>): number {
+    const [width, setWidth] = useState(0);
+    useEffect(() => {
+        const el = ref.current;
+        if (!el || typeof ResizeObserver === 'undefined') return;
+        const observer = new ResizeObserver(([entry]) => setWidth(Math.round(entry?.contentRect.width ?? 0)));
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [ref]);
+    return width;
+}
+
+const CARD_LIMIT = 60;
+
 /**
  * The panel table: whole-row drill-down (`_link`), client-side sort by the
  * cell's raw value, and virtualised rendering for long lists.
  */
-export function DataTable({ columns, rows, onParam, onTicket, maxHeight = 520 }: {
+export function DataTable({ columns, rows, onParam, onTicket }: {
     columns: Column[];
     rows: Row[];
     onParam?: (p: Record<string, string>) => void;
     onTicket?: (draft: TicketDraft) => void;
-    maxHeight?: number;
 }) {
     const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
     const go = useGo();
     const scroller = useRef<HTMLDivElement>(null);
+    const table = useRef<HTMLDivElement>(null);
+    const scroll = useScrollParent(scroller);
+    const [allCards, setAllCards] = useState(false);
 
     const sorted = useMemo(() => {
         if (!sort) return rows;
@@ -119,17 +143,23 @@ export function DataTable({ columns, rows, onParam, onTicket, maxHeight = 520 }:
         });
     }, [rows, sort]);
 
-    const virtual = sorted.length > VIRTUAL_AFTER;
+    const hasTicket = rows.some((r) => r._ticket);
+    const template = useMemo(() => columnTemplate(columns, rows), [columns, rows]) + (hasTicket ? ' 36px' : '');
+    // When the columns can't fit (phones, narrow panels) each row becomes a
+    // card — first column as the title, the rest as labelled values — instead
+    // of a table that pushes the page sideways.
+    const width = useWidth(table);
+    const cards = width > 0 && templateMinWidth(template) > width;
+
+    const virtual = !cards && sorted.length > VIRTUAL_AFTER;
     const virtualizer = useVirtualizer({
         count: sorted.length,
-        getScrollElement: () => scroller.current,
+        getScrollElement: () => scroll.element,
         estimateSize: () => ROW_H,
         overscan: 12,
         enabled: virtual,
+        scrollMargin: scroll.margin,
     });
-
-    const hasTicket = rows.some((r) => r._ticket);
-    const template = useMemo(() => columnTemplate(columns, rows), [columns, rows]) + (hasTicket ? ' 36px' : '');
 
     const onRow = (link: Link | undefined, e: React.MouseEvent) => {
         if (!link) return;
@@ -164,7 +194,51 @@ export function DataTable({ columns, rows, onParam, onTicket, maxHeight = 520 }:
         </div>
     );
 
-    return (
+    return <div className="t-table-host" ref={table}>{cards ? renderCards() : renderTable()}</div>;
+
+    function renderCards() {
+        const [head, ...rest] = columns;
+        const shown = allCards ? sorted : sorted.slice(0, CARD_LIMIT);
+        return (
+            <div className="t-table is-cards" role="table">
+                {shown.map((row, i) => (
+                    <div
+                        key={i}
+                        role="row"
+                        className={`t-card-row ${row._link ? 'is-link' : ''}`}
+                        onClick={(e) => onRow(row._link, e)}
+                        tabIndex={row._link ? 0 : undefined}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && row._link) go(row._link); }}
+                    >
+                        {head && <div role="cell" className="t-card-title"><CellView cell={asCell(row[head.key])} onParam={onParam} /></div>}
+                        <dl className="t-card-kv">
+                            {rest.map((c) => {
+                                const cell = asCell(row[c.key]);
+                                if (!cell || cell.v === null || cell.v === '') return null;
+                                return (
+                                    <div key={c.key} role="cell" className="t-card-pair">
+                                        <dt>{c.label}</dt>
+                                        <dd className={c.align === 'right' ? 'is-num' : ''}><CellView cell={cell} onParam={onParam} /></dd>
+                                    </div>
+                                );
+                            })}
+                        </dl>
+                        {row._ticket && onTicket && (
+                            <button type="button" className="t-btn t-btn-sm t-btn-ghost t-card-ticket" onClick={(e) => { e.stopPropagation(); onTicket(row._ticket!); }}>
+                                <Icon name="plus" size={12} />File an issue
+                            </button>
+                        )}
+                    </div>
+                ))}
+                {!allCards && sorted.length > CARD_LIMIT && (
+                    <button type="button" className="t-code-more" onClick={() => setAllCards(true)}>Show all {sorted.length} rows</button>
+                )}
+            </div>
+        );
+    }
+
+    function renderTable() {
+        return (
         <div className="t-table" role="table">
             <div className="t-tr t-thead" role="row" style={{ gridTemplateColumns: template }}>
                 {columns.map((c) => (
@@ -181,12 +255,12 @@ export function DataTable({ columns, rows, onParam, onTicket, maxHeight = 520 }:
                 ))}
                 {hasTicket && <span />}
             </div>
-            {/* Only long (virtualised) tables scroll inside the panel; short ones grow, so the page scroll isn't trapped. */}
-            <div className="t-tbody" ref={scroller} style={virtual ? { maxHeight } : undefined}>
+            {/* Long tables virtualise against the page scroll — no scroll box inside the panel. */}
+            <div className="t-tbody" ref={scroller}>
                 {virtual ? (
                     <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
                         {virtualizer.getVirtualItems().map((v) =>
-                            renderRow(sorted[v.index]!, v.index, { position: 'absolute', top: 0, left: 0, right: 0, transform: `translateY(${v.start}px)`, height: ROW_H }),
+                            renderRow(sorted[v.index]!, v.index, { position: 'absolute', top: 0, left: 0, right: 0, transform: `translateY(${v.start - scroll.margin}px)`, height: ROW_H }),
                         )}
                     </div>
                 ) : (
@@ -194,5 +268,6 @@ export function DataTable({ columns, rows, onParam, onTicket, maxHeight = 520 }:
                 )}
             </div>
         </div>
-    );
+        );
+    }
 }

@@ -213,12 +213,14 @@ final class ErrorGroupDetail extends Panel
                 'message' => Ui::cell(Str::limit($occurrence['message'], 120)),
                 'trace' => $occurrence['traceId'] !== ''
                     ? Ui::cell(substr($occurrence['traceId'], 0, 8).'…', ['mono' => true, 'link' => Ui::trace($occurrence['traceId'])])
-                    : Ui::cell('—', ['tone' => 'dim']),
+                    : Ui::cell('logs →', ['tone' => 'dim', 'link' => Ui::around('logs', intdiv($occurrence['nano'], 1_000_000_000), 30, 30)]),
             ];
 
-            if ($occurrence['traceId'] !== '') {
-                $row['_link'] = Ui::trace($occurrence['traceId']);
-            }
+            // Sampled-away or trace-less occurrences still lead somewhere:
+            // the log lines around that moment, this group's record included.
+            $row['_link'] = $occurrence['traceId'] !== ''
+                ? Ui::trace($occurrence['traceId'])
+                : Ui::around('logs', intdiv($occurrence['nano'], 1_000_000_000), 30, 30);
 
             $rows[] = $row;
         }

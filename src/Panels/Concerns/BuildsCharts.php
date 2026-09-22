@@ -16,6 +16,8 @@ use Cbox\TelemetryUi\TelemetryUiManager;
  * `chart` payload (series, annotations, range bounds, error/empty states) plus
  * the terse {@see promChart()} path and the stat-tile builders — so a metric
  * panel is a query and a title.
+ *
+ * @phpstan-import-type Link from \Cbox\TelemetryUi\Panels\Ui
  */
 trait BuildsCharts
 {
@@ -36,11 +38,15 @@ trait BuildsCharts
     /**
      * A stats-row item for the chart/stats payloads.
      *
-     * @return array{label: string, value: string, tone: string|null}
+     * @param  Link|null  $link  a drill-down link
+     * @return array{label: string, value: string, tone: string|null, link?: Link}
      */
-    protected function stat(string $label, string $value, ?string $tone = null): array
+    protected function stat(string $label, string $value, ?string $tone = null, ?array $link = null): array
     {
-        return ['label' => $label, 'value' => $value, 'tone' => $tone];
+        // A linked tile is a drill-down: the number opens the rows behind it.
+        return $link === null
+            ? ['label' => $label, 'value' => $value, 'tone' => $tone]
+            : ['label' => $label, 'value' => $value, 'tone' => $tone, 'link' => $link];
     }
 
     /**
@@ -51,7 +57,8 @@ trait BuildsCharts
      * draws an inline sparkline of the window.
      *
      * @param  list<float>  $points
-     * @return array{label: string, value: string, tone: string|null, delta?: string, deltaTone?: string, points?: list<float>, sparkColor?: string}
+     * @param  Link|null  $link
+     * @return array{label: string, value: string, tone: string|null, link?: Link, delta?: string, deltaTone?: string, points?: list<float>, sparkColor?: string}
      */
     protected function statDelta(
         string $label,
@@ -61,8 +68,9 @@ trait BuildsCharts
         bool $upIsGood = true,
         ?string $tone = null,
         array $points = [],
+        ?array $link = null,
     ): array {
-        $item = $this->stat($label, $value, $tone);
+        $item = $this->stat($label, $value, $tone, $link);
 
         if ($previous > 0.0) {
             $pct = ($current - $previous) / $previous * 100.0;

@@ -23,6 +23,9 @@ export function FacetPanel({ data, loading, where, onWhere, onGroupBy, groupBy, 
     onRemoveKey: (key: string) => void;
 }) {
     const [adding, setAdding] = useState('');
+    // On narrow screens the facets stack above the results: folded by default,
+    // one tap to open — never a small scroll box.
+    const [folded, setFolded] = useState(true);
 
     if (loading && !data) {
         return <aside className="t-facets"><Skeleton height={300} /></aside>;
@@ -39,8 +42,11 @@ export function FacetPanel({ data, loading, where, onWhere, onGroupBy, groupBy, 
     const active = new Set(where);
 
     return (
-        <aside className="t-facets" aria-label="Facets">
+        <aside className={`t-facets ${folded ? 'is-folded' : ''}`} aria-label="Facets">
             <div className="t-facets-meta">
+                <button type="button" className="t-facets-fold" onClick={() => setFolded((f) => !f)} aria-expanded={!folded}>
+                    <Icon name={folded ? 'chevronRight' : 'chevronDown'} size={13} />Facets{where.length > 0 ? ` · ${where.length} active` : ''}
+                </button>
                 {data && (data.exact ? <span className="t-pill t-pill-ok" title="Counts cover every match">exact</span> : <span className="t-pill" title="Counted over the newest matching spans">sample · {count(data.sample)}</span>)}
             </div>
             {ordered.map(([group, list]) => (

@@ -146,8 +146,7 @@ it('lets the SPA filter by a declared facet dimension and drill into its traces'
         ->assertJsonPath('rows.0.value.dim', ['key' => 'client.address', 'value' => '10.0.0.7'])
         ->assertJsonPath('rows.0.traces.v', 1)
         ->assertJsonPath('rows.0.lastAction.v', 'GET /orders')
-        ->assertJsonPath('rows.0._link.page', 'traces')
-        ->assertSee('span.client.address = \"10.0.0.7\"', false);
+        ->assertJsonPath('rows.0._link', ['to' => 'explore', 'signal' => 'requests', 'where' => ['client.address=10.0.0.7']]);
 });
 
 it('asks for an attribute when the custom facet is empty, with a search control', function (): void {

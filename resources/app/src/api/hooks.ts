@@ -46,7 +46,9 @@ export function useExplore<R>(signal: Signal, params: Params) {
     return useQuery({
         queryKey: ['explore', signal, all],
         queryFn: ({ signal: abort }) => api.get<ExploreResult<R>>(`explore/${signal}`, all, abort),
-        placeholderData: keepPreviousData,
+        // Keep the old rows while a filter changes — never across signals:
+        // request rows rendered as log lines (or vice versa) would crash.
+        placeholderData: (previous, query) => (query?.queryKey[1] === signal ? previous : undefined),
         refetchInterval: refresh > 0 ? refresh * 1000 : false,
     });
 }

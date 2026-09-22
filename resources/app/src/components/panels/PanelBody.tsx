@@ -13,6 +13,7 @@ import { GraphChart } from '../charts/GraphChart';
 import { Empty } from '../States';
 import { DataTable } from './DataTable';
 import { LogList } from '../explore/LogList';
+import { Icon } from '../Icon';
 
 export interface BodyProps {
     onParam?: (params: Record<string, string>) => void;
@@ -25,14 +26,20 @@ export function StatTiles({ items, compact }: { items: Stat[]; compact?: boolean
     if (items.length === 0) return null;
     return (
         <div className={`t-stats ${compact ? 'is-compact' : ''}`}>
-            {items.map((s, i) => (
-                <div key={`${s.label}-${i}`} className="t-stat">
-                    <span className="t-stat-k">{s.label}</span>
-                    <span className={`t-stat-v ${s.tone && TONES.has(s.tone) ? `t-tone-${s.tone}` : ''}`}>{s.value}</span>
-                    {s.delta && <span className={`t-stat-delta t-tone-${s.deltaTone ?? 'dim'}`}>{s.delta}</span>}
-                    {s.points && s.points.length > 1 && <Sparkline points={s.points} width={90} height={22} />}
-                </div>
-            ))}
+            {items.map((s, i) => {
+                const inner = (
+                    <>
+                        <span className="t-stat-k">{s.label}{s.link && <Icon name="chevronRight" size={10} />}</span>
+                        <span className={`t-stat-v ${s.tone && TONES.has(s.tone) ? `t-tone-${s.tone}` : ''}`}>{s.value}</span>
+                        {s.delta && <span className={`t-stat-delta t-tone-${s.deltaTone ?? 'dim'}`}>{s.delta}</span>}
+                        {s.points && s.points.length > 1 && <Sparkline points={s.points} width={90} height={22} />}
+                    </>
+                );
+                // A linked tile opens the rows behind the number.
+                return s.link
+                    ? <Go key={`${s.label}-${i}`} link={s.link} className="t-stat is-link" title={`Show the ${s.label.toLowerCase()} behind this number`}>{inner}</Go>
+                    : <div key={`${s.label}-${i}`} className="t-stat">{inner}</div>;
+            })}
         </div>
     );
 }
@@ -164,21 +171,34 @@ function KvBody({ data }: { data: KvPayload }) {
     );
 }
 
+const CODE_PREVIEW = 24;
+
 export function CodeBody({ data }: { data: Pick<CodePayload, 'text' | 'language' | 'highlight'> }) {
     const lines = data.text.split('\n');
     const highlight = new Set(data.highlight ?? []);
     const [wrap, setWrap] = useState(false);
+    const [all, setAll] = useState(lines.length <= CODE_PREVIEW + 4);
+    // Long blocks (stacktraces) fold instead of scrolling in a box: the first
+    // lines — or the window around the highlighted throw line — then "show all".
+    const first = highlight.size > 0 ? Math.max(0, Math.min(...highlight) - 8) : 0;
+    const shown = all ? lines : lines.slice(first, first + CODE_PREVIEW);
+    const offset = all ? 0 : first;
     return (
         <div className="t-code-wrap">
             <button type="button" className="t-code-toggle" onClick={() => setWrap((w) => !w)}>{wrap ? 'No wrap' : 'Wrap'}</button>
             <pre className={`t-code ${wrap ? 'is-wrap' : ''}`} data-lang={data.language}>
-                {lines.map((line, i) => (
+                {shown.map((line, j) => { const i = j + offset; return (
                     <span key={i} className={`t-code-line ${highlight.has(i + 1) ? 'is-hl' : ''}`}>
                         {line || ' '}
                         {'\n'}
                     </span>
-                ))}
+                ); })}
             </pre>
+            {!all && (
+                <button type="button" className="t-code-more" onClick={() => setAll(true)}>
+                    Show all {lines.length} lines
+                </button>
+            )}
         </div>
     );
 }

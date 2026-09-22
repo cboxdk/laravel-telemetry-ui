@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Support\Format;
 
@@ -47,10 +48,10 @@ class RequestsActivity extends Panel
             subtitle: 'Incoming HTTP requests per minute, split by response status class',
             series: $this->bucketedSeries($range),
             stats: [
-                $this->statDelta('Requests', Format::count($total), $total, $previousTotal, upIsGood: true, points: $this->throughputPoints($range)),
-                $this->stat('1/2/3XX', Format::count($classTotals['ok']), 'dim'),
-                $this->stat('4XX', Format::count($classTotals['4xx']), $classTotals['4xx'] > 0 ? 'warn' : 'dim'),
-                $this->stat('5XX', Format::count($classTotals['5xx']), $classTotals['5xx'] > 0 ? 'danger' : 'dim'),
+                $this->statDelta('Requests', Format::count($total), $total, $previousTotal, upIsGood: true, link: Ui::explore('requests'), points: $this->throughputPoints($range)),
+                $this->stat('1/2/3XX', Format::count($classTotals['ok']), 'dim', Ui::explore('requests', ['http.response.status_code<400'])),
+                $this->stat('4XX', Format::count($classTotals['4xx']), $classTotals['4xx'] > 0 ? 'warn' : 'dim', Ui::explore('requests', ['http.response.status_code>=400', 'http.response.status_code<500'])),
+                $this->stat('5XX', Format::count($classTotals['5xx']), $classTotals['5xx'] > 0 ? 'danger' : 'dim', Ui::explore('requests', ['http.response.status_code>=500'])),
             ],
             type: 'bar',
             unit: 'req/min',

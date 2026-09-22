@@ -52,10 +52,10 @@ final class RequestDetailHeader extends Panel
             $this->route === '' ? '(all routes)' : $this->route,
             'Route detail',
             [
-                $this->stat('Requests', Format::count($total)),
-                $this->stat('Error rate', Format::percent($errRate), $errRate > 0.01 ? 'danger' : 'dim'),
+                $this->stat('Requests', Format::count($total), null, Ui::explore('requests', ['http.route='.$this->route])),
+                $this->stat('Error rate', Format::percent($errRate), $errRate > 0.01 ? 'danger' : 'dim', Ui::explore('requests', ['http.route='.$this->route, 'http.response.status_code>=500'])),
                 $this->stat('AVG', $total > 0 ? Format::ms($time / $total * 1000) : '—', 'dim'),
-                $this->stat('P95', $p95 !== null ? Format::ms($p95 * 1000) : '—', 'warn'),
+                $this->stat('P95', $p95 !== null ? Format::ms($p95 * 1000) : '—', 'warn', $p95 !== null ? Ui::explore('requests', ['http.route='.$this->route, 'duration>='.(int) round($p95 * 1000).'ms']) : null),
             ],
             array_filter([
                 'back' => Ui::page('requests'),

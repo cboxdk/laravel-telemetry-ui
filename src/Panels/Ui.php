@@ -27,10 +27,10 @@ use Cbox\TelemetryUi\Panels\Concerns\BuildsCharts;
  * drill-down says *what* it opens — an entity, a trace, an error group — and the
  * client decides where that lives.
  *
- * @phpstan-type Link array{to: string, type?: string, value?: string, id?: string, group?: string, page?: string, params?: array<string, string>, signal?: string, where?: list<string>, href?: string}
+ * @phpstan-type Link array{to: string, type?: string, value?: string, id?: string, group?: string, page?: string, params?: array<string, string>, signal?: string, where?: list<string>, href?: string, label?: string}
  * @phpstan-type Cell array{v: string|int|float|null, raw?: float|int|null, tone?: string|null, mono?: bool, link?: Link, spark?: list<float>, bar?: float, badge?: string, dim?: array{key: string, value: string}, sub?: string}
  * @phpstan-type Column array{key: string, label: string, align?: string, width?: string}
- * @phpstan-type Stat array{label: string, value: string, tone?: string|null, delta?: string, deltaTone?: string, points?: list<float>, sparkColor?: string}
+ * @phpstan-type Stat array{label: string, value: string, tone?: string|null, delta?: string, deltaTone?: string, points?: list<float>, sparkColor?: string, link?: Link}
  * @phpstan-type Control array{param: string, label: string, type: string, value: string, options?: list<array{value: string, label: string}>, placeholder?: string}
  */
 final class Ui
@@ -45,6 +45,16 @@ final class Ui
     public static function entity(string $type, string $value): array
     {
         return ['to' => 'entity', 'type' => $type, 'value' => $value];
+    }
+
+    /**
+     * The list of every value of an entity type (all routes, all queries…).
+     *
+     * @return Link
+     */
+    public static function entityIndex(string $type): array
+    {
+        return ['to' => 'entities', 'type' => $type];
     }
 
     /** @return Link */
@@ -77,14 +87,28 @@ final class Ui
     }
 
     /**
-     * The Explore surface for a signal, pre-filtered.
+     * The Explore surface for a signal, pre-filtered — optionally with its
+     * own window (`from`/`to` unix seconds) or a `groupBy`.
      *
      * @param  list<string>  $where  `key<op>value` filters
+     * @param  array<string, string>  $params  from, to, groupBy, q
      * @return Link
      */
-    public static function explore(string $signal, array $where = []): array
+    public static function explore(string $signal, array $where = [], array $params = []): array
     {
-        return ['to' => 'explore', 'signal' => $signal, 'where' => $where];
+        return ['to' => 'explore', 'signal' => $signal, 'where' => $where] + ($params !== [] ? ['params' => $params] : []);
+    }
+
+    /**
+     * Explore in a window around a moment (unix seconds) — "what else happened
+     * then": the lines, requests or errors around an occurrence or a deploy.
+     *
+     * @param  list<string>  $where
+     * @return Link
+     */
+    public static function around(string $signal, int $at, int $before = 60, int $after = 60, array $where = []): array
+    {
+        return self::explore($signal, $where, ['from' => (string) ($at - $before), 'to' => (string) ($at + $after)]);
     }
 
     /**

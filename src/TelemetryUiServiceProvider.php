@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi;
 
+use Cbox\Telemetry\TelemetryManager;
 use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\ResolvedConnections;
@@ -131,6 +132,7 @@ final class TelemetryUiServiceProvider extends ServiceProvider
 
         $this->registerViewStateCookie();
         $this->registerRoutes();
+        $this->ignoreOwnRequests();
         $this->registerGate();
         $this->registerIssuesPage();
         $this->registerMcpServer();
@@ -179,6 +181,45 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             }
 
             \Laravel\Mcp\Facades\Mcp::oauthRoutes();
+        }
+    }
+
+    /**
+     * The dashboard's own page loads and API calls are not the host's traffic:
+     * tell laravel-telemetry (≥ the release with `ignorePaths()`) to skip them,
+     * so a busy dashboard never drowns the app's real requests in its own
+     * traces. Registered on resolution — this never builds the telemetry
+     * manager at boot. Opt out with `telemetry-ui.ignore_own_requests`.
+     */
+    private function ignoreOwnRequests(): void
+    {
+        $manager = TelemetryManager::class;
+
+        if (! (bool) config('telemetry-ui.ignore_own_requests', true) || ! class_exists($manager)) {
+            return;
+        }
+
+        $path = trim((string) config('telemetry-ui.path', 'telemetry-ui'), '/');
+
+        if ($path === '') {
+            return; // mounted at the site root: ignoring it would ignore the whole app
+        }
+
+        $patterns = [$path, $path.'/*'];
+
+        // Called dynamically: ignorePaths() only exists in newer laravel-telemetry releases.
+        $register = static function (object $telemetry) use ($patterns): void {
+            $ignore = [$telemetry, 'ignorePaths'];
+
+            if (is_callable($ignore)) {
+                $ignore($patterns);
+            }
+        };
+
+        $this->app->afterResolving($manager, $register);
+
+        if ($this->app->resolved($manager)) {
+            $register($this->app->make($manager));
         }
     }
 

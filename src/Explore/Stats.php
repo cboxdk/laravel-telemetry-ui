@@ -165,7 +165,9 @@ final class Stats
      * Time × latency heatmap: x = time buckets, y = latency bands.
      *
      * @param  list<array{startMs: int, durationMs: float, ...}>  $rows
-     * @return array{xs: list<int>, ys: list<string>, cells: list<array{int, int, int}>, max: int}
+     *                                                                   `width` (ms per column) and `bands` (lower/upper ms per row, null =
+     *                                                                   open) let a clicked cell become a time window + duration filter.
+     * @return array{xs: list<int>, ys: list<string>, cells: list<array{int, int, int}>, max: int, width: int, bands: list<array{int, int|null}>}
      */
     public static function heatmap(array $rows, int $startMs, int $endMs, int $buckets = 40): array
     {
@@ -216,6 +218,11 @@ final class Stats
             'ys' => $ys,
             'cells' => $cells,
             'max' => $max,
+            'width' => $width,
+            'bands' => array_map(
+                static fn (int $i): array => [$i === 0 ? 0 : self::BANDS[$i - 1], self::BANDS[$i] ?? null],
+                range(0, count(self::BANDS)),
+            ),
         ];
     }
 

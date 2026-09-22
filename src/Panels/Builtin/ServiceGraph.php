@@ -17,6 +17,8 @@ use Cbox\TelemetryUi\Support\ServiceIdentity;
  * Service relations from Tempo's metrics-generator service graphs:
  * client → server edges with volume, failures and p95 — the map of who
  * calls whom across proxies, Beyla-instrumented infra and apps.
+ *
+ * @phpstan-import-type Link from Ui
  */
 final class ServiceGraph extends Panel
 {
@@ -98,7 +100,8 @@ final class ServiceGraph extends Panel
             ];
         }
 
-        $rows = array_map(static fn (array $edge): array => [
+        $rows = array_map(fn (array $edge): array => [
+            '_link' => $this->peerLink($edge['server']),
             'client' => Ui::cell($edge['client'], ['badge' => $edge['client']]),
             'arrow' => Ui::cell('→', ['tone' => 'dim']),
             'server' => Ui::cell($edge['server'], ['badge' => $edge['server']]),
@@ -248,5 +251,21 @@ final class ServiceGraph extends Panel
         ], $edges);
 
         return ['nodes' => $nodes, 'edges' => $links];
+    }
+
+    /**
+     * Where an edge's callee leads: a database or queue → its spans in
+     * Explore, a host → the outgoing-host page, a service → its entity page.
+     *
+     * @return Link
+     */
+    private function peerLink(string $peer): array
+    {
+        return match (true) {
+            str_starts_with($peer, 'db:') => Ui::explore('traces', ['db.system.name='.substr($peer, 3)]),
+            str_starts_with($peer, 'queue:') => Ui::explore('traces', ['messaging.system='.substr($peer, 6)]),
+            str_contains($peer, '.') || str_contains($peer, ':') => Ui::entity('outgoing', $peer),
+            default => Ui::entity('service', $peer),
+        };
     }
 }

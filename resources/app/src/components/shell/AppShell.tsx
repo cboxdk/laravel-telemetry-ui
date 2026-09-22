@@ -78,14 +78,29 @@ function Shell({ boot }: { boot: Bootstrap }) {
     const showSubnav = area !== undefined && area.sections.reduce((n, s) => n + s.items.length, 0) > 1;
 
     return (
-        <div className={`t-app ${pinned ? 'is-pinned' : ''}`}>
-            <Rail boot={boot} areas={areas} active={area} pinned={pinned} expanded={pinned || hover} onPin={() => setPinned((p) => !p)} onHover={setHover} scope={scopeOf(search)} />
-            {showSubnav && area && (
-                (narrow ? !mobileOpen : collapsed)
-                    ? <button type="button" className="t-subnav-strip" onClick={() => (narrow ? setMobileOpen(true) : setCollapsed(false))} title="Expand navigation (⌘.)"><span>{area.label}</span></button>
-                    : <Subnav area={area} overlay={narrow} pathname={location.pathname} search={search} onCollapse={() => (narrow ? setMobileOpen(false) : setCollapsed(true))} onSearch={() => setPaletteOpen(true)} scope={scopeOf(search)} />
+        <div className={`t-app ${pinned && !narrow ? 'is-pinned' : ''} ${narrow ? 'is-narrow' : ''}`}>
+            {/* Phones: the rail is a bottom tab bar — never a hover overlay. */}
+            <Rail boot={boot} areas={areas} active={area} pinned={pinned && !narrow} expanded={!narrow && (pinned || hover)} onPin={() => setPinned((p) => !p)} onHover={setHover} scope={scopeOf(search)} />
+            {showSubnav && area && !narrow && (
+                collapsed
+                    ? <button type="button" className="t-subnav-strip" onClick={() => setCollapsed(false)} title="Expand navigation (⌘.)"><span>{area.label}</span></button>
+                    : <Subnav area={area} pathname={location.pathname} search={search} onCollapse={() => setCollapsed(true)} onSearch={() => setPaletteOpen(true)} scope={scopeOf(search)} />
+            )}
+            {showSubnav && area && narrow && mobileOpen && (
+                <>
+                    <div className="t-scrim" onClick={() => setMobileOpen(false)} aria-hidden="true" />
+                    <Subnav area={area} overlay pathname={location.pathname} search={search} onCollapse={() => setMobileOpen(false)} onSearch={() => { setMobileOpen(false); setPaletteOpen(true); }} scope={scopeOf(search)} />
+                </>
             )}
             <div className="t-main">
+                {showSubnav && area && narrow && (
+                    <button type="button" className="t-mobile-section" onClick={() => setMobileOpen(true)} aria-expanded={mobileOpen}>
+                        <Icon name="list" size={14} />
+                        <span className="t-dim">{area.label}</span>
+                        <span className="t-mobile-section-cur">{area.sections.flatMap((s) => s.items).find((i) => i.match(location.pathname, search))?.label ?? ''}</span>
+                        <Icon name="chevronDown" size={13} />
+                    </button>
+                )}
                 <TopBar boot={boot} onPalette={() => setPaletteOpen(true)} />
                 <main className="t-content canvas-gradient" id="main">
                     <Outlet />

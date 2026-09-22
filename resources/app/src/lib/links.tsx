@@ -42,8 +42,14 @@ export function resolve(link: LinkData, current: { pathname: string; search: Sea
             return drawer({ type: 'error', id: link.group });
         case 'issue':
             return drawer({ type: 'issue', id: link.id });
-        case 'explore':
-            return { pathname: `/explore/${link.signal}`, search: { ...scope, where: link.where ?? [] } };
+        case 'explore': {
+            // A link's own window (from/to) replaces the preset period.
+            const params = link.params ?? {};
+            const windowed = params.from && params.to ? { period: undefined } : {};
+            return { pathname: `/explore/${link.signal}`, search: { ...scope, ...windowed, ...params, where: link.where ?? [] } };
+        }
+        case 'entities':
+            return { pathname: `/entities/${encodeURIComponent(link.type)}`, search: scope };
         case 'page': {
             const params = link.params ?? {};
             const entity = DETAIL_TO_ENTITY[link.page];

@@ -190,6 +190,20 @@ return [
 
     'copy_link' => env('TELEMETRY_UI_COPY_LINK', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Ignore the dashboard's own requests
+    |--------------------------------------------------------------------------
+    |
+    | Every panel, Explore query and page load is an HTTP request to the host
+    | app. With cboxdk/laravel-telemetry's ignorePaths() available, the
+    | dashboard asks it not to trace its own path, so it never drowns the
+    | app's real traffic. Set to false to trace the dashboard like any route.
+    |
+    */
+
+    'ignore_own_requests' => (bool) env('TELEMETRY_UI_IGNORE_OWN_REQUESTS', true),
+
     'brand' => [
         'name' => env('TELEMETRY_UI_BRAND_NAME'),
         'logo' => env('TELEMETRY_UI_BRAND_LOGO'),

@@ -41,4 +41,18 @@ describe('link payloads → locations (the SPA owns routing)', () => {
         expect(resolve({ to: 'url', href: 'https://app.test/customers/1' }, current)).toEqual({ href: 'https://app.test/customers/1' });
         expect(resolve({ to: 'param', params: { log_ip: '1.2.3.4' } }, current)).toBeNull();
     });
+
+    it('opens Explore with extra params, and a from/to window replaces the period', () => {
+        expect(resolve({ to: 'explore', signal: 'logs', where: ['exception_group=abc'], params: { period: '30d', groupBy: 'user.id' } }, current)).toMatchObject({
+            pathname: '/explore/logs',
+            search: { period: '30d', groupBy: 'user.id', where: ['exception_group=abc'] },
+        });
+        const around = resolve({ to: 'explore', signal: 'logs', where: [], params: { from: '100', to: '200' } }, current) as Target;
+        expect(around.search).toMatchObject({ from: '100', to: '200' });
+        expect(around.search.period).toBeUndefined();
+    });
+
+    it('opens an entity index', () => {
+        expect(resolve({ to: 'entities', type: 'query' }, current)).toMatchObject({ pathname: '/entities/query' });
+    });
 });

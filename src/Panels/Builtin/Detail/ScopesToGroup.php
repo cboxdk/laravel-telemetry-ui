@@ -65,7 +65,7 @@ trait ScopesToGroup
         $items = [];
 
         if ($withCount) {
-            $items[] = ['label' => 'occurrences', 'value' => Format::count((float) $stats['count']).$plus, 'tone' => 'danger'];
+            $items[] = ['label' => 'occurrences', 'value' => Format::count((float) $stats['count']).$plus, 'tone' => 'danger', 'link' => $this->occurrencesLink()];
         }
 
         $items[] = ['label' => 'first seen', 'value' => $stats['firstSeen']];
@@ -73,7 +73,7 @@ trait ScopesToGroup
         $items[] = ['label' => 'source', 'value' => $stats['source']];
 
         if ($stats['users'] > 0) {
-            $items[] = ['label' => 'users affected', 'value' => $stats['users'].$plus];
+            $items[] = ['label' => 'users affected', 'value' => $stats['users'].$plus, 'link' => $this->occurrencesLink(['groupBy' => 'user.id'])];
         }
 
         if ($detail !== null && $detail['environment'] !== '') {
@@ -81,7 +81,7 @@ trait ScopesToGroup
         }
 
         if ($detail !== null && $detail['release'] !== '') {
-            $items[] = ['label' => 'release', 'value' => $detail['release'], 'mono' => true];
+            $items[] = ['label' => 'release', 'value' => $detail['release'], 'mono' => true, 'link' => $this->occurrencesLink(['groupBy' => 'deployment.id'])];
         }
 
         if ($detail !== null && $detail['host'] !== '') {
@@ -95,5 +95,17 @@ trait ScopesToGroup
         $items[] = ['label' => 'group', 'value' => $this->group, 'mono' => true];
 
         return $items;
+    }
+
+    /**
+     * Every occurrence of this group as rows: its exception records in
+     * Explore → Logs, over the report's lookback — each line opens its trace.
+     *
+     * @param  array<string, string>  $params
+     * @return Link
+     */
+    protected function occurrencesLink(array $params = []): array
+    {
+        return Ui::explore('logs', ['exception_group='.$this->group], ['period' => '30d', ...$params]);
     }
 }
