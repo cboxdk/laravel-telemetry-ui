@@ -166,6 +166,9 @@ change with before/after code.
   lists and the entity page title, via `GET api/v2/dimensions/labels`: one
   request per dimension per tick, cached per value (misses too) for
   `telemetry-ui.dimensions.label_ttl`, and fail-open.
+- **Cache by store** and **Storage by disk** panels: per-store hits, misses,
+  writes and hit ratio (a cold store no longer hides behind a hot one), and
+  filesystem operations per disk and operation.
 - **Context everywhere.** The trace story ends with "Around this request"
   (same route ±15 min, service logs ±2 min, errors ±15 min, this user, this
   IP, everything ±1 min); report rows open the query/view/outgoing host/job
