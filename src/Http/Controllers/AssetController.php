@@ -4,31 +4,48 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Http\Controllers;
 
-use Illuminate\Http\Response;
-use Illuminate\Support\Facades\File;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * Serves the pre-built dashboard assets straight from the package, so
- * installing the package never requires publishing or an npm build.
+ * Serves the pre-built SPA (content-hashed chunks under `public/build/`)
+ * straight from the package, so installing never requires publishing or an
+ * npm build. Hashed files are immutable, so they cache forever.
  */
 final class AssetController
 {
-    private const ASSETS = [
-        'telemetry-ui.js' => 'application/javascript; charset=utf-8',
-        'telemetry-ui.css' => 'text/css; charset=utf-8',
+    private const TYPES = [
+        'js' => 'application/javascript; charset=utf-8',
+        'css' => 'text/css; charset=utf-8',
+        'woff2' => 'font/woff2',
+        'woff' => 'font/woff',
+        'svg' => 'image/svg+xml',
+        'png' => 'image/png',
+        'json' => 'application/json',
+        'map' => 'application/json',
     ];
 
-    public function __invoke(string $asset): Response
+    public function __invoke(string $path): BinaryFileResponse
     {
-        abort_unless(isset(self::ASSETS[$asset]), 404);
+        abort_if(str_contains($path, '..'), 404);
 
-        $path = dirname(__DIR__, 3).'/public/'.$asset;
+        $root = realpath(self::root());
+        $file = realpath(self::root().'/'.$path);
 
-        abort_unless(File::exists($path), 404);
+        abort_unless($root !== false && $file !== false && str_starts_with($file, $root.DIRECTORY_SEPARATOR) && is_file($file), 404);
 
-        return new Response(File::get($path), 200, [
-            'Content-Type' => self::ASSETS[$asset],
+        $type = self::TYPES[strtolower(pathinfo($file, PATHINFO_EXTENSION))] ?? null;
+
+        abort_if($type === null, 404);
+
+        return new BinaryFileResponse($file, 200, [
+            'Content-Type' => $type,
             'Cache-Control' => 'public, max-age=31536000, immutable',
-        ]);
+            'X-Content-Type-Options' => 'nosniff',
+        ], true, null, false, false);
+    }
+
+    public static function root(): string
+    {
+        return dirname(__DIR__, 3).'/public/build';
     }
 }

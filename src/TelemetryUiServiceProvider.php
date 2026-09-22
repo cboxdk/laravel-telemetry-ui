@@ -16,17 +16,15 @@ use Cbox\TelemetryUi\Support\ScopeLock;
 use Cbox\TelemetryUi\Support\ViewState;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Passport\Passport;
-use Livewire\Livewire;
 
 /**
  * Boot cost is deliberately kept to cheap registrations (config merge,
- * container bindings, route/view path maps). Connectors, Livewire
- * components and views are only instantiated when a dashboard URL is hit.
+ * container bindings, route maps). Connectors and panels are only
+ * instantiated when a dashboard URL is hit.
  */
 final class TelemetryUiServiceProvider extends ServiceProvider
 {
@@ -112,20 +110,10 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             return;
         }
 
-        $this->loadViewsFrom(__DIR__.'/../resources/views', 'telemetry-ui');
-
-        // Host pages embedding cards as widgets load the bundle once with
-        // @telemetryUiAssets (Livewire/Alpine remain the host's own).
-        Blade::directive(
-            'telemetryUiAssets',
-            static fn (): string => "<?php echo \Cbox\TelemetryUi\Support\Assets::tags(); ?>",
-        );
-
         $this->registerViewStateCookie();
         $this->registerRoutes();
         $this->registerGate();
         $this->registerIssuesPage();
-        $this->registerLivewireComponents();
         $this->registerMcpServer();
     }
 
@@ -188,8 +176,8 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $manager->page('issues', 'Issues', group: null);
         // The error groups ARE issues — show them next to the tracker's
         // tickets, so "what's broken" and "what's filed" live on one page.
-        $manager->card(Cards\Builtin\UnifiedErrors::class, page: 'issues');
-        $manager->card(Cards\Builtin\IssuesList::class, page: 'issues');
+        $manager->panel(Panels\Builtin\UnifiedErrors::class, page: 'issues');
+        $manager->panel(Panels\Builtin\IssuesList::class, page: 'issues');
     }
 
     /**
@@ -224,8 +212,8 @@ final class TelemetryUiServiceProvider extends ServiceProvider
     {
         // Deny-by-default outside local; apps open access by redefining the
         // gate (app providers boot after this one, so their definition wins).
-        // The second argument is the page slug being accessed (null for
-        // Livewire updates and cross-cutting checks), so an app can restrict
+        // The second argument is the page slug being accessed (null for the
+        // master check on every route), so an app can restrict
         // individual pages — e.g. hide Logs from non-admins — without closing
         // the whole dashboard. The default ignores it.
         Gate::define('viewTelemetryUi', fn (?object $user = null, ?string $page = null): bool => $this->app->environment('local'));
@@ -235,30 +223,5 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         // back to the view gate unless the app defines something stricter
         // (app definitions boot later and win).
         Gate::define('manageTelemetryUi', static fn (?object $user = null): bool => Gate::allows('viewTelemetryUi'));
-    }
-
-    private function registerLivewireComponents(): void
-    {
-        // Runs after every provider has booted so cards contributed by other
-        // packages are included. Registration itself is a name => class map.
-        $this->app->booted(static function (Application $app): void {
-            if (! class_exists(Livewire::class)) {
-                return;
-            }
-
-            // Re-run the gate on every Livewire update, not just the initial
-            // page load: card/drawer actions (e.g. creating a ticket) POST to
-            // /livewire/update, which otherwise only carries Livewire's own
-            // persistent middleware — the dashboard gate would be skipped.
-            Livewire::addPersistentMiddleware(Authorize::class);
-
-            $manager = $app->make(TelemetryUiManager::class);
-
-            foreach ($manager->allCards() as $card) {
-                Livewire::component(TelemetryUiManager::componentName($card), $card);
-            }
-
-            Livewire::component('telemetry-ui.trace-drawer', TraceDrawer::class);
-        });
     }
 }

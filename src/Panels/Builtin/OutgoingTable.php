@@ -1,0 +1,95 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Cbox\TelemetryUi\Panels\Builtin;
+
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Connectors\SourceException;
+
+/**
+ * Outgoing HTTP requests per upstream host: volume, errors and latency.
+ */
+final class OutgoingTable extends Panel
+{
+    public function data(): array
+    {
+        [$start, $end] = $this->range();
+        $p = $this->promDuration();
+
+        $count = $this->metric('http_client_request_duration_seconds_count');
+        $sum = $this->metric('http_client_request_duration_seconds_sum');
+        $bucket = $this->metric('http_client_request_duration_seconds_bucket');
+        $failures = $this->metric('http_client_connection_failures_total');
+
+        $rows = [];
+        $error = null;
+        $trends = [];
+
+        try {
+            $trends = $this->trendByKey(
+                $count->rate($this->rateWindow())->sumBy('server_address')->times(60),
+                $start,
+                $end,
+                fn (array $labels): string => $labels['server_address'] ?? '?',
+            );
+
+            foreach ($this->metrics()->query($count->increase($p)->sumBy('server_address', 'http_response_status_code')) as $sample) {
+                $host = $sample->labels['server_address'] ?? '?';
+
+                $rows[$host] ??= ['host' => $host, 'ok' => 0.0, '4xx' => 0.0, '5xx' => 0.0, 'total' => 0.0, 'failures' => 0.0, 'time' => 0.0, 'p95' => null, 'spark' => $trends[$host] ?? []];
+
+                $code = $sample->labels['http_response_status_code'] ?? '';
+                $class = match ($code === '' ? '' : $code[0].'xx') {
+                    '4xx' => '4xx',
+                    '5xx' => '5xx',
+                    default => 'ok',
+                };
+
+                $rows[$host][$class] += $sample->value;
+                $rows[$host]['total'] += $sample->value;
+            }
+
+            foreach ($this->metrics()->query($sum->increase($p)->sumBy('server_address')) as $sample) {
+                $host = $sample->labels['server_address'] ?? '?';
+
+                if (isset($rows[$host])) {
+                    // v2 duration histogram is in seconds; ×1000 → ms for the view.
+                    $rows[$host]['time'] = $sample->value * 1000;
+                }
+            }
+
+            foreach ($this->metrics()->query($bucket->quantile(0.95, $p, 'server_address')) as $sample) {
+                $host = $sample->labels['server_address'] ?? '?';
+
+                if (isset($rows[$host]) && ! is_nan($sample->value)) {
+                    $rows[$host]['p95'] = $sample->value * 1000;
+                }
+            }
+
+            foreach ($this->metrics()->query($failures->increase($p)->sumBy('server_address')) as $sample) {
+                $host = $sample->labels['server_address'] ?? '?';
+
+                $rows[$host] ??= ['host' => $host, 'ok' => 0.0, '4xx' => 0.0, '5xx' => 0.0, 'total' => 0.0, 'failures' => 0.0, 'time' => 0.0, 'p95' => null];
+                $rows[$host]['failures'] = $sample->value;
+            }
+        } catch (SourceException $exception) {
+            $error = $exception->getMessage();
+        }
+
+        usort($rows, static fn (array $a, array $b): int => $b['total'] <=> $a['total']);
+
+        /** @var view-string $view */
+        $view = 'telemetry-ui::cards.outgoing-table';
+
+        return view($view, ['rows' => array_slice($rows, 0, 100), 'error' => $error]);
+    }
+
+    /**
+     * The purpose-built detail page for this upstream host.
+     */
+    public function detailUrl(string $host): string
+    {
+        return $this->pageUrl('outgoing-detail', ['host' => $host]);
+    }
+}

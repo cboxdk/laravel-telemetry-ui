@@ -1,0 +1,66 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Cbox\TelemetryUi\Panels\Builtin;
+
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Support\Format;
+
+/**
+ * Queue backlog: jobs sitting in the queues by state — pending (waiting for
+ * a worker), scheduled (delayed) and reserved (being processed right now).
+ * From cboxdk/laravel-queue-metrics' queue_metrics.queue.depth gauge.
+ */
+class QueueBacklog extends Panel
+{
+    protected ?string $drillPage = 'queues';
+
+    private const STATES = [
+        'pending' => ['Pending', '#60a5fa'],
+        'scheduled' => ['Scheduled', '#c084fc'],
+        'reserved' => ['Reserved', '#fbbf24'],
+    ];
+
+    public function data(): array
+    {
+        [$start, $end] = $this->range();
+
+        $depth = $this->metric('queue_metrics_queue_depth');
+
+        try {
+            $now = [];
+
+            foreach ($this->metrics()->query($depth->sumBy('state')) as $sample) {
+                $now[$sample->labels['state'] ?? ''] = $sample->value;
+            }
+
+            $range = $this->metrics()->queryRange($depth->sumBy('state'), $start, $end);
+        } catch (SourceException $exception) {
+            return $this->chartCard('Backlog', error: $exception->getMessage());
+        }
+
+        $series = [];
+        $stats = [];
+
+        foreach (self::STATES as $state => [$label, $color]) {
+            $stats[] = $this->stat($label, Format::count($now[$state] ?? 0.0), ($now[$state] ?? 0.0) > 0 ? null : 'dim');
+
+            foreach ($range as $timeSeries) {
+                if (($timeSeries->labels['state'] ?? '') === $state) {
+                    $series[] = ['name' => $label, 'data' => $timeSeries->toChartData(), 'color' => $color];
+                }
+            }
+        }
+
+        return $this->chartCard(
+            title: 'Backlog',
+            subtitle: 'Jobs in the queues by state: pending, scheduled (delayed) and reserved (in flight)',
+            series: $series,
+            stats: $stats,
+            type: 'area',
+            unit: 'jobs',
+        );
+    }
+}

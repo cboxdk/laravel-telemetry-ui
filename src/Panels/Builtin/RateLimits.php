@@ -1,0 +1,30 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Cbox\TelemetryUi\Panels\Builtin;
+
+use Cbox\TelemetryUi\Panels\Panel;
+
+/**
+ * Requests rejected by a rate limiter (429s), by limiter name — a traffic
+ * spike, a misbehaving client or a limit set too tight all show up here.
+ */
+final class RateLimits extends Panel
+{
+    public function data(): array
+    {
+        $metric = $this->metric('rate_limit_exceeded_total');
+
+        return $this->promChart(
+            title: 'Rate limiting',
+            promql: $metric->rate($this->rateWindow())->sumBy('limiter')->times(60),
+            subtitle: 'Requests rejected with 429 per minute, by throttle limiter',
+            seriesLabel: 'limiter',
+            type: 'area',
+            unit: 'req/min',
+            stat: 'Rejected',
+            statQuery: $metric->increase($this->promDuration())->sumBy(),
+        );
+    }
+}

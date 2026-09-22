@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Support;
 
-use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Events\ViewStateChanged;
 use Cbox\TelemetryUi\Http\Middleware\RemembersViewState;
 use Cbox\TelemetryUi\TelemetryUiManager;
@@ -135,7 +134,7 @@ final class ViewState
 
     /**
      * The active window, custom range first and the preset period otherwise —
-     * the same rule {@see Card::range()} applies.
+     * the same rule {@see \Cbox\TelemetryUi\Http\Api\RequestScope::range()} applies.
      *
      * @return array{DateTimeImmutable, DateTimeImmutable}
      */

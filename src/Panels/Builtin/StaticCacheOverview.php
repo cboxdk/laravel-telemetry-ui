@@ -1,0 +1,48 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Cbox\TelemetryUi\Panels\Builtin;
+
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Support\Format;
+
+/**
+ * Static-cache outcomes (hit/miss/write/invalidate) per minute, from the
+ * statamic.static_cache.operations counter emitted by
+ * cboxdk/statamic-telemetry.
+ */
+final class StaticCacheOverview extends Panel
+{
+    public function data(): array
+    {
+        [$start, $end] = $this->range();
+        $metric = $this->metric('statamic_static_cache_operations_total');
+
+        try {
+            $totals = $this->metrics()->query($metric->increase($this->promDuration())->sumBy('operation'));
+            $range = $this->metrics()->queryRange($metric->rate($this->rateWindow())->sumBy('operation')->times(60), $start, $end);
+        } catch (SourceException $exception) {
+            return $this->chartCard('Static Cache', error: $exception->getMessage());
+        }
+
+        $stats = [];
+        foreach ($totals as $sample) {
+            $op = $sample->labels['operation'] ?? '?';
+            $stats[] = $this->stat(ucfirst($op), Format::count($sample->value), match ($op) {
+                'hit' => 'ok',
+                'miss' => 'warn',
+                default => 'dim',
+            });
+        }
+
+        return $this->chartCard(
+            title: 'Static Cache',
+            subtitle: 'Static cache operations per minute — hit, miss, write, invalidate',
+            series: $this->toChartSeries($range, 'operation'),
+            stats: $stats,
+            unit: 'ops/min',
+        );
+    }
+}

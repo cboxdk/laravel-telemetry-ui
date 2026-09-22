@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Tests;
 
 use Cbox\TelemetryUi\TelemetryUiServiceProvider;
-use Livewire\Livewire;
-use Livewire\LivewireServiceProvider;
+use Illuminate\Support\Facades\Gate;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
@@ -15,16 +14,14 @@ abstract class TestCase extends Orchestra
     {
         parent::setUp();
 
-        // Cards lazy-load in the browser (shell first, each card streams in on
-        // load). Render them eagerly in tests so a full-page request exercises
-        // the real card output instead of the skeleton placeholder.
-        Livewire::withoutLazyLoading();
+        // The default gate is local-only; tests exercise the dashboard as an
+        // allowed viewer unless they redefine it (AuthTest does).
+        Gate::define('viewTelemetryUi', static fn (?object $user = null, ?string $page = null): bool => true);
     }
 
     protected function getPackageProviders($app): array
     {
         return [
-            LivewireServiceProvider::class,
             TelemetryUiServiceProvider::class,
         ];
     }

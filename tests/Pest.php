@@ -83,3 +83,27 @@ function requestQuery(Request $request): array
     /** @var array<string, mixed> $query */
     return $query;
 }
+
+/**
+ * The v2 API URL for a panel, with scope/params as query string.
+ *
+ * @param  array<string, string>  $params
+ */
+function panelUrl(string $panel, array $params = []): string
+{
+    $query = http_build_query($params);
+
+    return '/telemetry-ui/api/v2/panels/'.$panel.($query !== '' ? '?'.$query : '');
+}
+
+/**
+ * The v2 API URL for any endpoint under /api/v2.
+ *
+ * @param  array<string, mixed>  $params
+ */
+function apiUrl(string $path, array $params = []): string
+{
+    $query = http_build_query($params);
+
+    return '/telemetry-ui/api/v2/'.ltrim($path, '/').($query !== '' ? '?'.$query : '');
+}

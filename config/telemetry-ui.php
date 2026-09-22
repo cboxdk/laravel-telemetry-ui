@@ -1,11 +1,11 @@
 <?php
 
 declare(strict_types=1);
-use Cbox\TelemetryUi\Cards\Builtin\DeploysTimeline;
-use Cbox\TelemetryUi\Cards\Builtin\ExceptionsOverview;
-use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
-use Cbox\TelemetryUi\Cards\Builtin\RequestDuration;
-use Cbox\TelemetryUi\Cards\Builtin\RequestsActivity;
+use Cbox\TelemetryUi\Panels\Builtin\DeploysTimeline;
+use Cbox\TelemetryUi\Panels\Builtin\ExceptionsOverview;
+use Cbox\TelemetryUi\Panels\Builtin\JobsOverview;
+use Cbox\TelemetryUi\Panels\Builtin\RequestDuration;
+use Cbox\TelemetryUi\Panels\Builtin\RequestsActivity;
 
 return [
 
@@ -615,7 +615,7 @@ return [
     |
     */
 
-    'cards' => [
+    'panels' => [
         RequestsActivity::class,
         RequestDuration::class,
         ExceptionsOverview::class,

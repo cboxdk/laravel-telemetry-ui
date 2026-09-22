@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi;
 
-use Cbox\TelemetryUi\Cards\Builtin;
-use Cbox\TelemetryUi\Cards\Card;
+use Cbox\TelemetryUi\Dimensions\Dimension;
+use Cbox\TelemetryUi\Dimensions\Dimensions;
+use Cbox\TelemetryUi\Panels\Builtin;
+use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Events\ViewStateChanged;
 use Cbox\TelemetryUi\Support\ConnectionOption;
 use Cbox\TelemetryUi\Support\NavLink;
@@ -13,16 +15,15 @@ use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ViewState;
 use Closure;
 use Illuminate\Contracts\Config\Repository as Config;
-use Illuminate\Support\Str;
 use Laravel\Mcp\Server\Tool;
 
 /**
- * Registry for dashboard pages, cards and MCP tools. Registration is data-only
- * (class-strings and labels) so packages can contribute from their service
- * providers at zero boot cost.
+ * Registry for dashboard pages, panels, dimensions and MCP tools. Registration
+ * is data-only (class-strings, labels, closures) so packages can contribute
+ * from their service providers at zero boot cost.
  *
- * @api Use via the TelemetryUi facade. page()/card()/mcpTool() are the
- *      supported extension points.
+ * @api Use via the TelemetryUi facade. page()/panel()/dimension()/mcpTool()
+ *      are the supported extension points.
  *
  * @phpstan-type PageMeta array{label: string, group: string|null, icon: string|null, detect: string|null, hidden?: bool, parent?: string}
  */
@@ -87,9 +88,9 @@ final class TelemetryUiManager
     ];
 
     /**
-     * @var array<string, list<class-string<Card>>>
+     * @var array<string, list<class-string<Panel>>>
      */
-    private array $cards = [
+    private array $panels = [
         'traces' => [Builtin\TraceSearch::class, Builtin\ServiceGraph::class],
         'requests' => [Builtin\RequestsActivity::class, Builtin\RequestDuration::class, Builtin\RequestLatencyHeatmap::class, Builtin\RateLimits::class, Builtin\RoutesTable::class, Builtin\RequestLog::class],
         'request-detail' => [Builtin\Detail\RequestDetailHeader::class, Builtin\Detail\RequestDetailActivity::class, Builtin\Detail\RequestDetailDuration::class, Builtin\Detail\RequestDetailStatus::class, Builtin\Detail\RequestDetailPaths::class, Builtin\Detail\RequestDetailTraces::class],
@@ -131,11 +132,10 @@ final class TelemetryUiManager
     ];
 
     /**
-     * The dashboard's default cards live in config (telemetry-ui.cards), not the
-     * $cards map above. Fold them into $cards['dashboard'] once — before any
-     * card()/setCards()/removeCard()/cards() touches it — so those mutators act
-     * on the real, effective list (otherwise removeCard/setCards on 'dashboard'
-     * would silently no-op against config-declared cards).
+     * The dashboard's default panels live in config (telemetry-ui.panels), not
+     * the $panels map above. Fold them into $panels['dashboard'] once — before
+     * any panel()/setPanels()/removePanel()/panels() touches it — so those
+     * mutators act on the real, effective list.
      */
     private bool $dashboardSeeded = false;
 
@@ -408,66 +408,63 @@ final class TelemetryUiManager
     }
 
     /**
-     * Register a card on a page (appended after any already there).
+     * Register a panel on a page (appended after any already there).
      *
-     * @param  class-string<Card>  $card
+     * @param  class-string<Panel>  $panel
      */
-    public function card(string $card, string $page = 'dashboard'): self
+    public function panel(string $panel, string $page = 'dashboard'): self
     {
         if ($page === 'dashboard') {
-            $this->seedDashboardCards();
+            $this->seedDashboardPanels();
         }
 
-        $this->cards[$page][] = $card;
+        $this->panels[$page][] = $panel;
 
         return $this;
     }
 
     /**
-     * Replace a page's entire card list — swap the built-in cards for your own
-     * (e.g. a branded dashboard). Pass [] to blank the page.
+     * Replace a page's entire panel list. Pass [] to blank the page.
      *
-     * @param  list<class-string<Card>>  $cards
+     * @param  list<class-string<Panel>>  $panels
      */
-    public function setCards(string $page, array $cards): self
+    public function setPanels(string $page, array $panels): self
     {
-        // Replacing the list outright — mark dashboard seeded so cards() won't
-        // re-merge the config defaults on top of the caller's chosen set.
         if ($page === 'dashboard') {
             $this->dashboardSeeded = true;
         }
 
-        $this->cards[$page] = array_values($cards);
+        $this->panels[$page] = array_values($panels);
 
         return $this;
     }
 
     /**
-     * Remove a card from a page — drop a built-in you don't want.
+     * Remove a panel from a page — drop a built-in you don't want.
      *
-     * @param  class-string<Card>  $card
+     * @param  class-string<Panel>  $panel
      */
-    public function removeCard(string $card, string $page = 'dashboard'): self
+    public function removePanel(string $panel, string $page = 'dashboard'): self
     {
         if ($page === 'dashboard') {
-            $this->seedDashboardCards();
+            $this->seedDashboardPanels();
         }
 
-        $this->cards[$page] = array_values(array_filter(
-            $this->cards[$page] ?? [],
-            static fn (string $registered): bool => $registered !== $card,
+        $this->panels[$page] = array_values(array_filter(
+            $this->panels[$page] ?? [],
+            static fn (string $registered): bool => $registered !== $panel,
         ));
 
         return $this;
     }
 
     /**
-     * Remove a page entirely (and its cards) — hide a built-in section such as
+     * Remove a page entirely (and its panels) — hide a built-in section such as
      * Users or Logs from an embedded/white-labelled install.
      */
     public function removePage(string $slug): self
     {
-        unset($this->pages[$slug], $this->cards[$slug]);
+        unset($this->pages[$slug], $this->panels[$slug]);
 
         return $this;
     }
@@ -483,11 +480,8 @@ final class TelemetryUiManager
     /**
      * Pages that should be visible given what the backends contain, within the
      * given PromQL scope (empty = fleet-wide) — so an optional group hides for a
-     * selected service that doesn't emit its metrics.
-     *
-     * Every registered pattern is handed to the detector together: this runs on
-     * each request, and resolving the patterns one at a time cost one backend
-     * round trip per detectable page.
+     * selected service that doesn't emit its metrics. Every registered pattern
+     * is handed to the detector together (one backend round trip).
      *
      * @return array<string, PageMeta>
      */
@@ -515,25 +509,23 @@ final class TelemetryUiManager
     }
 
     /**
-     * Cards for a page, config-declared dashboard cards first.
+     * Panels for a page, config-declared dashboard panels first.
      *
-     * @return list<class-string<Card>>
+     * @return list<class-string<Panel>>
      */
-    public function cards(string $page = 'dashboard'): array
+    public function panels(string $page = 'dashboard'): array
     {
         if ($page === 'dashboard') {
-            $this->seedDashboardCards();
+            $this->seedDashboardPanels();
         }
 
-        return array_values(array_unique($this->cards[$page] ?? []));
+        return array_values(array_unique($this->panels[$page] ?? []));
     }
 
     /**
-     * Fold the config-declared dashboard cards into the runtime registry, once.
-     * Config cards come first (matching the prior read-time merge order), then
-     * anything a package already registered on the dashboard at runtime.
+     * Fold the config-declared dashboard panels into the runtime registry, once.
      */
-    private function seedDashboardCards(): void
+    private function seedDashboardPanels(): void
     {
         if ($this->dashboardSeeded) {
             return;
@@ -541,35 +533,157 @@ final class TelemetryUiManager
 
         $this->dashboardSeeded = true;
 
-        /** @var list<class-string<Card>> $configured */
-        $configured = array_values(array_filter((array) $this->config->get('telemetry-ui.cards', []), 'is_string'));
+        /** @var list<class-string<Panel>> $configured */
+        $configured = array_values(array_filter((array) $this->config->get('telemetry-ui.panels', []), 'is_string'));
 
-        $this->cards['dashboard'] = [...$configured, ...($this->cards['dashboard'] ?? [])];
+        $this->panels['dashboard'] = [...$configured, ...($this->panels['dashboard'] ?? [])];
     }
 
     /**
-     * All registered cards across pages, for Livewire component registration.
+     * All registered panels across pages.
      *
-     * @return list<class-string<Card>>
+     * @return list<class-string<Panel>>
      */
-    public function allCards(): array
+    public function allPanels(): array
     {
-        $cards = [];
+        $panels = [];
 
         foreach (array_keys($this->pages) as $page) {
-            $cards = [...$cards, ...$this->cards($page)];
+            $panels = [...$panels, ...$this->panels($page)];
         }
 
-        return array_values(array_unique($cards));
+        return array_values(array_unique($panels));
     }
 
     /**
-     * The Livewire component alias for a card class.
+     * The panel class registered under an id (`routes-table`), or null.
      *
-     * @param  class-string<Card>  $card
+     * @return class-string<Panel>|null
      */
-    public static function componentName(string $card): string
+    public function findPanel(string $id): ?string
     {
-        return 'telemetry-ui.'.Str::kebab(class_basename($card));
+        foreach ($this->allPanels() as $panel) {
+            if ($panel::id() === $id) {
+                return $panel;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * The page (if any) a panel is registered on — used for the per-page gate.
+     *
+     * @param  class-string<Panel>  $panel
+     * @return list<string>
+     */
+    public function pagesFor(string $panel): array
+    {
+        $pages = [];
+
+        foreach (array_keys($this->pages) as $page) {
+            if (in_array($panel, $this->panels($page), true)) {
+                $pages[] = $page;
+            }
+        }
+
+        return $pages;
+    }
+
+    // ---- dimensions ---------------------------------------------------------
+
+    /**
+     * Declare a dimension: an attribute promoted to a facet, group-by option,
+     * filter chip and entity page, with an optional link back into the host.
+     *
+     *     TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus',
+     *         link: fn ($id) => route('customers.show', $id));
+     *
+     * @param  (Closure(string): (string|null))|string|null  $link  URL template with `{value}` or a closure
+     * @param  list<string>|null  $signals  Explore signals that facet on it (default requests + traces)
+     */
+    public function dimension(
+        string $key,
+        ?string $label = null,
+        ?string $group = null,
+        Closure|string|null $link = null,
+        ?string $entity = null,
+        ?string $scope = null,
+        ?array $signals = null,
+        ?string $format = null,
+        ?string $plural = null,
+    ): self {
+        $existing = $this->dimensionRegistry()->get($key);
+
+        $this->dimensionRegistry()->add(new Dimension(
+            key: $key,
+            label: $label ?? $existing->label ?? $key,
+            group: $group ?? $existing?->group,
+            link: $link ?? $existing?->link,
+            entity: $entity ?? $existing?->entity,
+            scope: $scope ?? $existing->scope ?? 'span',
+            builtin: false,
+            signals: $signals ?? $existing->signals ?? ['requests', 'traces'],
+            format: $format ?? $existing?->format,
+            plural: $plural ?? $existing?->plural,
+        ));
+
+        return $this;
+    }
+
+    public function removeDimension(string $key): self
+    {
+        $this->dimensionRegistry()->remove($key);
+
+        return $this;
+    }
+
+    public function dimensions(): Dimensions
+    {
+        return $this->dimensionRegistry();
+    }
+
+    private ?Dimensions $dimensionRegistry = null;
+
+    private function dimensionRegistry(): Dimensions
+    {
+        return $this->dimensionRegistry ??= new Dimensions;
+    }
+
+    // ---- entities -----------------------------------------------------------
+
+    /**
+     * Entity slugs whose page also runs a v1-style detail page's panels,
+     * scoped by one query param: `route` → the request-detail panels with
+     * `?route={value}`.
+     *
+     * @var array<string, array{page: string, param: string}>
+     */
+    private array $entityPages = [
+        'route' => ['page' => 'request-detail', 'param' => 'route'],
+        'job' => ['page' => 'job-detail', 'param' => 'job'],
+        'queue' => ['page' => 'queue-detail', 'param' => 'queue'],
+        'host' => ['page' => 'host-detail', 'param' => 'host'],
+        'query' => ['page' => 'query-detail', 'param' => 'dbq'],
+        'outgoing' => ['page' => 'outgoing-detail', 'param' => 'host'],
+        'path' => ['page' => 'page-detail', 'param' => 'path'],
+    ];
+
+    /**
+     * Attach a page's panels to an entity type's story page.
+     */
+    public function entityPage(string $entity, string $page, string $param): self
+    {
+        $this->entityPages[$entity] = ['page' => $page, 'param' => $param];
+
+        return $this;
+    }
+
+    /**
+     * @return array{page: string, param: string}|null
+     */
+    public function entityPageFor(string $entity): ?array
+    {
+        return $this->entityPages[$entity] ?? null;
     }
 }
