@@ -132,7 +132,7 @@ final class Dimensions
             new Dimension('http.response.status_code', 'Status code', 'Request', builtin: true, signals: $r, format: 'status'),
             new Dimension('http.request.method', 'Method', 'Request', builtin: true, signals: $r),
             new Dimension('http.route', 'Route', 'Request', entity: 'route', builtin: true, signals: $r),
-            new Dimension('url.path', 'Path', 'Request', builtin: true, signals: ['traces']),
+            new Dimension('url.path', 'Path', 'Request', entity: 'path', builtin: true, signals: ['traces']),
             new Dimension('user.id', 'User', 'Identity', entity: 'user', builtin: true, signals: $r),
             new Dimension('client.address', 'Client IP', 'Identity', entity: 'ip', builtin: true, signals: $r),
             new Dimension('geo.country.iso_code', 'Country', 'Identity', builtin: true, signals: ['requests'], plural: 'Countries'),

@@ -6,8 +6,8 @@ weight: 1
 
 # Connections
 
-The UI never talks to a backend directly — cards depend on three narrow
-contracts, resolved through named connections in `config/telemetry-ui.php`:
+The UI never talks to a backend directly — panels and the API depend on three
+narrow contracts, resolved through named connections in `config/telemetry-ui.php`:
 
 | Contract | Query language | Built-in drivers |
 | --- | --- | --- |
@@ -67,13 +67,14 @@ $this->metrics('metrics-eu')->queryRange(...);
 - **Mimir = Prometheus + prefix** — the `mimir` driver is the Prometheus
   driver with a default `/prometheus` path prefix and tenancy.
 - **Errors** — all drivers throw `SourceException` with the failing URL and
-  upstream message; cards render it as an inline error state.
+  upstream message; a panel returns it as an inline error state and an API
+  endpoint as a typed `backend` error (502).
 
 ## Verifying a connection
 
 Before trusting the dashboard, confirm the config actually reaches every
 backend — a URL typo, a wrong token or a missing tenant otherwise only shows
-up as an empty or broken card:
+up as an empty or broken panel:
 
 ```bash
 php artisan telemetry-ui:check
@@ -87,7 +88,7 @@ doubles as a deploy healthcheck. Scope it with `--connection=metrics` (repeatabl
 
 ## Result types
 
-Drivers return plain readonly DTOs, so cards never touch raw JSON:
+Drivers return plain readonly DTOs, so panels never touch raw JSON:
 
 - `Sample` (instant vector element) and `TimeSeries`/`DataPoint` (range) with
   an ECharts-ready `toChartData()`.

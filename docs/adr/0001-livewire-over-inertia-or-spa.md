@@ -6,7 +6,10 @@ weight: 1
 
 # ADR 0001: Livewire over Inertia or a prebuilt SPA
 
-**Status:** accepted (2026-07-03)
+> **Superseded** by [ADR 0003: Versioned JSON API + prebuilt React SPA](0003-json-api-and-spa.md)
+> in v2.0. Kept for the record; it describes the 1.x architecture.
+
+**Status:** superseded by ADR 0003 (accepted 2026-07-03)
 
 ## Context
 

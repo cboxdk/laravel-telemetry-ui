@@ -1,69 +1,53 @@
 ---
-title: Embed cards as widgets
-description: Drop individual telemetry cards onto your own pages, not just the full dashboard
+title: Embed cards as widgets (removed in v2)
+description: Embedding cards as Livewire widgets in host pages was removed in v2 — link to the SPA or read the JSON API instead
 weight: 4
 ---
 
-# Embed cards as widgets
+# Embed cards as widgets (removed in v2)
 
-Every card is a Livewire component, so you don't have to send people to the
-full dashboard — you can drop one onto any page in your app (a Statamic CP
-screen, a customer dashboard, an admin panel).
+In 1.x every card was a Livewire component, so a host could drop one onto its
+own Blade page with `@telemetryUiAssets` and
+`<livewire:telemetry-ui.requests-activity service="…" />`.
 
-## 1. Load the assets once
+**v2 removes this.** Livewire is gone, and so are `@telemetryUiAssets`, the
+`<livewire:telemetry-ui.*>` components, `<livewire:telemetry-ui.trace-drawer />`
+and the `:embedded` prop. There is no drop-in replacement in 2.0.
 
-The cards need the dashboard's CSS + ECharts bundle. Add this to your page's
-`<head>` (Livewire and Alpine are your app's own — include them as usual):
+## What to do instead
 
-```blade
-<head>
-    …
-    @telemetryUiAssets
-</head>
-```
-
-## 2. Drop in a card
-
-Reference a card by its component name — `telemetry-ui.` + the kebab-cased class
-basename — and pass the scope as props:
+**Link to the dashboard.** Every screen has a stable, shareable URL that
+carries its scope:
 
 ```blade
-<livewire:telemetry-ui.requests-activity service="cbox-web" period="24h" />
-<livewire:telemetry-ui.request-duration service="cbox-web" environment="production" />
-<livewire:telemetry-ui.analytics-overview service="cbox-web" period="7d" />
+<a href="{{ url(config('telemetry-ui.path').'/p/requests?service=cbox-web&period=24h') }}">Requests</a>
+<a href="{{ url(config('telemetry-ui.path').'/entity/route?value='.rawurlencode('GET /checkout')) }}">Checkout route</a>
+<a href="{{ url(config('telemetry-ui.path').'/explore/requests?where[]=user.id='.$user->id) }}">This user's requests</a>
 ```
 
-Passed scope (`service`, `environment`, `period`, `from`, `to`) wins over the
-URL, so the widget is self-contained. Any built-in or custom card works.
+**Read the JSON API.** Each panel's data is available at
+`GET {path}/api/v2/panels/{id}` with the same scope params
+(`service`, `env`, `period`, `from`, `to`), as a typed payload
+(`kind: chart | stats | table | …`). Render it however your page renders
+things:
 
-For the slide-in trace drawer (opened from row clicks), also include it once:
-
-```blade
-<livewire:telemetry-ui.trace-drawer />
+```js
+const res = await fetch('/telemetry-ui/api/v2/panels/requests-activity?service=cbox-web&period=24h', {
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+});
+const panel = await res.json(); // { id, span, kind: 'chart', series, stats, … }
 ```
 
-Without it, trace links fall back to the full trace page.
-
-## Security
-
-An embedded card still enforces the **`viewTelemetryUi` gate** at mount — a
-widget dropped on a page can't leak telemetry past your access control (define
-the gate as usual; see [authorization](../core-concepts/authorization.md)). The
-**tenancy scope lock** (`restrictScopeUsing`) applies too, so an embedded widget
-is constrained to the viewer's allowed services/environments. Beyond that, the
-host page's own auth is the outer boundary — don't embed a card on a public
-page.
-
-> **Pass scope, or `:embedded="true"`.** A card knows it's embedded (and gates
-> itself) when you pass any scope prop — `service`, `period`, etc. — which the
-> examples above all do. If you embed a card with *no* props, pass
-> `:embedded="true"` explicitly so it still runs the gate: a bare, prop-less
-> mount is treated as the dashboard's own (already gate-checked by the route).
-> `<livewire:telemetry-ui.requests-activity :embedded="true" />`
+The API is same-origin and session-authenticated, and runs behind the
+`viewTelemetryUi` gate (with the per-page check for the page the panel is on)
+and the tenancy scope lock, so it can't leak telemetry past your access
+control. Don't call it from a public page. See the
+[API reference](../core-concepts/api.md) and the payload shapes in
+[pages & panels](../core-concepts/pages-and-panels.md#the-payload-contract).
 
 ## Reshaping the built-in dashboard
 
-If you want the pre-built dashboard but tailored, you don't have to embed
-piecemeal — the registry can add, replace and remove
-([custom cards](../extension-points/custom-cards.md#add-replace-remove)):
-`TelemetryUi::setCards()`, `removeCard()`, `removePage()`.
+If what you wanted was the dashboard, tailored, use the registry instead
+([custom panels](../extension-points/custom-panels.md#add-replace-remove)):
+`TelemetryUi::setPanels()`, `removePanel()`, `removePage()`.

@@ -5,7 +5,114 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] - Unreleased
+
+A rewrite of the presentation layer: Livewire is removed and the dashboard is
+now a versioned JSON API plus a prebuilt React single-page app. The query core
+(contracts, drivers, query IR, result DTOs, `Analysis/`, the MCP server) is
+carried over unchanged. See [UPGRADE.md](UPGRADE.md#1x--20) for every breaking
+change with before/after code.
+
+### Added
+
+- **JSON API under `{path}/api/v2`.** `bootstrap`, `view-state` (POST),
+  `pages/{page}`, `panels/{panel}`, `explore/{signal}` and `facets/{signal}`
+  (requests, traces, logs, errors), `entities/{type}` and
+  `entities/{type}/story?value=`, `traces/{id}`, `errors/{group}`,
+  `issues/{id}`, `POST issues`, `annotations`, and `stream/{logs|requests}`
+  (Server-Sent Events; `?once=1` for a single batch). Every endpoint takes the
+  scope params `period`, `from`, `to`, `service`, `env`, `where[]`, and errors
+  are typed: `{"error":{"type":"backend|forbidden|invalid|not_found","message"}}`
+  with 502/403/422/404. See [docs/core-concepts/api.md](docs/core-concepts/api.md).
+- **React SPA** (React, Vite, TypeScript, TanStack Query/Router/Virtual,
+  ECharts in a lazy chunk), built to `public/build` with hashed chunks and
+  committed, so hosts need no Node toolchain. A catch-all route serves the
+  shell; routes are `/`, `/explore/$signal`, `/entities/$type`,
+  `/entity/$type?value=`, `/p/$page`, `/errors/$group`, `/traces/$traceId`,
+  with a stacked, deep-linkable drawer in `?drawer=trace:…~error:…~issue:…`.
+  ⌘K command palette, ⌘. to collapse the subnav, brush-to-zoom sets the global
+  time range, live tail over SSE with a polling fallback. Cbox design system,
+  light by default with a dark theme.
+- **Explore**: one surface over requests, traces, logs and errors with a filter
+  bar, facet panel, headline stats, a time × latency heatmap, group-by and a
+  virtualised result list. Filters use `where[]=key<op>value` with
+  `= != =~ !~ > >= < <=`; free text via `q`.
+- **Dimensions**: `TelemetryUi::dimension()` / `removeDimension()` /
+  `dimensions()`. A declared dimension (label, group, optional link out as a
+  closure or a `{value}` URL template, entity slug, scope, signals, format,
+  plural) appears in facets, group-by menus, filter chips and as clickable
+  chips, and gets an entity page. Built-in dimensions cover the attributes
+  laravel-telemetry v2 emits (route, status code, user, client IP, host,
+  query, job, queue, outgoing host, …). Facets are exact when the traces
+  backend implements `AggregatesSpans`, otherwise counted over a labelled
+  read-side sample.
+- **Entity pages**: a story per dimension value — insights, RED, trend with
+  deploys, breakdowns with failure lift, status mix, correlated exception
+  groups, failing and slowest traces — plus a Metrics tab that runs the v1
+  detail panels for that entity and a Raw tab last.
+  `TelemetryUi::entityPage($entity, $page, $param)` attaches a page's panels to
+  an entity type; built in: route, job, queue, host, query, outgoing, path.
+- **`Panels\Panel`**, the framework-free replacement for `Card`, with
+  `data(): array`, `static id()`, `static span()` and a `boot()` hook.
+- **`Panels\Ui`**, builders for the payload contract (`table`, `stats`, `bars`,
+  `composite`, `header`, `kv`, `code`, `callout`, `hidden`, cells, columns,
+  controls) and for links (`entity`, `page`, `trace`, `error`, `issue`,
+  `explore`, `param`, `url`). Mirrored by `resources/app/src/api/types.ts`.
+- **`Panels\Attributes\Param`**, binding a public panel property to a query
+  parameter.
+- `Http\Api\RequestScope`: the per-request scope (window, service/env,
+  filters, extra params), bounded by the tenancy lock, falling back to the
+  reader's remembered view state for anything the URL doesn't state.
+- Vitest unit tests for the SPA (`npm test`); PHP feature tests ported to hit
+  the API endpoints.
+
+### Changed
+
+- **Cards are panels.** `Cards\Card` → `Panels\Panel`,
+  `Cards\Builtin\*` → `Panels\Builtin\*` (same basenames);
+  `TelemetryUi::card()/setCards()/removeCard()/cards()` →
+  `panel()/setPanels()/removePanel()/panels()`; config `telemetry-ui.cards` →
+  `telemetry-ui.panels`; `render(): View` → `data(): array`; `#[Url]` →
+  `#[Param]`; `pageUrl()` → `pageLink()` returning a link payload.
+- **Routes.** Pages moved from `/{path}/{page}` to `/{path}/p/{page}`;
+  `/{path}/traces/{id}` is now an SPA route; the `?trace=` / `?issue=` /
+  `?exception=` drawer params became `?drawer=`; assets moved from
+  `/{path}/assets/{asset}` to `/{path}/build/{path}`. The route names
+  `telemetry-ui.page` and `telemetry-ui.trace` are replaced by the catch-all
+  `telemetry-ui.spa` and the `telemetry-ui.api.*` names.
+- **Authorization.** The `viewTelemetryUi` gate runs on every dashboard and API
+  route. Per-page checks (the gate's second argument) apply to the page and
+  panel endpoints, the navigation in `bootstrap`, Explore/facets (by the page
+  that covers the signal) and entity pages (the `requests` page).
+  `manageTelemetryUi` guards `POST /api/v2/issues`.
+- **View state** is persisted only on SPA shell renders and on
+  `POST /api/v2/view-state`, never on API reads, so a page fetching ten panels
+  sets no cookies and fires no `ViewStateChanged` events.
+- The default `telemetry-ui.throttle` is now `600,1` (was `120,1`): the SPA
+  sends one request per panel, facet list and Explore query.
+
+### Removed
+
+- The `livewire/livewire` dependency, `src/Cards/`, `resources/views/`, the
+  Blade components, `resources/js/telemetry-ui.js`, `public/telemetry-ui.js`
+  and `public/telemetry-ui.css`.
+- Embedding cards in host Blade pages (`@telemetryUiAssets`,
+  `<livewire:telemetry-ui.*>`, the `:embedded` prop). No replacement yet; link
+  to the SPA or read the JSON API.
+- The `telemetry-ui:period-changed` and `telemetry-ui:refresh` Livewire events
+  and the gate middleware on `/livewire/update`.
+
+### Fixed
+
+- **p95/p99 charts were in seconds.** `PromqlCompiler` dropped the scalar
+  (`times()`) on histogram quantiles, so a seconds histogram scaled ×1000 to
+  milliseconds charted its quantiles unscaled. The scalar now applies to
+  `histogram_quantile(...)` too.
+
+## [Unreleased] - 1.x
+
+Built on `main` before the v2 rewrite; these entries describe the 1.x Livewire
+UI and are kept as written.
 
 ### Added
 

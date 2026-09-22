@@ -1,7 +1,7 @@
 ---
 title: Authorization
 description: The view gate, per-page restriction, the write ability, and the PII surface
-weight: 5
+weight: 7
 ---
 
 # Authorization
@@ -9,7 +9,8 @@ weight: 5
 The dashboard exposes traces, logs and metrics — which routinely contain PII
 (user IDs, IP addresses, query text, request headers). Access control is
 therefore load-bearing. There are two gates plus a per-page hook, all enforced
-server-side and re-checked on every request (including Livewire updates).
+server-side and re-checked on every request, including every API call the
+SPA makes.
 
 ## The view gate
 
@@ -24,10 +25,10 @@ use Illuminate\Support\Facades\Gate;
 Gate::define('viewTelemetryUi', fn ($user) => $user?->isAdmin() ?? false);
 ```
 
-The gate is also **re-run on Livewire updates**, not just the initial page
-load. The cards and the trace drawer are Livewire components; their actions POST
-to `/livewire/update`, which the package registers the gate middleware against —
-so revoking access takes effect immediately, not only on the next full render.
+The gate runs on the SPA shell **and on every `/api/v2` request**. The SPA
+fetches each panel, facet list and trace as its own API call, so revoking access
+takes effect on the next request, not on the next full page load. A denied API
+call answers `403` with `{"error":{"type":"forbidden",…}}`.
 
 ## Restricting individual pages
 
@@ -45,16 +46,28 @@ Gate::define('viewTelemetryUi', function ($user, ?string $page = null) {
 });
 ```
 
-A denied page returns `403` on direct access **and** is dropped from the sidebar
-and command palette. The slug is `null` for Livewire updates and non-page routes
-(only the master check applies there), so a page-unaware gate keeps working.
+A denied page returns `403` from its page and panel endpoints **and** is dropped
+from the navigation the bootstrap endpoint returns (sidebar and command
+palette). The other endpoints check the page that covers their data:
+
+| Endpoint | Page checked |
+| --- | --- |
+| `explore/requests`, `facets/requests`, `stream/requests`, `entities/*` | `requests` |
+| `explore/traces`, `facets/traces`, `traces/{id}` | `traces` |
+| `explore/logs`, `facets/logs`, `stream/logs` | `logs` |
+| `explore/errors`, `facets/errors`, `errors/{group}` | `exceptions` |
+| `panels/{panel}` | any page the panel is registered on |
+
+The slug is `null` for the master check that runs on every route, so a
+page-unaware gate keeps working.
 
 ## The write ability
 
 Creating a tracker issue from the UI (the compose-a-ticket flow) is a write to
 an external system, so it needs a separate ability: **`manageTelemetryUi`**. It
-is checked server-side before the issue is created, and the compose UI is hidden
-without it — so a read-only viewer can look but not file tickets.
+is checked server-side on `POST /api/v2/issues`, and the compose UI is hidden
+without it (the bootstrap endpoint reports `abilities.createIssues`) — so a
+read-only viewer can look but not file tickets.
 
 By default it **falls back to the view gate** (anyone who can view can write),
 which preserves existing behaviour. Define it to split read from write:
@@ -87,12 +100,12 @@ Gate::define('viewTelemetryUi', fn ($user) => (bool) $user?->can('access cp'));
 
 The same works for any guarded panel (Filament, Nova, a custom admin): put its
 auth middleware in `telemetry-ui.middleware` and check the user in the gate.
-Livewire updates keep working — they run on the global `web` group, and the gate
-is still re-checked on them.
+The API routes share that middleware stack, so the SPA's requests are
+authenticated the same way.
 
 ## Tenancy: lock a viewer to services / environments
 
-When the dashboard is embedded in an app, you often want a viewer to see only
+When the dashboard runs inside a multi-tenant app, you often want a viewer to see only
 their own service(s) — a lightweight tenancy lock. There are two ways to set it,
 in precedence order.
 
@@ -179,7 +192,7 @@ to the static `telemetry-ui.connections` config. It runs per request, and built
 drivers are cached by config (not just name), so under a persistent runtime like
 Octane one tenant never gets another's connection.
 
-## MCP and the API
+## MCP
 
 The HTTP MCP transport is a separate surface with its own auth (`auth:api` +
 throttle, optionally OAuth) — see the [MCP cookbook](../cookbook/mcp.md). It is

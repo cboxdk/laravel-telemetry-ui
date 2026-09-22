@@ -26,8 +26,9 @@ TELEMETRY_UI_METRICS_URL=http://mimir:8080
 TELEMETRY_UI_METRICS_TENANT=team-apps   # X-Scope-OrgID
 ```
 
-Visit `/telemetry-ui`. Assets (ECharts bundle + CSS) are served by the
-package itself — no publishing, no npm step.
+Visit `/telemetry-ui`. The dashboard is a prebuilt React app served by the
+package itself from `public/build` — no publishing, no Node, no npm step. It
+reads everything from the package's JSON API under `/telemetry-ui/api/v2`.
 
 Confirm the config actually reaches every backend:
 
@@ -47,6 +48,21 @@ allows the `local` environment. Open it up in a service provider:
 Gate::define('viewTelemetryUi', fn (User $user): bool => $user->isDeveloper());
 ```
 
+## What to open first
+
+- **Overview** (`/telemetry-ui`) — the dashboard panels.
+- **Explore** (`/telemetry-ui/explore/requests`) — filter by any attribute,
+  group by any key. See [dimensions & Explore](../core-concepts/dimensions-and-explore.md).
+- **⌘K** — the command palette: jump to any page or entity list, switch
+  service/environment, paste a trace id, or type `key=value` to filter Explore.
+
+To make your own attributes first-class (a customer id, a tenant), declare them
+as dimensions in a service provider:
+
+```php
+TelemetryUi::dimension('app.customer_id', label: 'Customer', link: fn ($id) => route('customers.show', $id));
+```
+
 ## Publishing the config
 
 ```bash
@@ -64,7 +80,7 @@ Sensible defaults ship for all of these; override via env when needed:
 | --- | --- | --- |
 | `TELEMETRY_UI_CACHE_TTL` | `5` | Seconds to cache backend GET responses, so a busy dashboard doesn't hammer the backends. `0` disables. |
 | `TELEMETRY_UI_RETRIES` | `2` | Retries for transient connection blips. |
-| `TELEMETRY_UI_THROTTLE` | `120,1` | Rate limit for the dashboard routes (`maxAttempts,decayMinutes`). Set empty to disable. |
+| `TELEMETRY_UI_THROTTLE` | `600,1` | Rate limit for the dashboard and API routes (`maxAttempts,decayMinutes`). The SPA sends one request per panel, so budget per request. Set empty to disable. |
 | `TELEMETRY_UI_DETECTION_TTL` | `300` | Seconds to cache schema autodetection probes. |
 | `TELEMETRY_UI_FLEET_TTL` | `60` | Seconds to cache the sidebar service/environment discovery. |
 | `TELEMETRY_UI_ANNOTATIONS` | `true` | Draw deploy/annotation markers on charts. |
@@ -75,6 +91,6 @@ A connection may also set its own `cache` key to override the global TTL. See
 
 ## Disabling entirely
 
-`TELEMETRY_UI_ENABLED=false` makes the package inert: no routes, no gate, no
-Livewire registrations. Useful for queue workers and environments where the
+`TELEMETRY_UI_ENABLED=false` makes the package inert: no routes (SPA, API or
+assets), no gate, no MCP server. Useful for queue workers and environments where the
 dashboard should not exist.

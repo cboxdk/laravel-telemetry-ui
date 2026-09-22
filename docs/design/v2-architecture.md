@@ -246,16 +246,40 @@ does not, by itself, deliver them — plan them as core work, in parallel.
 
 ## Feature-parity checklist (cut-over gate)
 
-- [ ] Every v1 page has an endpoint + component at parity.
-- [ ] Global scope (service/env/period, custom range, tenancy lock) + URL state.
-- [ ] Stacked, deep-linkable trace/issue/exception drawer.
-- [ ] Correlation: trace → surrounding metrics (baselines/outliers), trace → logs,
-      trace → profile, error group → trace/release/host + suspect deploy.
-- [ ] Deploy/change annotations on charts.
-- [ ] Command palette (⌘K), whole-row drill-down, copy-link/deep-links.
-- [ ] Live-tail (logs, request log) via SSE.
-- [ ] Schema-detection driven nav + host-registered nav links.
-- [ ] Read-only MCP server unaffected (it consumes the core, not the UI).
+Status on `feat/v2-spa` (2026-09-22). "Live" = verified in the browser against
+telemetryd via the demo; "tests" = covered by Pest (API) and/or Vitest (SPA).
+
+- [x] Every v1 page has an endpoint + component at parity — all ~120 cards are
+      `Panels\Builtin\*` behind `/api/v2/panels/{id}`, rendered by the SPA's
+      kind renderers; PagesSmokeTest hits every page and panel. Live: dashboard,
+      jobs, traces, exceptions, route/customer entities. Detail pages became the
+      entity pages' Metrics tab.
+- [x] Global scope (service/env/period, custom range, tenancy lock) + URL state —
+      `RequestScope` + `ScopeLock` (ScopeLockTest); custom range popover and
+      brush-to-zoom write `from`/`to`; remembered via `POST /view-state`. Live.
+- [x] Stacked, deep-linkable trace/issue/exception drawer — `?drawer=error:…~trace:…`,
+      back/crumbs/Esc/full-page. Live.
+- [x] Correlation: trace → surrounding metrics (baselines/outliers), trace → logs,
+      trace → profile, error group → trace/release/host + suspect deploy —
+      `/traces/{id}` and `/errors/{group}` (TraceDrawerTest); trace Story/Context/
+      Logs/Profile tabs; entity stories add correlated error groups + deploys. Live.
+- [x] Deploy/change annotations on charts — marker lines on every panel chart and
+      entity trends; Deploys panel. Live (annotate command).
+- [x] Command palette (⌘K), whole-row drill-down, copy-link/deep-links — palette
+      (pages, scope, trace id, error group, `key=value` filters, entity jump);
+      `_link` rows; copy-link button. Live + tests.
+- [x] Live-tail (logs, request log) via SSE — `/stream/{logs|requests}` with
+      `Last-Event-ID` resume and polling fallback (StreamTest); panel "Tail" polls.
+      Live (logs).
+- [x] Schema-detection driven nav + host-registered nav links — bootstrap nav is
+      detection- and gate-filtered (SchemaDetectionTest, NavLinkTest); links in the
+      rail foot.
+- [x] Read-only MCP server unaffected (it consumes the core, not the UI) —
+      McpToolsTest unchanged and green.
+
+New in v2 beyond parity: dimensions registry, facet panel, filter bar (URL is the
+query), group-by, drill-down on every value, generated entity pages with a story
+and Raw tab last.
 
 ## Open decisions
 

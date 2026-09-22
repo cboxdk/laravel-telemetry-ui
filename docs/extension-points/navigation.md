@@ -49,7 +49,8 @@ typo costs you the right picture, not the link.
 
 Names rather than SVG is deliberate. The rail draws icons as inline SVG, and
 accepting raw path data would put host-supplied strings into an unescaped sink
-for no real benefit. Labels and URLs are escaped like any other Blade output.
+for no real benefit. Links reach the SPA through `GET /api/v2/bootstrap`
+(`navLinks`), and the label is rendered as text, never as markup.
 
 ## Managing links
 

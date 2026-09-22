@@ -1,7 +1,7 @@
 ---
 title: Configuration reference
 description: Every config key and environment variable in config/telemetry-ui.php
-weight: 3
+weight: 5
 ---
 
 # Configuration reference
@@ -22,11 +22,11 @@ var (if any) that overrides it without publishing.
 
 | Key | Env | Default | Notes |
 | --- | --- | --- | --- |
-| `enabled` | `TELEMETRY_UI_ENABLED` | `true` | Master switch. When off, the package registers **no** routes, Livewire components or MCP server — completely inert (e.g. on queue workers). Boot stays cheap either way. |
-| `path` | `TELEMETRY_UI_PATH` | `telemetry-ui` | URL prefix the dashboard is served from. Deliberately not `telemetry` so it doesn't clash with the `/telemetry/metrics` scrape endpoint `cboxdk/laravel-telemetry` registers. |
+| `enabled` | `TELEMETRY_UI_ENABLED` | `true` | Master switch. When off, the package registers **no** routes (SPA, API or assets) or MCP server — completely inert (e.g. on queue workers). Boot stays cheap either way. |
+| `path` | `TELEMETRY_UI_PATH` | `telemetry-ui` | URL prefix the dashboard is served from; the API lives under `{path}/api/v2` and the built assets under `{path}/build`. Deliberately not `telemetry` so it doesn't clash with the `/telemetry/metrics` scrape endpoint `cboxdk/laravel-telemetry` registers. |
 | `domain` | `TELEMETRY_UI_DOMAIN` | `null` | Optional domain to pin the routes to. |
-| `middleware` | — | `['web']` | Middleware on every dashboard route. The package **always** appends its own `Authorize` middleware (checks the `viewTelemetryUi` gate), so you don't list it. |
-| `throttle` | `TELEMETRY_UI_THROTTLE` | `120,1` | Rate limit as `maxAttempts,decayMinutes`. The dashboard fans out to all backends on every render and refresh tick, so this caps how hard one client can drive them. Set to `null` / empty to disable. |
+| `middleware` | — | `['web']` | Middleware on every dashboard and API route. The package **always** appends its own `Authorize` middleware (checks the `viewTelemetryUi` gate), so you don't list it. The `build/*` asset route skips the gate and the throttle. |
+| `throttle` | `TELEMETRY_UI_THROTTLE` | `600,1` | Rate limit as `maxAttempts,decayMinutes`. The SPA sends one API request per panel, facet list and Explore query (and again on each auto-refresh tick), so the budget is per request, not per page. Set to `null` / empty to disable. |
 
 ### The gate
 
@@ -44,7 +44,8 @@ The gate also supports per-page restriction and a separate write ability
 
 ## Query cache & retries
 
-Every card issues live backend queries on each render and refresh tick.
+Every panel issues live backend queries each time the SPA fetches it (on load,
+on a scope change and on each auto-refresh tick).
 
 | Key | Env | Default | Notes |
 | --- | --- | --- | --- |
@@ -147,9 +148,20 @@ the [annotations cookbook](../cookbook/annotations.md).
 | `annotations.auto_version.metric` | `TELEMETRY_UI_AUTO_VERSION_METRIC` | `system_cpu_utilization_ratio` | The metric carrying the `laravel_version` label to scan. |
 | `annotations.auto_version.lookback_days` | `TELEMETRY_UI_AUTO_VERSION_LOOKBACK` | `30` | How far back the scan looks for versions. |
 
-## Cards
+## Panels
 
-`cards` is the ordered list of dashboard cards (Livewire components extending
-`Cbox\TelemetryUi\Cards\Card`). Entries here render first; packages append their
-own at runtime with `TelemetryUi::card(MyCard::class)`. See [pages &
-cards](pages-and-cards.md).
+`panels` is the ordered list of dashboard panels (classes extending
+`Cbox\TelemetryUi\Panels\Panel`). Entries here render first; packages append
+their own at runtime with `TelemetryUi::panel(MyPanel::class)`. This key was
+`cards` in 1.x; a leftover `cards` key is ignored. See [pages &
+panels](pages-and-panels.md).
+
+## Live tail
+
+The SSE live-tail endpoint reads two keys that are not in the published config.
+Add them if you need other values:
+
+| Key | Default | Notes |
+| --- | --- | --- |
+| `stream.interval` | `2` | Seconds between backend polls on an open stream. |
+| `stream.window` | `25` | Seconds a stream connection lives before it ends and the browser reconnects (resuming from `Last-Event-ID`). |

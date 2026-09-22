@@ -14,7 +14,7 @@ weight: 99
 - Schema autodetection: pages with `detectMetric` patterns; built-in
   Statamic page lights up when statamic-telemetry metrics exist.
 - Card/page registry, Livewire base `Card`, gate + routes, ECharts bundle,
-  period selector.
+  period selector. (Replaced by panels + the SPA in v2.)
 - Tooling parity with `cboxdk/laravel-telemetry`: Pest 4, PHPStan level 8,
   Pint, arch tests.
 
@@ -85,9 +85,34 @@ The things a generic, app-only or read-only dashboard can't do:
 - Feature-tested drill-down/detail pages, dimensional filtering, and the
   info-leak boundary.
 
+## v2 — JSON API + React SPA (in progress, branch `feat/v2-spa`)
+
+Plan: [v2 architecture](design/v2-architecture.md) ·
+[implementation plan](design/v2-plan.md) ·
+[ADR 0003](adr/0003-json-api-and-spa.md).
+
+- Livewire removed. Cards became framework-free panels returning typed
+  payloads (`Panels\Panel`, `Panels\Ui`); the registry, config key and
+  built-in classes renamed accordingly.
+- Versioned JSON API under `{path}/api/v2` with typed errors and an SSE live
+  tail; the gate and scope lock run on every endpoint.
+- React + Vite + TypeScript SPA (TanStack Query/Router/Virtual, ECharts as a
+  lazy chunk), committed to `public/build` so hosts need no Node.
+- Dimensions as a first-class primitive (`TelemetryUi::dimension()`), Explore
+  over requests/traces/logs/errors with facets and group-by, and generated
+  entity pages that tell a story instead of dumping attributes.
+- Stacked, deep-linkable drawer (`?drawer=`), ⌘K palette, brush-to-zoom on the
+  global range, live tail over SSE with a polling fallback.
+
+Before tagging 2.0: the feature-parity checklist in the architecture doc,
+live verification against real backends, and a maintained `1.x` branch.
+
+Open: a replacement for embedding panels in host pages (1.x Livewire widgets
+were removed); token auth for an externally hosted SPA.
+
 ## Next
 
-- AI triage/chat on a trace, exception or incident (streamed via `wire:stream`),
+- AI triage/chat on a trace, exception or incident (streamed over SSE),
   building on the MCP tools and `SignalContext`.
 - Post-to-Slack action alongside ticket creation.
 - Threshold / alert hints.

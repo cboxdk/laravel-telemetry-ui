@@ -73,7 +73,7 @@ TELEMETRY_OTLP_TOKEN=<bearer-token>        # sent as Authorization: Bearer …
 
 Point Telemetry UI at the same backend and three surfaces light up.
 
-### Analytics (Monitoring → Analytics)
+### Analytics (Frontend → Analytics)
 
 - **Overview** — page views, **unique visitors**, views-per-visit, **bounce
   rate** (single-page-view sessions) and **average engagement time**, above a
@@ -82,7 +82,7 @@ Point Telemetry UI at the same backend and three surfaces light up.
 - **Sources & audience** — referrers, and (with geo / UA parsing on) countries
   and devices.
 
-### Frontend (Monitoring → Frontend)
+### Web Vitals (Frontend → Web Vitals)
 
 - **Page performance** — real-user navigation timings (loads, avg load, TTFB,
   DOM-interactive) from the `document.load` spans, per page.
@@ -145,5 +145,5 @@ For real traffic, analytics wants a columnar store, not the LGTM stack: point
 the emitter's analytics stream (already tagged `telemetry.stream=analytics` for
 exactly this) at a **ClickHouse** sink — exact `uniq`/HLL, funnels, every
 dimension without a cardinality penalty, long retention. The same dashboard
-cards read it. LGTM stays perfect for low-traffic sites and for validating the
+panels read it. LGTM stays perfect for low-traffic sites and for validating the
 pipeline before the sink exists.

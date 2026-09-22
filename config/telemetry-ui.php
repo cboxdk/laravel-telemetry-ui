@@ -213,6 +213,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Live tail (SSE)
+    |--------------------------------------------------------------------------
+    |
+    | The log / request live tail streams over Server-Sent Events. The backends
+    | are pull-only, so the stream polls them every `interval` seconds and each
+    | connection lives `window` seconds before the browser reconnects (resuming
+    | from the last event) — a tail never pins a PHP worker indefinitely.
+    |
+    */
+
+    'stream' => [
+        'interval' => (int) env('TELEMETRY_UI_STREAM_INTERVAL', 2),
+        'window' => (int) env('TELEMETRY_UI_STREAM_WINDOW', 25),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Query cache & retries
     |--------------------------------------------------------------------------
     |

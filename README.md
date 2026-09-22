@@ -7,9 +7,9 @@ counterpart to
 [`cboxdk/laravel-telemetry`](https://github.com/cboxdk/laravel-telemetry),
 schema-aware of every metric and span attribute it emits.
 
-> **Status: alpha.** The screens and connectors are in daily use, but APIs may
-> still shift before 1.0. Pin a version and read the
-> [CHANGELOG](CHANGELOG.md) before upgrading.
+> **Status: v2.0 in development** on `feat/v2-spa`. v2 replaces the Livewire UI
+> with a versioned JSON API and a React single-page app. Coming from 1.x? Read
+> [UPGRADE.md](UPGRADE.md) and the [CHANGELOG](CHANGELOG.md) first.
 
 ## Why not just Grafana?
 
@@ -17,44 +17,46 @@ Grafana is generic; this dashboard knows what a Laravel app *is*. Routes,
 jobs, scheduled tasks, queries, cache stores and users are first-class
 concepts, cross-linked across signals — click a slow route, see its traces;
 open a trace, see the queries, the trace-correlated logs, **and the host it ran
-on**. And it lives inside your app: your auth, your Livewire stack, and actions
-a read-only dashboard can't do (open a ticket from an exception, talk to it
-over MCP).
+on**. And it lives inside your app: your auth, your gate, and actions a
+read-only dashboard can't do (open a ticket from an exception, talk to it over
+MCP).
 
 ## Highlights
 
-- **Laravel-shaped screens** — Dashboard, Requests, Jobs, Commands, Scheduled
-  Tasks, Exceptions, Queries, Cache, Outgoing, Mail & Notifications, Users,
-  Hosts, Logs, System, plus full trace search + waterfall.
-- **Purpose-built drill-down** — clicking a route/job/exception/host opens a
-  dedicated detail page scoped to that entity (throughput → latency → exact
-  status codes → its individual traces), not a generic filtered search.
-- **Dimensional filtering** — every attribute in a trace (host, user, team,
-  client IP, deployment…) is a click-to-filter link, Grafana-style. A **Hosts**
-  page lists every server reporting telemetry.
-- **Web analytics & RUM** — visit analytics on open data (page views, cookieless
-  unique visitors, bounce, engagement, top pages, referrers, geo, devices) plus
-  a real-user Frontend page (page-load timings, failed browser requests) — all
-  joined to the backend trace. See the [analytics cookbook](docs/cookbook/analytics.md).
+- **JSON API + SPA** — a versioned JSON API under `{path}/api/v2` and a React
+  app that talks to it over plain `fetch`. The built app is committed to
+  `public/build` and served by the package, so hosts need **no Node toolchain**.
+- **Explore** — one surface over requests, traces, logs and errors: filter by
+  any attribute (`where[]=http.route=/checkout`), group by any key, a
+  time × latency heatmap on top, a virtualised result list below.
+- **Dimensions** — declare the attributes that matter to you
+  (`TelemetryUi::dimension('hubhus.customer_id', label: 'Customer')`) and they
+  show up as facets, group-by options, filter chips and clickable chips, with
+  an optional link back into your app.
+- **Entity pages** — a route, query, job, host, user or customer is a page that
+  tells a story: RED, trend with deploys, where failures concentrate,
+  correlated error groups, slowest and failing traces. Raw attributes come
+  last.
+- **Laravel-shaped screens** — Dashboard, Requests, Jobs, Queues, Commands,
+  Scheduled Tasks, Exceptions, Queries, Cache, Outgoing, Mail & Notifications,
+  Hosts, Logs, System, Web Vitals, Analytics, plus a full trace waterfall.
 - **Signal correlation** — a trace shows the host/runtime signals recorded
   *around* it (CPU, load, memory, network, RSS), each flagged against its
-  typical baseline ("Host CPU 95%, typical 30%"). The thing an app-only
-  monitor can't do — same Prometheus, right next to the app.
-- **Annotations** — deploy/incident/scaling/version markers as vertical lines
-  on every chart, written through the telemetry pipeline
-  (`telemetry-ui:annotate`) and auto-detected for un-announced deploys
-  (`telemetry-ui:scan-versions`).
+  typical baseline ("Host CPU 95%, typical 30%").
+- **Annotations** — deploy/incident/scaling/version markers on every chart,
+  written through the telemetry pipeline (`telemetry-ui:annotate`) and
+  auto-detected for un-announced deploys (`telemetry-ui:scan-versions`).
 - **Issue trackers** — GitHub, Sentry and Linear as a fourth signal; create a
-  ticket from an exception without leaving the drawer.
-- **MCP server** — serve metrics, traces, logs and the correlation tools over
-  the Model Context Protocol (`php artisan mcp:start telemetry-ui`, or HTTP with
-  OAuth + Dynamic Client Registration) so an agent can query your stack for
-  incident RCA.
+  ticket from an error group without leaving the drawer.
+- **MCP server** — metrics, traces, logs and the correlation tools over the
+  Model Context Protocol (`php artisan mcp:start telemetry-ui`, or HTTP with
+  OAuth + Dynamic Client Registration) for agent-driven incident RCA.
 - **Fleet-aware & autodetecting** — a service/environment switcher scopes every
   screen; optional schema families (e.g. `cboxdk/statamic-telemetry`) light up
   their own pages when their metrics exist.
-- **Extensible in PHP** — add pages and cards with Blade + any
-  PromQL/TraceQL/LogQL. No JS build.
+- **Extensible in PHP** — add pages and panels with plain PHP classes that
+  return a typed payload (`Ui::table()`, `Ui::stats()`, a chart). No JS build
+  on your side.
 - **Inert when idle** — boot registers class-string maps only; disable with one
   env var.
 
@@ -77,7 +79,8 @@ TELEMETRY_UI_LOKI_URL=http://loki:3100
 Already run a Grafana Cloud / hosted LGTM stack? Point at the datasource proxy
 instead — see [connect through a Grafana proxy](docs/cookbook/connect-via-grafana-proxy.md).
 
-Then visit `/telemetry-ui`. Access is gated by the `viewTelemetryUi` gate,
+Then visit `/telemetry-ui`. The SPA and its assets are served by the package —
+no publishing, no `npm` step. Access is gated by the `viewTelemetryUi` gate,
 which allows only the `local` environment by default — open it up in your
 app:
 
@@ -93,10 +96,12 @@ Full documentation lives in [`docs/`](docs/index.md):
 - [Connections](docs/core-concepts/connections.md) ·
   [Configuration reference](docs/core-concepts/configuration.md) ·
   [Signal correlation](docs/core-concepts/correlation.md)
-- [Pages & cards](docs/core-concepts/pages-and-cards.md)
+- [Pages & panels](docs/core-concepts/pages-and-panels.md) ·
+  [Dimensions & Explore](docs/core-concepts/dimensions-and-explore.md) ·
+  [JSON API](docs/core-concepts/api.md)
 - Cookbook: [Grafana proxy](docs/cookbook/connect-via-grafana-proxy.md) ·
   [annotations](docs/cookbook/annotations.md) · [MCP](docs/cookbook/mcp.md)
-- Extending: [custom cards](docs/extension-points/custom-cards.md) ·
+- Extending: [custom panels](docs/extension-points/custom-panels.md) ·
   [custom detail pages](docs/extension-points/detail-pages.md) ·
   [custom drivers](docs/extension-points/custom-drivers.md) ·
   [issue trackers](docs/extension-points/issue-trackers.md)
@@ -107,8 +112,14 @@ Full documentation lives in [`docs/`](docs/index.md):
 
 ```bash
 composer check   # pint + phpstan (level 8) + pest — must pass
-npm run build    # rebuild the ECharts bundle in public/
+npm install
+npm test         # vitest (SPA unit tests)
+npm run build    # typecheck + vite build into public/build (commit the result)
 ```
+
+The SPA source lives in `resources/app/`. After any UI change, run
+`npm run build` and commit `public/build` — hosts install the package without
+Node, so the built assets are part of the release.
 
 ## License
 

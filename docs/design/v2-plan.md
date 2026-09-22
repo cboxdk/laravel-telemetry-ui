@@ -40,7 +40,7 @@ with 502/403/422/404.
 | GET | `/explore/{signal}` | signal ∈ requests/traces/logs/errors: `{rows, stats, groups?, heatmap?, sample: {size, exact}}`; params `q`, `groupBy`, `limit` |
 | GET | `/facets/{signal}` | `{facets: [{key, label, group, values: [{value, count}]}], exact, sample}`; params `keys[]` |
 | GET | `/entities/{type}` | entity index: top values with RED (a group-by over the type's key) |
-| GET | `/entities/{type}/{value}` | the story: headline, RED, trend, top dimensions, slowest/failing traces, correlated errors, deploys, raw, panels |
+| GET | `/entities/{type}/story?value=` | the story: headline, RED, trend, top dimensions, slowest/failing traces, correlated errors, deploys, raw, panels |
 | GET | `/traces/{id}` | trace + waterfall + chain + identities + SignalContext + TraceProfile + RequestReport + TraceLogs |
 | GET | `/errors/{group}` | ErrorGroupReport (stats, occurrences, detail, request, suspect deploy, releases, draft) |
 | GET | `/issues/{id}` · POST `/issues` | tracker issue · create ticket (`manageTelemetryUi`) |
@@ -57,7 +57,7 @@ bootstrap `<script type="application/json">`). Hashed chunks under `{path}/build
 | `/` | Overview (dashboard panels) |
 | `/explore/$signal` | Explore: filter bar, facet panel, stats, heatmap, group-by, virtual list |
 | `/entities/$type` | entity index (routes, queries, views, hosts, jobs, declared dimensions) |
-| `/entities/$type/$value` | entity story page, Raw tab last |
+| `/entity/$type?value=…` | entity story page, Raw tab last (values carry slashes, so they travel as a query param) |
 | `/p/$page` | any registered page (Jobs, Queues, Cache, Statamic …) as a panel grid |
 | `/errors/$group` | full issue page |
 | `/traces/$traceId` | full trace page |
