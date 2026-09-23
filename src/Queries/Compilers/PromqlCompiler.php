@@ -27,8 +27,12 @@ final class PromqlCompiler
         if ($query->quantile !== null) {
             $by = [...$query->by, 'le'];
 
-            return 'histogram_quantile('.self::number($query->quantile)
+            $expr = 'histogram_quantile('.self::number($query->quantile)
                 .', sum by ('.implode(', ', $by).') (rate('.$selector.'['.$query->window.'])))';
+
+            // The scalar applies to quantiles too (seconds histograms ×1000
+            // → ms) — it used to be dropped here, charting p95 in seconds.
+            return $query->scalar !== null ? $expr.' * '.self::number($query->scalar) : $expr;
         }
 
         $expr = $this->inner($query, $selector);

@@ -46,7 +46,7 @@ breaks a driver that does not have it.
 
 - **`Contracts\EnumeratesMetricNames`** — `metricNamesMatching(array $patterns,
   string $scope = '')` returns the metric names present that match any of the
-  patterns. [Page detection](../core-concepts/pages-and-cards.md#autodetected-pages)
+  patterns. [Page detection](../core-concepts/pages-and-panels.md#autodetected-pages)
   asks about every registered pattern on every request; a driver with this
   capability answers all of them in one call instead of one `count()` query per
   pattern. Prometheus/Mimir resolve it from the series index. Return only names
@@ -55,8 +55,11 @@ breaks a driver that does not have it.
 - **`Contracts\ProbesConnection`** — `probe()` answers "is this connection
   usable?" without running a dashboard query.
 - **`Contracts\AggregatesSpans`** — server-side span aggregation for a traces
-  driver that can do it exactly (a ClickHouse store can; Tempo cannot).
+  driver that can do it exactly (a ClickHouse store can; Tempo cannot). With
+  it, Explore facets and group-by are exact over every matching span; without
+  it they are counted over a labelled sample. See
+  [dimensions & Explore](../core-concepts/dimensions-and-explore.md#facets-and-group-by-exact-or-sampled).
 
 Issue trackers are already a fourth signal on the same pattern: implement
 [`IssuesSource`](issue-trackers.md) (GitHub, Sentry and Linear ship built in)
-and, optionally, `CreatesIssues` — no changes to the card model.
+and, optionally, `CreatesIssues` — no changes to the panel model.

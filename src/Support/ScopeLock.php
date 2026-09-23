@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Support;
 
-use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +19,7 @@ use Illuminate\Support\Facades\Auth;
  * fail closed, never open), and a resolver that returns neither key (or is
  * absent) leaves both dimensions unrestricted.
  *
- * The scope switcher only offers the allowed values, and {@see Card}
+ * The scope switcher only offers the allowed values, and every panel
  * forces every query into them — so a locked viewer can't reach another
  * tenant's data by hand-editing `?service=` or by leaving it blank (which would
  * otherwise query all services). Bound request-scoped, so it never leaks one

@@ -1,0 +1,5 @@
+/* What a host imports: the design tokens and the components, and nothing that
+ * touches the document. Fonts are a separate import (fonts.css) so a host can
+ * use its own. */
+@import './tokens.css';
+@import './app.css';

@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\QueryPerformance;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Contracts\AggregatesSpans;
 use Cbox\TelemetryUi\Contracts\TracesSource;
@@ -10,8 +9,6 @@ use Cbox\TelemetryUi\Queries\Ir\SpanAggregation;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Queries\Results\SpanBucket;
 use Cbox\TelemetryUi\Queries\Results\Trace;
-use DateTimeInterface;
-use Livewire\Livewire;
 
 /**
  * A traces backend that aggregates server-side — the ClickHouse-store capability,
@@ -53,12 +50,13 @@ it('uses exact server-side aggregation when the traces backend supports it', fun
     app(ConnectionManager::class)->extend('agg-stub', static fn (array $config): TracesSource => $stub);
     config()->set('telemetry-ui.connections.traces', ['driver' => 'agg-stub']);
 
-    Livewire::test(QueryPerformance::class)
+    $this->getJson(panelUrl('query-performance'))
         ->assertOk()
-        ->assertSee('Exact aggregation over every matching span')
-        ->assertSee('select * from "orders" where "id" = ?')
-        ->assertSee('update "users" set "seen_at" = ?')
+        ->assertJsonPath('exact', true)
+        ->assertSee('Exact aggregation over every matching span', false)
         // Ranked by total time: orders (96s) above the update (48s), even though
         // the update runs 4× as often — the New Relic insight.
-        ->assertSeeInOrder(['select * from "orders" where "id" = ?', 'update "users" set "seen_at" = ?']);
+        ->assertJsonPath('rows.0.query.v', 'select * from "orders" where "id" = ?')
+        ->assertJsonPath('rows.1.query.v', 'update "users" set "seen_at" = ?')
+        ->assertJsonPath('rows.0.system.v', 'pgsql');
 });

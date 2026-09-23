@@ -3,12 +3,11 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\Analysis\RequestReport;
-use Cbox\TelemetryUi\Cards\Builtin\TraceSearch;
 use Cbox\TelemetryUi\Queries\Results\Span;
 use Cbox\TelemetryUi\Queries\Results\SpanKind;
 use Cbox\TelemetryUi\Queries\Results\Trace;
+use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 function reportSpan(string $id, string $name, SpanKind $kind, array $attributes, int $ms = 10, ?string $parent = 'root'): Span
 {
@@ -36,7 +35,7 @@ it('tells the request as readable sections instead of raw spans', function (): v
             'http.response.status_code' => 200,
             'client.address' => '203.0.113.9',
             'user_agent.original' => 'Mozilla/5.0',
-            'enduser.id' => 7,
+            'user.id' => 7,
             'db.query.count' => 4,
             'db.query.time_ms' => 38.5,
             'cache.event.count' => 3,
@@ -48,8 +47,8 @@ it('tells the request as readable sections instead of raw spans', function (): v
 
     $trace = new Trace('abc123abc123abc123abc123abc123ab', [
         $root,
-        reportSpan('s1', 'db.query', SpanKind::Client, ['db.query.text' => 'select * from users where id = ?', 'db.namespace' => 'mysql'], 12),
-        reportSpan('s2', 'db.query', SpanKind::Client, ['db.query.text' => 'select * from users where id = ?', 'db.namespace' => 'mysql'], 9),
+        reportSpan('s1', 'db.query', SpanKind::Client, ['db.query.text' => 'select * from users where id = ?', 'laravel.db.connection' => 'mysql'], 12),
+        reportSpan('s2', 'db.query', SpanKind::Client, ['db.query.text' => 'select * from users where id = ?', 'laravel.db.connection' => 'mysql'], 9),
         reportSpan('s3', 'cache.miss', SpanKind::Client, ['cache.key' => 'shop:promo'], 1),
         reportSpan('s4', 'cache.hit', SpanKind::Client, ['cache.key' => 'shop:count'], 1),
         reportSpan('s5', 'redis GET', SpanKind::Client, ['db.operation.name' => 'GET shop:count'], 2),
@@ -104,10 +103,11 @@ it('adapts to a job trace with no http facts', function (): void {
 it('composes purpose-built filters into traceql', function (): void {
     Http::fake(['tempo.test:3200/api/search*' => Http::response(['traces' => []])]);
 
-    Livewire::test(TraceSearch::class)
-        ->set('statusCode', '5xx')
-        ->set('path', '/checkout')
-        ->set('ip', '203.0.113.9');
+    $this->getJson(panelUrl('trace-search', [
+        'status_code' => '5xx',
+        'path' => '/checkout',
+        'ip' => '203.0.113.9',
+    ]))->assertOk();
 
     Http::assertSent(function ($request): bool {
         $q = rawurldecode(requestQuery($request)['q'] ?? '');
@@ -122,5 +122,22 @@ it('composes purpose-built filters into traceql', function (): void {
         return str_contains($q, 'span.url.path =~')
             && str_contains($q, 'checkout')
             && str_contains($q, 'span.client.address = "203.0.113.9"');
+    });
+});
+
+it('forces a raw traceql query into the tenancy scope lock', function (): void {
+    Http::fake(['tempo.test:3200/api/search*' => Http::response(['traces' => []])]);
+
+    app(TelemetryUiManager::class)->restrictScopeUsing(fn ($user): array => ['services' => ['checkout']]);
+
+    $this->getJson(panelUrl('trace-search', ['q' => '{ span.http.route = "/orders" }']))
+        ->assertOk()
+        ->assertJsonFragment(['param' => 'q', 'label' => 'TraceQL', 'type' => 'search', 'value' => '{ span.http.route = "/orders" }', 'placeholder' => '{ span.http.route = "/orders" && duration > 500ms }']);
+
+    Http::assertSent(function ($request): bool {
+        $q = rawurldecode(requestQuery($request)['q'] ?? '');
+
+        return str_contains($q, 'span.http.route = "/orders"')
+            && str_contains($q, 'resource.service.name = "checkout"');
     });
 });

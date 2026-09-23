@@ -2,13 +2,8 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\FrontendFetches;
-use Cbox\TelemetryUi\Cards\Builtin\FrontendPages;
-use Cbox\TelemetryUi\Cards\Builtin\TraceSearch;
-use Cbox\TelemetryUi\Cards\Builtin\UnifiedErrors;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 function errorSpan(string $type, string $message, string $file, int $line): array
 {
@@ -24,7 +19,7 @@ function errorSpan(string $type, string $message, string $file, int $line): arra
 it('scopes trace search to browser spans when the source is frontend', function (): void {
     Http::fake(['tempo.test:3200/api/search*' => Http::response(['traces' => []])]);
 
-    Livewire::test(TraceSearch::class)->set('source', 'frontend');
+    $this->getJson(panelUrl('trace-search', ['source' => 'frontend']))->assertOk();
 
     // Browser/RUM spans are tagged span.browser=true by the ingest proxy.
     Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'span.browser = true'));
@@ -33,7 +28,7 @@ it('scopes trace search to browser spans when the source is frontend', function 
 it('excludes browser spans when the source is backend', function (): void {
     Http::fake(['tempo.test:3200/api/search*' => Http::response(['traces' => []])]);
 
-    Livewire::test(TraceSearch::class)->set('source', 'backend');
+    $this->getJson(panelUrl('trace-search', ['source' => 'backend']))->assertOk();
 
     // Not span.browser != true — TraceQL can't evaluate missing attributes,
     // so that filter silently matched nothing on real data.
@@ -71,13 +66,13 @@ it('unifies frontend and backend errors into one list grouped by fingerprint', f
         ]),
     ]);
 
-    Livewire::test(UnifiedErrors::class)
+    $this->getJson(panelUrl('unified-errors'))
+        ->assertOk()
         ->assertSee('TypeError')
         ->assertSee('RuntimeException')
-        ->assertSeeHtml('full-stack')                          // shared fingerprint seen in both browser + backend
-        ->assertSeeHtml('error-detail')                        // row opens the issue's show page
-        ->assertSeeHtml('group='.$shared)
-        ->assertSeeHtml('tui-badge-web');
+        ->assertJsonFragment(['v' => 'full-stack', 'badge' => 'full-stack'])   // shared fingerprint seen in both browser + backend
+        ->assertJsonFragment(['_link' => ['to' => 'error', 'group' => $shared]]) // row opens the issue's page
+        ->assertJsonFragment(['v' => 'server', 'badge' => 'server', 'tone' => 'info']);
 });
 
 it('aggregates real-user page performance by path', function (): void {
@@ -107,12 +102,14 @@ it('aggregates real-user page performance by path', function (): void {
         ]),
     ]);
 
-    Livewire::test(FrontendPages::class)
+    $this->getJson(panelUrl('frontend-pages'))
+        ->assertOk()
         ->assertSee('Page loads')      // stats strip
         ->assertSee('Avg TTFB')
         ->assertSee('/orders')         // grouped by path, query dropped
         ->assertSee('/checkout')
-        ->assertDontSee('ref=x');      // path only, no query string
+        ->assertDontSee('ref=x')       // path only, no query string
+        ->assertJsonFragment(['_link' => ['to' => 'entity', 'type' => 'path', 'value' => '/orders']]);
 });
 
 it('lists failed browser fetches grouped by url', function (): void {
@@ -129,8 +126,9 @@ it('lists failed browser fetches grouped by url', function (): void {
         ]),
     ]);
 
-    Livewire::test(FrontendFetches::class)
+    $this->getJson(panelUrl('frontend-fetches'))
+        ->assertOk()
         ->assertSee('api.stripe.com/v1/charges')
         ->assertSee('503')
-        ->assertSeeHtml('data-row-trace="cccc1111cccc1111cccc1111cccc1111"');
+        ->assertJsonPath('rows.0._link', ['to' => 'trace', 'id' => 'cccc1111cccc1111cccc1111cccc1111']);
 });

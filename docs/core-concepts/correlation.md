@@ -1,7 +1,7 @@
 ---
 title: Signal correlation
 description: Host and runtime signals recorded around a trace, each vs. its typical baseline
-weight: 4
+weight: 6
 ---
 
 # Signal correlation

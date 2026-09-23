@@ -69,7 +69,7 @@ it('fetches a full trace and flattens otlp spans', function (): void {
                                     'attributes' => [
                                         ['key' => 'http.route', 'value' => ['stringValue' => 'orders']],
                                         ['key' => 'http.response.status_code', 'value' => ['intValue' => '500']],
-                                        ['key' => 'enduser.id', 'value' => ['intValue' => '7']],
+                                        ['key' => 'user.id', 'value' => ['intValue' => '7']],
                                     ],
                                     'status' => ['code' => 'STATUS_CODE_ERROR'],
                                 ],
@@ -100,7 +100,7 @@ it('fetches a full trace and flattens otlp spans', function (): void {
         ->and($trace->root()?->serviceName)->toBe('checkout')
         ->and($trace->root()?->hasError)->toBeTrue()
         ->and($trace->root()?->attributes['http.response.status_code'])->toBe(500)
-        ->and($trace->root()?->attributes['enduser.id'])->toBe(7)
+        ->and($trace->root()?->attributes['user.id'])->toBe(7)
         ->and($trace->hasError())->toBeTrue()
         ->and($trace->durationMs())->toBe(812.0);
 

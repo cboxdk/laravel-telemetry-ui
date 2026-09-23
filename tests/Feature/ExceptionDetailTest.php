@@ -4,9 +4,16 @@ declare(strict_types=1);
 
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
 use Cbox\TelemetryUi\TelemetryUiManager;
-use Cbox\TelemetryUi\TraceDrawer;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
+use Illuminate\Testing\TestResponse;
+
+/**
+ * The issue deep-dive panel for one error group (v1: the exception drawer).
+ */
+function groupDetail(string $group): TestResponse
+{
+    return test()->getJson(panelUrl('error-group-detail', ['group' => $group]))->assertOk();
+}
 
 /**
  * Backend exception records as they land in Loki: line "exception", the
@@ -49,7 +56,7 @@ function fakeExceptionRecords(): void
                         ['key' => 'http.request.method', 'value' => ['stringValue' => 'POST']],
                         ['key' => 'http.route', 'value' => ['stringValue' => '/orders']],
                         ['key' => 'http.response.status_code', 'value' => ['intValue' => '500']],
-                        ['key' => 'enduser.id', 'value' => ['intValue' => '7']],
+                        ['key' => 'user.id', 'value' => ['intValue' => '7']],
                     ]],
                 ]]],
             ]],
@@ -61,15 +68,13 @@ function fakeExceptionRecords(): void
 it('opens an exception group with stacktrace, source context and occurrences', function (): void {
     fakeExceptionRecords();
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-exception', group: 'abc123def456')
-        ->assertSet('exceptionGroup', 'abc123def456')
+    $response = groupDetail('abc123def456')
+        ->assertJsonPath('kind', 'composite')
         ->assertSee('PaymentDeclined')
         ->assertSee('Card declined by issuer')
         ->assertSee('app/Services/Checkout.php:42')
         ->assertSee('#0 app/Services/Checkout.php(42): charge()')      // stacktrace off the Loki record
         ->assertSee('throw new PaymentDeclined();')                    // source context
-        ->assertSeeHtml('is-throw-line')                               // throw line highlighted
         ->assertSee('backend')
         // Sentry-style context: env/release/host facts off the record…
         ->assertSee('production')
@@ -80,18 +85,21 @@ it('opens an exception group with stacktrace, source context and occurrences', f
         ->assertSee('500')
         ->assertSee('#7')
         // Root-cause hints: every sampled occurrence carries one release.
-        ->assertSee('Seen in:')
+        ->assertSee('Seen in')
         ->assertSee('only this release')
-        // Occurrences link to their traces (stacking onto the drawer).
-        ->assertSeeHtml('data-trace-id="1111111111111111aaaaaaaaaaaaaaaa"');
+        // Occurrences link to their traces.
+        ->assertJsonFragment(['_link' => ['to' => 'trace', 'id' => '1111111111111111aaaaaaaaaaaaaaaa']]);
+
+    // The throw line of the source snippet is flagged for highlighting.
+    $source = collect((array) $response->json('parts'))->firstWhere('kind', 'code');
+    expect($source['title'])->toBe('Source · app/Services/Checkout.php:42')
+        ->and($source['highlight'])->toBe([2]);
 });
 
-it('deep links from ?exception= and filters loki on the fingerprint label', function (): void {
+it('deep links from ?group= and filters loki on the fingerprint label', function (): void {
     fakeExceptionRecords();
 
-    Livewire::withQueryParams(['exception' => 'abc123def456'])
-        ->test(TraceDrawer::class)
-        ->assertSee('PaymentDeclined');
+    groupDetail('abc123def456')->assertSee('PaymentDeclined');
 
     Http::assertSent(function ($request): bool {
         $url = rawurldecode($request->url());
@@ -125,13 +133,12 @@ it('falls back to browser exception spans for a frontend group', function (): vo
         ]),
     ]);
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-exception', group: $group)
+    groupDetail($group)
         ->assertSee('TypeError')
         ->assertSee('Cannot read foo of undefined')
         ->assertSee('frontend')
         ->assertSee('Browser errors carry no stacktrace')
-        ->assertSeeHtml('data-trace-id="2222222222222222bbbbbbbbbbbbbbbb"');
+        ->assertJsonFragment(['_link' => ['to' => 'trace', 'id' => '2222222222222222bbbbbbbbbbbbbbbb']]);
 });
 
 it('names the deploy closest before first-seen as the root-cause suspect', function (): void {
@@ -159,8 +166,7 @@ it('names the deploy closest before first-seen as the root-cause suspect', funct
         'tempo.test:3200/*' => Http::response(['traces' => []]),
     ]);
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-exception', group: 'abc123def456')
+    groupDetail('abc123def456')
         ->assertSee('Root cause hints')
         ->assertSee('Deploy v9.1.0')
         ->assertSee('later')                // "first seen 18 minutes later"
@@ -175,8 +181,7 @@ it('forces the exception lookups inside the tenancy scope lock', function (): vo
 
     app(TelemetryUiManager::class)->restrictScopeUsing(fn ($user): array => ['services' => ['checkout']]);
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-exception', group: 'abc123def456');
+    groupDetail('abc123def456');
 
     Http::assertSent(function ($request): bool {
         $url = rawurldecode($request->url());
@@ -198,9 +203,8 @@ it('forces the exception lookups inside the tenancy scope lock', function (): vo
 it('rejects an error-group id with query metacharacters without querying', function (): void {
     Http::fake();
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-exception', group: 'x" } || { span.a = "b')
-        ->assertSee('Not a valid error-group id');
+    groupDetail('x" } || { span.a = "b')
+        ->assertJsonPath('error', 'Not a valid error-group id.');
 
     Http::assertNothingSent();
 });
@@ -211,7 +215,7 @@ it('shows an empty state when the group has no recent occurrences', function ():
         'tempo.test:3200/*' => Http::response(['traces' => []]),
     ]);
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-exception', group: 'abc123def456')
+    groupDetail('abc123def456')
+        ->assertJsonPath('parts', [])
         ->assertSee('No occurrences of this error group');
 });

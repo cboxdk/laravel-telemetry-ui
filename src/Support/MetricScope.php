@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Support;
 
-use Cbox\TelemetryUi\Cards\Concerns\ScopesQueries;
+use Cbox\TelemetryUi\Support\Concerns\ScopesQueries;
 
 /**
  * The PromQL label matchers for the current viewer's scope selection — the same

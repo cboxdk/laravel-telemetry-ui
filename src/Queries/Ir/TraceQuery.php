@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Queries\Ir;
 
-use Cbox\TelemetryUi\Cards\Concerns\ScopesQueries;
+use Cbox\TelemetryUi\Support\Concerns\ScopesQueries;
 
 /**
  * A backend-neutral trace search: an AND-joined set of span conditions plus an

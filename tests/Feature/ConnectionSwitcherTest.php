@@ -3,27 +3,25 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\Facades\TelemetryUi;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
-    Gate::define('viewTelemetryUi', fn (?object $user = null, ?string $page = null): bool => true);
-
     Http::fake([
         'prometheus.test:9090/api/v1/label/*' => Http::response(['status' => 'success', 'data' => []]),
         'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
     ]);
 });
 
-it('renders the host connections as a native select in the header', function (): void {
+it('offers the host connections in bootstrap, in order', function (): void {
     TelemetryUi::connection('prod', 'Production', '/desktop/connect/prod');
     TelemetryUi::connection('staging', 'Staging', '/desktop/connect/staging');
 
-    $this->get('/telemetry-ui')
+    $this->getJson(apiUrl('bootstrap'))
         ->assertOk()
-        ->assertSee('<select class="tui-connection-select"', false)
-        ->assertSee('<option value="prod" data-url="/desktop/connect/prod">Production</option>', false)
-        ->assertSee('<option value="staging" data-url="/desktop/connect/staging">Staging</option>', false);
+        ->assertJsonPath('connections', [
+            ['value' => 'prod', 'label' => 'Production', 'url' => '/desktop/connect/prod'],
+            ['value' => 'staging', 'label' => 'Staging', 'url' => '/desktop/connect/staging'],
+        ]);
 });
 
 it('marks the connection the host says is current', function (): void {
@@ -31,67 +29,45 @@ it('marks the connection the host says is current', function (): void {
     TelemetryUi::connection('staging', 'Staging', '/desktop/connect/staging');
     TelemetryUi::currentConnection('staging');
 
-    $this->get('/telemetry-ui')
-        ->assertOk()
-        ->assertSee('<option value="staging" data-url="/desktop/connect/staging" selected>Staging</option>', false)
-        ->assertDontSee('<option value="prod" data-url="/desktop/connect/prod" selected>', false)
-        // With a real selection there is no placeholder to hold the slot.
-        ->assertDontSee('Connection…');
+    $this->getJson(apiUrl('bootstrap'))->assertOk()->assertJsonPath('currentConnection', 'staging');
 });
 
 it('claims no connection when the host has not said which is live', function (): void {
     TelemetryUi::connection('prod', 'Production', '/desktop/connect/prod');
 
-    // Without a placeholder the browser would silently select the first option,
-    // so the control would assert a profile the host never confirmed.
-    $this->get('/telemetry-ui')
-        ->assertOk()
-        ->assertSee('<option value="" selected disabled>Connection…</option>', false);
+    // '' — the client renders a placeholder rather than silently selecting the
+    // first option and asserting a profile the host never confirmed.
+    $this->getJson(apiUrl('bootstrap'))->assertOk()->assertJsonPath('currentConnection', '');
 });
 
 it('claims no connection when the host names one it never registered', function (): void {
     TelemetryUi::connection('prod', 'Production', '/desktop/connect/prod');
     TelemetryUi::currentConnection('gone');
 
-    $this->get('/telemetry-ui')
-        ->assertOk()
-        ->assertSee('<option value="" selected disabled>Connection…</option>', false);
+    $this->getJson(apiUrl('bootstrap'))->assertOk()->assertJsonPath('currentConnection', '');
 
     expect(TelemetryUi::selectedConnection())->toBe('');
 });
 
-it('renders nothing at all when the host registers no connections', function (): void {
-    $this->get('/telemetry-ui')
+it('offers nothing at all when the host registers no connections', function (): void {
+    $this->getJson(apiUrl('bootstrap'))
         ->assertOk()
-        ->assertDontSee('tui-connection-select')
-        ->assertDontSee('Connection…');
+        ->assertJsonPath('connections', [])
+        ->assertJsonPath('currentConnection', '');
 
     expect(TelemetryUi::connections())->toBe([]);
 });
 
-it('renders on trace pages too, so a drilled-in reader can still switch', function (): void {
-    TelemetryUi::connection('prod', 'Production', '/desktop/connect/prod');
-
-    Http::fake([
-        'tempo.test:3200/*' => Http::response(['batches' => []]),
-        'prometheus.test:9090/api/v1/label/*' => Http::response(['status' => 'success', 'data' => []]),
-        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
-    ]);
-
-    $this->get('/telemetry-ui/traces/'.str_repeat('a', 32))
-        ->assertOk()
-        ->assertSee('data-url="/desktop/connect/prod"', false);
-});
-
-it('escapes the label and the url rather than trusting the host', function (): void {
+it('hands host strings over as data, byte for byte', function (): void {
     TelemetryUi::connection('x', '<script>alert(1)</script>', '/a"onmouseover="alert(1)');
 
-    $this->get('/telemetry-ui')
+    // JSON is data: the value round-trips exactly and the client renders it as
+    // text (React escapes). Nothing is pre-escaped or dropped server-side.
+    $this->getJson(apiUrl('bootstrap'))
         ->assertOk()
-        ->assertDontSee('<script>alert(1)</script>', false)
-        ->assertDontSee('onmouseover="alert(1)"', false)
-        // Escaped, not dropped — the option is still usable.
-        ->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false);
+        ->assertJsonPath('connections.0.label', '<script>alert(1)</script>')
+        ->assertJsonPath('connections.0.url', '/a"onmouseover="alert(1)')
+        ->assertHeader('Content-Type', 'application/json');
 });
 
 it('replaces a connection registered twice under one value', function (): void {

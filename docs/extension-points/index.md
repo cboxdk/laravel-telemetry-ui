@@ -1,120 +1,153 @@
 ---
 title: Developer integrations
-description: Build custom cards, pages, widgets, drivers and tools on the card kit — reuse the query + chart engine, don't rebuild it
+description: Build custom panels, pages, dimensions, drivers and tools — reuse the query + chart engine, don't rebuild it
 weight: 40
 ---
 
 # Developer integrations
 
-Telemetry UI isn't just a finished dashboard — it's a toolkit. A card is a
-Livewire component with a query engine, a chart engine, scope/tenancy and
-lazy-loading already wired in, so a new component is a few lines, not a project.
-This page is the map; the linked pages go deep.
+Telemetry UI isn't just a finished dashboard — it's a toolkit. A panel is a
+plain PHP class with a query engine, chart helpers and scope/tenancy already
+wired in, so a new panel is a few lines, not a project. This page is the map;
+the linked pages go deep.
 
 You can:
 
-- **Add cards** to any page (or a whole new page / "module").
-- **Replace or remove** built-in cards and pages (white-label the dashboard).
-- **Embed** any card as a widget on your own pages.
-- **Add backends** (custom drivers / "exporters").
+- **Add panels** to any page (or a whole new page / "module").
+- **Replace or remove** built-in panels and pages (white-label the dashboard).
+- **Declare dimensions** so your own attributes become facets, chips and
+  entity pages.
+- **Attach detail panels** to an entity page.
+- **Read the JSON API** from your own code or pages.
+- **Add backends** (custom drivers).
 - **Add MCP tools** for agents.
 - Hook **auth** and **multi-tenant scope**.
 
-## Build a card
+## Build a panel
 
-Every card extends `Cbox\TelemetryUi\Cards\Card`. The terse path — a whole
-metric chart in three lines — is `promChart()`:
+Every panel extends `Cbox\TelemetryUi\Panels\Panel` and returns a payload from
+`data()`. The terse path — a whole metric chart in one call — is `promChart()`:
 
 ```php
-use Cbox\TelemetryUi\Cards\Card;
-use Illuminate\Contracts\View\View;
+use Cbox\TelemetryUi\Panels\Panel;
 
-final class QueueDepth extends Card
+final class QueueDepth extends Panel
 {
-    public function render(): View
+    public function data(): array
     {
         // Queries the range, converts the series, catches backend errors,
-        // draws the shared chart — with the current scope already applied.
+        // returns a chart payload — with the current scope already applied.
         return $this->promChart('Queue depth', $this->metric('queue_size'), unit: 'number', stat: 'Now');
     }
 }
 ```
 
-Register it and it inherits scope, zoom, deploy annotations, lazy-loading,
-embedding and the gate:
+Register it and it inherits scope, brush-to-zoom, deploy annotations,
+auto-refresh and the gate:
 
 ```php
-TelemetryUi::card(QueueDepth::class, page: 'jobs');
+TelemetryUi::panel(QueueDepth::class, page: 'jobs');
 ```
 
 Need more control? Build the series yourself and call `chartCard()`, or return
-your own Blade view using the [components](#blade-components) — the built-in
-cards do both. Always query through `$this->metrics()/traces()/logs()` and catch
-`SourceException`.
+a table, stats row, bars or any other kind with the `Ui` builders. The kinds
+are listed in [pages & panels](../core-concepts/pages-and-panels.md#the-payload-contract);
+the toolkit and conventions are in [custom panels](custom-panels.md).
 
-### The card toolkit
+## Declare a panel instead of coding it
 
-Everything below is a `protected` method on `Card` — the engine you reuse:
+A chart over a metric needs no class — useful when the metric comes from a
+sidecar in another language (Go, Rust, anything exporting OTLP), where there
+is no PHP to hang a panel on:
 
-| Group | Methods | What you get |
-| --- | --- | --- |
-| **Time** | `range()` → `[start, end]` · `period()` · `rangeSeconds()` · `promDuration()` · `rateWindow()` | The selected window / preset / zoom, and PromQL-ready duration strings. |
-| **Scope** (service/env + tenancy, escaped) | `metric($name, $extra='')` · `traceScope($extra='')` · `logSelector($extra='')` · `scopeMatchers()` (override) · `escapeLabelValue()` | Queries scoped to the active service/environment and the per-viewer scope lock — you never build matchers by hand. |
-| **Backends** | `metrics()` · `traces()` · `logs()` · `issues()` (each takes an optional connection name) | The configured drivers, resolved lazily (custom drivers included). |
-| **Query helpers** | `total($promql)` · `sumSamples($samples)` · `trendByKey($promql, $start, $end, $key)` | Common aggregations without boilerplate. |
-| **Charts** | `promChart(...)` · `chartCard($title, $series, $stats, $type, $unit, …)` · `toChartSeries($timeSeries, $label)` · `stat($label, $value, $tone)` | The ECharts engine + stat tiles. `promChart` is one call; `chartCard` + `toChartSeries` is the flexible path. Deploy annotations, drag-zoom, tooltips and the error/empty states are handled. |
-| **Annotations** | `annotations()` · `annotationMarks()` | Deploy/incident markers for the scope, ready for a chart. |
-| **Lazy** | `placeholder()` (override) | The skeleton shown while the card streams in. |
+```php
+TelemetryUi::page('indexer', 'Indexer', group: 'Infrastructure');
+TelemetryUi::setPanels('indexer', []);            // no built-ins on this page
 
-`promChart(string $title, string $promql, ?string $subtitle = null, ?string $seriesLabel = null, string $type = 'line', ?string $unit = null, int $span = 1, ?string $stat = null, ?string $statQuery = null)` — a grouped query (`sum by (x)(…)`) yields multiple lines; `$unit` (`bytes`/`ms`/`ratio`/…) picks the stat formatter.
+TelemetryUi::metricPanel('indexer-queue', page: 'indexer',
+    title: 'Queue depth', metric: 'indexer_queue_depth', type: 'area', stat: 'Now');
 
-## Blade components
+TelemetryUi::metricPanel('indexer-docs', page: 'indexer', span: 2,
+    title: 'Documents indexed', metric: 'indexer_docs_total', rate: true, by: 'status');
 
-For table or bespoke cards, wrap your view in these (namespace `telemetry-ui`):
+TelemetryUi::metricPanel('indexer-latency', page: 'indexer',
+    title: 'Latency p95', metric: 'indexer_duration_seconds_bucket', quantile: 0.95, unit: 'ms');
+```
 
-| Component | Use |
-| --- | --- |
-| `<x-telemetry-ui::card title=… subtitle=… span="2">` | The card shell (header, actions slot, span). |
-| `<x-telemetry-ui::stats :items="$stats" />` | A row of stat tiles (from `stat()`). |
-| `<x-telemetry-ui::chart … />` | The ECharts canvas, if you're not using `chartCard()`. |
-| `<x-telemetry-ui::sparkline :points="…" />` | Inline row sparkline. |
-| `<x-telemetry-ui::scope-switcher />` · `<x-telemetry-ui::period-selector />` | The scope/time controls (already in the dashboard chrome). |
+A gauge reads as itself, `rate: true` turns a counter into per-minute
+throughput, `quantile:` reads a histogram, `by:` splits the series by a label
+and `where:` adds label matchers. Declared panels get the same scope, gate,
+auto-refresh, deploy markers and brush-to-zoom as coded ones — they are just
+configuration instead of code. Reach for a panel class when the payload isn't a chart
+(tables, composites, stories).
+
+## A routing layer as its own area
+
+Some layers name their requests rather than emitting their own attribute:
+Livewire writes `livewire:{component}`, and a host's own layer might write
+`portal:{screen}`. One call makes that a first-class part of the dashboard:
+
+```php
+TelemetryUi::routeFamily('portal', label: 'Screens',
+    pattern: 'portal:{value}', dimension: 'portal.screen');
+```
+
+That registers a page (the family's throughput plus a per-value table with the
+prefix stripped, each row opening that value's page) **and** declares
+`portal.screen` as a [derived dimension](../core-concepts/dimensions-and-explore.md#a-dimension-that-lives-inside-another-attribute),
+so the same values become facets, chips, filters and entity pages everywhere
+else.
 
 ## Register: add, replace, remove
 
 ```php
 use Cbox\TelemetryUi\Facades\TelemetryUi;
 
-TelemetryUi::page('autoscale', 'Autoscale', group: 'Activity'); // a page (group = a "module")
-TelemetryUi::card(MyCard::class, page: 'autoscale');            // add
-TelemetryUi::setCards('dashboard', [MyHeadline::class]);        // replace a page's cards
-TelemetryUi::removeCard(JobsOverview::class, 'dashboard');      // remove one
-TelemetryUi::removePage('users');                              // remove a section
+TelemetryUi::page('autoscale', 'Autoscale', group: 'Queues'); // a page (group = a "module")
+TelemetryUi::panel(MyPanel::class, page: 'autoscale');       // add
+TelemetryUi::setPanels('dashboard', [MyHeadline::class]);    // replace a page's panels
+TelemetryUi::removePanel(JobsOverview::class, 'dashboard');  // remove one
+TelemetryUi::removePage('users');                            // remove a section
 ```
 
-Detail (drill-down) pages, hidden pages and the `ScopesTo*` traits are in
-[custom detail pages](detail-pages.md); the full card guide (subscribing to
-events, `wire:stream`, conventions) is in [custom cards](custom-cards.md).
+## Declare dimensions
+
+```php
+TelemetryUi::dimension('billing.customer_id', label: 'Customer', group: 'Billing',
+    link: fn ($id) => route('customers.show', $id));
+```
+
+The attribute becomes a facet, a group-by option, a filter chip and a
+clickable chip on every trace, and gets an entity page at
+`/entity/billing.customer_id?value=…`. See
+[dimensions & Explore](../core-concepts/dimensions-and-explore.md).
+
+Detail panels scoped to one entity, hidden pages, `entityPage()` and the
+`ScopesTo*` traits are in [custom detail pages](detail-pages.md).
 
 ## The rest of the surface
 
-- **[Embed cards as widgets](../cookbook/embed-widgets.md)** — drop a card on your
-  own page with `@telemetryUiAssets` + `<livewire:telemetry-ui.my-card … />`.
-- **[Custom drivers](custom-drivers.md)** — `ConnectionManager::extend('victoriametrics', fn ($config) => new MyDriver(...))` to add a backend; cards depend only on the contracts.
+- **[JSON API](../core-concepts/api.md)** — every screen's data under
+  `{path}/api/v2`, same gate and scope lock. Embedding cards as Livewire widgets
+  was removed in v2; link to the SPA or read the API instead.
+- **[Custom drivers](custom-drivers.md)** — `ConnectionManager::extend('victoriametrics', fn ($config) => new MyDriver(...))` to add a backend; panels depend only on the contracts.
 - **[Issue trackers](issue-trackers.md)** — add a tracker (or a list of repos) implementing `IssuesSource`.
+- **[Navigation](navigation.md)** — `TelemetryUi::navLink()` puts links out of the dashboard (your settings, your home) at the foot of the rail, for hosts that mount it as the whole UI.
 - **[View state](view-state.md)** — `TelemetryUi::viewState()` to read (and move) the reader's time window, auto-refresh interval and scope, plus the `ViewStateChanged` event; it survives reload and links that carry no query string.
 - **[Connection switcher](connection-switcher.md)** — `TelemetryUi::connection()` puts your backend profiles in the dashboard header, so switching doesn't mean leaving.
 - **[MCP server](../cookbook/mcp.md)** — `TelemetryUi::mcpTool(MyTool::class)` exposes a read tool to agents.
 - **[Authorization & tenancy](../core-concepts/authorization.md)** — the `viewTelemetryUi` / `manageTelemetryUi` gates, `TelemetryUi::restrictScopeUsing()` to lock a viewer to services/environments, and `TelemetryUi::resolveConnectionsUsing()` for per-tenant backends.
-- **Events** — listen to `Cbox\TelemetryUi\Events\DashboardViewed` (audit / usage metering: who viewed which page in which scope), `Cbox\TelemetryUi\Events\BackendQueried` (backend load metering: url, method, duration, ok — one per real backend hit, cached reads excluded) and `Cbox\TelemetryUi\Events\ViewStateChanged` (the reader moved the time window, refresh interval or scope).
-- **Branding** — `telemetry-ui.brand` config sets the sidebar `name`/`logo` and `accent` colour to white-label the dashboard; for deeper changes, publish and override the namespaced `telemetry-ui::` views.
+- **Events** — listen to `Cbox\TelemetryUi\Events\DashboardViewed` (audit / usage metering: who opened which page in which scope — fired when the SPA shell is served, so client-side navigation inside the app does not fire it again), `Cbox\TelemetryUi\Events\BackendQueried` (backend load metering: url, method, duration, ok — one per real backend hit, cached reads excluded) and `Cbox\TelemetryUi\Events\ViewStateChanged` (the reader moved the time window, refresh interval or scope).
+- **Branding** — `telemetry-ui.brand` config sets the `name`/`logo` and `accent` colour to white-label the dashboard. There are no views to override in v2; the SPA is prebuilt.
 
 ## Conventions
 
 - Query through `$this->metrics()/traces()/logs()` so named connections, custom
   drivers and tenancy keep working.
-- Catch `SourceException` and render an inline error (the chart helpers do this
-  for you) — a broken backend must never take the page down.
+- Never throw from `data()`: catch `SourceException` and return the payload with
+  an `error` key (the chart helpers do this for you) — a broken backend must
+  never take the page down.
 - Respect `$this->range()`; don't hardcode time windows.
+- Return links as `Ui::*` arrays, not URLs.
 - Boot stays cheap: register class-strings, never instantiate connectors in a
   service provider.

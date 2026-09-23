@@ -1,0 +1,74 @@
+import { useEffect, useMemo } from 'react';
+import type { Bootstrap } from '../../api/types';
+import { formatDrawer, parseDrawer, scopeOf, str, type DrawerEntry } from '../../lib/search';
+import { NavLink } from '../../lib/navigation';
+import { useSearchState, useSetSearch } from '../../lib/state';
+import { Icon } from '../Icon';
+import { ErrorGroupView } from './ErrorGroupView';
+import { IssueView } from './IssueView';
+import { TraceView } from './TraceView';
+
+function label(e: DrawerEntry): string {
+    return e.type === 'trace' ? `trace ${e.id.slice(0, 8)}` : e.type === 'error' ? `error ${e.id.slice(0, 8)}` : `#${e.id.replace(/^#/, '')}`;
+}
+
+/**
+ * The stacked, deep-linkable drawer. The stack lives in the URL
+ * (`drawer=trace:…~error:…`): opening a trace from an issue pushes, back pops,
+ * a shared link reopens the exact stack, and the browser back button walks it.
+ */
+export function DrawerStack({ boot }: { boot: Bootstrap }) {
+    const search = useSearchState();
+    const set = useSetSearch();
+    const drawer = str(search, 'drawer');
+    const stack = useMemo(() => parseDrawer(drawer), [drawer]);
+    const top = stack.at(-1);
+
+    useEffect(() => {
+        if (!top) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape' || (e.target as HTMLElement).closest('input,textarea,.t-modal,.t-palette')) return;
+            // An open menu takes the Escape first; otherwise pop one drawer (back to the one below).
+            if (document.querySelector('.t-popover')) return;
+            // Replace: the drawer is a view of this page, not a place of its own.
+            set({ drawer: stack.length > 1 ? formatDrawer(stack.slice(0, -1)) : undefined }, { replace: true });
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [top, set, stack]);
+
+    if (!top) return null;
+
+    const truncate = (n: number) => set({ drawer: formatDrawer(stack.slice(0, n)) || undefined }, { replace: true });
+    const full = top.type === 'trace' ? `/traces/${top.id}` : top.type === 'error' ? `/errors/${top.id}` : null;
+
+    return (
+        <aside className="t-drawer" aria-label="Detail">
+            <div className="t-drawer-bar">
+                {stack.length > 1 && (
+                    <button type="button" className="t-iconbtn" onClick={() => truncate(stack.length - 1)} title="Back"><Icon name="arrowLeft" size={14} /></button>
+                )}
+                <nav className="t-crumbs" aria-label="Drawer stack">
+                    {stack.map((e, i) => (
+                        <span key={`${e.type}:${e.id}:${i}`} className="t-crumb">
+                            {i > 0 && <Icon name="chevronRight" size={11} />}
+                            {i === stack.length - 1 ? <span className="mono">{label(e)}</span> : <button type="button" className="mono" onClick={() => truncate(i + 1)}>{label(e)}</button>}
+                        </span>
+                    ))}
+                </nav>
+                <span className="t-topbar-spacer" />
+                {full && (
+                    <NavLink to={full} search={scopeOf(search)} className="t-btn t-btn-sm t-btn-ghost" title="Open as a full page">
+                        <Icon name="external" size={12} />Full page
+                    </NavLink>
+                )}
+                <button type="button" className="t-iconbtn" onClick={() => set({ drawer: undefined }, { replace: true })} title="Close (Esc)"><Icon name="x" size={15} /></button>
+            </div>
+            <div className="t-drawer-body" key={`${top.type}:${top.id}`}>
+                {top.type === 'trace' && <TraceView traceId={top.id} />}
+                {top.type === 'error' && <ErrorGroupView group={top.id} />}
+                {top.type === 'issue' && (boot.capabilities.issues ? <IssueView id={top.id} /> : <div className="t-pad t-dim">No issue tracker configured.</div>)}
+            </div>
+        </aside>
+    );
+}

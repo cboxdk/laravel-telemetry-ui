@@ -14,4 +14,5 @@ UI. No agent, no vendor cloud, no data copied out of your infrastructure.
   gate the route, open the dashboard.
 
 Once it's up, keep going with [Core concepts](../core-concepts/) to understand
-connections, scope and how the screens are built.
+connections, scope, panels, dimensions and the JSON API the screens are built
+on.

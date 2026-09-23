@@ -1,11 +1,12 @@
 <?php
 
 declare(strict_types=1);
-use Cbox\TelemetryUi\Cards\Builtin\DeploysTimeline;
-use Cbox\TelemetryUi\Cards\Builtin\ExceptionsOverview;
-use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
-use Cbox\TelemetryUi\Cards\Builtin\RequestDuration;
-use Cbox\TelemetryUi\Cards\Builtin\RequestsActivity;
+use Cbox\TelemetryUi\Panels\Builtin\DeploysTimeline;
+use Cbox\TelemetryUi\Panels\Builtin\ExceptionsOverview;
+use Cbox\TelemetryUi\Panels\Builtin\JobsOverview;
+use Cbox\TelemetryUi\Panels\Builtin\RequestDuration;
+use Cbox\TelemetryUi\Panels\Builtin\RequestsActivity;
+use Cbox\TelemetryUi\Panels\Builtin\RoutesNeedingAttention;
 
 return [
 
@@ -14,8 +15,8 @@ return [
     | Enabled
     |--------------------------------------------------------------------------
     |
-    | Master switch. When disabled the package registers no routes and no
-    | Livewire components, making it completely inert (e.g. in queue
+    | Master switch. When disabled the package registers no routes at all —
+    | no SPA, no API, no assets — making it completely inert (e.g. in queue
     | workers or environments where the dashboard should not exist).
     |
     */
@@ -163,19 +164,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Branding
-    |--------------------------------------------------------------------------
-    |
-    | White-label the dashboard when embedding it in your own product: the
-    | sidebar name/logo and the accent colour. `name` defaults to your app
-    | name; `logo` is an image URL (shown before the name); `accent` is any CSS
-    | colour and overrides the green highlight. For deeper changes, publish and
-    | override the views (they're namespaced `telemetry-ui::`).
-    |
-    */
-
-    /*
-    |--------------------------------------------------------------------------
     | Copy link
     |--------------------------------------------------------------------------
     |
@@ -190,6 +178,47 @@ return [
 
     'copy_link' => env('TELEMETRY_UI_COPY_LINK', true),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Ignore the dashboard's own requests
+    |--------------------------------------------------------------------------
+    |
+    | Every panel, Explore query and page load is an HTTP request to the host
+    | app. With cboxdk/laravel-telemetry's ignorePaths() available, the
+    | dashboard asks it not to trace its own path, so it never drowns the
+    | app's real traffic. Set to false to trace the dashboard like any route.
+    |
+    */
+
+    'ignore_own_requests' => (bool) env('TELEMETRY_UI_IGNORE_OWN_REQUESTS', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Dimension names
+    |--------------------------------------------------------------------------
+    |
+    | How long a name resolved by TelemetryUi::resolve() (or a dimension's
+    | `resolve:` callback) is cached per value, in seconds. 0 disables caching.
+    |
+    */
+
+    'dimensions' => [
+        'label_ttl' => (int) env('TELEMETRY_UI_LABEL_TTL', 300),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Branding
+    |--------------------------------------------------------------------------
+    |
+    | White-label the dashboard when embedding it in your own product: the
+    | sidebar name/logo and the accent colour. `name` defaults to your app
+    | name; `logo` is an image URL (shown before the name); `accent` is any CSS
+    | colour and overrides the accent. There are no views to override in v2:
+    | for deeper changes, read the JSON API and build your own surface.
+    |
+    */
+
     'brand' => [
         'name' => env('TELEMETRY_UI_BRAND_NAME'),
         'logo' => env('TELEMETRY_UI_BRAND_LOGO'),
@@ -202,13 +231,31 @@ return [
     |--------------------------------------------------------------------------
     |
     | Rate limit for the dashboard routes, as "maxAttempts,decayMinutes".
-    | The dashboard fans out to the metrics/traces/logs backends on every
-    | render and auto-refresh tick, so this caps how hard a single client can
-    | drive them. Set to null to disable.
+    | The SPA fetches every panel, facet list and Explore query as its own
+    | small API request (and again on each auto-refresh tick), so the budget
+    | is per request, not per page. This caps how hard a single client can
+    | drive the backends. Set to null to disable.
     |
     */
 
-    'throttle' => env('TELEMETRY_UI_THROTTLE', '120,1'),
+    'throttle' => env('TELEMETRY_UI_THROTTLE', '600,1'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Live tail (SSE)
+    |--------------------------------------------------------------------------
+    |
+    | The log / request live tail streams over Server-Sent Events. The backends
+    | are pull-only, so the stream polls them every `interval` seconds and each
+    | connection lives `window` seconds before the browser reconnects (resuming
+    | from the last event) — a tail never pins a PHP worker indefinitely.
+    |
+    */
+
+    'stream' => [
+        'interval' => (int) env('TELEMETRY_UI_STREAM_INTERVAL', 2),
+        'window' => (int) env('TELEMETRY_UI_STREAM_WINDOW', 25),
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -480,7 +527,7 @@ return [
         'database-app' => [
             'label' => 'Database (seen by app)',
             'kind' => 'observed',
-            'up' => 'sum(rate(db_queries_total{host_name="{host}"}[10m])) > 0',
+            'up' => 'sum(rate(db_queries_total{host_name="{host}"}[10m]))',
             'note' => 'App-side view only. Point mysqld_exporter / postgres_exporter at this Prometheus for real health, connections and slow-query stats.',
             'tiles' => [
                 ['label' => 'Queries/s', 'query' => 'sum(rate(db_queries_total{host_name="{host}"}[5m]))', 'unit' => 'raw'],
@@ -495,7 +542,7 @@ return [
         'redis-app' => [
             'label' => 'Redis (seen by app)',
             'kind' => 'observed',
-            'up' => 'sum(rate(redis_commands_total{host_name="{host}"}[10m])) > 0',
+            'up' => 'sum(rate(redis_commands_total{host_name="{host}"}[10m]))',
             'note' => 'App-side view only. Point redis_exporter at this Prometheus for real health, memory, clients and hit ratio.',
             'tiles' => [
                 ['label' => 'Commands/s', 'query' => 'sum(rate(redis_commands_total{host_name="{host}"}[5m]))', 'unit' => 'raw'],
@@ -605,21 +652,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Cards
+    | Dashboard panels
     |--------------------------------------------------------------------------
     |
-    | Cards shown on the dashboard, in order. Packages may append their own
-    | at runtime via TelemetryUi::card(MyCard::class); entries listed here
-    | come first. Every card is a Livewire component extending
-    | Cbox\TelemetryUi\Cards\Card.
+    | The panels on the dashboard page, in order. Packages may append their
+    | own at runtime with TelemetryUi::panel(MyPanel::class); entries listed
+    | here come first. A panel is a plain class extending
+    | Cbox\TelemetryUi\Panels\Panel — see docs/extension-points.
     |
     */
 
-    'cards' => [
+    'panels' => [
         RequestsActivity::class,
         RequestDuration::class,
         ExceptionsOverview::class,
         JobsOverview::class,
+        RoutesNeedingAttention::class,
         DeploysTimeline::class,
     ],
 

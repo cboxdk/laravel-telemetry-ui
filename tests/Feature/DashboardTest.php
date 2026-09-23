@@ -2,130 +2,155 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\DeploysTimeline;
-use Cbox\TelemetryUi\Cards\Builtin\ExceptionsOverview;
-use Cbox\TelemetryUi\Cards\Builtin\JobsOverview;
-use Cbox\TelemetryUi\Cards\Builtin\RequestDuration;
-use Cbox\TelemetryUi\Cards\Builtin\RequestsActivity;
 use Cbox\TelemetryUi\Facades\TelemetryUi;
+use Cbox\TelemetryUi\Panels\Builtin\DeploysTimeline;
+use Cbox\TelemetryUi\Panels\Builtin\ExceptionsOverview;
+use Cbox\TelemetryUi\Panels\Builtin\JobsOverview;
+use Cbox\TelemetryUi\Panels\Builtin\RequestDuration;
+use Cbox\TelemetryUi\Panels\Builtin\RequestsActivity;
+use Cbox\TelemetryUi\Panels\Builtin\RoutesNeedingAttention;
 use Cbox\TelemetryUi\TelemetryUiManager;
-use Cbox\TelemetryUi\Tests\Fixtures\DummyCard;
+use Cbox\TelemetryUi\Tests\Fixtures\DummyPanel;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 
 it('denies access outside the local environment by default', function (): void {
+    // The service provider's default gate: local only. testbench runs as "testing".
+    Gate::define('viewTelemetryUi', fn (?object $user = null, ?string $page = null): bool => app()->environment('local'));
+
     $this->get('/telemetry-ui')->assertForbidden();
+    $this->getJson(apiUrl('pages/dashboard'))->assertForbidden()->assertJsonPath('error.type', 'forbidden');
 });
 
-it('allows access when the gate permits', function (): void {
-    Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
+it('lists the dashboard panels when the gate permits', function (): void {
+    $this->getJson(apiUrl('pages/dashboard'))
+        ->assertOk()
+        ->assertJsonPath('page', 'dashboard')
+        ->assertJsonPath('label', 'Dashboard')
+        ->assertJsonPath('panels.*.id', [
+            'requests-activity',
+            'request-duration',
+            'exceptions-overview',
+            'jobs-overview',
+            'routes-needing-attention',
+            'deploys-timeline',
+        ]);
+});
 
+it('serves each dashboard panel as typed json', function (string $panel): void {
     Http::fake([
-        'prometheus.test:9090/*' => Http::response([
-            'status' => 'success',
-            'data' => ['resultType' => 'matrix', 'result' => []],
-        ]),
+        'prometheus.test:9090/api/v1/query_range*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'matrix', 'result' => [
+            ['metric' => ['class' => '2xx'], 'values' => [[1735689600, '5'], [1735689660, '7']]],
+        ]]]),
+        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
+        'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
     ]);
 
-    $this->get('/telemetry-ui')
+    $this->getJson(panelUrl($panel))
         ->assertOk()
-        ->assertSee('Dashboard')
-        ->assertSee('Requests')
-        ->assertSee('Duration')
-        ->assertSee('Exceptions')
-        ->assertSee('Jobs');
-});
+        ->assertJsonPath('id', $panel)
+        ->assertJsonStructure(['kind', 'span']);
+})->with(['requests-activity', 'request-duration', 'exceptions-overview', 'jobs-overview', 'routes-needing-attention', 'deploys-timeline']);
 
-it('removes and replaces the config-declared dashboard cards', function (): void {
+it('removes and replaces the config-declared dashboard panels', function (): void {
     $manager = app(TelemetryUiManager::class);
 
-    // The dashboard's default cards come from config, not the runtime map —
-    // removeCard/setCards must still reach them.
-    expect($manager->cards('dashboard'))->toContain(JobsOverview::class);
+    // The dashboard's default panels come from config, not the runtime map —
+    // removePanel/setPanels must still reach them.
+    expect($manager->panels('dashboard'))->toContain(JobsOverview::class);
 
-    $manager->removeCard(JobsOverview::class, 'dashboard');
-    expect($manager->cards('dashboard'))
+    $manager->removePanel(JobsOverview::class, 'dashboard');
+    expect($manager->panels('dashboard'))
         ->not->toContain(JobsOverview::class)
         ->toContain(RequestsActivity::class); // the other built-ins remain
 
-    // setCards replaces the whole page (and can blank it).
-    $manager->setCards('dashboard', [DummyCard::class]);
-    expect($manager->cards('dashboard'))->toBe([DummyCard::class]);
+    // setPanels replaces the whole page (and can blank it).
+    $manager->setPanels('dashboard', [DummyPanel::class]);
+    expect($manager->panels('dashboard'))->toBe([DummyPanel::class]);
 
-    $manager->setCards('dashboard', []);
-    expect($manager->cards('dashboard'))->toBe([]);
+    $this->getJson(apiUrl('pages/dashboard'))->assertOk()->assertJsonPath('panels.*.id', ['dummy-panel']);
+
+    $manager->setPanels('dashboard', []);
+    expect($manager->panels('dashboard'))->toBe([]);
+
+    $this->getJson(apiUrl('pages/dashboard'))->assertOk()->assertJsonPath('panels', []);
 });
 
-it('renders registered pages and 404s unknown ones', function (): void {
-    Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
+it('serves registered pages and 404s unknown ones with a typed error', function (): void {
+    TelemetryUi::page('my-package', 'My Package', group: 'Activity');
+    TelemetryUi::panel(DummyPanel::class, 'my-package');
 
-    Http::fake([
-        'prometheus.test:9090/*' => Http::response([
-            'status' => 'success',
-            'data' => ['resultType' => 'vector', 'result' => []],
-        ]),
-    ]);
-
-    TelemetryUi::page('autoscale', 'Autoscale', group: 'Activity');
-
-    $this->get('/telemetry-ui/autoscale')->assertOk()->assertSee('Autoscale');
-    $this->get('/telemetry-ui/unknown')->assertNotFound();
-});
-
-it('serves the bundled assets without authorization', function (): void {
-    $this->get('/telemetry-ui/assets/telemetry-ui.css')
+    $this->getJson(apiUrl('pages/my-package'))
         ->assertOk()
-        ->assertHeader('Content-Type', 'text/css; charset=utf-8');
+        ->assertJsonPath('label', 'My Package')
+        ->assertJsonPath('group', 'Activity')
+        ->assertJsonPath('panels', [['id' => 'dummy-panel', 'span' => 1]]);
 
-    $this->get('/telemetry-ui/assets/telemetry-ui.js')
-        ->assertOk();
+    $this->getJson(panelUrl('dummy-panel'))->assertOk()->assertJsonPath('kind', 'chart');
 
-    $this->get('/telemetry-ui/assets/secrets.env')->assertNotFound();
+    $this->getJson(apiUrl('pages/unknown'))->assertNotFound()->assertJsonPath('error.type', 'not_found');
+    $this->getJson(panelUrl('unknown'))->assertNotFound()->assertJsonPath('error.type', 'not_found');
 });
 
-it('exempts assets from the dashboard throttle (a 429 on the bundle kills every chart)', function (): void {
+it('exempts built assets from the gate and the dashboard throttle (a 429 on a chunk kills the app)', function (): void {
     $routes = app('router')->getRoutes();
 
-    expect($routes->getByName('telemetry-ui.asset')->excludedMiddleware())->toContain('throttle:120,1')
-        ->and($routes->getByName('telemetry-ui.page')->middleware())->toContain('throttle:120,1');
+    expect($routes->getByName('telemetry-ui.asset')->excludedMiddleware())->toContain('throttle:600,1')
+        ->and($routes->getByName('telemetry-ui.spa')->middleware())->toContain('throttle:600,1')
+        ->and($routes->getByName('telemetry-ui.api.panel')->middleware())->toContain('throttle:600,1');
 });
 
-it('registers cards from config and runtime, deduplicated and in order', function (): void {
+it('registers panels from config and runtime, deduplicated and in order', function (): void {
     $manager = app(TelemetryUiManager::class);
 
-    $manager->card(DummyCard::class);
+    $manager->panel(DummyPanel::class);
+    $manager->panel(DummyPanel::class);
 
-    // Config-declared dashboard cards come first, runtime additions after,
-    // and re-registering an existing card does not duplicate it.
-    expect($manager->cards())->toBe([
+    // Config-declared dashboard panels come first, runtime additions after,
+    // and re-registering an existing panel does not duplicate it.
+    expect($manager->panels())->toBe([
         RequestsActivity::class,
         RequestDuration::class,
         ExceptionsOverview::class,
         JobsOverview::class,
+        RoutesNeedingAttention::class,
         DeploysTimeline::class,
-        DummyCard::class,
+        DummyPanel::class,
     ]);
 
     $manager->page('my-package', 'My Package', group: 'Activity');
-    $manager->card(DummyCard::class, page: 'my-package');
+    $manager->panel(DummyPanel::class, page: 'my-package');
 
-    expect($manager->cards('my-package'))->toBe([DummyCard::class])
-        ->and($manager->pages())->toHaveKeys(['dashboard', 'my-package', 'requests', 'jobs', 'traces']);
+    expect($manager->panels('my-package'))->toBe([DummyPanel::class])
+        ->and($manager->pages())->toHaveKeys(['dashboard', 'my-package', 'requests', 'jobs', 'traces'])
+        ->and($manager->findPanel('dummy-panel'))->toBe(DummyPanel::class)
+        ->and($manager->pagesFor(DummyPanel::class))->toBe(['dashboard', 'my-package']);
 });
 
-it('replaces, removes cards and removes whole pages (embed/white-label)', function (): void {
+it('replaces, removes panels and removes whole pages (white-label)', function (): void {
     $manager = app(TelemetryUiManager::class);
 
-    // Swap a page's built-in cards for your own.
-    $manager->setCards('requests', [DummyCard::class]);
-    expect($manager->cards('requests'))->toBe([DummyCard::class]);
+    // Swap a page's built-in panels for your own.
+    $manager->setPanels('requests', [DummyPanel::class]);
+    expect($manager->panels('requests'))->toBe([DummyPanel::class]);
 
-    // Drop a single built-in card.
-    $manager->removeCard(RequestDuration::class, 'requests')->card(RequestsActivity::class, 'requests');
-    expect($manager->cards('requests'))->toBe([DummyCard::class, RequestsActivity::class]);
+    // Drop a single built-in panel.
+    $manager->removePanel(RequestDuration::class, 'requests')->panel(RequestsActivity::class, 'requests');
+    expect($manager->panels('requests'))->toBe([DummyPanel::class, RequestsActivity::class]);
 
-    // Remove a whole section from the sidebar + routing.
+    // Remove a whole section from the nav + API.
     $manager->removePage('users');
     expect($manager->pages())->not->toHaveKey('users')
         ->and($manager->hasPage('users'))->toBeFalse();
+
+    $this->getJson(apiUrl('pages/users'))->assertNotFound();
+});
+
+it('documents every registry method the docs tell hosts to call', function (): void {
+    $facade = file_get_contents(__DIR__.'/../../src/Facades/TelemetryUi.php');
+
+    // A missing @method is invisible to an IDE and to a host running PHPStan.
+    foreach (['page', 'panel', 'setPanels', 'removePanel', 'dimension', 'resolve', 'routeFamily', 'metricPanel', 'entityPage', 'navLink', 'mcpTool', 'restrictScopeUsing'] as $method) {
+        expect($facade)->toContain(" {$method}(");
+    }
 });

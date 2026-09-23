@@ -2,15 +2,13 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\DuplicateQueries;
-use Cbox\TelemetryUi\Cards\Builtin\FeatureChecks;
-use Cbox\TelemetryUi\Cards\Builtin\HorizonOverview;
-use Cbox\TelemetryUi\Cards\Builtin\LivewireSlow;
-use Cbox\TelemetryUi\Cards\Builtin\RateLimits;
-use Cbox\TelemetryUi\Cards\Builtin\WebVitals;
-use Cbox\TelemetryUi\TraceDrawer;
+use Cbox\TelemetryUi\Panels\Builtin\DuplicateQueries;
+use Cbox\TelemetryUi\Panels\Builtin\FeatureChecks;
+use Cbox\TelemetryUi\Panels\Builtin\HorizonOverview;
+use Cbox\TelemetryUi\Panels\Builtin\LivewireSlow;
+use Cbox\TelemetryUi\Panels\Builtin\RateLimits;
+use Cbox\TelemetryUi\Panels\Builtin\WebVitals;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 /** A Prometheus instant-vector response. */
 function promVector(array $results): array
@@ -42,7 +40,8 @@ it('renders pennant feature checks grouped by flag with unknown-flag warnings', 
         },
     ]);
 
-    Livewire::test(FeatureChecks::class)
+    $this->getJson(panelUrl(FeatureChecks::id()))
+        ->assertOk()
         ->assertSee('new-checkout')
         ->assertSee('90%')                 // active share
         ->assertSee('unregistered flags')  // the typo'd flag warning
@@ -59,7 +58,8 @@ it('charts rate limit rejections by limiter', function (): void {
         ])),
     ]);
 
-    Livewire::test(RateLimits::class)
+    $this->getJson(panelUrl(RateLimits::id()))
+        ->assertOk()
         ->assertSee('Rate limiting')
         ->assertSee('Rejected')
         ->assertSee('42');
@@ -81,7 +81,8 @@ it('renders horizon worker gauges', function (): void {
         ])),
     ]);
 
-    Livewire::test(HorizonOverview::class)
+    $this->getJson(panelUrl(HorizonOverview::id()))
+        ->assertOk()
         ->assertSee('Horizon workers')
         ->assertSee('Processes')
         ->assertSee('Paused');
@@ -101,11 +102,12 @@ it('lists slow livewire component spans with phase and method', function (): voi
         ]),
     ]);
 
-    Livewire::test(LivewireSlow::class)
-        ->assertSee('App\\Livewire\\Checkout')
+    $this->getJson(panelUrl(LivewireSlow::id()))
+        ->assertOk()
+        ->assertSee(trim((string) json_encode('App\\Livewire\\Checkout'), '"'), false)
         ->assertSee('call')
         ->assertSee('submit')
-        ->assertSeeHtml('data-row-trace="dddd1111dddd1111dddd1111dddd1111"');
+        ->assertSee('dddd1111dddd1111dddd1111dddd1111'); // rows open the trace
 
     Http::assertSent(function ($request): bool {
         $q = rawurldecode(requestQuery($request)['q'] ?? '');
@@ -138,7 +140,8 @@ it('aggregates core web vitals per page at p75 with threshold tones', function (
         ]),
     ]);
 
-    Livewire::test(WebVitals::class)
+    $this->getJson(panelUrl(WebVitals::id()))
+        ->assertOk()
         ->assertSee('Core Web Vitals')
         ->assertSee('/orders')
         ->assertSee('p75 LCP')
@@ -174,13 +177,14 @@ it('groups duplicate-query detections from loki by query text', function (): voi
         ]),
     ]);
 
-    Livewire::test(DuplicateQueries::class)
+    $this->getJson(panelUrl(DuplicateQueries::id()))
+        ->assertOk()
         ->assertSee('select * from users where id = ?')
         ->assertSee('×12')
-        ->assertSeeHtml('data-trace-id="eeee1111eeee1111eeee1111eeee1111"');
+        ->assertSee('eeee1111eeee1111eeee1111eeee1111'); // rows open the trace
 });
 
-it('shows the cpu profile strip when a trace has a captured profile', function (): void {
+it('serves the cpu profile when a trace has a captured profile', function (): void {
     Http::fake([
         'tempo.test:3200/api/traces/*' => Http::response([
             'batches' => [[
@@ -208,15 +212,16 @@ it('shows the cpu profile strip when a trace has a captured profile', function (
         ]),
     ]);
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab')
-        ->assertSee('GET /orders')
-        ->assertSee('Profile')
-        ->assertSee('App\\Services\\ReportBuilder::build')
-        ->assertSee('61.4%');
+    // v1 opened the Livewire trace drawer; v2 serves the trace as JSON.
+    $this->getJson(apiUrl('traces/abc123abc123abc123abc123abc123ab'))
+        ->assertOk()
+        ->assertSee('GET /orders', false)
+        ->assertSee('ReportBuilder::build', false)
+        ->assertSee('61.4')
+        ->assertJsonPath('profile', fn (mixed $profile): bool => is_array($profile) && $profile !== []);
 });
 
-it('renders span links as linked-trace rows in the waterfall', function (): void {
+it('serves span links on the waterfall spans', function (): void {
     Http::fake([
         'tempo.test:3200/api/traces/*' => Http::response([
             'batches' => [[
@@ -230,8 +235,8 @@ it('renders span links as linked-trace rows in the waterfall', function (): void
         'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
     ]);
 
-    Livewire::test(TraceDrawer::class)
-        ->dispatch('telemetry-ui:open-trace', traceId: 'abc123abc123abc123abc123abc123ab')
-        ->assertSee('linked trace')
-        ->assertSeeHtml('data-trace-id="ffff2222ffff2222ffff2222ffff2222"');
+    $this->getJson(apiUrl('traces/abc123abc123abc123abc123abc123ab'))
+        ->assertOk()
+        ->assertJsonPath('waterfall.0.span.links', fn (mixed $links): bool => is_array($links) && $links !== [])
+        ->assertSee('ffff2222ffff2222ffff2222ffff2222');
 });

@@ -2,12 +2,9 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
-    Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
-
     Http::fake([
         'prometheus.test:9090/api/v1/query_range*' => Http::response([
             'status' => 'success', 'data' => ['resultType' => 'matrix', 'result' => []],
@@ -21,56 +18,60 @@ beforeEach(function (): void {
     ]);
 });
 
+/**
+ * Every panel on a detail page, fetched with the entity param, concatenated —
+ * what the reader sees on that page.
+ *
+ * @param  array<string, string>  $params
+ */
+function detailPage(string $page, array $params): string
+{
+    $panels = (array) test()->getJson(apiUrl('pages/'.$page))->assertOk()->json('panels');
+
+    expect($panels)->not->toBeEmpty();
+
+    return implode("\n", array_map(
+        fn (array $panel): string => (string) test()->getJson(panelUrl($panel['id'], [...$params, '_page' => $page]))->assertOk()->getContent(),
+        $panels,
+    ));
+}
+
 it('renders the job detail page scoped to the job', function (): void {
-    $this->get('/telemetry-ui/job-detail?job=SendReport')
-        ->assertOk()
-        ->assertSee('SendReport')
-        ->assertSee('All jobs');
+    expect(detailPage('job-detail', ['job' => 'SendReport']))->toContain('SendReport')->toContain('All jobs');
 
     Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'job_name="SendReport"'));
 });
 
 it('renders the queue detail page scoped to the queue', function (): void {
-    $this->get('/telemetry-ui/queue-detail?queue=high')
-        ->assertOk()
-        ->assertSee('high')
-        ->assertSee('All queues');
+    expect(detailPage('queue-detail', ['queue' => 'high']))->toContain('high')->toContain('All queues');
 
     Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'queue="high"'));
 });
 
 it('renders the exception detail page scoped to the class', function (): void {
-    $this->get('/telemetry-ui/exception-detail?exception=RuntimeException')
-        ->assertOk()
-        ->assertSee('RuntimeException')
-        ->assertSee('All exceptions');
+    expect(detailPage('exception-detail', ['exception' => 'RuntimeException']))->toContain('RuntimeException')->toContain('All exceptions');
 
     Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'exception="RuntimeException"'));
 });
 
 it('renders the machine detail page scoped to the host_name', function (): void {
-    $this->get('/telemetry-ui/host-detail?host=web-3')
-        ->assertOk()
-        ->assertSee('web-3')
-        ->assertSee('All hosts')
-        ->assertSee('CPU load average')
-        ->assertSee('Services on this host');
+    expect(detailPage('host-detail', ['host' => 'web-3']))
+        ->toContain('web-3')
+        ->toContain('All hosts')
+        ->toContain('CPU load average')
+        ->toContain('Services on this host');
 
     Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'host_name="web-3"'));
 });
 
 it('renders the outgoing host detail page scoped to the host', function (): void {
-    $this->get('/telemetry-ui/outgoing-detail?host=api.stripe.com')
-        ->assertOk()
-        ->assertSee('api.stripe.com')
-        ->assertSee('All hosts');
+    expect(detailPage('outgoing-detail', ['host' => 'api.stripe.com']))->toContain('api.stripe.com')->toContain('All hosts');
 
     Http::assertSent(fn ($r): bool => str_contains(rawurldecode($r->url()), 'server_address="api.stripe.com"'));
 });
 
 it('renders the hosts overview page and filters by host', function (): void {
-    $this->get('/telemetry-ui/hosts')
-        ->assertOk()
-        ->assertSee('web-1')             // from the faked host_name label
-        ->assertSee('host.name', false); // row links filter traces by host (percent-encoded in the href)
+    expect(detailPage('hosts', []))
+        ->toContain('web-1')        // from the faked host_name label
+        ->toContain('host.name');   // row links filter traces by host
 });

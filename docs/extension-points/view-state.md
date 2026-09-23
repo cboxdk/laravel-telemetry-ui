@@ -58,7 +58,7 @@ $state->queryParams();     // ['period' => '7d', 'service' => '', 'env' => '']
 
 `range()` is the one to reach for when you want the actual window: it applies
 the custom range when there is one and the preset period otherwise, the same
-rule every card uses.
+rule every panel uses.
 
 ## Setting it
 
@@ -90,20 +90,30 @@ Event::listen(function (ViewStateChanged $event): void {
 Fired once per request, and only when the resolved state differs from what the
 request arrived with — a reader paging around inside one window is quiet.
 
+## How the SPA uses it
+
+The SPA keeps the window and scope in its own URL. When the reader moves them
+(a preset, a brushed range, the scope picker, the refresh interval), it reports
+the new values with `POST /api/v2/view-state`, which updates the cookie and
+fires `ViewStateChanged` if anything actually changed. The bootstrap endpoint
+hands the remembered state back (`state`) so a bare URL opens on it.
+
+Only the SPA shell render and that `POST` ever write the cookie. API reads —
+every panel, Explore and facet request — carry the scope in their own query
+string and fall back to the remembered state for anything they leave out, but
+never write it: a page fetching ten panels would otherwise set ten cookies and
+fire ten events.
+
 ## Why a cookie
 
-The cards are server-rendered Livewire components: they query the backend
-*during* the first render, so the window has to be known in PHP before the query
-runs. A client-side store would paint the default range, spend a full round of
-backend queries on the wrong window, and only then jump.
-
+The server has to know the window before a request runs its queries, including
+the very first request of a visit and a host link that carries no query string.
 A cookie is already on the request. It also needs no session, no database and no
 authenticated user — which matters for a host that has none, such as a desktop
 shell bound to one connection profile.
 
-The cookie is a **preference, never an authorization input**. It is readable by
-the page's own JavaScript (the auto-refresh control writes it, being the one
-control that changes state without navigating) and it grants nothing: a
+The cookie is a **preference, never an authorization input**. It grants
+nothing: a
 remembered scope is bounded by the tenancy lock on the way in, and every query is
 independently forced into that lock downstream — exactly as it is for a
 hand-typed `?service=`. A remembered service that a

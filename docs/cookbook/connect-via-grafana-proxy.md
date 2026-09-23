@@ -73,7 +73,7 @@ Rotate/revoke the token in Grafana when you're done.
   browser — so there's no CORS to configure; only the app server needs network
   access to Grafana.
 - **Pages light up only for signals that are actually emitted.** Detected pages
-  (Statamic, Cache, System, …) stay hidden until their metrics exist, and cards
+  (Statamic, Cache, System, …) stay hidden until their metrics exist, and panels
   show a clean empty state otherwise. A partial telemetry rollout simply shows
   fewer sections — that's expected, not a misconfiguration.
 - **Lock the gate down.** The `viewTelemetryUi` gate is local-only by default;

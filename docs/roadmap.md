@@ -14,7 +14,7 @@ weight: 99
 - Schema autodetection: pages with `detectMetric` patterns; built-in
   Statamic page lights up when statamic-telemetry metrics exist.
 - Card/page registry, Livewire base `Card`, gate + routes, ECharts bundle,
-  period selector.
+  period selector. (Replaced by panels + the SPA in v2.)
 - Tooling parity with `cboxdk/laravel-telemetry`: Pest 4, PHPStan level 8,
   Pint, arch tests.
 
@@ -37,7 +37,7 @@ weight: 99
 
 ## Later polish
 
-- Per-service detection scoping (today detection is fleet-wide).
+- Detection heuristics beyond a metric-name family (shape, cardinality).
 - Exceptions grouping with first/last-seen (needs app-side state).
 
 Done: short-TTL query cache (`cache.ttl`, cached GET responses so a busy
@@ -85,10 +85,38 @@ The things a generic, app-only or read-only dashboard can't do:
 - Feature-tested drill-down/detail pages, dimensional filtering, and the
   info-leak boundary.
 
+## v2 — JSON API + React SPA (done, 2.0.0)
+
+Plan: [v2 architecture](design/v2-architecture.md) ·
+[implementation plan](design/v2-plan.md) ·
+[ADR 0003](adr/0003-json-api-and-spa.md).
+
+- Livewire removed. Cards became framework-free panels returning typed
+  payloads (`Panels\Panel`, `Panels\Ui`); the registry, config key and
+  built-in classes renamed accordingly.
+- Versioned JSON API under `{path}/api/v2` with typed errors and an SSE live
+  tail; the gate and scope lock run on every endpoint.
+- React + Vite + TypeScript SPA (TanStack Query/Router/Virtual, ECharts as a
+  lazy chunk), committed to `public/build` so hosts need no Node.
+- Dimensions as a first-class primitive (`TelemetryUi::dimension()`), Explore
+  over requests/traces/logs/errors with facets and group-by, and generated
+  entity pages that tell a story instead of dumping attributes.
+- Stacked, deep-linkable drawer (`?drawer=`), ⌘K palette, brush-to-zoom on the
+  global range, live tail over SSE with a polling fallback.
+
+- Developer integrations: names instead of ids (`resolve()`), derived
+  dimensions read out of another attribute, route families as pages, and
+  declared metric panels for sidecars in other languages.
+- Embeddable React components for host apps, installed from `vendor/` as an
+  npm package — the replacement for the 1.x Livewire widgets.
+
+1.x keeps a maintenance branch (`1.x`) for fixes. Still open: token auth for
+an externally hosted SPA.
+
 ## Next
 
-- AI triage/chat on a trace, exception or incident (streamed via `wire:stream`),
+- AI triage/chat on a trace, exception or incident (streamed over SSE),
   building on the MCP tools and `SignalContext`.
 - Post-to-Slack action alongside ticket creation.
 - Threshold / alert hints.
-- Per-service detection scoping (today detection is fleet-wide).
+- Detection heuristics beyond a metric-name family (shape, cardinality).

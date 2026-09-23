@@ -11,6 +11,8 @@ built-in dashboard. Useful if you're extending it or want the "why".
 
 - [Design direction](direction.md) — the screen → query mapping and the
   product thinking behind each built-in page.
+- [v2 architecture](v2-architecture.md) — the decoupled JSON API + React SPA
+  rewrite that removes Livewire, and what it keeps.
 
 For the load-bearing architectural decisions, see the
 [Architecture decision records](../adr/).

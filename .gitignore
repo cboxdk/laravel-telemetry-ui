@@ -1,6 +1,6 @@
 /vendor
 /.claude
-/node_modules
+node_modules
 /.phpunit.cache
 composer.lock
 package-lock.json

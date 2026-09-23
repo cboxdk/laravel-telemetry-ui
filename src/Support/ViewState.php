@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Support;
 
-use Cbox\TelemetryUi\Cards\Card;
 use Cbox\TelemetryUi\Events\ViewStateChanged;
+use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Cbox\TelemetryUi\Http\Middleware\RemembersViewState;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use DateTimeImmutable;
@@ -29,7 +29,7 @@ use Symfony\Component\HttpFoundation\Cookie;
  *
  * ## Why a cookie
  *
- * The cards are server-rendered Livewire components: they query the backend
+ * The panels are fetched by the SPA: they query the backend
  * during the first render, so the window has to be known in PHP *before* the
  * query runs. A client-side store (localStorage, Alpine) is too late — the page
  * would paint the default range, run a full round of backend queries against
@@ -135,7 +135,7 @@ final class ViewState
 
     /**
      * The active window, custom range first and the preset period otherwise —
-     * the same rule {@see Card::range()} applies.
+     * the same rule {@see RequestScope::range()} applies.
      *
      * @return array{DateTimeImmutable, DateTimeImmutable}
      */

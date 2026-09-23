@@ -1,7 +1,7 @@
 * text=auto eol=lf
 
 # Keep the dist tarball lean — none of this is needed at runtime.
-# NOTE: public/ (the committed ECharts bundle + CSS) is intentionally NOT
+# NOTE: public/build (the committed SPA build) is intentionally NOT
 # export-ignored; the dashboard serves it at runtime.
 /.github            export-ignore
 /docs               export-ignore
@@ -12,8 +12,15 @@
 /phpunit.xml.dist   export-ignore
 /phpstan.neon.dist  export-ignore
 /pint.json          export-ignore
-/vite.config.js     export-ignore
+/vite.config.ts     export-ignore
+/tsconfig.json      export-ignore
 /package.json       export-ignore
 /package-lock.json  export-ignore
-/resources/js       export-ignore
+# resources/app SHIPS: it is an npm package (@cboxdk/telemetry-ui) a host can
+# install straight out of vendor/ to mount the components in its own app.
+# Only its tests and the standalone entry's fixtures are left out.
+/resources/app/src/test             export-ignore
+/resources/app/src/**/*.test.ts     export-ignore
+/resources/app/src/**/*.test.tsx    export-ignore
+
 /CHANGELOG.md       export-ignore

@@ -5,7 +5,279 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] - 2026-09-23
+
+A rewrite of the presentation layer: Livewire is removed and the dashboard is
+now a versioned JSON API plus a prebuilt React single-page app. The query core
+(contracts, drivers, query IR, result DTOs, `Analysis/`, the MCP server) is
+carried over unchanged. See [UPGRADE.md](UPGRADE.md#1x--20) for every breaking
+change with before/after code.
+
+### Added
+
+#### The platform
+
+- **JSON API under `{path}/api/v2`.** `bootstrap`, `view-state` (POST),
+  `pages/{page}`, `panels/{panel}`, `explore/{signal}` and `facets/{signal}`
+  (requests, traces, logs, errors), `entities/{type}` and
+  `entities/{type}/story?value=`, `traces/{id}`, `errors/{group}`,
+  `issues/{id}`, `POST issues`, `annotations`, and `stream/{logs|requests}`
+  (Server-Sent Events; `?once=1` for a single batch). Every endpoint takes the
+  scope params `period`, `from`, `to`, `service`, `env`, `where[]`, and errors
+  are typed: `{"error":{"type":"backend|forbidden|invalid|not_found","message"}}`
+  with 502/403/422/404. See [docs/core-concepts/api.md](docs/core-concepts/api.md).
+- **React SPA** (React, Vite, TypeScript, TanStack Query/Router/Virtual,
+  ECharts in a lazy chunk), built to `public/build` with hashed chunks and
+  committed, so hosts need no Node toolchain. A catch-all route serves the
+  shell; routes are `/`, `/explore/$signal`, `/entities/$type`,
+  `/entity/$type?value=`, `/p/$page`, `/errors/$group`, `/traces/$traceId`,
+  with a stacked, deep-linkable drawer in `?drawer=trace:…~error:…~issue:…`.
+  ⌘K command palette, ⌘. to collapse the subnav, brush-to-zoom sets the global
+  time range, live tail over SSE with a polling fallback. Cbox design system,
+  light by default with a dark theme.
+- **`Panels\Panel`**, the framework-free replacement for `Card`, with
+  `data(): array`, `static id()`, `static span()` and a `boot()` hook.
+- **`Panels\Ui`**, builders for the payload contract (`table`, `stats`, `bars`,
+  `composite`, `header`, `kv`, `code`, `callout`, `hidden`, cells, columns,
+  controls) and for links (`entity`, `page`, `trace`, `error`, `issue`,
+  `explore`, `param`, `url`). Mirrored by `resources/app/src/api/types.ts`.
+- **`Panels\Attributes\Param`**, binding a public panel property to a query
+  parameter.
+- `Http\Api\RequestScope`: the per-request scope (window, service/env,
+  filters, extra params), bounded by the tenancy lock, falling back to the
+  reader's remembered view state for anything the URL doesn't state.
+- Vitest unit tests for the SPA (`npm test`); PHP feature tests ported to hit
+  the API endpoints.
+
+#### Explore and entities
+
+- **Explore**: one surface over requests, traces, logs and errors with a filter
+  bar, facet panel, headline stats, a time × latency heatmap, group-by and a
+  virtualised result list. Filters use `where[]=key<op>value` with
+  `= != =~ !~ > >= < <=`; free text via `q`.
+- **Entity pages**: a story per dimension value — insights, RED, trend with
+  deploys, breakdowns with failure lift, status mix, correlated exception
+  groups, failing and slowest traces — plus a Metrics tab that runs the v1
+  detail panels for that entity and a Raw tab last.
+  `TelemetryUi::entityPage($entity, $page, $param)` attaches a page's panels to
+  an entity type; built in: route, job, queue, host, query, outgoing, path.
+- **See the query**: Explore shows the compiled TraceQL / LogQL for the exact
+  view, with "copy query" and "copy as curl" (`query` on the explore payload).
+- **Value typeahead in the filter bar**: type `user.id=` and the values in
+  this view are offered with their counts (and their resolved names).
+- **Saved views**: name the current page + filters + window, recall it from the
+  button or ⌘K (per browser).
+- The Explore query bar sticks while you scroll the results.
+
+#### Dimensions
+
+- **Dimensions**: `TelemetryUi::dimension()` / `removeDimension()` /
+  `dimensions()`. A declared dimension (label, group, optional link out as a
+  closure or a `{value}` URL template, entity slug, scope, signals, format,
+  plural) appears in facets, group-by menus, filter chips and as clickable
+  chips, and gets an entity page. Built-in dimensions cover the attributes
+  laravel-telemetry v2 emits (route, status code, user, client IP, host,
+  query, job, queue, outgoing host, …). Facets are exact when the traces
+  backend implements `AggregatesSpans`, otherwise counted over a labelled
+  read-side sample.
+- **Names instead of ids**: `TelemetryUi::resolve('user.id', User::class,
+  'name')` (Eloquent model + attribute/closure, optional match column) or a
+  batch closure, also as `dimension(..., resolve:)`. The SPA shows the name
+  next to the id on row chips, facets, filter chips, group-by tables, entity
+  lists and the entity page title, via `GET api/v2/dimensions/labels`: one
+  request per dimension per tick, cached per value (misses too) for
+  `telemetry-ui.dimensions.label_ttl`, and fail-open.
+- **Derived dimensions**: `TelemetryUi::dimension('portal.screen', from:
+  'http.route', pattern: 'portal:{value}')` promotes a value that lives
+  *inside* another attribute to a first-class dimension — facet, chip,
+  group-by, filter and its own entity page — without touching the emitter.
+  Filters compile back to an exact query on the source attribute
+  (`http.route = "portal:checkout"`, `=~` and "any value" to one anchored
+  regex), so nothing is filtered read-side; only the facet counts are
+  sampled, and the payload says so.
+
+#### Extending
+
+- **`Panel::statLinks()`**: a panel names where each headline number leads
+  (label → link); the API fills it in for stats without a link. Used across
+  the built-ins: job/command outcomes → their spans (failed →
+  `status=error`), rate-limit rejections → 429s, N+1 → requests with
+  duplicate queries, cache/storage → requests that touched them, analytics
+  and page views → the analytics events (grouped by session for visitors),
+  outgoing failures → client spans that failed. Commands, duplicate queries
+  and a query's callers link their rows too (`Ui::rootOperation()`).
+- **`TelemetryUi::metricPanel()`**: declare a chart over any metric instead of
+  writing a panel class — gauge, counter (`rate:`), histogram (`quantile:`),
+  split `by:` a label, narrowed with `where:`. A sidecar in another language
+  that exports OTLP gets a real page with no PHP per chart.
+- **`TelemetryUi::routeFamily()`**: one call turns a naming routing layer into
+  its own area — a page with the family's throughput and a per-value table
+  (prefix stripped, each row opening that value's page) — and declares the
+  matching derived dimension, so the same values are facets and filters
+  everywhere else — the same shape as the built-in Livewire page.
+- **Embeddable components**: the React source ships inside the composer
+  package as an npm package (`@cboxdk/telemetry-ui`), installed from
+  `file:vendor/cboxdk/laravel-telemetry-ui/resources/app` — no registry. A host
+  app mounts `<TelemetryPanel>`, `<TelemetryExplore>`, `<TelemetryEntity>`,
+  `<TelemetryTrace>` or a whole page inside its own chrome, against the same
+  gated, scope-locked API. The view state lives in React by default and can be
+  bridged to the host's URL; the stylesheet carries tokens and components only,
+  scoped to the provider's root, with fonts as a separate optional import.
+  Rows open traces and issues in the same drawer, inside the host's page; a
+  link to a different dashboard page goes to `onNavigate` or the full
+  dashboard. Internally this is a navigation adapter: the components read their state
+  through an interface, so the standalone dashboard (TanStack Router) and an
+  embedded mount share one implementation.
+
+#### Screens
+
+- **Dashboard: Routes needing attention** — the eight routes with the most
+  server errors, then the slowest p95, with a link to the full routes table.
+- **Cache by store** and **Storage by disk** panels: per-store hits, misses,
+  writes and hit ratio (a cold store no longer hides behind a hot one), and
+  filesystem operations per disk and operation.
+- Service graph derived from sampled client and database spans when Tempo's
+  service-graph metrics are absent.
+- "Called from" breakdown (the trace's root operation) on query/view/job/
+  outgoing entity pages; occurrence wording for span-level entities.
+- **Waterfall**: time ruler with gridlines, bars coloured by what the span does
+  (app, database, cache/Redis, outgoing HTTP, queue, views) with a legend,
+  duration labels beside the bar, no repeated names.
+- **Stacktraces read like Sentry's**: paths relative to the project root, app
+  frames emphasised, runs of framework frames folded to one expandable line,
+  a raw view one click away (`Ui::code(..., 'stacktrace')`).
+
+#### Working in it
+
+- **No dead ends.** Every number that names a subset opens it: KPI tiles on
+  panel pages (status classes, error rate, p95, events/users of an issue),
+  Explore headline stats toggle a filter (error rate → `status=error`, p95 →
+  `duration>=p95`, log errors → `level=error`), heatmap cells open their time
+  window + latency band, group-table counts and error rates filter to that
+  value, entity-story tiles and a new **Recent** list, deploy rows open the
+  errors after the deploy, service-graph edges open the peer, "Called from"
+  values open the route. Issue occurrences open Explore logs
+  (`exception_group=`), grouped by user or filtered by release; occurrences
+  whose trace was sampled away open the service's logs around them.
+- **Context everywhere.** The trace story ends with "Around this request"
+  (same route ±15 min, service logs ±2 min, errors ±15 min, this user, this
+  IP, everything ±1 min); report rows open the query/view/outgoing host/job
+  entity; chain hops open the service. Expanded log lines offer lines around
+  (this service or all), requests around, the whole trace and the issue.
+- **Keyboard layer**: `?` opens the shortcut sheet (also the topbar's `?`),
+  `/` focuses the page's search, `[` / `]` step the time window by its own
+  length (never past now), `n` jumps back to now, `r` refetches everything.
+- **Triage without the mouse**: with a trace open, `j` / `k` step through the
+  result list in place (neighbours prefetched), live-tail rows flash once as
+  they arrive, and row times carry the full timestamp.
+- **⌘K** never dead-ends: free text offers "search requests / logs /
+  exceptions", a path offers its route page.
+- **Hover prefetch**: links, table rows, result rows and sidebar pages warm
+  their data on hover, so the click lands on a rendered page.
+- **Empty results offer the way out**: back to now, widen the window, clear
+  the filters — whichever applies.
+- **No nested scroll boxes**: long tables, result lists and log lists
+  virtualise against the page scroll; code blocks fold with "Show all";
+  facets fold on narrow screens.
+- **Phones**: the rail becomes a bottom tab bar and the area's pages open from
+  a section bar; the topbar wraps; tables that can't fit become cards; result
+  and log rows reflow.
+- Content-aware table column widths, two-line cells (`sub`), two-column panel
+  grid, per-route document titles, favicon, safe Markdown for issue bodies,
+  panel links inside dimension menus ("filter this panel"), phone layout.
+- **Ignores its own traffic**: with `cboxdk/laravel-telemetry`'s
+  `ignorePaths()`, the dashboard's path is no longer traced
+  (`telemetry-ui.ignore_own_requests`, default on).
+
+### Changed
+
+- `laravel/mcp` 0.9 and 1.x are supported alongside 0.8 (`~0.8.2 || ^0.9 ||
+  ^1.0`); the MCP server serves both the legacy `initialize` handshake and the
+  2026-07-28 protocol, and advertises the installed package version.
+- **Cards are panels.** `Cards\Card` → `Panels\Panel`,
+  `Cards\Builtin\*` → `Panels\Builtin\*` (same basenames);
+  `TelemetryUi::card()/setCards()/removeCard()/cards()` →
+  `panel()/setPanels()/removePanel()/panels()`; config `telemetry-ui.cards` →
+  `telemetry-ui.panels`; `render(): View` → `data(): array`; `#[Url]` →
+  `#[Param]`; `pageUrl()` → `pageLink()` returning a link payload.
+- **Routes.** Pages moved from `/{path}/{page}` to `/{path}/p/{page}`;
+  `/{path}/traces/{id}` is now an SPA route; the `?trace=` / `?issue=` /
+  `?exception=` drawer params became `?drawer=`; assets moved from
+  `/{path}/assets/{asset}` to `/{path}/build/{path}`. The route names
+  `telemetry-ui.page` and `telemetry-ui.trace` are replaced by the catch-all
+  `telemetry-ui.spa` and the `telemetry-ui.api.*` names.
+- **Authorization.** The `viewTelemetryUi` gate runs on every dashboard and API
+  route. Per-page checks (the gate's second argument) apply to the page and
+  panel endpoints, the navigation in `bootstrap`, Explore/facets (by the page
+  that covers the signal) and entity pages (the `requests` page).
+  `manageTelemetryUi` guards `POST /api/v2/issues`.
+- **View state** is persisted only on SPA shell renders and on
+  `POST /api/v2/view-state`, never on API reads, so a page fetching ten panels
+  sets no cookies and fires no `ViewStateChanged` events.
+- The default `telemetry-ui.throttle` is now `600,1` (was `120,1`): the SPA
+  sends one request per panel, facet list and Explore query.
+
+### Removed
+
+- The `livewire/livewire` dependency, `src/Cards/`, `resources/views/`, the
+  Blade components, `resources/js/telemetry-ui.js`, `public/telemetry-ui.js`
+  and `public/telemetry-ui.css`.
+- Embedding cards in host Blade pages (`@telemetryUiAssets`,
+  `<livewire:telemetry-ui.*>`, the `:embedded` prop). Replaced by the React
+  components (see Added); a Blade-only host links to the SPA or reads the JSON
+  API.
+- The `telemetry-ui:period-changed` and `telemetry-ui:refresh` Livewire events
+  and the gate middleware on `/livewire/update`.
+
+### Fixed
+
+- **p95/p99 charts were in seconds.** `PromqlCompiler` dropped the scalar
+  (`times()`) on histogram quantiles, so a seconds histogram scaled ×1000 to
+  milliseconds charted its quantiles unscaled. The scalar now applies to
+  `histogram_quantile(...)` too.
+- **Web Vitals from both browser SDKs.** `@cboxdk/telemetry-browser` sends one
+  `browser.web_vital` marker span per metric (`web_vital.name/value/rating`);
+  the Web Vitals and page-performance panels only read laravel-telemetry's
+  `web-vitals` span. Both are read now (`Panels\Concerns\ReadsWebVitals`), and
+  FCP/TTFB are shown when present.
+- **Hosts on backends whose metrics carry no host label** (telemetryd keeps
+  `host.name` on the resource only). The hosts table lists hosts from traces
+  and attributes unlabelled metrics to a single host; host-detail charts match
+  unlabelled series; `_ratio`/bare metric-name variants both match.
+- **Host services** no longer fail as a whole when one probe can't run; the
+  default observed-service probes drop the `> 0` PromQL comparison some
+  backends reject.
+- **Bounded payloads on span-heavy searches.** Some backends return every
+  matched span per trace; unfiltered trace searches default to server spans,
+  span-level entities (queries, views, jobs, outgoing hosts) sample adaptively
+  and count each matched span as an occurrence.
+- **Failures without an HTTP status** (a failed job, a failing query) are found
+  via a `status = error` search, so entity stories and trace rows report them.
+- **Negated regex on backends that refuse it** (`!~` on telemetryd) is applied
+  read-side on a wider sample, and the UI says so.
+- **"Why it failed"** in the trace story names the exception (Loki records by
+  trace id, else the service's records in the request's own time window,
+  marked as a likely match); trace logs use the same fallback.
+- A trace's exception records were looked up across every service in a
+  20-minute window on each trace open; the lookup now selects the trace's own
+  services (exact, or an alternation when it crosses services) in a 2-minute
+  window.
+
+- The Duration panels (dashboard, route pages) failed from 24h up on
+  telemetryd ("query matched more than … records"): the average's sum and
+  count are now two range queries divided per point instead of one binary
+  expression holding both.
+
+- Switching Explore signals no longer renders the previous signal's rows with
+  the wrong list (it crashed going from requests to logs).
+
+## [1.5.0 – 1.9.0] - 2026-08-08 – 2026-08-12
+
+These changes shipped across the 1.5.0 to 1.9.0 releases; the changelog was not
+split per version at the time.
+
+Built on `main` before the v2 rewrite; these entries describe the 1.x Livewire
+UI and are kept as written.
 
 ### Added
 

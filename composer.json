@@ -1,6 +1,6 @@
 {
     "name": "cboxdk/laravel-telemetry-ui",
-    "description": "Laravel-native observability UI for cboxdk/laravel-telemetry: query Tempo, Loki and Prometheus/Mimir directly and visualize your apps with extensible Livewire cards.",
+    "description": "Laravel-native observability UI for cboxdk/laravel-telemetry: a versioned JSON API plus a React SPA that queries Tempo, Loki and Prometheus/Mimir directly.",
     "keywords": [
         "cbox",
         "laravel",
@@ -12,7 +12,7 @@
         "prometheus",
         "mimir",
         "grafana",
-        "livewire"
+        "react"
     ],
     "homepage": "https://github.com/cboxdk/laravel-telemetry-ui",
     "license": "MIT",
@@ -29,12 +29,11 @@
     ],
     "require": {
         "php": "^8.3|^8.4|^8.5",
-        "cboxdk/laravel-telemetry": "^1.2",
+        "cboxdk/laravel-telemetry": "^2.0",
         "illuminate/contracts": "^12.0|^13.0",
         "illuminate/http": "^12.0|^13.0",
         "illuminate/support": "^12.0|^13.0",
-        "laravel/mcp": "~0.8.2",
-        "livewire/livewire": "^3.6"
+        "laravel/mcp": "~0.8.2 || ^0.9 || ^1.0"
     },
     "require-dev": {
         "larastan/larastan": "^3.0",
@@ -60,7 +59,7 @@
     },
     "extra": {
         "branch-alias": {
-            "dev-main": "1.2.x-dev"
+            "dev-main": "2.0.x-dev"
         },
         "laravel": {
             "providers": [

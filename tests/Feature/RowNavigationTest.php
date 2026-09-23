@@ -2,10 +2,7 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\RoutesTable;
-use Cbox\TelemetryUi\Cards\Builtin\TraceSearch;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 it('emits a whole-row drill-down link on the routes table', function (): void {
     Http::fake([
@@ -21,13 +18,14 @@ it('emits a whole-row drill-down link on the routes table', function (): void {
         ]),
     ]);
 
-    Livewire::test(RoutesTable::class)
+    $this->getJson(panelUrl('routes-table'))
+        ->assertOk()
         ->assertSee('/orders')
-        // The whole row is a click target to the route's traces, not just the link.
-        ->assertSeeHtml('data-row-href');
+        // The whole row is a click target to the route's detail page, not just the link.
+        ->assertJsonPath('rows.0._link', ['to' => 'entity', 'type' => 'route', 'value' => '/orders']);
 });
 
-it('emits a whole-row drawer trigger on the trace search table', function (): void {
+it('emits a whole-row trace link on the trace search table', function (): void {
     Http::fake([
         'tempo.test:3200/api/search*' => Http::response([
             'traces' => [[
@@ -40,7 +38,8 @@ it('emits a whole-row drawer trigger on the trace search table', function (): vo
         ]),
     ]);
 
-    Livewire::test(TraceSearch::class)
+    $this->getJson(panelUrl('trace-search'))
+        ->assertOk()
         ->assertSee('POST /orders')
-        ->assertSeeHtml('data-row-trace="0af7651916cd43dd8448eb211c80319c"');
+        ->assertJsonPath('rows.0._link', ['to' => 'trace', 'id' => '0af7651916cd43dd8448eb211c80319c']);
 });

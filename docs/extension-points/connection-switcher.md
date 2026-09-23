@@ -28,10 +28,12 @@ public function boot(): void
 }
 ```
 
-A native `<select>` appears in the dashboard header, on every page including
-trace detail. Picking an option navigates to that option's `url` — your own
-route, doing whatever switching means over there (write a session key, swap a
-profile, redirect back into the dashboard).
+A **Backend** picker appears in the dashboard's top bar, on every screen
+including trace detail. Picking an option does a full navigation to that
+option's `url` — your own route, doing whatever switching means over there
+(write a session key, swap a profile, redirect back into the dashboard). The
+SPA gets the list from `GET /api/v2/bootstrap` (`connections`,
+`currentConnection`).
 
 **Nothing registered means nothing rendered.** A host that never calls
 `connection()` sees no foreign chrome, as with
@@ -40,27 +42,20 @@ profile, redirect back into the dashboard).
 ## Marking the current one
 
 `currentConnection()` is what the control shows as selected. If you don't call
-it — or you name a value you never registered — the switcher renders a disabled
-`Connection…` placeholder instead of quietly selecting the first option. A
+it — or you name a value you never registered — the switcher shows a
+`Connection` placeholder instead of quietly selecting the first option. A
 control that claims you are on a profile nobody confirmed is worse than one that
 admits it doesn't know.
 
-## Why a native select
-
-The scope pickers beside it are searchable comboboxes, which are nicer. This one
-is deliberately a plain `<select>`.
-
-The combobox is entirely Alpine-driven: if the JavaScript bundle fails to load,
-it renders as a button with no label and no popover. For most controls that is a
-degraded experience. For *this* one it means the reader is stranded on whichever
-backend they happen to be pointed at, inside a dashboard whose data they may not
-be able to explain — with no way out. A native select still opens.
+In 1.x this was a native `<select>` so it still worked if the Alpine bundle
+failed to load. In v2 the whole dashboard is the SPA, so it uses the same
+combobox as the other pickers; if the app doesn't load, nothing does.
 
 ## Escaping
 
-`label` and `url` are ordinary escaped Blade output, and there is no icon or
-markup parameter — the same line [`navLink()`](navigation.md) holds. Nothing a
-host passes reaches an unescaped sink.
+`label` is rendered as text, and there is no icon or markup parameter — the
+same line [`navLink()`](navigation.md) holds. `url` is used as a navigation
+target as given, so only pass URLs you build yourself.
 
 ## Managing entries
 

@@ -1,0 +1,47 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Cbox\TelemetryUi\Panels\Builtin;
+
+use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Support\Format;
+
+/**
+ * Oldest pending job age, per queue — how far behind each queue is running.
+ * From queue_metrics.queue.oldest_job.age.
+ */
+final class QueueOldestJob extends Panel
+{
+    protected ?string $drillPage = 'queues';
+
+    public function data(): array
+    {
+        [$start, $end] = $this->range();
+
+        $age = $this->metric('queue_metrics_queue_oldest_job_age_seconds');
+
+        try {
+            $oldest = 0.0;
+
+            foreach ($this->metrics()->query($age->maxBy('queue')) as $sample) {
+                $oldest = max($oldest, $sample->value);
+            }
+
+            $range = $this->metrics()->queryRange($age->maxBy('queue'), $start, $end);
+        } catch (SourceException $exception) {
+            return $this->chartCard('Oldest job', error: $exception->getMessage());
+        }
+
+        return $this->chartCard(
+            title: 'Oldest job',
+            subtitle: 'Age of the oldest pending job, per queue — how far behind each queue runs',
+            series: $this->toChartSeries($range, 'queue'),
+            stats: [
+                $this->stat('Oldest', $oldest > 0 ? Format::ms($oldest * 1000) : '—', $oldest > 0 ? 'warn' : 'dim'),
+            ],
+            unit: 's',
+        );
+    }
+}

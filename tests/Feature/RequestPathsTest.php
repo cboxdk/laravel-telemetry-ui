@@ -2,12 +2,9 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 
-// Own file, own fakes: the paths aggregation needs a specific Tempo
-// response, and DetailPagesTest's broad beforeEach stub would win the
-// Http fake-order race.
+// Own file, own fakes: the paths aggregation needs a specific Tempo response.
 it('aggregates concrete paths behind a route from its own spans', function (): void {
     $now = time();
 
@@ -31,14 +28,17 @@ it('aggregates concrete paths behind a route from its own spans', function (): v
         'loki.test:3100/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]),
     ]);
 
-    Gate::define('viewTelemetryUi', fn (?object $user = null): bool => true);
-
-    $this->get('/telemetry-ui/request-detail?route='.urlencode('/packages/{slug}'))
+    $response = $this->getJson(panelUrl('request-detail-paths', ['route' => '/packages/{slug}']))
         ->assertOk()
-        ->assertSee('/packages/laravel-telemetry')
-        ->assertSee('/packages/does-not-exist')
-        ->assertSee('req_view=log')      // rows tail the path in the request log
-        ->assertSee('log_path=');
+        ->assertJsonPath('kind', 'table')
+        ->assertSee('/packages/laravel-telemetry', false)
+        ->assertSee('/packages/does-not-exist', false);
+
+    // Rows tail the path in the request log; ⇄ opens the newest request.
+    $rows = collect($response->json('rows'))->keyBy('path.v');
+    expect($rows['/packages/does-not-exist']['_link'])->toBe(['to' => 'page', 'page' => 'requests', 'params' => ['log_path' => '/packages/does-not-exist']])
+        ->and($rows['/packages/does-not-exist']['errors']['tone'])->toBe('danger')
+        ->and($rows['/packages/laravel-telemetry']['latest']['link'])->toBe(['to' => 'trace', 'id' => 'aaaa1111aaaa1111aaaa1111aaaa1111']);
 
     // The span search carries the route scope — no backend-wide path leak.
     Http::assertSent(function ($request): bool {

@@ -1,0 +1,61 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Cbox\TelemetryUi\Panels\Builtin;
+
+use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Support\Format;
+
+/**
+ * Horizon trouble signals in one chart: long queue waits, process restarts,
+ * out-of-memory kills and migrated jobs — quiet fleet, flat lines.
+ */
+final class HorizonIncidents extends Panel
+{
+    /** metric → [series label, colour] */
+    private const SIGNALS = [
+        'horizon_long_wait_detected_total' => ['Long waits', '#fbbf24'],
+        'horizon_process_restarts_total' => ['Restarts', '#60a5fa'],
+        'horizon_process_out_of_memory_total' => ['Out of memory', '#f87171'],
+        'horizon_jobs_migrated_total' => ['Migrated jobs', '#71717a'],
+    ];
+
+    public function data(): array
+    {
+        [$start, $end] = $this->range();
+
+        $series = [];
+        $stats = [];
+
+        try {
+            foreach (self::SIGNALS as $metric => [$label, $color]) {
+                $range = $this->metrics()->queryRange(
+                    $this->metric($metric)->rate($this->rateWindow())->sumBy()->times(60),
+                    $start,
+                    $end,
+                );
+
+                foreach ($range as $timeSeries) {
+                    $series[] = ['name' => $label, 'data' => $timeSeries->toChartData(), 'color' => $color];
+                }
+
+                $total = $this->total($this->metric($metric)->increase($this->promDuration())->sumBy());
+                $stats[] = $this->stat($label, Format::count($total), $total > 0 && $label !== 'Migrated jobs' ? 'warn' : 'dim');
+            }
+        } catch (SourceException $exception) {
+            return $this->chartCard('Horizon incidents', error: $exception->getMessage(), span: 2);
+        }
+
+        return $this->chartCard(
+            title: 'Horizon incidents',
+            subtitle: 'Long waits, worker restarts, OOM kills and queue migrations per minute',
+            series: $series,
+            stats: $stats,
+            type: 'line',
+            unit: '/min',
+            span: 2,
+        );
+    }
+}

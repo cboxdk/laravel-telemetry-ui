@@ -1,0 +1,131 @@
+import { useEffect, useMemo, useState } from 'react';
+import { usePanel } from '../../api/hooks';
+import type { Control, TicketDraft } from '../../api/types';
+import { Go } from '../../lib/links';
+import { useSearchState, useSetSearch } from '../../lib/state';
+import { Combobox } from '../Combobox';
+import { ComposeIssue } from '../ComposeIssue';
+import { CopyButton } from '../CopyButton';
+import { Icon } from '../Icon';
+import { ErrorState, Skeleton } from '../States';
+import { PanelBody } from './PanelBody';
+
+/** URL keys that are never panel params. */
+const RESERVED = new Set(['period', 'from', 'to', 'service', 'env', 'refresh', 'drawer', 'where', 'groupBy', 'facets', 'value', 'tab', 'limit']);
+
+/** Controls each panel declared on its last response — which URL keys it reads. */
+const knownControls = new Map<string, string[]>();
+
+/**
+ * One panel: fetched on its own (a slow backend query never blocks the page),
+ * framed as a Cbox DataPanel with its controls, drill link, live toggle and
+ * typed error/empty states.
+ */
+export function PanelView({ id, span = 1, params = {} }: { id: string; span?: number; params?: Record<string, string> }) {
+    const search = useSearchState();
+    const set = useSetSearch();
+    const [live, setLive] = useState(false);
+    const [draft, setDraft] = useState<TicketDraft | null>(null);
+    // Which URL keys this panel reads. Known only once it has answered, so it
+    // is state — a render-time write would leave the memo stale and keep
+    // sending another panel's params.
+    const [controlKeys, setControlKeys] = useState<string[] | undefined>(() => knownControls.get(id));
+
+    const controlParams = useMemo(() => {
+        const keys = controlKeys;
+        const out: Record<string, string> = {};
+        for (const [k, v] of Object.entries(search)) {
+            if (typeof v !== 'string' || RESERVED.has(k)) continue;
+            if (keys === undefined || keys.includes(k)) out[k] = v;
+        }
+        return out;
+    }, [search, controlKeys]);
+
+    const { data, error, isLoading, isFetching } = usePanel(id, { ...controlParams, ...params }, live);
+
+    useEffect(() => {
+        if (!data) return;
+        const keys = (data.controls ?? []).map((c) => c.param);
+        knownControls.set(id, keys);
+        setControlKeys((previous) => (previous?.length === keys.length && previous.every((key, i) => key === keys[i]) ? previous : keys));
+    }, [id, data]);
+
+    // A detail page's header names the thing (the exception, the route, the
+    // host): the tab title should too. Runs after the page's own title.
+    const headerTitle = data?.kind === 'header' ? data.title : undefined;
+    useEffect(() => {
+        if (headerTitle) document.title = `${headerTitle} · ${document.title.split(' · ').slice(-2).join(' · ')}`;
+    }, [headerTitle]);
+
+    if (data?.kind === 'hidden') return null;
+
+    const effectiveSpan = Math.min(3, Math.max(1, span, data?.span ?? 1));
+    const setParam = (patch: Record<string, string>) => set(Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === '' ? undefined : v])));
+
+    const isHeader = data?.kind === 'header';
+
+    return (
+        <section className={`t-panel span-${effectiveSpan} ${isHeader ? 'is-header' : ''} ${isFetching && !isLoading ? 'is-refreshing' : ''}`} aria-busy={isFetching}>
+            {(data?.title || !data) && (
+                <header className="t-panel-head">
+                    <div className="t-panel-titles">
+                        {!data ? (
+                            // Loading: placeholder lines where the title and subtitle will be.
+                            <><span className="t-skel-line" style={{ width: 120 }} /><span className="t-skel-line is-sub" style={{ width: 220 }} /></>
+                        ) : isHeader ? <h1 className="t-page-title">{data.title}</h1> : <h3 className="t-panel-title">{data.title || '\u00a0'}</h3>}
+                        {data?.subtitle && <p className="t-panel-sub">{data.subtitle}</p>}
+                    </div>
+                    <div className="t-panel-actions">
+                        {data?.controls?.map((c) => <ControlView key={c.param} control={c} value={controlParams[c.param] ?? c.value} onChange={(v) => setParam({ [c.param]: v })} />)}
+                        {data?.stream && (
+                            <button type="button" className={`t-btn t-btn-sm ${live ? 't-btn-live' : 't-btn-ghost'}`} onClick={() => setLive((l) => !l)} title="Live tail — refresh every 3s">
+                                <Icon name={live ? 'pause' : 'play'} size={12} />
+                                {live ? 'Live' : 'Tail'}
+                            </button>
+                        )}
+                        {data?.copy && <CopyButton text={data.copy.text} label={data.copy.label} />}
+                        {data?.ticket && <button type="button" className="t-btn t-btn-sm t-btn-secondary" onClick={() => setDraft(data.ticket ?? null)}><Icon name="plus" size={12} />Create issue</button>}
+                        {data?.drill && <Go link={data.drill} className="t-drill">{data.drill.label ?? 'Open'} <Icon name="chevronRight" size={12} /></Go>}
+                    </div>
+                </header>
+            )}
+            <div className="t-panel-body">
+                {/* Every state renders something: data, else the typed error, else a skeleton (loading or retrying). */}
+                {data ? <PanelBody data={data} onParam={setParam} onTicket={setDraft} /> : error && !isFetching ? <ErrorState error={error} compact /> : <Skeleton height={160} />}
+            </div>
+            {data?.note && <footer className="t-panel-foot">{data.note}</footer>}
+            {draft && <ComposeIssue draft={draft} onClose={() => setDraft(null)} />}
+        </section>
+    );
+}
+
+/** A placeholder that doesn't already say what the box is for needs the label beside it. */
+function hasOwnLabel(control: Control): boolean {
+    return Boolean(control.placeholder) && !control.placeholder!.toLowerCase().includes(control.label.toLowerCase());
+}
+
+function ControlView({ control, value, onChange }: { control: Control; value: string; onChange: (v: string) => void }) {
+    const [text, setText] = useState(value);
+
+    if (control.type === 'select') {
+        return <Combobox label={control.label} value={value} options={control.options ?? []} onChange={onChange} className="t-combo-sm" />;
+    }
+
+    return (
+        <form className={`t-search-control ${hasOwnLabel(control) ? 'has-label' : ''}`} onSubmit={(e) => { e.preventDefault(); onChange(text.trim()); }}>
+            {/* A placeholder is an example, not a label: say what the box filters. */}
+            {hasOwnLabel(control)
+                ? <span className="t-search-label">{control.label}</span>
+                : <Icon name="search" size={12} />}
+            <input
+                className="t-input t-input-sm"
+                style={{ width: Math.min(260, Math.max(140, (control.placeholder || control.label).length * 6.4 + 36)) }}
+                value={text}
+                placeholder={control.placeholder || control.label}
+                aria-label={control.label}
+                onChange={(e) => setText(e.target.value)}
+                onBlur={() => text.trim() !== value && onChange(text.trim())}
+            />
+        </form>
+    );
+}

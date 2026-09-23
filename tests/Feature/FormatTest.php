@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Card;
+use Cbox\TelemetryUi\Http\Api\RequestScope;
+use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Queries\Compilers\LogqlCompiler;
 use Cbox\TelemetryUi\Queries\Compilers\PromqlCompiler;
 use Cbox\TelemetryUi\Support\Format;
-use Illuminate\Contracts\View\View;
 
 it('formats counts compactly', function (): void {
     expect(Format::count(0))->toBe('0')
@@ -30,12 +30,12 @@ it('formats bytes and percentages', function (): void {
         ->and(Format::percent(0.9871))->toBe('98.7%');
 });
 
-it('formats fleet scope helpers on cards', function (): void {
-    $card = new class extends Card
+it('formats fleet scope helpers on panels', function (): void {
+    $card = new class(new RequestScope) extends Panel
     {
-        public function render(): View
+        public function data(): array
         {
-            return view('telemetry-ui::cards.chart');
+            return [];
         }
 
         public function probe(): array
@@ -67,11 +67,11 @@ it('formats fleet scope helpers on cards', function (): void {
 });
 
 it('escapes quotes and backslashes in scope values so they cannot break the query', function (): void {
-    $card = new class extends Card
+    $card = new class(new RequestScope) extends Panel
     {
-        public function render(): View
+        public function data(): array
         {
-            return view('telemetry-ui::cards.chart');
+            return [];
         }
 
         public function probe(): array

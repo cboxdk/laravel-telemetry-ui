@@ -2,18 +2,17 @@
 
 declare(strict_types=1);
 
-use Cbox\TelemetryUi\Cards\Builtin\AutoscaleActions;
-use Cbox\TelemetryUi\Cards\Builtin\AutoscaleCluster;
-use Cbox\TelemetryUi\Cards\Builtin\AutoscaleSla;
-use Cbox\TelemetryUi\Cards\Builtin\AutoscaleWorkers;
-use Cbox\TelemetryUi\Cards\Builtin\QueueBacklog;
-use Cbox\TelemetryUi\Cards\Builtin\QueueOldestJob;
-use Cbox\TelemetryUi\Cards\Builtin\QueuesTable;
-use Cbox\TelemetryUi\Cards\Builtin\QueueThroughput;
-use Cbox\TelemetryUi\Cards\Builtin\QueueWorkers;
+use Cbox\TelemetryUi\Panels\Builtin\AutoscaleActions;
+use Cbox\TelemetryUi\Panels\Builtin\AutoscaleCluster;
+use Cbox\TelemetryUi\Panels\Builtin\AutoscaleSla;
+use Cbox\TelemetryUi\Panels\Builtin\AutoscaleWorkers;
+use Cbox\TelemetryUi\Panels\Builtin\QueueBacklog;
+use Cbox\TelemetryUi\Panels\Builtin\QueueOldestJob;
+use Cbox\TelemetryUi\Panels\Builtin\QueuesTable;
+use Cbox\TelemetryUi\Panels\Builtin\QueueThroughput;
+use Cbox\TelemetryUi\Panels\Builtin\QueueWorkers;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Http;
-use Livewire\Livewire;
 
 /** A Prometheus instant-vector response. */
 function queuesVector(array $results): array
@@ -35,8 +34,8 @@ it('registers the queues and autoscale pages with their metric-family detection'
         ->and($pages['autoscale']['detect'])->toBe('queue_autoscale_.*')
         ->and($pages['autoscale']['group'])->toBe('Queues');
 
-    expect(app(TelemetryUiManager::class)->cards('queues'))->toContain(QueueBacklog::class, QueuesTable::class)
-        ->and(app(TelemetryUiManager::class)->cards('autoscale'))->toContain(AutoscaleWorkers::class, AutoscaleCluster::class);
+    expect(app(TelemetryUiManager::class)->panels('queues'))->toContain(QueueBacklog::class, QueuesTable::class)
+        ->and(app(TelemetryUiManager::class)->panels('autoscale'))->toContain(AutoscaleWorkers::class, AutoscaleCluster::class);
 });
 
 it('charts the backlog by job state', function (): void {
@@ -51,7 +50,8 @@ it('charts the backlog by job state', function (): void {
         ])),
     ]);
 
-    Livewire::test(QueueBacklog::class)
+    $this->getJson(panelUrl(QueueBacklog::id()))
+        ->assertOk()
         ->assertSee('Backlog')
         ->assertSee('Pending')
         ->assertSee('Scheduled')
@@ -75,7 +75,8 @@ it('charts per-queue throughput', function (): void {
         ])),
     ]);
 
-    Livewire::test(QueueThroughput::class)
+    $this->getJson(panelUrl(QueueThroughput::id()))
+        ->assertOk()
         ->assertSee('Throughput')
         ->assertSee('55');
 
@@ -96,7 +97,8 @@ it('shows the oldest pending job age', function (): void {
         ])),
     ]);
 
-    Livewire::test(QueueOldestJob::class)
+    $this->getJson(panelUrl(QueueOldestJob::id()))
+        ->assertOk()
         ->assertSee('Oldest job')
         ->assertSee('1.58min'); // 95s formatted
 
@@ -129,7 +131,8 @@ it('charts the worker fleet with utilization', function (): void {
         },
     ]);
 
-    Livewire::test(QueueWorkers::class)
+    $this->getJson(panelUrl(QueueWorkers::id()))
+        ->assertOk()
         ->assertSee('Workers')
         ->assertSee('Busy')
         ->assertSee('Utilization')
@@ -152,11 +155,14 @@ it('lists queues with backlog, drain rate and workers', function (): void {
         ])),
     ]);
 
-    Livewire::test(QueuesTable::class)
+    $this->getJson(panelUrl(QueuesTable::id()))
+        ->assertOk()
         ->assertSee('Queues')
         ->assertSee('default')
         ->assertSee('redis')
-        ->assertSee('queue-detail', false); // rows link to the queue-detail page
+        // Rows drill into the queue entity page.
+        ->assertJsonPath('rows.0._link', ['to' => 'entity', 'type' => 'queue', 'value' => 'default'])
+        ->assertJsonPath('rows.0.connection.badge', 'redis');
 });
 
 it('charts autoscaler target against active workers', function (): void {
@@ -169,7 +175,8 @@ it('charts autoscaler target against active workers', function (): void {
         ])),
     ]);
 
-    Livewire::test(AutoscaleWorkers::class)
+    $this->getJson(panelUrl(AutoscaleWorkers::id()))
+        ->assertOk()
         ->assertSee('Target')
         ->assertSee('Active')
         ->assertSee('6');
@@ -200,7 +207,8 @@ it('charts executed scaling actions by direction', function (): void {
         ])),
     ]);
 
-    Livewire::test(AutoscaleActions::class)
+    $this->getJson(panelUrl(AutoscaleActions::id()))
+        ->assertOk()
         ->assertSee('Scaling actions')
         ->assertSee('Scale up')
         ->assertSee('Scale down')
@@ -233,7 +241,8 @@ it('shows SLA breach state with predicted pickup times', function (): void {
         },
     ]);
 
-    Livewire::test(AutoscaleSla::class)
+    $this->getJson(panelUrl(AutoscaleSla::id()))
+        ->assertOk()
         ->assertSee('SLA')
         ->assertSee('In breach')
         ->assertSee('Breaches');
@@ -253,7 +262,8 @@ it('explains the missing cluster gauges on single-host installs', function (): v
         'prometheus.test:9090/api/v1/query?*' => Http::response(queuesVector([])),
     ]);
 
-    Livewire::test(AutoscaleCluster::class)
+    $this->getJson(panelUrl(AutoscaleCluster::id()))
+        ->assertOk()
         ->assertDontSee('Managers')
         ->assertSee('not running in cluster mode');
 });
@@ -268,7 +278,8 @@ it('charts cluster workers against demand and capacity', function (): void {
         ])),
     ]);
 
-    Livewire::test(AutoscaleCluster::class)
+    $this->getJson(panelUrl(AutoscaleCluster::id()))
+        ->assertOk()
         ->assertSee('Cluster')
         ->assertSee('Managers')
         ->assertSee('Utilization')
@@ -279,4 +290,90 @@ it('charts cluster workers against demand and capacity', function (): void {
 
         return str_contains($q, 'queue_autoscale_cluster_required_workers');
     });
+});
+
+it('lists jobs with outcome tones, a row drill-down and a search control', function (): void {
+    Http::fake([
+        'prometheus.test:9090/api/v1/query_range*' => Http::response(queuesMatrix([
+            ['metric' => ['job_name' => 'App\\Jobs\\Ship', 'queue' => 'default'], 'values' => [[1735689600, '3'], [1735689660, '4']]],
+        ])),
+        'prometheus.test:9090/api/v1/query?*' => function ($request) {
+            $q = rawurldecode(requestQuery($request)['query'] ?? '');
+
+            $value = match (true) {
+                str_contains($q, 'queue_jobs_failed_total') => '2',
+                str_contains($q, 'queue_jobs_released_total') => '0',
+                str_contains($q, 'duration_milliseconds_bucket') => '180',
+                str_contains($q, 'duration_milliseconds_sum') => '4000',
+                default => '40',
+            };
+
+            return Http::response(queuesVector([
+                ['metric' => ['job_name' => 'App\\Jobs\\Ship', 'queue' => 'default'], 'value' => [1735689600, $value]],
+                ['metric' => ['job_name' => 'App\\Jobs\\Mail', 'queue' => 'emails'], 'value' => [1735689600, $value]],
+            ]));
+        },
+    ]);
+
+    $this->getJson(panelUrl('jobs-table', ['job_search' => 'ship']))
+        ->assertOk()
+        ->assertJsonPath('kind', 'table')
+        ->assertJsonCount(1, 'rows') // the search filtered Mail out
+        ->assertJsonPath('rows.0._link', ['to' => 'entity', 'type' => 'job', 'value' => 'App\\Jobs\\Ship'])
+        ->assertJsonPath('rows.0.failed.tone', 'danger')
+        ->assertJsonPath('rows.0.trend.tone', 'danger')
+        ->assertJsonPath('rows.0.trend.spark', [3, 4])
+        ->assertJsonPath('rows.0.avg.v', '100ms') // 4000ms / 40 runs
+        ->assertJsonPath('controls.0.param', 'job_search')
+        ->assertJsonPath('controls.0.value', 'ship');
+});
+
+it('renders the job detail header with a back link and the recent runs as trace rows', function (): void {
+    Http::fake([
+        'prometheus.test:9090/api/v1/query?*' => Http::response(queuesVector([
+            ['metric' => [], 'value' => [1735689600, '5']],
+        ])),
+        'tempo.test:3200/api/search*' => Http::response(['traces' => [
+            ['traceID' => 'abcd1234abcd1234abcd1234abcd1234', 'rootServiceName' => 'demo', 'rootTraceName' => 'App\\Jobs\\Ship', 'startTimeUnixNano' => '1735689600000000000', 'durationMs' => 1500],
+        ]]),
+    ]);
+
+    $this->getJson(panelUrl('job-detail-header', ['job' => 'App\\Jobs\\Ship']))
+        ->assertOk()
+        ->assertJsonPath('kind', 'header')
+        ->assertJsonPath('title', 'App\\Jobs\\Ship')
+        ->assertJsonPath('back.page', 'jobs')
+        ->assertJsonPath('stats.1.label', 'Failed')
+        ->assertJsonPath('stats.1.tone', 'danger');
+
+    $this->getJson(panelUrl('job-detail-traces', ['job' => 'App\\Jobs\\Ship']))
+        ->assertOk()
+        ->assertJsonPath('rows.0._link', ['to' => 'trace', 'id' => 'abcd1234abcd1234abcd1234abcd1234'])
+        ->assertJsonPath('rows.0.duration.tone', 'warn')
+        ->assertJsonPath('rows.0.id.v', 'abcd1234…');
+});
+
+it('renders the queue detail header with headline stats', function (): void {
+    Http::fake([
+        'prometheus.test:9090/api/v1/query?*' => Http::response(queuesVector([
+            ['metric' => [], 'value' => [1735689600, '90']],
+        ])),
+    ]);
+
+    $this->getJson(panelUrl('queue-detail-header', ['queue' => 'default']))
+        ->assertOk()
+        ->assertJsonPath('title', 'default')
+        ->assertJsonPath('back.page', 'queues')
+        ->assertJsonPath('stats.1.label', 'Oldest')
+        ->assertJsonPath('stats.1.value', '1.5min')
+        ->assertJsonPath('stats.1.tone', 'warn');
+});
+
+it('returns the backend error in the payload instead of failing the request', function (): void {
+    Http::fake(['prometheus.test:9090/*' => Http::response('boom', 502)]);
+
+    $this->getJson(panelUrl('queues-table'))
+        ->assertOk()
+        ->assertJsonPath('rows', [])
+        ->assertJsonPath('error', fn (mixed $error): bool => is_string($error) && $error !== '');
 });
