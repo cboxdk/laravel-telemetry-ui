@@ -69,11 +69,11 @@ final class SlowQueries extends Panel
         }
 
         $table = array_map(static fn (array $row): array => [
-            'query' => Ui::cell($row['query'], ['mono' => true, 'link' => Ui::trace($row['traceId'])]),
+            'query' => Ui::cell($row['query'], ['mono' => true, 'link' => Ui::trace($row['traceId'], $row['startedAt'])]),
             'origin' => Ui::cell($row['origin']),
             'duration' => Ui::cell(Format::ms($row['durationMs']), ['raw' => $row['durationMs'], 'tone' => 'warn']),
             'when' => Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true]),
-            '_link' => Ui::trace($row['traceId']),
+            '_link' => Ui::trace($row['traceId'], $row['startedAt']),
         ], array_slice($rows, 0, 50));
 
         return Ui::table('Slowest queries', [

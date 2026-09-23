@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\BackendStatus;
 use Cbox\TelemetryUi\Connectors\ProbeResult;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Contracts\LocatesTracesInTime;
 use Cbox\TelemetryUi\Contracts\ProbesConnection;
 use Cbox\TelemetryUi\Contracts\TracesSource;
 use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
@@ -23,7 +24,7 @@ use DateTimeInterface;
 /**
  * Grafana Tempo driver: TraceQL search plus OTLP-JSON trace retrieval.
  */
-readonly class TempoSource implements ProbesConnection, TracesSource
+readonly class TempoSource implements LocatesTracesInTime, ProbesConnection, TracesSource
 {
     public function __construct(private ApiClient $client) {}
 
@@ -87,9 +88,32 @@ readonly class TempoSource implements ProbesConnection, TracesSource
 
     public function trace(string $traceId): Trace
     {
+        return $this->fetchTrace($traceId);
+    }
+
+    public function traceBetween(string $traceId, DateTimeInterface $start, DateTimeInterface $end): Trace
+    {
+        try {
+            return $this->fetchTrace($traceId, ['start' => $start->getTimestamp(), 'end' => $end->getTimestamp()]);
+        } catch (SourceException $exception) {
+            // Tempo answers a trace that isn't in the window with a 404: that is
+            // "not here", which the caller turns into a full lookup.
+            if ($exception->httpStatus === 404) {
+                return new Trace($traceId, [], []);
+            }
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * @param  array<string, int>  $query
+     */
+    private function fetchTrace(string $traceId, array $query = []): Trace
+    {
         $path = '/api/traces/'.rawurlencode($traceId);
 
-        $response = $this->client->get($path);
+        $response = $this->client->get($path, $query);
 
         // Tempo v1 returns the tempopb Trace directly ({"batches": [...]}),
         // v2 wraps it ({"trace": {"resourceSpans": [...]}}).

@@ -44,3 +44,32 @@ describe('warming traces on hover', () => {
         expect(urls[0]).toContain('/t/api/v2/traces/ccc');
     });
 });
+
+describe('telling the trace store where to look', () => {
+    it('sends the start a trace link carried, and nothing for a trace opened cold', async () => {
+        vi.useFakeTimers();
+        setBoot({ base: '/t', api: '/t/api/v2', assets: '/t/build', csrf: '' });
+        const urls: string[] = [];
+        vi.stubGlobal('fetch', vi.fn(async (input: string) => {
+            urls.push(String(input));
+            return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }));
+
+        let prefetch: ReturnType<typeof usePrefetch> | null = null;
+        const Probe = () => { prefetch = usePrefetch(); return null; };
+        render(
+            <QueryClientProvider client={new QueryClient()}>
+                <MemoryNavigation search="">
+                    <Probe />
+                </MemoryNavigation>
+            </QueryClientProvider>,
+        );
+
+        act(() => prefetch!({ to: 'trace', id: 'with-time', at: 1735689600500 }));
+        await act(async () => { vi.advanceTimersByTime(TRACE_PREFETCH_DELAY_MS); });
+        act(() => prefetch!({ to: 'trace', id: 'cold' }));
+        await act(async () => { vi.advanceTimersByTime(TRACE_PREFETCH_DELAY_MS); });
+
+        expect(urls).toEqual(['/t/api/v2/traces/with-time?at=1735689600500', '/t/api/v2/traces/cold']);
+    });
+});

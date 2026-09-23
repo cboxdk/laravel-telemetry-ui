@@ -108,7 +108,7 @@ final class TraceSearch extends Panel
         $table = [];
 
         foreach ($results as $row) {
-            $link = Ui::trace($row['traceId']);
+            $link = Ui::trace($row['traceId'], $row['startedAt']);
 
             $table[] = [
                 '_link' => $link,

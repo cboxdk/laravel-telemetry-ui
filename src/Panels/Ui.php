@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels;
 
 use Cbox\TelemetryUi\Panels\Concerns\BuildsCharts;
+use DateTimeInterface;
 
 /**
  * Builders for the panel JSON contract the SPA renders — the one place the
@@ -27,7 +28,7 @@ use Cbox\TelemetryUi\Panels\Concerns\BuildsCharts;
  * drill-down says *what* it opens — an entity, a trace, an error group — and the
  * client decides where that lives.
  *
- * @phpstan-type Link array{to: string, type?: string, value?: string, id?: string, group?: string, page?: string, params?: array<string, string>, signal?: string, where?: list<string>, href?: string, label?: string}
+ * @phpstan-type Link array{to: string, type?: string, value?: string, id?: string, at?: int, group?: string, page?: string, params?: array<string, string>, signal?: string, where?: list<string>, href?: string, label?: string}
  * @phpstan-type Cell array{v: string|int|float|null, raw?: float|int|null, tone?: string|null, mono?: bool, link?: Link, spark?: list<float>, bar?: float, badge?: string, dim?: array{key: string, value: string}, sub?: string}
  * @phpstan-type Column array{key: string, label: string, align?: string, width?: string}
  * @phpstan-type Stat array{label: string, value: string, tone?: string|null, delta?: string, deltaTone?: string, points?: list<float>, sparkColor?: string, link?: Link}
@@ -73,10 +74,18 @@ final class Ui
         return ['to' => 'entities', 'type' => $type];
     }
 
-    /** @return Link */
-    public static function trace(string $traceId): array
+    /**
+     * One trace. `$at` (when the request started) rides along as `at`, epoch
+     * milliseconds, so opening it can ask the trace store about that stretch of
+     * time only — several times faster than a lookup across retention.
+     *
+     * @return Link
+     */
+    public static function trace(string $traceId, ?DateTimeInterface $at = null): array
     {
-        return ['to' => 'trace', 'id' => $traceId];
+        return $at === null
+            ? ['to' => 'trace', 'id' => $traceId]
+            : ['to' => 'trace', 'id' => $traceId, 'at' => (int) $at->format('Uv')];
     }
 
     /** @return Link */

@@ -271,8 +271,8 @@ function StoryTab({ data }: { data: EntityStory }) {
             </div>
 
             <div className="t-story-cols">
-                <TraceTable title="Failing" rows={data.failing} empty="No failures — nice." onOpen={(r) => go({ to: 'trace', id: r.traceId })} />
-                <TraceTable title="Slowest" rows={data.slowest} empty="No spans." onOpen={(r) => go({ to: 'trace', id: r.traceId })} />
+                <TraceTable title="Failing" rows={data.failing} empty="No failures — nice." onOpen={(r) => go({ to: 'trace', id: r.traceId, at: r.startMs })} />
+                <TraceTable title="Slowest" rows={data.slowest} empty="No spans." onOpen={(r) => go({ to: 'trace', id: r.traceId, at: r.startMs })} />
             </div>
 
             {data.recent.length > 0 && (

@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { PanelView } from '../components/panels/PanelView';
 import { PathScope } from '../lib/navigation';
+import { rememberTraceTime } from '../lib/traceTimes';
 import { TraceView } from '../components/drawer/TraceView';
 import { TopBar } from '../components/shell/TopBar';
 import { useBoot } from '../components/DimensionValue';
@@ -81,8 +82,14 @@ export function TelemetryEntities({ type }: { type: string }) {
     return <PathScope pathname={`/entities/${encodeURIComponent(type)}`}><EntityIndexView type={type} /></PathScope>;
 }
 
-/** One trace, as the drawer renders it. */
-export function TelemetryTrace({ traceId }: { traceId: string }) {
+/**
+ * One trace, as the drawer renders it. Pass `at` (epoch ms) when the host knows
+ * when the request happened: the trace store is then asked about that stretch
+ * of time only, which is several times faster than a lookup across retention.
+ */
+export function TelemetryTrace({ traceId, at }: { traceId: string; at?: number }) {
+    rememberTraceTime(traceId, at);
+
     return <PathScope pathname={`/traces/${traceId}`}><TraceView traceId={traceId} full /></PathScope>;
 }
 

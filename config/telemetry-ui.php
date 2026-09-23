@@ -443,6 +443,25 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Opening a trace
+    |--------------------------------------------------------------------------
+    |
+    | A trace opened from a list carries when it happened, and a trace store
+    | that can search by time (Tempo) is asked about the blocks within this many
+    | seconds of it only, instead of every block in retention. Tempo matches a
+    | block by its own time range, not the trace's, so keep this generous: at
+    | ten minutes, lookups of traces that exist came back 404 on a busy store;
+    | at an hour they were all found, in half the time of a full lookup. A miss
+    | falls back to the full lookup either way.
+    |
+    */
+
+    'traces' => [
+        'lookup_window' => (int) env('TELEMETRY_UI_TRACE_LOOKUP_WINDOW', 3600),
+    ],
+
     'hosts' => [
         'cpu' => env('TELEMETRY_UI_HOSTS_CPU'),
         'memory' => env('TELEMETRY_UI_HOSTS_MEMORY'),

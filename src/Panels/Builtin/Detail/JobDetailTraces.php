@@ -48,7 +48,7 @@ final class JobDetailTraces extends Panel
 
         foreach ($results as $summary) {
             $rows[] = [
-                '_link' => Ui::trace($summary->traceId),
+                '_link' => Ui::trace($summary->traceId, $summary->startedAt),
                 'time' => Ui::cell($summary->startedAt->format('H:i:s'), [
                     'raw' => $summary->startedAt->getTimestamp(),
                     'mono' => true,
@@ -59,7 +59,7 @@ final class JobDetailTraces extends Panel
                     'dim' => ['key' => 'service.name', 'value' => $summary->rootServiceName],
                 ]),
                 'trace' => Ui::cell($summary->rootTraceName !== '' ? $summary->rootTraceName : '(unnamed)', [
-                    'link' => Ui::trace($summary->traceId),
+                    'link' => Ui::trace($summary->traceId, $summary->startedAt),
                 ]),
                 'duration' => Ui::cell(Format::ms($summary->durationMs), [
                     'raw' => $summary->durationMs,
@@ -68,7 +68,7 @@ final class JobDetailTraces extends Panel
                 ]),
                 'id' => Ui::cell(substr($summary->traceId, 0, 8).'…', [
                     'mono' => true,
-                    'link' => Ui::trace($summary->traceId),
+                    'link' => Ui::trace($summary->traceId, $summary->startedAt),
                 ]),
             ];
         }

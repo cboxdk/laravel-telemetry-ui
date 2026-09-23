@@ -1,5 +1,6 @@
 import { usePrefetch } from '../api/hooks';
 import { useNavigation } from './navigation';
+import { rememberTraceTime } from './traceTimes';
 import { type MouseEvent, type ReactNode, useCallback } from 'react';
 import type { Link as LinkData } from '../api/types';
 import { formatDrawer, parseDrawer, pushDrawer, scopeOf, stringifySearch, parseSearch, type DrawerEntry, type Search } from './search';
@@ -38,6 +39,7 @@ export function resolve(link: LinkData, current: { pathname: string; search: Sea
         case 'entity':
             return { pathname: `/entity/${encodeURIComponent(link.type)}`, search: { ...scope, value: link.value } };
         case 'trace':
+            rememberTraceTime(link.id, link.at);
             return drawer({ type: 'trace', id: link.id });
         case 'error':
             return drawer({ type: 'error', id: link.group });

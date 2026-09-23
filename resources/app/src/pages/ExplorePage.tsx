@@ -226,7 +226,7 @@ function useDrawerStepping(openTraceId: string | null, rows: SpanRow[], signal: 
         if (openTraceId === null) return;
         const at = rows.findIndex((r) => r.traceId === openTraceId);
         for (const neighbour of [rows[at + 1], rows[at - 1]]) {
-            if (neighbour) prefetch({ to: 'trace', id: neighbour.traceId });
+            if (neighbour) prefetch({ to: 'trace', id: neighbour.traceId, at: neighbour.startMs });
         }
     }, [openTraceId, rows, prefetch]);
 
@@ -246,7 +246,7 @@ function useDrawerStepping(openTraceId: string | null, rows: SpanRow[], signal: 
             if (!next) return;
 
             e.preventDefault();
-            go({ to: 'trace', id: next.traceId }, { replaceDrawer: true, replace: true });
+            go({ to: 'trace', id: next.traceId, at: next.startMs }, { replaceDrawer: true, replace: true });
         };
 
         window.addEventListener('keydown', onKey);

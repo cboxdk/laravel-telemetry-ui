@@ -348,7 +348,7 @@ it('renders the job detail header with a back link and the recent runs as trace 
 
     $this->getJson(panelUrl('job-detail-traces', ['job' => 'App\\Jobs\\Ship']))
         ->assertOk()
-        ->assertJsonPath('rows.0._link', ['to' => 'trace', 'id' => 'abcd1234abcd1234abcd1234abcd1234'])
+        ->assertJsonPath('rows.0._link', ['to' => 'trace', 'id' => 'abcd1234abcd1234abcd1234abcd1234', 'at' => 1735689600000])
         ->assertJsonPath('rows.0.duration.tone', 'warn')
         ->assertJsonPath('rows.0.id.v', 'abcd1234…');
 });

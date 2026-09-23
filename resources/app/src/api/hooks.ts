@@ -6,6 +6,7 @@ import type {
     IssueData, PageDef, PanelPayload, Signal, TraceData, Annotation,
 } from './types';
 import { useScope, useRefreshInterval } from '../lib/state';
+import { rememberTraceTime, traceTime } from '../lib/traceTimes';
 
 // Scope is part of every query key, so changing the window/service refetches
 // exactly what depends on it — and nothing round-trips for client-only state.
@@ -38,10 +39,11 @@ export function usePrefetch() {
 
         if (link.to === 'trace' && typeof link.id === 'string') {
             const id = link.id;
+            rememberTraceTime(id, typeof link.at === 'number' ? link.at : undefined);
             if (pendingTrace !== null) clearTimeout(pendingTrace);
             pendingTrace = setTimeout(() => {
                 pendingTrace = null;
-                fetch<TraceData>(['trace', id], `traces/${id}`);
+                fetch<TraceData>(['trace', id], `traces/${id}`, traceParams(id));
             }, TRACE_PREFETCH_DELAY_MS);
         } else if (link.to === 'error' && typeof link.group === 'string') {
             fetch<ErrorGroupData>(['error', link.group, scope.service, scope.env], `errors/${encodeURIComponent(link.group)}`, { service: scope.service, env: scope.env });
@@ -153,10 +155,19 @@ export function useEntityStory(type: string, value: string, params: Params = {})
     });
 }
 
+/** `?at=` for a trace whose start is known, so the store searches around it only. */
+function traceParams(traceId: string): Params {
+    const at = traceTime(traceId);
+    return at === undefined ? {} : { at };
+}
+
 export function useTrace(traceId: string) {
     return useQuery({
+        // The time is a hint for where to look, not part of what comes back,
+        // so it stays out of the key: a trace is cached once whichever way it
+        // was opened.
         queryKey: ['trace', traceId],
-        queryFn: ({ signal }) => api.get<TraceData>(`traces/${traceId}`, {}, signal),
+        queryFn: ({ signal }) => api.get<TraceData>(`traces/${traceId}`, traceParams(traceId), signal),
         staleTime: 5 * 60_000,
         retry: 1,
     });

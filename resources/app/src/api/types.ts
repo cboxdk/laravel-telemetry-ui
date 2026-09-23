@@ -7,7 +7,7 @@ export type Tone = 'ok' | 'warn' | 'danger' | 'dim' | 'info' | null | undefined;
 
 export type Link =
     | { to: 'entity'; type: string; value: string }
-    | { to: 'trace'; id: string }
+    | { to: 'trace'; id: string; at?: number }
     | { to: 'error'; group: string }
     | { to: 'issue'; id: string }
     | { to: 'page'; page: string; params?: Record<string, string> }

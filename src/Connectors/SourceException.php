@@ -19,6 +19,8 @@ class SourceException extends RuntimeException
         string $message,
         public readonly string $detail,
         public readonly BackendStatus $status = BackendStatus::Error,
+        /** The backend's HTTP status, when it answered with one. */
+        public readonly ?int $httpStatus = null,
     ) {
         parent::__construct($message);
     }
@@ -52,6 +54,7 @@ class SourceException extends RuntimeException
             "The telemetry backend returned status {$status}.",
             "Request to [{$url}] failed with status {$status}: ".mb_substr($body, 0, 1000),
             BackendStatus::classifyHttpStatus($status),
+            $status,
         );
     }
 

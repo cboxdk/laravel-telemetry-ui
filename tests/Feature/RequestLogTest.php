@@ -38,8 +38,11 @@ it('lists individual requests with user, ip and status', function (): void {
         ->assertJsonPath('rows.0.ip.v', '203.0.113.9')
         ->assertJsonPath('rows.0.status.v', '200')
         ->assertJsonPath('rows.0.status.tone', 'ok')
-        // Every row opens the request's story.
-        ->assertJsonPath('rows.0._link', ['to' => 'trace', 'id' => '1111111111111111aaaaaaaaaaaaaaaa'])
+        // Every row opens the request's story, and says when it started so the
+        // trace store is asked about that stretch of time only.
+        ->assertJsonPath('rows.0._link.to', 'trace')
+        ->assertJsonPath('rows.0._link.id', '1111111111111111aaaaaaaaaaaaaaaa')
+        ->assertJsonPath('rows.0._link.at', fn (mixed $at): bool => is_int($at) && $at > 0)
         // Clicking a user / IP tails them: sets the panel's own filter.
         ->assertJsonPath('rows.0.user.link', ['to' => 'param', 'params' => ['log_user' => '25']])
         ->assertJsonPath('rows.0.ip.link', ['to' => 'param', 'params' => ['log_ip' => '203.0.113.9']]);

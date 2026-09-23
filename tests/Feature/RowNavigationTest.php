@@ -41,5 +41,5 @@ it('emits a whole-row trace link on the trace search table', function (): void {
     $this->getJson(panelUrl('trace-search'))
         ->assertOk()
         ->assertSee('POST /orders')
-        ->assertJsonPath('rows.0._link', ['to' => 'trace', 'id' => '0af7651916cd43dd8448eb211c80319c']);
+        ->assertJsonPath('rows.0._link', ['to' => 'trace', 'id' => '0af7651916cd43dd8448eb211c80319c', 'at' => 1735689600000]);
 });

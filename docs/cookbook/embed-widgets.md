@@ -76,7 +76,7 @@ issue); read-only embeds work without it.
 | `<TelemetryExplore signal onSignalChange />` | The Explore surface over requests / traces / logs / errors; its signal tabs switch in place |
 | `<TelemetryEntity type />` | One entity's story (`?value=` in the view state) |
 | `<TelemetryEntities type />` | Every value of an entity type, with RED |
-| `<TelemetryTrace traceId />` | One trace: story, waterfall, logs, context |
+| `<TelemetryTrace traceId at />` | One trace: story, waterfall, logs, context. `at` (epoch ms, optional) is when the request happened; with it the trace store searches that hour only |
 | `<TelemetryIssue group />` | One error group |
 | `<TelemetryToolbar />` | The scope and window controls — service, environment, time window, refresh, copy link — for the top of your page; everything mounted beside it follows them |
 

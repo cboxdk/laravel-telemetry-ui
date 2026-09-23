@@ -36,14 +36,14 @@ export function SpanList({ rows, selected, onSelect, fresh = 0 }: { rows: SpanRo
                 className={`t-lrow ${selected === row.traceId ? 'is-sel' : ''} ${row.error ? 'is-error' : ''} ${index < fresh ? 'is-new' : ''}`}
                 role="button"
                 tabIndex={0}
-                onMouseEnter={() => prefetch({ to: 'trace', id: row.traceId })}
+                onMouseEnter={() => prefetch({ to: 'trace', id: row.traceId, at: row.startMs })}
                 onClick={(e) => {
                     if ((e.target as HTMLElement).closest('button:not(.t-lrow),a')) return;
                     if (onSelect) onSelect(row);
-                    else go({ to: 'trace', id: row.traceId }, { replaceDrawer: true });
+                    else go({ to: 'trace', id: row.traceId, at: row.startMs }, { replaceDrawer: true });
                 }}
                 onKeyDown={(e) => {
-                    if (e.key === 'Enter') go({ to: 'trace', id: row.traceId }, { replaceDrawer: true });
+                    if (e.key === 'Enter') go({ to: 'trace', id: row.traceId, at: row.startMs }, { replaceDrawer: true });
                     else if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); focusSibling(e.currentTarget, 1); }
                     else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); focusSibling(e.currentTarget, -1); }
                 }}

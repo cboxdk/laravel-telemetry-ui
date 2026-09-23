@@ -44,12 +44,12 @@ final class ExceptionDetailTraces extends Panel
         }
 
         $rows = array_map(static fn (TraceSummary $summary): array => [
-            '_link' => Ui::trace($summary->traceId),
+            '_link' => Ui::trace($summary->traceId, $summary->startedAt),
             'time' => Ui::cell($summary->startedAt->format('H:i:s'), ['raw' => $summary->startedAt->getTimestamp(), 'mono' => true]),
             'service' => Ui::cell($summary->rootServiceName, ['badge' => $summary->rootServiceName, 'tone' => 'info']),
-            'trace' => Ui::cell($summary->rootTraceName !== '' ? $summary->rootTraceName : '(unnamed)', ['link' => Ui::trace($summary->traceId)]),
+            'trace' => Ui::cell($summary->rootTraceName !== '' ? $summary->rootTraceName : '(unnamed)', ['link' => Ui::trace($summary->traceId, $summary->startedAt)]),
             'duration' => Ui::cell(Format::ms($summary->durationMs), ['raw' => $summary->durationMs, 'mono' => true, 'tone' => $summary->durationMs > 1000 ? 'warn' : null]),
-            'id' => Ui::cell(substr($summary->traceId, 0, 8).'…', ['mono' => true, 'link' => Ui::trace($summary->traceId)]),
+            'id' => Ui::cell(substr($summary->traceId, 0, 8).'…', ['mono' => true, 'link' => Ui::trace($summary->traceId, $summary->startedAt)]),
         ], $results);
 
         return Ui::table('Recent error traces', [

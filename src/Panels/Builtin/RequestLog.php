@@ -173,7 +173,7 @@ class RequestLog extends Panel
                 ? Ui::cell('—')
                 : Ui::cell($row['ip'], ['mono' => true, 'link' => Ui::param('log_ip', $row['ip']), 'dim' => ['key' => 'client.address', 'value' => $row['ip']]]),
             'duration' => Ui::cell(Format::ms($row['durationMs']), ['raw' => $row['durationMs'], 'tone' => 'dim']),
-            '_link' => Ui::trace($row['traceId']),
+            '_link' => Ui::trace($row['traceId'], $row['startedAt']),
         ];
     }
 
