@@ -41,12 +41,12 @@ final readonly class MetricScope
     {
         $matchers = array_filter([
             $this->matcher(
-                'service_name',
+                ScopeLabels::metrics('service'),
                 $this->effective($service, $this->lock->services(), $this->lock->servicesLocked()),
                 $this->lock->servicesLocked(),
             ),
             $this->matcher(
-                'deployment_environment_name',
+                ScopeLabels::metrics('environment'),
                 $this->effective($environment, $this->lock->environments(), $this->lock->environmentsLocked()),
                 $this->lock->environmentsLocked(),
             ),

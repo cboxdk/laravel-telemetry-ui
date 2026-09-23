@@ -277,3 +277,31 @@ it('forces the lock into facet queries', function (): void {
     Http::assertSent(fn ($request): bool => str_contains($request->url(), '/api/search')
         && str_contains(requestQuery($request)['q'] ?? '', 'resource.service.name = "cbox-web"'));
 });
+
+it('scopes by the configured metric, trace and log label names', function (): void {
+    config()->set('telemetry-ui.scope.labels.metrics.environment', 'environment');
+    config()->set('telemetry-ui.scope.labels.traces.environment', 'resource.deployment.environment');
+    config()->set('telemetry-ui.scope.labels.logs.service', 'app');
+    lockScope(['services' => ['cbox-web'], 'environments' => ['production']]);
+
+    $this->getJson(panelUrl('requests-activity'))->assertOk();
+    $this->getJson(panelUrl('traffic-by-facet'))->assertOk();
+    $this->getJson(apiUrl('explore/logs'))->assertOk();
+
+    $sent = collect(Http::recorded())->map(fn (array $pair): string => rawurldecode((string) $pair[0]->url()));
+
+    expect($sent->filter(fn (string $url): bool => str_contains($url, 'prometheus.test') && str_contains($url, 'service_name="cbox-web"')))
+        ->not->toBeEmpty()
+        ->each->toContain('environment="production"')
+        ->and($sent->filter(fn (string $url): bool => str_contains($url, 'prometheus.test') && str_contains($url, 'deployment_environment_name'))->values()->all())->toBe([])
+        ->and($sent->contains(fn (string $url): bool => str_contains($url, '/api/search') && str_contains($url, 'resource.deployment.environment = "production"')))->toBeTrue()
+        ->and($sent->contains(fn (string $url): bool => str_contains($url, 'loki.test') && str_contains($url, 'app="cbox-web"')))->toBeTrue();
+});
+
+it('discovers the fleet under the configured metric label names', function (): void {
+    config()->set('telemetry-ui.scope.labels.metrics.environment', 'environment');
+
+    app(Fleet::class)->environments();
+
+    Http::assertSent(fn ($request): bool => str_contains($request->url(), '/api/v1/label/environment/values'));
+});

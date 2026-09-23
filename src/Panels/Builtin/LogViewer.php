@@ -12,6 +12,7 @@ use Cbox\TelemetryUi\Queries\Ir\LabelFilter;
 use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Results\LogEntry;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 
 /**
  * Log viewer over Loki. Every line is correlated with its trace: the
@@ -101,9 +102,9 @@ final class LogViewer extends Panel
         $traceId = is_string($traceId) && $traceId !== '' ? $traceId : null;
 
         // Structured metadata worth surfacing; the rest is boilerplate.
-        $hidden = ['service_name', 'trace_id', 'level', 'detected_level', 'severity_number', 'scope_name'];
+        $hidden = [ScopeLabels::logs('service'), 'trace_id', 'level', 'detected_level', 'severity_number', 'scope_name'];
         $labels = [];
-        $service = $entry->labels['service_name'] ?? '';
+        $service = $entry->labels[ScopeLabels::logs('service')] ?? '';
 
         if ($service !== '') {
             $labels['service'] = $service;

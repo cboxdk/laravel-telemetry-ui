@@ -12,6 +12,7 @@ use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 
 /**
  * Explore over errors: exception occurrences from BOTH places they live —
@@ -99,12 +100,12 @@ final class ErrorExplorer
                     'message' => $entry->labels['exception_message'] ?? $entry->line,
                     'nano' => $entry->timestampNano,
                     'traceId' => ($entry->labels['trace_id'] ?? '') !== '' ? $entry->labels['trace_id'] : null,
-                    'service' => $entry->labels['service_name'] ?? '',
+                    'service' => $entry->labels[ScopeLabels::logs('service')] ?? '',
                     'user' => $entry->labels['user_id'] ?? '',
                     'frontend' => false,
                     'attributes' => [
                         'exception.type' => $entry->labels['exception_type'] ?? '',
-                        'service.name' => $entry->labels['service_name'] ?? '',
+                        'service.name' => $entry->labels[ScopeLabels::logs('service')] ?? '',
                         'user.id' => $entry->labels['user_id'] ?? '',
                         'source' => 'backend',
                     ],
@@ -295,7 +296,7 @@ final class ErrorExplorer
     {
         return match ($key) {
             'exception.type' => 'exception_type',
-            'service.name' => 'service_name',
+            'service.name' => ScopeLabels::logs('service'),
             default => str_replace(['.', '-'], '_', $key),
         };
     }

@@ -15,6 +15,7 @@ use Cbox\TelemetryUi\Http\Api\ApiError;
 use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\Http\Api\Serializer;
 use Cbox\TelemetryUi\Queries\Results\Trace;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 use Cbox\TelemetryUi\Support\ScopeLock;
 use Cbox\TelemetryUi\Support\TraceView;
 use Illuminate\Http\JsonResponse;
@@ -123,21 +124,38 @@ final class TraceController
     }
 
     /**
-     * Whether every service the trace touches is one this viewer may read. A
-     * trace that crosses out of the lock is treated as absent, not forbidden:
-     * its existence is itself information.
+     * Whether every service the trace touches is one this viewer may read, and
+     * ran in an environment they may read. A trace that crosses out of the lock
+     * is treated as absent, not forbidden: its existence is itself information.
+     *
+     * The environment comes from each service's resource attributes, under the
+     * configured trace attribute (see {@see ScopeLabels}). Locked to
+     * environments, a service that does not say which one it ran in is outside
+     * the lock: an unlabelled span could be from anywhere.
      */
     private static function withinLock(Trace $trace, ScopeLock $lock): bool
     {
-        $allowed = $lock->services();
-
-        if (! $lock->servicesLocked()) {
-            return true;
+        if ($lock->servicesLocked()) {
+            foreach (array_keys($trace->services) as $service) {
+                if (! in_array((string) $service, $lock->services(), true)) {
+                    return false;
+                }
+            }
         }
 
-        foreach (array_keys($trace->services) as $service) {
-            if (! in_array((string) $service, $allowed, true)) {
+        if ($lock->environmentsLocked()) {
+            $key = ScopeLabels::traceResourceKey('environment');
+
+            if ($trace->services === []) {
                 return false;
+            }
+
+            foreach ($trace->services as $attributes) {
+                $environment = $attributes[$key] ?? null;
+
+                if (! is_string($environment) || ! in_array($environment, $lock->environments(), true)) {
+                    return false;
+                }
             }
         }
 

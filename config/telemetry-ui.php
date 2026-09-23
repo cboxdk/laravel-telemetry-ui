@@ -65,6 +65,33 @@ return [
                 ? array_values(array_filter(array_map('trim', explode(',', (string) env('TELEMETRY_UI_LOCK_ENVIRONMENTS')))))
                 : null,
         ],
+
+        /*
+         * What service, environment and host are called in each backend. The
+         * defaults are what cboxdk/laravel-telemetry emits over OTLP. Change
+         * them when the telemetry comes from elsewhere: a Prometheus/Alloy
+         * scrape that stamps `environment` and `hostname` as external labels,
+         * or an eBPF agent (Beyla) that sends the older `deployment.environment`
+         * resource attribute. The lock above filters by these names, so a
+         * wrong one makes every scoped query match nothing.
+         */
+        'labels' => [
+            'metrics' => [
+                'service' => env('TELEMETRY_UI_METRICS_SERVICE_LABEL', 'service_name'),
+                'environment' => env('TELEMETRY_UI_METRICS_ENVIRONMENT_LABEL', 'deployment_environment_name'),
+                'host' => env('TELEMETRY_UI_METRICS_HOST_LABEL', 'host_name'),
+            ],
+            'traces' => [
+                'service' => env('TELEMETRY_UI_TRACES_SERVICE_ATTRIBUTE', 'resource.service.name'),
+                'environment' => env('TELEMETRY_UI_TRACES_ENVIRONMENT_ATTRIBUTE', 'resource.deployment.environment.name'),
+                'host' => env('TELEMETRY_UI_TRACES_HOST_ATTRIBUTE', 'resource.host.name'),
+            ],
+            'logs' => [
+                'service' => env('TELEMETRY_UI_LOGS_SERVICE_LABEL', 'service_name'),
+                'environment' => env('TELEMETRY_UI_LOGS_ENVIRONMENT_LABEL', 'deployment_environment_name'),
+                'host' => env('TELEMETRY_UI_LOGS_HOST_LABEL', 'host_name'),
+            ],
+        ],
     ],
 
     /*

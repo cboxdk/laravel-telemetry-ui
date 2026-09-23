@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 use DateTimeImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -113,7 +114,7 @@ final class ErrorGroupReport
                 'nano' => $entry->timestampNano,
                 'at' => Carbon::createFromTimestamp(intdiv($entry->timestampNano, 1_000_000_000))->format('d/m H:i:s'),
                 'traceId' => $label('trace_id'),
-                'service' => $label('service_name'),
+                'service' => $label(ScopeLabels::logs('service')),
                 'message' => $label('exception_message'),
                 'user' => $label('user_id'),
                 'frontend' => false,
@@ -124,9 +125,9 @@ final class ErrorGroupReport
                     'line' => (int) $label('exception_line'),
                     'stacktrace' => $label('exception_stacktrace'),
                     'source' => $label('exception_source'),
-                    'environment' => $label('deployment_environment_name'),
+                    'environment' => $label(ScopeLabels::logs('environment')),
                     'release' => $label('deployment_id'),
-                    'host' => $label('host_name'),
+                    'host' => $label(ScopeLabels::logs('host')),
                 ],
             ];
         }

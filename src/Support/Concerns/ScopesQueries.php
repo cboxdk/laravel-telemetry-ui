@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 use Cbox\TelemetryUi\Support\ScopeLock;
 
 /**
@@ -49,8 +50,8 @@ trait ScopesQueries
         $lock = app(ScopeLock::class);
 
         $matchers = array_values(array_filter([
-            $this->scopeLabelMatcher('service_name', $this->scopedServices(), $lock->servicesLocked()),
-            $this->scopeLabelMatcher('deployment_environment_name', $this->scopedEnvironments(), $lock->environmentsLocked()),
+            $this->scopeLabelMatcher(ScopeLabels::metrics('service'), $this->scopedServices(), $lock->servicesLocked()),
+            $this->scopeLabelMatcher(ScopeLabels::metrics('environment'), $this->scopedEnvironments(), $lock->environmentsLocked()),
         ], static fn (?LabelMatcher $m): bool => $m !== null));
 
         $raw = [];
@@ -77,8 +78,8 @@ trait ScopesQueries
         $lock = app(ScopeLock::class);
 
         $conditions = array_values(array_filter([
-            $this->traceMatcher('resource.service.name', $this->scopedServices(), $lock->servicesLocked()),
-            $this->traceMatcher('resource.deployment.environment.name', $this->scopedEnvironments(), $lock->environmentsLocked()),
+            $this->traceMatcher(ScopeLabels::traces('service'), $this->scopedServices(), $lock->servicesLocked()),
+            $this->traceMatcher(ScopeLabels::traces('environment'), $this->scopedEnvironments(), $lock->environmentsLocked()),
         ], static fn (?string $c): bool => $c !== null));
 
         if ($extraConditions !== '') {
@@ -108,8 +109,8 @@ trait ScopesQueries
         $lock = app(ScopeLock::class);
 
         return array_values(array_filter([
-            $this->traceScopeMatcher('resource.service.name', $this->scopedServices(), $lock->servicesLocked()),
-            $this->traceScopeMatcher('resource.deployment.environment.name', $this->scopedEnvironments(), $lock->environmentsLocked()),
+            $this->traceScopeMatcher(ScopeLabels::traces('service'), $this->scopedServices(), $lock->servicesLocked()),
+            $this->traceScopeMatcher(ScopeLabels::traces('environment'), $this->scopedEnvironments(), $lock->environmentsLocked()),
         ], static fn (?TraceCondition $c): bool => $c !== null));
     }
 
@@ -181,12 +182,12 @@ trait ScopesQueries
         $lock = app(ScopeLock::class);
 
         $stream = array_values(array_filter([
-            $this->scopeLabelMatcher('service_name', $this->scopedServices(), $lock->servicesLocked()),
+            $this->scopeLabelMatcher(ScopeLabels::logs('service'), $this->scopedServices(), $lock->servicesLocked()),
         ], static fn (?LabelMatcher $m): bool => $m !== null));
 
         $query = LogQuery::stream(...$stream);
 
-        $env = $this->scopeLabelMatcher('deployment_environment_name', $this->scopedEnvironments(), $lock->environmentsLocked());
+        $env = $this->scopeLabelMatcher(ScopeLabels::logs('environment'), $this->scopedEnvironments(), $lock->environmentsLocked());
 
         return $env !== null ? $query->pipe(new LabelFilter([$env])) : $query;
     }

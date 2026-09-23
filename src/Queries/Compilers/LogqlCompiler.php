@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Queries\Ir\LineFilter;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\LogStage;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 use InvalidArgumentException;
 
 /**
@@ -29,7 +30,7 @@ final class LogqlCompiler
         }
 
         $stream = $query->stream === []
-            ? [new LabelMatcher('service_name', MatchOp::Re, '.+')]
+            ? [new LabelMatcher(ScopeLabels::logs('service'), MatchOp::Re, '.+')]
             : $query->stream;
 
         $out = '{'.implode(',', array_map($this->matcher(...), $stream)).'}';

@@ -61,7 +61,7 @@ final readonly class Annotations
      */
     public function lookback(?LogQuery $selector = null): array
     {
-        $selector ??= LogQuery::stream(new LabelMatcher('service_name', MatchOp::Re, '.+'));
+        $selector ??= LogQuery::stream(new LabelMatcher(ScopeLabels::logs('service'), MatchOp::Re, '.+'));
 
         if (! (bool) $this->config->get('telemetry-ui.annotations.enabled', true)) {
             return [];
@@ -158,7 +158,7 @@ final readonly class Annotations
                 'kind' => trim($entry->line),
                 'traceId' => $entry->labels['trace_id'] ?? null,
                 'color' => $marker['color'] ?? '#c084fc',
-                'host' => $entry->labels['host_name'] ?? null,
+                'host' => $entry->labels[ScopeLabels::logs('host')] ?? null,
             ];
         }
 

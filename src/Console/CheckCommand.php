@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Console;
 use Cbox\Telemetry\TelemetryManager;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Config\Repository as Config;
 use Throwable;
@@ -128,7 +129,7 @@ final class CheckCommand extends Command
 
     private function probeLogs(ConnectionManager $manager): string
     {
-        $values = $manager->logs()->labelValues('service_name');
+        $values = $manager->logs()->labelValues(ScopeLabels::logs('service'));
 
         return count($values).' service_name label value(s)';
     }

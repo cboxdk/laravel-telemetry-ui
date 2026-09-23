@@ -13,6 +13,7 @@ use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Results\LogEntry;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 
 /**
  * Explore over logs (LogQL through the IR). Dimension filters become pipeline
@@ -27,7 +28,7 @@ final class LogExplorer
 {
     public const DEFAULT_LIMIT = 500;
 
-    private const HIDDEN = ['service_name', 'trace_id', 'span_id', 'level', 'detected_level', 'severity_number', 'severity_text', 'scope_name', 'observed_timestamp', 'flags'];
+    private const HIDDEN = ['trace_id', 'span_id', 'level', 'detected_level', 'severity_number', 'severity_text', 'scope_name', 'observed_timestamp', 'flags'];
 
     public function __construct(
         private readonly ConnectionManager $connections,
@@ -144,7 +145,7 @@ final class LogExplorer
             'durationMs' => 0.0,
             'error' => $row['tone'] === 'danger',
             'traceId' => $row['traceId'] ?? '',
-            'attributes' => [...$row['labels'], 'level' => $row['level'], 'service_name' => $row['service']],
+            'attributes' => [...$row['labels'], 'level' => $row['level'], ScopeLabels::logs('service') => $row['service']],
         ], $rows);
 
         $errors = count(array_filter($rows, static fn (array $row): bool => $row['tone'] === 'danger'));
@@ -216,7 +217,7 @@ final class LogExplorer
         $labels = [];
 
         foreach ($entry->labels as $key => $value) {
-            if (! in_array($key, self::HIDDEN, true)) {
+            if ($key !== ScopeLabels::logs('service') && ! in_array($key, self::HIDDEN, true)) {
                 $labels[$key] = $value;
             }
         }
@@ -248,7 +249,7 @@ final class LogExplorer
             'nano' => (string) $entry->timestampNano,
             'level' => $level,
             'tone' => self::tone($level),
-            'service' => $entry->labels['service_name'] ?? '',
+            'service' => $entry->labels[ScopeLabels::logs('service')] ?? '',
             'message' => $entry->line,
             'traceId' => is_string($traceId) && $traceId !== '' ? $traceId : null,
             'labels' => $labels,

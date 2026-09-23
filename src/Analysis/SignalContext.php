@@ -9,6 +9,7 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Queries\Results\Trace;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
@@ -47,11 +48,11 @@ final readonly class SignalContext
             return [];
         }
 
-        $scope = ['service_name' => $root->serviceName];
+        $scope = [ScopeLabels::metrics('service') => $root->serviceName];
 
-        $host = $trace->services[$root->serviceName]['host.name'] ?? null;
+        $host = $trace->services[$root->serviceName][ScopeLabels::traceResourceKey('host')] ?? null;
         if (is_string($host) && $host !== '') {
-            $scope['host_name'] = $host;
+            $scope[ScopeLabels::metrics('host')] = $host;
         }
 
         [$start, $end] = $this->paddedWindow($trace);

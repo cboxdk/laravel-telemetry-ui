@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Support\AnnotationWriter;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 use DateTimeImmutable;
 use Illuminate\Contracts\Config\Repository as Config;
 
@@ -84,7 +85,7 @@ final readonly class VersionScanner
         foreach ($samples as $sample) {
             $version = $sample->labels['laravel_version'] ?? '';
             if ($version !== '') {
-                $versions[$version] = $sample->labels['service_name'] ?? '';
+                $versions[$version] = $sample->labels[ScopeLabels::metrics('service')] ?? '';
             }
         }
 

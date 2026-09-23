@@ -27,7 +27,7 @@ final readonly class Fleet
     {
         $lock = app(ScopeLock::class);
 
-        return $this->restrict($this->labelValues('service_name'), $lock->services(), $lock->servicesLocked());
+        return $this->restrict($this->labelValues(ScopeLabels::metrics('service')), $lock->services(), $lock->servicesLocked());
     }
 
     /**
@@ -37,7 +37,7 @@ final readonly class Fleet
     {
         $lock = app(ScopeLock::class);
 
-        return $this->restrict($this->labelValues('deployment_environment_name'), $lock->environments(), $lock->environmentsLocked());
+        return $this->restrict($this->labelValues(ScopeLabels::metrics('environment')), $lock->environments(), $lock->environmentsLocked());
     }
 
     /**

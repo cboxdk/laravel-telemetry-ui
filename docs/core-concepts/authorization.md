@@ -166,7 +166,37 @@ With a lock in place:
   `service_name="x"`; several scope to a `service_name=~"a|b"` alternation.
 
 It's enforced server-side in the query scope, not just the UI, so it can't be
-bypassed from the URL.
+bypassed from the URL. That includes a trace opened by id (`/traces/{id}`): a
+trace with a service outside the lock, or — with environments locked — a
+service that ran in another environment or does not say which, is answered as
+not found.
+
+#### The label names the lock filters by
+
+The lock (and the service/environment pickers) filter by the names
+`cboxdk/laravel-telemetry` emits: `service_name` / `deployment_environment_name`
+/ `host_name` in Prometheus and Loki, `resource.service.name` /
+`resource.deployment.environment.name` / `resource.host.name` in TraceQL. When
+your telemetry comes from elsewhere — a Prometheus or Alloy scrape that stamps
+`environment` and `hostname` as external labels, or an eBPF agent such as Beyla
+that sends the older `deployment.environment` attribute — set the names per
+backend, or every locked query matches nothing:
+
+```php
+// config/telemetry-ui.php
+'scope' => [
+    'lock' => [/* … */],
+    'labels' => [
+        'metrics' => ['service' => 'service_name', 'environment' => 'environment', 'host' => 'hostname'],
+        'traces' => ['service' => 'resource.service.name', 'environment' => 'resource.deployment.environment', 'host' => 'resource.host.name'],
+        'logs' => ['service' => 'service_name', 'environment' => 'environment', 'host' => 'hostname'],
+    ],
+],
+```
+
+Each has an env override (`TELEMETRY_UI_METRICS_ENVIRONMENT_LABEL`,
+`TELEMETRY_UI_TRACES_ENVIRONMENT_ATTRIBUTE`, `TELEMETRY_UI_LOGS_HOST_LABEL`, …).
+A name left out keeps its default.
 
 > Note: chart **deploy-marker annotations** are scoped when the effective scope
 > is a single service; a multi-service lock leaves the markers unscoped (they

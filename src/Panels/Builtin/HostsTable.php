@@ -9,6 +9,7 @@ use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Support\Format;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 
 /**
  * Every host/server reporting telemetry, with its request volume, error rate
@@ -40,7 +41,7 @@ final class HostsTable extends Panel
             $byHost = [];
 
             foreach ($this->metrics()->query($query) as $sample) {
-                $host = $sample->labels['host_name'] ?? '';
+                $host = $sample->labels[ScopeLabels::metrics('host')] ?? '';
 
                 if ($host !== '') {
                     $byHost[$host] = $sample->value;
@@ -57,10 +58,10 @@ final class HostsTable extends Panel
         $note = null;
 
         try {
-            $values['requests'] = $collect($count->increase($p)->sumBy('host_name'));
-            $values['errors'] = $collect($errors->increase($p)->sumBy('host_name'));
-            $values['cpu'] = $collect($cpu->avgBy('host_name'));
-            $values['memory'] = $collect($memory->avgBy('host_name'));
+            $values['requests'] = $collect($count->increase($p)->sumBy(ScopeLabels::metrics('host')));
+            $values['errors'] = $collect($errors->increase($p)->sumBy(ScopeLabels::metrics('host')));
+            $values['cpu'] = $collect($cpu->avgBy(ScopeLabels::metrics('host')));
+            $values['memory'] = $collect($memory->avgBy(ScopeLabels::metrics('host')));
 
             // Metrics without a host label (the host is only a resource
             // attribute on spans): list the hosts traces report, and when
