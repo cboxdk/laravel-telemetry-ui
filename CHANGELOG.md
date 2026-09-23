@@ -5,6 +5,38 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-09-24
+
+### Added
+
+- **Configurable label names** (`scope.labels.{metrics,traces,logs}.{service,environment,host}`,
+  each with an env override). The scope lock, the pickers, fleet discovery,
+  trace context, the hosts table and every log view used to hardcode the
+  names `cboxdk/laravel-telemetry` emits, so a fleet whose telemetry comes from
+  a Prometheus/Alloy scrape (`environment`, `hostname`) or Beyla
+  (`deployment.environment`) saw an empty dashboard once a lock was set.
+- **`<TelemetryToolbar />`** for embeds: the service, environment, window and
+  refresh controls, without the standalone palette and shortcuts.
+- **`href` on `TelemetryUiProvider`**: where an embedded anchor points, so
+  middle-click and "copy link" open the host's page when the host serves the
+  pages itself.
+- **`@cboxdk/telemetry-ui/components.css`**: the component rules without the
+  `:root` tokens, for a host whose own design system uses the same token names.
+
+### Fixed
+
+- A trace opened by id is checked against the **environment** lock as well as
+  the service lock: a trace that ran in another environment, or does not say
+  where it ran, is answered as not found.
+- A trace's log lines and profile are looked up in the trace's own services
+  only, over five minutes either side instead of an hour, rather than scanning
+  every stream in Loki (`{service_name=~".+"}`) — on a large store that was
+  most of a trace's load time.
+- A request that reached the backend and timed out is no longer retried; the
+  same query would only take as long again, so one slow query cost
+  `(retries + 1) ×` the timeout. Connections that could not be made are still
+  retried.
+
 ## [2.0.1] - 2026-09-23
 
 ### Changed
