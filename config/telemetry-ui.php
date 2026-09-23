@@ -184,9 +184,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | Every panel, Explore query and page load is an HTTP request to the host
-    | app. With cboxdk/laravel-telemetry's ignorePaths() available, the
-    | dashboard asks it not to trace its own path, so it never drowns the
-    | app's real traffic. Set to false to trace the dashboard like any route.
+    | app. The dashboard asks cboxdk/laravel-telemetry (ignorePaths()) not to
+    | trace its own path, so it never drowns the app's real traffic. Set to
+    | false to trace the dashboard like any route.
     |
     */
 

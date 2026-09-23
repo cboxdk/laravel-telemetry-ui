@@ -3,28 +3,28 @@
 declare(strict_types=1);
 
 use Cbox\Telemetry\TelemetryManager;
+use Cbox\Telemetry\TelemetryServiceProvider;
+use Cbox\TelemetryUi\TelemetryUiServiceProvider;
 
-it('asks laravel-telemetry to ignore the dashboard path when the manager resolves', function () {
-    $fake = new class
-    {
-        /** @var list<string> */
-        public array $ignored = [];
+// The real manager, so this breaks if laravel-telemetry's contract moves.
+beforeEach(fn () => app()->register(TelemetryServiceProvider::class));
 
-        /** @param  string|list<string>  $patterns */
-        public function ignorePaths(string|array $patterns): void
-        {
-            $this->ignored = [...$this->ignored, ...(array) $patterns];
-        }
-    };
+/** Re-run only the ignore registration, as a boot with the current config would. */
+function registerIgnores(): void
+{
+    app()->forgetInstance(TelemetryManager::class);
+    (fn () => $this->ignoreOwnRequests())->call(new TelemetryUiServiceProvider(app()));
+}
 
-    app()->bind(TelemetryManager::class, fn () => $fake);
-    app(TelemetryManager::class);
-
-    expect($fake->ignored)->toBe(['telemetry-ui', 'telemetry-ui/*']);
+it('asks laravel-telemetry to ignore the dashboard path', function () {
+    expect(app(TelemetryManager::class)->ignoredPaths())
+        ->toContain('telemetry-ui')
+        ->toContain('telemetry-ui/*');
 });
 
-it('tolerates laravel-telemetry releases without ignorePaths()', function () {
-    app()->bind(TelemetryManager::class, fn () => new stdClass);
+it('follows a custom mount path', function () {
+    config()->set('telemetry-ui.path', 'ops/telemetry');
+    registerIgnores();
 
-    expect(app(TelemetryManager::class))->toBeInstanceOf(stdClass::class);
+    expect(app(TelemetryManager::class)->ignoredPaths())->toContain('ops/telemetry/*');
 });

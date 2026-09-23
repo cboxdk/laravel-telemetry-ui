@@ -186,16 +186,14 @@ final class TelemetryUiServiceProvider extends ServiceProvider
 
     /**
      * The dashboard's own page loads and API calls are not the host's traffic:
-     * tell laravel-telemetry (≥ the release with `ignorePaths()`) to skip them,
+     * tell laravel-telemetry (`ignorePaths()`, 2.5+) to skip them,
      * so a busy dashboard never drowns the app's real requests in its own
      * traces. Registered on resolution — this never builds the telemetry
      * manager at boot. Opt out with `telemetry-ui.ignore_own_requests`.
      */
     private function ignoreOwnRequests(): void
     {
-        $manager = TelemetryManager::class;
-
-        if (! (bool) config('telemetry-ui.ignore_own_requests', true) || ! class_exists($manager)) {
+        if (! (bool) config('telemetry-ui.ignore_own_requests', true)) {
             return;
         }
 
@@ -207,19 +205,12 @@ final class TelemetryUiServiceProvider extends ServiceProvider
 
         $patterns = [$path, $path.'/*'];
 
-        // Called dynamically: ignorePaths() only exists in newer laravel-telemetry releases.
-        $register = static function (object $telemetry) use ($patterns): void {
-            $ignore = [$telemetry, 'ignorePaths'];
+        $register = static fn (TelemetryManager $telemetry) => $telemetry->ignorePaths($patterns);
 
-            if (is_callable($ignore)) {
-                $ignore($patterns);
-            }
-        };
+        $this->app->afterResolving(TelemetryManager::class, $register);
 
-        $this->app->afterResolving($manager, $register);
-
-        if ($this->app->resolved($manager)) {
-            $register($this->app->make($manager));
+        if ($this->app->resolved(TelemetryManager::class)) {
+            $register($this->app->make(TelemetryManager::class));
         }
     }
 

@@ -5,6 +5,15 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Requires `cboxdk/laravel-telemetry` ^2.5, the release with
+  `Telemetry::ignorePaths()`: `ignore_own_requests` (default on) now always
+  keeps the dashboard's own page loads and API calls out of the app's traces
+  and request metrics, instead of doing nothing on 2.0–2.4.
+
 ## [2.0.0] - 2026-09-23
 
 A rewrite of the presentation layer: Livewire is removed and the dashboard is
