@@ -5,6 +5,21 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-09-24
+
+### Added
+
+- Context signals take `{host}`, `{service}` and `{environment}` as well as
+  `{scope}`, so a trace's context can come from exporters that label their
+  series their own way (`node_load1{nodename="{host}"}`,
+  `mysql_global_status_threads_running{environment="{environment}"}`). A signal
+  that needs a value the trace doesn't have is skipped, not run unscoped.
+- `keep_zero` on a context signal keeps a flat-zero tile: an empty worker or
+  listen queue is the answer to "was this server overloaded".
+- `hosts.cpu`, `hosts.memory` and `hosts.host_label`: the Hosts table's CPU and
+  memory columns from node_exporter (or any exporter) instead of the OTel host
+  metrics, held to the viewer's environments through `{environment}`.
+
 ## [2.1.1] - 2026-09-24
 
 ### Fixed
