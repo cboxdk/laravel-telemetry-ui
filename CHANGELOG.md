@@ -230,6 +230,11 @@ change with before/after code.
 
 ### Fixed (polish)
 
+- A trace's exception records were looked up across every service in a
+  20-minute window on each trace open; the lookup now selects the trace's own
+  services (exact, or an alternation when it crosses services) in a 2-minute
+  window.
+
 - The Duration panels (dashboard, route pages) failed from 24h up on
   telemetryd ("query matched more than … records"): the average's sum and
   count are now two range queries divided per point instead of one binary

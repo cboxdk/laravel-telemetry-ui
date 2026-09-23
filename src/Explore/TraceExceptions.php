@@ -53,12 +53,16 @@ final readonly class TraceExceptions
             return array_values($out);
         }
 
-        $start = (new DateTimeImmutable)->setTimestamp(intdiv($root->startNano, 1_000_000_000) - 600);
-        $end = (new DateTimeImmutable)->setTimestamp(intdiv($root->endNano, 1_000_000_000) + 600);
+        // The trace names its own services, so the stream selector can too:
+        // a pipeline filter over every service's logs makes the backend
+        // decompress the whole window. The margin covers a record written a
+        // little after the span it belongs to, not a wider search.
+        $start = (new DateTimeImmutable)->setTimestamp(intdiv($root->startNano, 1_000_000_000) - 60);
+        $end = (new DateTimeImmutable)->setTimestamp(intdiv($root->endNano, 1_000_000_000) + 60);
 
         try {
             $entries = $this->connections->logs()->query(
-                LogQuery::stream(new LabelMatcher('service_name', MatchOp::Re, '.+'))
+                LogQuery::stream(self::serviceMatcher($trace))
                     ->whereLabel('trace_id', MatchOp::Eq, $trace->traceId)
                     ->whereLabel('exception_group', MatchOp::Neq, ''),
                 $start,
@@ -157,5 +161,23 @@ final readonly class TraceExceptions
         usort($logs, static fn (array $a, array $b): int => strcmp($a['nano'], $b['nano']));
 
         return array_map(static fn (array $l): array => ['time' => $l['time'], 'level' => $l['level'], 'tone' => $l['tone'], 'message' => $l['message']], array_slice($logs, 0, 20));
+    }
+
+    /**
+     * The trace's own services as one stream selector — an exact match for a
+     * single service, an alternation for a distributed trace, and only as a
+     * last resort "any service" (a trace whose spans carry no service name).
+     */
+    private static function serviceMatcher(Trace $trace): LabelMatcher
+    {
+        $services = array_values(array_filter(array_map('strval', array_keys($trace->services))));
+
+        if ($services === []) {
+            return new LabelMatcher('service_name', MatchOp::Re, '.+');
+        }
+
+        return count($services) === 1
+            ? new LabelMatcher('service_name', MatchOp::Eq, $services[0])
+            : new LabelMatcher('service_name', MatchOp::Re, implode('|', array_map(static fn (string $s): string => preg_quote($s, '/'), $services)));
     }
 }
