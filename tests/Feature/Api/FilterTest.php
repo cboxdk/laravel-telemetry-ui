@@ -13,7 +13,7 @@ it('parses every operator', function (string $raw, string $key, string $op, stri
         ->and($filter?->value)->toBe($value)
         ->and($filter?->toString())->toBe($key.$op.$value);
 })->with([
-    ['hubhus.customer_id=8655', 'hubhus.customer_id', '=', '8655'],
+    ['billing.customer_id=8655', 'billing.customer_id', '=', '8655'],
     ['http.request.method!=GET', 'http.request.method', '!=', 'GET'],
     ['http.route=~/orders/.*', 'http.route', '=~', '/orders/.*'],
     ['http.route!~/admin.*', 'http.route', '!~', '/admin.*'],

@@ -18,7 +18,7 @@ function fakeEntityBackends(): void
 {
     $now = time();
     $span = fn (string $id, int $ago, float $ms, int $status, string $customer): array => tempoHit($id, 'GET /orders', $now - $ago, $ms, [
-        'http.request.method' => 'GET', 'http.route' => '/orders', 'http.response.status_code' => $status, 'hubhus.customer_id' => $customer, 'user.id' => '7',
+        'http.request.method' => 'GET', 'http.route' => '/orders', 'http.response.status_code' => $status, 'billing.customer_id' => $customer, 'user.id' => '7',
     ]);
 
     Http::fake([
@@ -65,7 +65,7 @@ it('lists every value of an entity type with red', function (): void {
 });
 
 it('tells the story of one route', function (): void {
-    TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus');
+    TelemetryUi::dimension('billing.customer_id', label: 'Customer', group: 'Billing');
     fakeEntityBackends();
 
     $response = $this->getJson(apiUrl('entities/route/story', ['value' => '/orders']))
@@ -86,7 +86,7 @@ it('tells the story of one route', function (): void {
         ->and($response->json('recent'))->toHaveCount(5);
 
     // Host-declared dimensions break down first, with failure lift.
-    expect($response->json('breakdowns.0.key'))->toBe('hubhus.customer_id')
+    expect($response->json('breakdowns.0.key'))->toBe('billing.customer_id')
         ->and($response->json('breakdowns.0.custom'))->toBeTrue()
         ->and($response->json('breakdowns.0.values.0'))->toMatchArray(['value' => '8655', 'count' => 3, 'failing' => 3])
         ->and($response->json('breakdowns.0.values.0.lift'))->toEqualWithDelta(5 / 3, 0.001);
@@ -106,7 +106,7 @@ it('tells the story of one route', function (): void {
         ->toContain('Throws App\\Exceptions\\PaymentDeclined (1×)')
         ->toContain('after deploy Deploy v42 — suspect');
 
-    expect(collect($response->json('insights'))->firstWhere('dim')['dim'])->toBe(['key' => 'hubhus.customer_id', 'value' => '8655'])
+    expect(collect($response->json('insights'))->firstWhere('dim')['dim'])->toBe(['key' => 'billing.customer_id', 'value' => '8655'])
         ->and(collect($response->json('insights'))->firstWhere('link')['link'])->toBe(['to' => 'error', 'group' => 'abc123def456']);
 
     // The request-detail panels, scoped to the route.
@@ -121,31 +121,31 @@ it('tells the story of one route', function (): void {
 });
 
 it('tells the story of a host-declared dimension, with a link out', function (): void {
-    TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus', link: fn (string $id): string => 'https://crm.test/customers/'.$id);
+    TelemetryUi::dimension('billing.customer_id', label: 'Customer', group: 'Billing', link: fn (string $id): string => 'https://crm.test/customers/'.$id);
     fakeEntityBackends();
 
-    $response = $this->getJson(apiUrl('entities/hubhus.customer_id/story', ['value' => '8655']))
+    $response = $this->getJson(apiUrl('entities/billing.customer_id/story', ['value' => '8655']))
         ->assertOk()
-        ->assertJsonPath('entity.type', 'hubhus.customer_id')
+        ->assertJsonPath('entity.type', 'billing.customer_id')
         ->assertJsonPath('entity.label', 'Customer')
-        ->assertJsonPath('entity.group', 'Hubhus')
+        ->assertJsonPath('entity.group', 'Billing')
         ->assertJsonPath('entity.custom', true)
         ->assertJsonPath('entity.linksOut', true)
         ->assertJsonPath('entity.linkOut', 'https://crm.test/customers/8655')
         ->assertJsonPath('panels', []);
 
     // Ids are strings even when they look numeric.
-    expect(sentTraceql()[0])->toContain('span.hubhus.customer_id = "8655"');
+    expect(sentTraceql()[0])->toContain('span.billing.customer_id = "8655"');
 
     // Its own key is never one of its breakdowns.
-    expect(array_column($response->json('breakdowns'), 'key'))->not->toContain('hubhus.customer_id')->toContain('http.route');
+    expect(array_column($response->json('breakdowns'), 'key'))->not->toContain('billing.customer_id')->toContain('http.route');
 });
 
 it('links out through a url template', function (): void {
-    TelemetryUi::dimension('hubhus.campaign_id', label: 'Campaign', link: 'https://crm.test/campaigns/{value}');
+    TelemetryUi::dimension('billing.campaign_id', label: 'Campaign', link: 'https://crm.test/campaigns/{value}');
     fakeEntityBackends();
 
-    $this->getJson(apiUrl('entities/hubhus.campaign_id/story', ['value' => 'spring sale']))
+    $this->getJson(apiUrl('entities/billing.campaign_id/story', ['value' => 'spring sale']))
         ->assertOk()
         ->assertJsonPath('entity.linkOut', 'https://crm.test/campaigns/spring%20sale');
 });

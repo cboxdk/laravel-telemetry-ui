@@ -16,15 +16,15 @@ function fakeExploreSpans(): void
         'tempo.test:3200/api/search*' => Http::response(['traces' => [
             tempoHit('aaaa0000aaaa0000aaaa0000aaaa0001', 'GET /orders', $now - 50, 120.5, [
                 'http.request.method' => 'GET', 'http.route' => '/orders', 'url.path' => '/orders',
-                'http.response.status_code' => 200, 'hubhus.customer_id' => '8655', 'user.id' => '7',
+                'http.response.status_code' => 200, 'billing.customer_id' => '8655', 'user.id' => '7',
             ]),
             tempoHit('aaaa0000aaaa0000aaaa0000aaaa0002', 'GET /orders', $now - 30, 1800.0, [
                 'http.request.method' => 'GET', 'http.route' => '/orders', 'url.path' => '/orders',
-                'http.response.status_code' => 500, 'hubhus.customer_id' => '8655',
+                'http.response.status_code' => 500, 'billing.customer_id' => '8655',
             ]),
             tempoHit('aaaa0000aaaa0000aaaa0000aaaa0003', 'POST /users', $now - 10, 40.0, [
                 'http.request.method' => 'POST', 'http.route' => '/users', 'url.path' => '/users',
-                'http.response.status_code' => 201, 'hubhus.customer_id' => '9001',
+                'http.response.status_code' => 201, 'billing.customer_id' => '9001',
             ]),
         ]]),
         'loki.test:3100/*' => Http::response(lokiStreams([])),
@@ -39,7 +39,7 @@ it('compiles where[] filters into typed traceql for requests', function (): void
         'service' => 'shop',
         'where' => [
             'http.response.status_code>=500',     // numeric → bare token
-            'hubhus.customer_id=8655',            // *_id looks numeric but is a string
+            'billing.customer_id=8655',            // *_id looks numeric but is a string
             'user.id!=7',                         // .id → string too
             'http.route=/orders/{id}',            // string literal, braces intact
             'http.request.method=~GET|POST',      // regex always quoted
@@ -57,7 +57,7 @@ it('compiles where[] filters into typed traceql for requests', function (): void
     expect($q)
         ->toStartWith('{ resource.service.name = "shop" && ')
         ->toContain('span.http.response.status_code >= 500')
-        ->toContain('span.hubhus.customer_id = "8655"')
+        ->toContain('span.billing.customer_id = "8655"')
         ->toContain('span.user.id != "7"')
         ->toContain('span.http.route = "/orders/{id}"')
         ->toContain('span.http.request.method =~ "GET|POST"')
@@ -148,7 +148,7 @@ it('returns rows, stats, series and heatmap for requests', function (): void {
         'durationMs' => 40,
     ])->and($response->json('rows.0.attributes'))->toMatchArray(['http.route' => '/users', 'http.response.status_code' => '201'])
         // Undeclared attributes aren't carried on rows (declare them, or group by them).
-        ->and($response->json('rows.0.attributes'))->not->toHaveKey('hubhus.customer_id');
+        ->and($response->json('rows.0.attributes'))->not->toHaveKey('billing.customer_id');
 
     expect($response->json('rows.1.error'))->toBeTrue() // the 500
         ->and($response->json('stats'))->toMatchArray(['count' => 3, 'errors' => 1, 'traces' => 3, 'p50' => 120.5, 'p99' => 1800])
@@ -175,16 +175,16 @@ it('flags a span with error status as an error even without a 5xx', function ():
 it('groups the sample by any attribute', function (): void {
     fakeExploreSpans();
 
-    $response = $this->getJson(apiUrl('explore/requests', ['groupBy' => 'hubhus.customer_id']))
+    $response = $this->getJson(apiUrl('explore/requests', ['groupBy' => 'billing.customer_id']))
         ->assertOk()
-        ->assertJsonPath('groupBy', 'hubhus.customer_id')
+        ->assertJsonPath('groupBy', 'billing.customer_id')
         ->assertJsonPath('sample.groupsExact', false);
 
     expect($response->json('groups.0'))->toMatchArray(['value' => '8655', 'count' => 2, 'errors' => 1, 'errorRate' => 0.5])
         ->and($response->json('groups.1'))->toMatchArray(['value' => '9001', 'count' => 1, 'errors' => 0]);
 
     // The group-by key is selected so undeclared attributes come back too.
-    expect(sentTraceql()[0])->toContain('span.hubhus.customer_id');
+    expect(sentTraceql()[0])->toContain('span.billing.customer_id');
 });
 
 it('echoes the parsed filters and clamps the limit', function (): void {
@@ -202,10 +202,10 @@ it('compiles log filters into logql label filters, level and line filters', func
     $now = time();
 
     Http::fake(['loki.test:3100/*' => Http::response(lokiStreams([
-        ['stream' => ['service_name' => 'shop', 'level' => 'error', 'hubhus_customer_id' => '8655', 'trace_id' => 'cccc0000cccc0000cccc0000cccc0001'], 'values' => [
+        ['stream' => ['service_name' => 'shop', 'level' => 'error', 'billing_customer_id' => '8655', 'trace_id' => 'cccc0000cccc0000cccc0000cccc0001'], 'values' => [
             [(string) (($now - 20) * 1_000_000_000), 'Payment timeout for order 17'],
         ]],
-        ['stream' => ['service_name' => 'shop', 'detected_level' => 'warn', 'hubhus_customer_id' => '8655'], 'values' => [
+        ['stream' => ['service_name' => 'shop', 'detected_level' => 'warn', 'billing_customer_id' => '8655'], 'values' => [
             [(string) (($now - 40) * 1_000_000_000), 'Retrying timeout'],
         ]],
     ]))]);
@@ -213,13 +213,13 @@ it('compiles log filters into logql label filters, level and line filters', func
     $response = $this->getJson(apiUrl('explore/logs', [
         'service' => 'shop',
         'env' => 'prod',
-        'where' => ['hubhus.customer_id=8655', 'level=error', 'http-route!~/admin.*'],
+        'where' => ['billing.customer_id=8655', 'level=error', 'http-route!~/admin.*'],
         'q' => 'timeout',
     ]))->assertOk();
 
     expect(sentLogql()[0])->toBe(
         '{service_name="shop"} | deployment_environment_name="prod"'
-        .' | hubhus_customer_id="8655"'
+        .' | billing_customer_id="8655"'
         .' | level=~"(?i)error|err|critical|alert|emergency|fatal" or detected_level=~"(?i)error|err|critical|alert|emergency|fatal"'
         .' | http_route!~"/admin.*"'
         .' |= "timeout"'
@@ -232,7 +232,7 @@ it('compiles log filters into logql label filters, level and line filters', func
             'service' => 'shop',
             'message' => 'Payment timeout for order 17',
             'traceId' => 'cccc0000cccc0000cccc0000cccc0001',
-            'labels' => ['hubhus_customer_id' => '8655'],
+            'labels' => ['billing_customer_id' => '8655'],
         ])
         ->and($response->json('rows.1.level'))->toBe('warn')
         ->and($response->json('stats'))->toMatchArray(['count' => 2, 'errors' => 1, 'traces' => 1, 'levels' => ['error' => 1, 'warn' => 1]]);

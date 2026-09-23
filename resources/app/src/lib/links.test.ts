@@ -5,8 +5,8 @@ const current = { pathname: '/explore/requests', search: { period: '24h', servic
 
 describe('link payloads → locations (the SPA owns routing)', () => {
     it('opens entities with the scope but not the view filters', () => {
-        expect(resolve({ to: 'entity', type: 'hubhus.customer_id', value: '8655' }, current)).toEqual({
-            pathname: '/entity/hubhus.customer_id',
+        expect(resolve({ to: 'entity', type: 'billing.customer_id', value: '8655' }, current)).toEqual({
+            pathname: '/entity/billing.customer_id',
             search: { period: '24h', service: 'shop', value: '8655' },
         });
     });

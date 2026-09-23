@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Illuminate\Support\Facades\Http;
 
-beforeEach(fn () => TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus'));
+beforeEach(fn () => TelemetryUi::dimension('billing.customer_id', label: 'Customer', group: 'Billing'));
 
 /**
  * Three request spans and three log lines. The first matching fake wins, so
@@ -19,13 +19,13 @@ function fakeFacetBackends(array $overrides = []): void
 
     $defaults = [
         'tempo.test:3200/api/search*' => Http::response(['traces' => [
-            tempoHit('aaaa0000aaaa0000aaaa0000aaaa0001', 'GET /orders', $now - 50, 80.0, ['http.request.method' => 'GET', 'http.route' => '/orders', 'http.response.status_code' => 200, 'hubhus.customer_id' => '8655']),
-            tempoHit('aaaa0000aaaa0000aaaa0000aaaa0002', 'GET /orders', $now - 40, 95.0, ['http.request.method' => 'GET', 'http.route' => '/orders', 'http.response.status_code' => 500, 'hubhus.customer_id' => '8655']),
-            tempoHit('aaaa0000aaaa0000aaaa0000aaaa0003', 'POST /users', $now - 30, 20.0, ['http.request.method' => 'POST', 'http.route' => '/users', 'http.response.status_code' => 201, 'hubhus.customer_id' => '9001']),
+            tempoHit('aaaa0000aaaa0000aaaa0000aaaa0001', 'GET /orders', $now - 50, 80.0, ['http.request.method' => 'GET', 'http.route' => '/orders', 'http.response.status_code' => 200, 'billing.customer_id' => '8655']),
+            tempoHit('aaaa0000aaaa0000aaaa0000aaaa0002', 'GET /orders', $now - 40, 95.0, ['http.request.method' => 'GET', 'http.route' => '/orders', 'http.response.status_code' => 500, 'billing.customer_id' => '8655']),
+            tempoHit('aaaa0000aaaa0000aaaa0000aaaa0003', 'POST /users', $now - 30, 20.0, ['http.request.method' => 'POST', 'http.route' => '/users', 'http.response.status_code' => 201, 'billing.customer_id' => '9001']),
         ]]),
         'loki.test:3100/*' => Http::response(lokiStreams([
-            ['stream' => ['service_name' => 'shop', 'level' => 'error', 'hubhus_customer_id' => '8655'], 'values' => [[(string) (($now - 20) * 1_000_000_000), 'boom'], [(string) (($now - 25) * 1_000_000_000), 'boom']]],
-            ['stream' => ['service_name' => 'billing', 'level' => 'info', 'hubhus_customer_id' => '9001'], 'values' => [[(string) (($now - 10) * 1_000_000_000), 'ok']]],
+            ['stream' => ['service_name' => 'shop', 'level' => 'error', 'billing_customer_id' => '8655'], 'values' => [[(string) (($now - 20) * 1_000_000_000), 'boom'], [(string) (($now - 25) * 1_000_000_000), 'boom']]],
+            ['stream' => ['service_name' => 'billing', 'level' => 'info', 'billing_customer_id' => '9001'], 'values' => [[(string) (($now - 10) * 1_000_000_000), 'ok']]],
         ])),
     ];
 
@@ -58,14 +58,14 @@ it('facets requests on the built-ins plus every declared dimension', function ()
 
     $keys = array_column($response->json('facets'), 'key');
 
-    expect($keys)->toContain('http.route', 'http.request.method', 'http.response.status_code', 'hubhus.customer_id')
+    expect($keys)->toContain('http.route', 'http.request.method', 'http.response.status_code', 'billing.customer_id')
         ->not->toContain('url.path')          // traces-only built-in
         ->not->toContain('db.query.text');    // no default signal
 
-    expect(facet($response->json('facets'), 'hubhus.customer_id'))->toBe([
-        'key' => 'hubhus.customer_id',
+    expect(facet($response->json('facets'), 'billing.customer_id'))->toBe([
+        'key' => 'billing.customer_id',
         'label' => 'Customer',
-        'group' => 'Hubhus',
+        'group' => 'Billing',
         'custom' => true,
         'values' => [['value' => '8655', 'count' => 2], ['value' => '9001', 'count' => 1]],
     ]);
@@ -77,27 +77,27 @@ it('facets requests on the built-ins plus every declared dimension', function ()
     ]);
 
     // The declared dimension is selected so the sample carries it.
-    expect(sentTraceql()[0])->toContain('span.hubhus.customer_id');
+    expect(sentTraceql()[0])->toContain('span.billing.customer_id');
 });
 
 it('computes only the requested keys, including undeclared ones', function (): void {
     fakeFacetBackends();
 
-    $response = $this->getJson(apiUrl('facets/requests', ['keys' => ['http.request.method', 'hubhus.campaign_id']]))->assertOk();
+    $response = $this->getJson(apiUrl('facets/requests', ['keys' => ['http.request.method', 'billing.campaign_id']]))->assertOk();
 
-    expect(array_column($response->json('facets'), 'key'))->toBe(['http.request.method', 'hubhus.campaign_id'])
+    expect(array_column($response->json('facets'), 'key'))->toBe(['http.request.method', 'billing.campaign_id'])
         ->and($response->json('facets.0.values'))->toBe([['value' => 'GET', 'count' => 2], ['value' => 'POST', 'count' => 1]])
-        ->and($response->json('facets.1'))->toMatchArray(['label' => 'hubhus.campaign_id', 'custom' => false, 'values' => []]);
+        ->and($response->json('facets.1'))->toMatchArray(['label' => 'billing.campaign_id', 'custom' => false, 'values' => []]);
 
-    expect(sentTraceql()[0])->toContain('span.hubhus.campaign_id');
+    expect(sentTraceql()[0])->toContain('span.billing.campaign_id');
 });
 
 it('facets within the active filters', function (): void {
     fakeFacetBackends();
 
-    $this->getJson(apiUrl('facets/requests', ['where' => ['hubhus.customer_id=8655'], 'keys' => ['http.route']]))->assertOk();
+    $this->getJson(apiUrl('facets/requests', ['where' => ['billing.customer_id=8655'], 'keys' => ['http.route']]))->assertOk();
 
-    expect(sentTraceql()[0])->toContain('span.hubhus.customer_id = "8655"');
+    expect(sentTraceql()[0])->toContain('span.billing.customer_id = "8655"');
 });
 
 it('facets logs on level, service and declared dimensions', function (): void {
@@ -105,11 +105,11 @@ it('facets logs on level, service and declared dimensions', function (): void {
 
     $response = $this->getJson(apiUrl('facets/logs'))->assertOk()->assertJsonPath('sample', 3);
 
-    expect(array_column($response->json('facets'), 'key'))->toBe(['level', 'service.name', 'hubhus.customer_id'])
+    expect(array_column($response->json('facets'), 'key'))->toBe(['level', 'service.name', 'billing.customer_id'])
         ->and(facet($response->json('facets'), 'level')['values'])->toBe([['value' => 'error', 'count' => 2], ['value' => 'info', 'count' => 1]])
         ->and(facet($response->json('facets'), 'service.name')['values'])->toBe([['value' => 'shop', 'count' => 2], ['value' => 'billing', 'count' => 1]])
         // Dotted keys read the snake_cased Loki label.
-        ->and(facet($response->json('facets'), 'hubhus.customer_id'))->toMatchArray(['label' => 'Customer', 'custom' => true, 'values' => [['value' => '8655', 'count' => 2], ['value' => '9001', 'count' => 1]]]);
+        ->and(facet($response->json('facets'), 'billing.customer_id'))->toMatchArray(['label' => 'Customer', 'custom' => true, 'values' => [['value' => '8655', 'count' => 2], ['value' => '9001', 'count' => 1]]]);
 });
 
 it('facets errors on exception, service, user and source', function (): void {

@@ -12,7 +12,7 @@ use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 
 /**
  * URL filters → TraceQL conditions through the IR. Filtering by any attribute
- * is native TraceQL (`{ span.hubhus.customer_id = "8655" }`), so this is the
+ * is native TraceQL (`{ span.billing.customer_id = "8655" }`), so this is the
  * whole "every attribute is a facet" engine on the trace side.
  */
 final class TraceFilters
@@ -66,7 +66,7 @@ final class TraceFilters
 
         // A derived dimension is a slice of another attribute: ask the backend
         // about that one instead, exactly (`screen = "checkout"` becomes
-        // `http.route = "hubhus:checkout"`), so nothing is filtered read-side.
+        // `http.route = "portal:checkout"`), so nothing is filtered read-side.
         if ($dimension->derived !== null) {
             return self::derived($filter, $op, $dimensions->resolve($dimension->derived->from)->traceField(), $dimension->derived);
         }

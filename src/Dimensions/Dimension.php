@@ -13,7 +13,7 @@ use Closure;
  * the host (or the package) promotes with a label, a facet-panel group and an
  * optional link back into the host app:
  *
- *     TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus',
+ *     TelemetryUi::dimension('billing.customer_id', label: 'Customer', group: 'Billing',
  *         link: fn ($id) => route('customers.show', $id));
  *
  * Declared dimensions appear in the facet sidebar, group-by menus and the
@@ -111,7 +111,7 @@ final readonly class Dimension
 
     /**
      * The entity slug this dimension's values open under: its declared alias
-     * (`route`) or the raw key (`hubhus.customer_id`).
+     * (`route`) or the raw key (`billing.customer_id`).
      */
     public function entitySlug(): string
     {

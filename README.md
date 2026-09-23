@@ -30,7 +30,7 @@ MCP).
   any attribute (`where[]=http.route=/checkout`), group by any key, a
   time × latency heatmap on top, a virtualised result list below.
 - **Dimensions** — declare the attributes that matter to you
-  (`TelemetryUi::dimension('hubhus.customer_id', label: 'Customer')`) and they
+  (`TelemetryUi::dimension('billing.customer_id', label: 'Customer')`) and they
   show up as facets, group-by options, filter chips and clickable chips, with
   an optional link back into your app.
 - **Entity pages** — a route, query, job, host, user or customer is a page that

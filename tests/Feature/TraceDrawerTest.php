@@ -38,7 +38,7 @@ function fakeTrace(array $overrides = []): void
                         ['key' => 'http.request.method', 'value' => ['stringValue' => 'GET']],
                         ['key' => 'http.route', 'value' => ['stringValue' => '/orders']],
                         ['key' => 'http.response.status_code', 'value' => ['intValue' => '200']],
-                        ['key' => 'hubhus.customer_id', 'value' => ['stringValue' => '8655']],
+                        ['key' => 'billing.customer_id', 'value' => ['stringValue' => '8655']],
                     ]],
                     ['spanId' => 'a2', 'parentSpanId' => 'a1', 'name' => 'db.query', 'kind' => 3, 'startTimeUnixNano' => '1735689600200000000', 'endTimeUnixNano' => '1735689600400000000', 'attributes' => [
                         ['key' => 'db.query.text', 'value' => ['stringValue' => 'select * from orders']],
@@ -94,11 +94,11 @@ it('attaches the trace logs from loki', function (): void {
 
 it('links declared dimensions out to the host app', function (): void {
     fakeTrace();
-    TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus', link: 'https://crm.test/customers/{value}');
+    TelemetryUi::dimension('billing.customer_id', label: 'Customer', group: 'Billing', link: 'https://crm.test/customers/{value}');
 
     $this->getJson(apiUrl('traces/'.DRAWER_TRACE))
         ->assertOk()
-        ->assertJsonPath('dimensionLinks', ['hubhus.customer_id' => 'https://crm.test/customers/8655']);
+        ->assertJsonPath('dimensionLinks', ['billing.customer_id' => 'https://crm.test/customers/8655']);
 });
 
 it('serves browser/RUM spans as frontend rows in a unified trace', function (): void {

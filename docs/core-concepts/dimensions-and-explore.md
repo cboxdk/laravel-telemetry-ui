@@ -7,7 +7,7 @@ weight: 3
 # Dimensions & Explore
 
 A span carries attributes: `http.route`, `user.id`, `client.address`, and
-whatever your app adds (`hubhus.customer_id`). v2 lets you filter, group and
+whatever your app adds (`billing.customer_id`). v2 lets you filter, group and
 drill by any of them. A **dimension** is an attribute the UI promotes: it gets
 a label, a place in the facet panel, a group-by entry, clickable chips and an
 entity page.
@@ -19,15 +19,15 @@ use Cbox\TelemetryUi\Facades\TelemetryUi;
 
 public function boot(): void
 {
-    TelemetryUi::dimension('hubhus.customer_id',
+    TelemetryUi::dimension('billing.customer_id',
         label: 'Customer',
-        group: 'Hubhus',
+        group: 'Billing',
         link: fn (string $id) => route('customers.show', $id),
     );
 
-    TelemetryUi::dimension('hubhus.campaign_id',
+    TelemetryUi::dimension('billing.campaign_id',
         label: 'Campaign',
-        group: 'Hubhus',
+        group: 'Billing',
         link: 'https://admin.example.com/campaigns/{value}',
     );
 }
@@ -61,19 +61,19 @@ label, a facet or an entity page.
 ### A dimension that lives inside another attribute
 
 A value doesn't have to be its own attribute. When a routing layer encodes it
-in a standard one — `livewire:{component}`, `hubhus:{screen}` — declare where
+in a standard one — `livewire:{component}`, `portal:{screen}` — declare where
 to read it from:
 
 ```php
-TelemetryUi::dimension('hubhus.screen', label: 'Screen', group: 'Hubhus',
-    from: 'http.route', pattern: 'hubhus:{value}');
+TelemetryUi::dimension('portal.screen', label: 'Screen', group: 'Billing',
+    from: 'http.route', pattern: 'portal:{value}');
 ```
 
 The pattern is a template, not a regex: the literal parts around `{value}` are
 what the emitter writes. That keeps both directions exact, so filters still
 compile to a query the backend answers —
-`hubhus.screen = "checkout"` becomes `http.route = "hubhus:checkout"`,
-`hubhus.screen != ""` ("any screen") and `=~` become one anchored regex on the
+`portal.screen = "checkout"` becomes `http.route = "portal:checkout"`,
+`portal.screen != ""` ("any screen") and `=~` become one anchored regex on the
 source. Nothing is filtered after the fact.
 
 The dimension is otherwise ordinary: chips on rows, a filter key with value
@@ -88,7 +88,7 @@ For the common case — a layer that names requests and deserves its own page �
 
 ### Names instead of ids
 
-Traces carry ids (`user.id = 20`, `hubhus.customer_id = 8655`). Give a
+Traces carry ids (`user.id = 20`, `billing.customer_id = 8655`). Give a
 dimension a resolver and the dashboard shows the name next to the id
 everywhere a value appears: chips on rows, facets, filter chips, group-by
 tables, entity lists and the entity page title ("Kaylin Jenkins · 20").
@@ -100,13 +100,13 @@ use Cbox\TelemetryUi\Facades\TelemetryUi;
 TelemetryUi::resolve('user.id', \App\Models\User::class, 'name');
 
 // Match on another column, or build the name yourself:
-TelemetryUi::resolve('hubhus.customer_id', Customer::class, fn (Customer $c) => $c->company, column: 'external_id');
+TelemetryUi::resolve('billing.customer_id', Customer::class, fn (Customer $c) => $c->company, column: 'external_id');
 
 // Any lookup: receive a batch of values, return [value => name]:
 TelemetryUi::resolve('tenant.id', fn (array $ids) => Tenant::whereIn('uuid', $ids)->pluck('name', 'uuid'));
 
 // Or declare it together with the dimension:
-TelemetryUi::dimension('hubhus.campaign_id', label: 'Campaign', resolve: fn (array $ids) => Campaign::findMany($ids)->pluck('title', 'id'));
+TelemetryUi::dimension('billing.campaign_id', label: 'Campaign', resolve: fn (array $ids) => Campaign::findMany($ids)->pluck('title', 'id'));
 ```
 
 `resolve()` works on built-in dimensions too and changes nothing else about
@@ -170,7 +170,7 @@ every view is shareable and back/forward works.
 | `>` `>=` `<` `<=` | Numeric comparison. |
 
 ```
-/telemetry-ui/explore/requests?where[]=hubhus.customer_id=8655&where[]=http.response.status_code>=500
+/telemetry-ui/explore/requests?where[]=billing.customer_id=8655&where[]=http.response.status_code>=500
 ```
 
 The operator is the first operator token after the key; keys never contain
@@ -178,7 +178,7 @@ The operator is the first operator token after the key; keys never contain
 backend:
 
 - **requests / traces** — compiled to TraceQL through the query IR
-  (`{ span.hubhus.customer_id = "8655" }`).
+  (`{ span.billing.customer_id = "8655" }`).
 - **logs** — compiled to LogQL label filters (dots in keys become
   underscores). `level=error` matches either `level` or `detected_level`. Only
   `= != =~ !~` apply to logs.
@@ -245,7 +245,7 @@ One template serves every type.
   parameter because routes and SQL contain slashes.
 
 `{type}` is an entity slug (`route`, `query`, `host`) or any declared
-dimension key (`hubhus.customer_id`).
+dimension key (`billing.customer_id`).
 
 The story page has three tabs:
 

@@ -6,7 +6,7 @@ import { FilterBar } from './FilterBar';
 
 describe('FilterBar', () => {
     it('shows chips with dimension labels, marks custom and negated ones', async () => {
-        await renderAt(<FilterBar where={['hubhus.customer_id=8655', 'http.response.status_code!=200']} onChange={() => {}} dimensions={bootFixture.dimensions} q="" onQ={() => {}} />);
+        await renderAt(<FilterBar where={['billing.customer_id=8655', 'http.response.status_code!=200']} onChange={() => {}} dimensions={bootFixture.dimensions} q="" onQ={() => {}} />);
         const chip = (await screen.findByText('Customer')).closest('.t-chip')!;
         expect(chip).toHaveClass('is-custom');
         expect(screen.getByTitle('http.response.status_code!=200')).toHaveClass('is-neg');

@@ -85,16 +85,16 @@ configuration instead of code. Reach for a panel class when the payload isn't a 
 
 Some layers name their requests rather than emitting their own attribute:
 Livewire writes `livewire:{component}`, and a host's own layer might write
-`hubhus:{screen}`. One call makes that a first-class part of the dashboard:
+`portal:{screen}`. One call makes that a first-class part of the dashboard:
 
 ```php
-TelemetryUi::routeFamily('hubhus', label: 'Screens',
-    pattern: 'hubhus:{value}', dimension: 'hubhus.screen');
+TelemetryUi::routeFamily('portal', label: 'Screens',
+    pattern: 'portal:{value}', dimension: 'portal.screen');
 ```
 
 That registers a page (the family's throughput plus a per-value table with the
 prefix stripped, each row opening that value's page) **and** declares
-`hubhus.screen` as a [derived dimension](../core-concepts/dimensions-and-explore.md#a-dimension-that-lives-inside-another-attribute),
+`portal.screen` as a [derived dimension](../core-concepts/dimensions-and-explore.md#a-dimension-that-lives-inside-another-attribute),
 so the same values become facets, chips, filters and entity pages everywhere
 else.
 
@@ -113,13 +113,13 @@ TelemetryUi::removePage('users');                            // remove a section
 ## Declare dimensions
 
 ```php
-TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus',
+TelemetryUi::dimension('billing.customer_id', label: 'Customer', group: 'Billing',
     link: fn ($id) => route('customers.show', $id));
 ```
 
 The attribute becomes a facet, a group-by option, a filter chip and a
 clickable chip on every trace, and gets an entity page at
-`/entity/hubhus.customer_id?value=…`. See
+`/entity/billing.customer_id?value=…`. See
 [dimensions & Explore](../core-concepts/dimensions-and-explore.md).
 
 Detail panels scoped to one entity, hidden pages, `entityPage()` and the

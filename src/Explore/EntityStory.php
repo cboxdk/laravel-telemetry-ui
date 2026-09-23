@@ -21,7 +21,7 @@ use Cbox\TelemetryUi\TelemetryUiManager;
 
 /**
  * Entity pages: an entity is a dimension value (route = `http.route`,
- * query = `db.query.text`, customer = `hubhus.customer_id`, …), so one template
+ * query = `db.query.text`, customer = `billing.customer_id`, …), so one template
  * serves every type, scoped by one facet.
  *
  * The page tells a story rather than dumping attributes: a RED headline and

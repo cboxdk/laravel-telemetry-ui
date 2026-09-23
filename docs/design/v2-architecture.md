@@ -124,7 +124,7 @@ and become endpoints almost directly.
 
 The biggest product gap in v1 is that a span is a **raw attribute dump** — a
 key/value table with no way to filter, group or drill by those keys. A request
-carrying `hubhus.customer_id`, `hubhus.campaign_id`, `user.id`, `client.address`
+carrying `billing.customer_id`, `billing.campaign_id`, `user.id`, `client.address`
 should let you ask "everything for customer 8655", "group errors by campaign",
 "which customers hit this 422" — the questions Datadog facets, Honeycomb
 dimensions, Sentry tags and New Relic `FACET` all answer. v2 makes **dimensions a
@@ -138,9 +138,9 @@ first-class primitive.**
   matter and how to present them:
 
   ```php
-  TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus',
+  TelemetryUi::dimension('billing.customer_id', label: 'Customer', group: 'Billing',
       link: fn ($id) => route('customers.show', $id));   // optional link OUT
-  TelemetryUi::dimension('hubhus.campaign_id', label: 'Campaign', group: 'Hubhus');
+  TelemetryUi::dimension('billing.campaign_id', label: 'Campaign', group: 'Billing');
   ```
 
   Declared dimensions get a label, a facet-panel group, optional formatting and an
@@ -152,7 +152,7 @@ first-class primitive.**
   with top values and counts; a top bar showing the active query as removable
   chips; the URL *is* the query, so every view is shareable and back/forward works.
 - **Feasible on today's core.** Filtering by any attribute is native TraceQL
-  (`{ span.hubhus.customer_id = "8655" }`) through the existing IR; group-by /
+  (`{ span.billing.customer_id = "8655" }`) through the existing IR; group-by /
   top-values is the `AggregatesSpans` capability (exact on the ClickHouse store /
   telemetryd, read-side sample on plain Tempo). No new query engine — a
   `Dimensions` registry + facet endpoints on top of what exists.
@@ -174,7 +174,7 @@ v1 is fixed cards on fixed pages. v2 has two shapes:
 
 Entity pages are generated, not hand-built per type: an entity is "a dimension
 value" (route = `http.route`, query = normalised statement, customer =
-`hubhus.customer_id`), so one page template serves all of them, scoped by one facet.
+`billing.customer_id`), so one page template serves all of them, scoped by one facet.
 
 ## What v1 gets wrong (explicitly removed in v2)
 

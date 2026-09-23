@@ -11,7 +11,7 @@ use Cbox\TelemetryUi\TelemetryUiManager;
 
 /**
  * The per-value table of a route family ({@see TelemetryUiManager::routeFamily()}):
- * the routes table narrowed to `hubhus:*`, with the prefix stripped so the
+ * the routes table narrowed to `portal:*`, with the prefix stripped so the
  * column reads as the layer's own concept — and each row opening that value's
  * page.
  *

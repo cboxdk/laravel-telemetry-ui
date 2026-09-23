@@ -31,7 +31,7 @@ Every read endpoint accepts:
 | `env` | `production` | Environment scope. `env=` means all. |
 | `where[]` | `http.route=/checkout` | A filter, `key<op>value`, op one of `= != =~ !~ > >= < <=`. Repeatable, ANDed. |
 | `q` | `timeout` | Free text (Explore). |
-| `groupBy` | `hubhus.customer_id` | Group-by key (Explore). |
+| `groupBy` | `billing.customer_id` | Group-by key (Explore). |
 
 A parameter the URL does not state falls back to the reader's remembered
 [view state](../extension-points/view-state.md). The service/environment scope

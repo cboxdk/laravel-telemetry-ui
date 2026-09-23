@@ -16,8 +16,8 @@ use Cbox\TelemetryUi\Queries\Results\LogEntry;
 
 /**
  * Explore over logs (LogQL through the IR). Dimension filters become pipeline
- * label filters on the snake_cased key (`hubhus.customer_id` →
- * `hubhus_customer_id`) — they match stream labels AND structured metadata,
+ * label filters on the snake_cased key (`billing.customer_id` →
+ * `billing_customer_id`) — they match stream labels AND structured metadata,
  * which is where OTLP attributes land in Loki. Numeric comparisons the IR does
  * not express are applied read-side.
  *

@@ -45,7 +45,7 @@ final class Dimensions
 
     /**
      * Attributes plus every derived dimension that can be read out of them —
-     * so a chip, facet or group-by sees `hubhus.screen` on a span that only
+     * so a chip, facet or group-by sees `portal.screen` on a span that only
      * carries `http.route`.
      *
      * @param  array<string, string>  $attributes
@@ -84,7 +84,7 @@ final class Dimensions
     }
 
     /**
-     * The dimension for an entity slug (`route`) or raw key (`hubhus.customer_id`).
+     * The dimension for an entity slug (`route`) or raw key (`billing.customer_id`).
      */
     public function forEntity(string $slug): ?Dimension
     {

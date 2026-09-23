@@ -677,7 +677,7 @@ final class TelemetryUiManager
      * Declare a dimension: an attribute promoted to a facet, group-by option,
      * filter chip and entity page, with an optional link back into the host.
      *
-     *     TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus',
+     *     TelemetryUi::dimension('billing.customer_id', label: 'Customer', group: 'Billing',
      *         link: fn ($id) => route('customers.show', $id));
      *
      * @param  (Closure(string): (string|null))|string|null  $link  URL template with `{value}` or a closure
@@ -700,7 +700,7 @@ final class TelemetryUiManager
         $existing = $this->dimensionRegistry()->get($key);
 
         // `from:` + `pattern:` read the value out of another attribute —
-        // "the screen is the part of http.route after `hubhus:`".
+        // "the screen is the part of http.route after `portal:`".
         $derived = $from !== null
             ? new Derivation($from, $pattern ?? Derivation::PLACEHOLDER)
             : $existing?->derived;
@@ -728,7 +728,7 @@ final class TelemetryUiManager
      * without changing anything else about it:
      *
      *     TelemetryUi::resolve('user.id', User::class, 'name');
-     *     TelemetryUi::resolve('hubhus.customer_id', Customer::class, fn (Customer $c) => $c->company);
+     *     TelemetryUi::resolve('billing.customer_id', Customer::class, fn (Customer $c) => $c->company);
      *     TelemetryUi::resolve('tenant.id', fn (array $ids) => Tenant::whereIn('uuid', $ids)->pluck('name', 'uuid'));
      *
      * With a model class the values are matched on `$column` (default: the
@@ -777,10 +777,10 @@ final class TelemetryUiManager
 
     /**
      * A routing layer that names its requests — Livewire's `livewire:{component}`,
-     * a host's own `hubhus:{screen}` — as a first-class area of the dashboard:
+     * a host's own `portal:{screen}` — as a first-class area of the dashboard:
      *
-     *     TelemetryUi::routeFamily('hubhus', label: 'Screens',
-     *         pattern: 'hubhus:{value}', dimension: 'hubhus.screen');
+     *     TelemetryUi::routeFamily('portal', label: 'Screens',
+     *         pattern: 'portal:{value}', dimension: 'portal.screen');
      *
      * Registers a page with the family's throughput and a per-value table
      * (volume, status mix, latency, p95), and — when `$dimension` is given —

@@ -16,7 +16,7 @@ describe('URL search (the URL is the query)', () => {
 
 describe('filters', () => {
     it.each([
-        ['hubhus.customer_id=8655', 'hubhus.customer_id', '=', '8655'],
+        ['billing.customer_id=8655', 'billing.customer_id', '=', '8655'],
         ['http.response.status_code>=500', 'http.response.status_code', '>=', '500'],
         ['http.route!~/telemetry-ui.*', 'http.route', '!~', '/telemetry-ui.*'],
         ['url.full=https://x.test/a?b=c', 'url.full', '=', 'https://x.test/a?b=c'],

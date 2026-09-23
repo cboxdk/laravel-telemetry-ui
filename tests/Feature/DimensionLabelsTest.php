@@ -14,22 +14,22 @@ function labelsUrl(string $key, array $values): string
 
 it('resolves a batch of ids to names with a closure, only for ids it knows', function (): void {
     $calls = 0;
-    TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', resolve: function (array $ids) use (&$calls): array {
+    TelemetryUi::dimension('billing.customer_id', label: 'Customer', resolve: function (array $ids) use (&$calls): array {
         $calls++;
 
         return ['8655' => 'Acme ApS', '999' => 'Not asked for'];
     });
 
-    $this->getJson(labelsUrl('hubhus.customer_id', ['8655', '1']))
+    $this->getJson(labelsUrl('billing.customer_id', ['8655', '1']))
         ->assertOk()
         ->assertExactJson(['labels' => ['8655' => 'Acme ApS']]);
 
     // Cached per value, misses included: no second lookup.
-    $this->getJson(labelsUrl('hubhus.customer_id', ['8655', '1']))->assertExactJson(['labels' => ['8655' => 'Acme ApS']]);
+    $this->getJson(labelsUrl('billing.customer_id', ['8655', '1']))->assertExactJson(['labels' => ['8655' => 'Acme ApS']]);
     expect($calls)->toBe(1);
 
     // A new value only looks up that one.
-    $this->getJson(labelsUrl('hubhus.customer_id', ['8655', '2']));
+    $this->getJson(labelsUrl('billing.customer_id', ['8655', '2']));
     expect($calls)->toBe(2);
 });
 

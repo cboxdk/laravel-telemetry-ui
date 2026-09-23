@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Http\Api;
 
 /**
- * One active dimension filter from the URL — `where[]=hubhus.customer_id=8655`.
+ * One active dimension filter from the URL — `where[]=billing.customer_id=8655`.
  *
  * The URL *is* the query: every filter chip in the SPA is one of these, so a
  * view is shareable and back/forward works. The wire format is `key<op>value`

@@ -13,12 +13,12 @@ export const bootFixture: Bootstrap = {
     explore: [{ signal: 'requests', label: 'Requests' }, { signal: 'logs', label: 'Logs' }],
     entities: [
         { type: 'route', key: 'http.route', label: 'Route', plural: 'Routes', custom: false, group: 'Request' },
-        { type: 'hubhus.customer_id', key: 'hubhus.customer_id', label: 'Customer', plural: 'Customers', custom: true, group: 'Hubhus' },
+        { type: 'billing.customer_id', key: 'billing.customer_id', label: 'Customer', plural: 'Customers', custom: true, group: 'Billing' },
     ],
     dimensions: [
         { key: 'http.route', label: 'Route', group: 'Request', entity: 'route', scope: 'span', builtin: true, signals: ['requests'], format: null, plural: 'Routes', linksOut: false },
         { key: 'user.id', label: 'User', group: 'Identity', entity: 'user', scope: 'span', builtin: true, signals: ['requests'], format: null, plural: 'Users', linksOut: false },
-        { key: 'hubhus.customer_id', label: 'Customer', group: 'Hubhus', entity: 'hubhus.customer_id', scope: 'span', builtin: false, signals: ['requests', 'traces'], format: null, plural: 'Customers', linksOut: true },
+        { key: 'billing.customer_id', label: 'Customer', group: 'Billing', entity: 'billing.customer_id', scope: 'span', builtin: false, signals: ['requests', 'traces'], format: null, plural: 'Customers', linksOut: true },
     ],
     navLinks: [],
     connections: [],

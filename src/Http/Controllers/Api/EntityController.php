@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Gate;
  * Entity pages. `GET /api/v2/entities/{type}` lists every value of the
  * entity's dimension with RED; `GET /api/v2/entities/{type}/story?value=…`
  * is one value's story. `{type}` is an entity slug (`route`, `query`, `host`)
- * or any declared dimension key (`hubhus.customer_id`). The value travels as a
+ * or any declared dimension key (`billing.customer_id`). The value travels as a
  * query param because values (routes, SQL) are full of slashes.
  */
 final class EntityController

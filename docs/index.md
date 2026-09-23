@@ -45,9 +45,18 @@ And any attribute your app emits can become a first-class **dimension** — a
 facet, a group-by option, a filter chip and an entity page:
 
 ```php
-TelemetryUi::dimension('hubhus.customer_id', label: 'Customer',
+TelemetryUi::dimension('billing.customer_id', label: 'Customer',
     link: fn ($id) => route('customers.show', $id));
 ```
+
+Dimensions bend to what your app already emits. Show names instead of ids
+(`TelemetryUi::resolve('user.id', User::class, 'name')`), read a dimension out
+of another attribute when a routing layer encodes it there
+(`from: 'http.route', pattern: 'portal:{value}'`), give that layer its own page
+with `routeFamily()`, or declare a chart over any metric — including one from a
+sidecar in another language — with `metricPanel()`, no panel class needed. See
+[dimensions & Explore](core-concepts/dimensions-and-explore.md) and
+[developer integrations](extension-points/index.md).
 
 ## Why not just Grafana?
 

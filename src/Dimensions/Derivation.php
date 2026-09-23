@@ -9,17 +9,17 @@ namespace Cbox\TelemetryUi\Dimensions;
  *
  * Some routing layers encode their own concept in a standard attribute rather
  * than emitting a second one: laravel-telemetry names Livewire updates
- * `livewire:{component}`, and a host's own layer might use `hubhus:{screen}`.
+ * `livewire:{component}`, and a host's own layer might use `portal:{screen}`.
  * A derivation makes that a first-class dimension — facet, chip, group-by,
  * entity page — without touching the emitter:
  *
- *     TelemetryUi::dimension('hubhus.screen', label: 'Screen',
- *         from: 'http.route', pattern: 'hubhus:{value}');
+ *     TelemetryUi::dimension('portal.screen', label: 'Screen',
+ *         from: 'http.route', pattern: 'portal:{value}');
  *
  * The pattern is a template, not a regex: the literal parts around `{value}`
  * are what the emitter writes. That keeps both directions exact — reading a
  * value out of a span, and turning a filter back into a query the backend can
- * answer (`hubhus.screen = "checkout"` → `http.route = "hubhus:checkout"`),
+ * answer (`portal.screen = "checkout"` → `http.route = "portal:checkout"`),
  * with no regex over the whole dataset.
  */
 final readonly class Derivation
@@ -42,13 +42,13 @@ final readonly class Derivation
         $this->suffix = substr($pattern, $at + strlen(self::PLACEHOLDER));
     }
 
-    /** `checkout` → `hubhus:checkout`, as the emitter writes it. */
+    /** `checkout` → `portal:checkout`, as the emitter writes it. */
     public function encode(string $value): string
     {
         return $this->prefix.$value.$this->suffix;
     }
 
-    /** `hubhus:checkout` → `checkout`, or null when the source doesn't match. */
+    /** `portal:checkout` → `checkout`, or null when the source doesn't match. */
     public function extract(string $source): ?string
     {
         if ($this->prefix !== '' && ! str_starts_with($source, $this->prefix)) {

@@ -72,22 +72,22 @@ it('filters the nav by schema detection', function (): void {
 
 it('lists third-party pages in their group', function (): void {
     fakeBootstrapBackends([]);
-    TelemetryUi::page('billing', 'Billing', group: 'Hubhus');
+    TelemetryUi::page('billing', 'Billing', group: 'Billing');
 
-    expect(navSlugs($this->getJson(apiUrl('bootstrap'))->json('nav'))['Hubhus'])->toBe(['billing']);
+    expect(navSlugs($this->getJson(apiUrl('bootstrap'))->json('nav'))['Billing'])->toBe(['billing']);
 });
 
 it('ships the dimension registry, with declared dimensions', function (): void {
     fakeBootstrapBackends([]);
-    TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus', link: 'https://crm.test/c/{value}', plural: 'Customers');
+    TelemetryUi::dimension('billing.customer_id', label: 'Customer', group: 'Billing', link: 'https://crm.test/c/{value}', plural: 'Customers');
 
     $dimensions = collect($this->getJson(apiUrl('bootstrap'))->assertOk()->json('dimensions'))->keyBy('key');
 
-    expect($dimensions['hubhus.customer_id'])->toBe([
-        'key' => 'hubhus.customer_id',
+    expect($dimensions['billing.customer_id'])->toBe([
+        'key' => 'billing.customer_id',
         'label' => 'Customer',
-        'group' => 'Hubhus',
-        'entity' => 'hubhus.customer_id',
+        'group' => 'Billing',
+        'entity' => 'billing.customer_id',
         'scope' => 'span',
         'builtin' => false,
         'signals' => ['requests', 'traces'],
@@ -103,17 +103,17 @@ it('ships the dimension registry, with declared dimensions', function (): void {
 
 it('lists entity types: built-in aliases and every declared dimension', function (): void {
     fakeBootstrapBackends([]);
-    TelemetryUi::dimension('hubhus.customer_id', label: 'Customer', group: 'Hubhus');
+    TelemetryUi::dimension('billing.customer_id', label: 'Customer', group: 'Billing');
 
     $entities = collect($this->getJson(apiUrl('bootstrap'))->json('entities'))->keyBy('type');
 
-    expect($entities->keys()->all())->toContain('route', 'user', 'ip', 'service', 'host', 'query', 'view', 'job', 'queue', 'outgoing', 'command', 'hubhus.customer_id')
+    expect($entities->keys()->all())->toContain('route', 'user', 'ip', 'service', 'host', 'query', 'view', 'job', 'queue', 'outgoing', 'command', 'billing.customer_id')
         // Built-ins without an entity alias are dimensions, not entity pages.
         ->not->toContain('http.request.method', 'status');
 
     expect($entities['route'])->toBe(['type' => 'route', 'key' => 'http.route', 'label' => 'Route', 'plural' => 'Routes', 'custom' => false, 'group' => 'Request'])
         ->and($entities['query']['plural'])->toBe('Queries')
-        ->and($entities['hubhus.customer_id'])->toMatchArray(['custom' => true, 'group' => 'Hubhus', 'plural' => 'Customers']);
+        ->and($entities['billing.customer_id'])->toMatchArray(['custom' => true, 'group' => 'Billing', 'plural' => 'Customers']);
 });
 
 it('ships the scope options, periods and explore signals', function (): void {
