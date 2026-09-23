@@ -45,3 +45,17 @@ it('uses an alternation when the trace crosses services', function (): void {
 
     expect(collect(sentLogql())->contains(fn (string $q): bool => str_contains($q, 'service_name=~"shop|billing"')))->toBeTrue();
 });
+
+it('never scans every service for a trace\'s log lines or profile', function (): void {
+    fakeTraceOver(['shop']);
+
+    $this->getJson(apiUrl('traces/abc123abc123abc123abc123abc123ab'))->assertOk();
+
+    $byTraceId = collect(sentLogql())->filter(fn (string $q): bool => str_contains($q, 'trace_id='));
+
+    // The trace-log and profile lookups both join on trace id; neither may
+    // fall back to {service_name=~".+"} when the trace names its service.
+    expect($byTraceId)->not->toBeEmpty()
+        ->each->toContain('service_name="shop"')
+        ->and($byTraceId->contains(fn (string $q): bool => str_contains($q, 'profile.captured')))->toBeTrue();
+});

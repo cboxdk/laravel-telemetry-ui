@@ -6,10 +6,10 @@ namespace Cbox\TelemetryUi\Analysis;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
-use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Results\Trace;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 use DateTimeImmutable;
 
 /**
@@ -21,6 +21,13 @@ use DateTimeImmutable;
  */
 final readonly class TraceProfile
 {
+    /**
+     * How far around the trace to look. A log line or profile event carries the
+     * time it happened, which is inside the trace; the padding only absorbs
+     * clock skew between hosts, and every extra minute is more chunks to scan.
+     */
+    private const PADDING_SECONDS = 300;
+
     public function __construct(private ConnectionManager $connections) {}
 
     /**
@@ -36,12 +43,12 @@ final readonly class TraceProfile
 
         // Window padded around the trace itself — Loki needs a range, and the
         // profile event lands at the request's end.
-        $start = (new DateTimeImmutable)->setTimestamp(intdiv($root->startNano, 1_000_000_000) - 3600);
-        $end = (new DateTimeImmutable)->setTimestamp(intdiv($root->endNano, 1_000_000_000) + 3600);
+        $start = (new DateTimeImmutable)->setTimestamp(intdiv($root->startNano, 1_000_000_000) - self::PADDING_SECONDS);
+        $end = (new DateTimeImmutable)->setTimestamp(intdiv($root->endNano, 1_000_000_000) + self::PADDING_SECONDS);
 
         try {
             $entries = $this->connections->logs()->query(
-                LogQuery::stream(new LabelMatcher('service_name', MatchOp::Re, '.+'))
+                LogQuery::stream(ScopeLabels::logServiceMatcher(array_map('strval', array_keys($trace->services))))
                     ->lineContains('profile.captured')
                     ->whereLabel('trace_id', MatchOp::Eq, $trace->traceId),
                 $start,

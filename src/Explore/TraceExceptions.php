@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Results\Trace;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 use DateTimeImmutable;
 
 /**
@@ -84,7 +85,7 @@ final readonly class TraceExceptions
 
             try {
                 $entries = $this->connections->logs()->query(
-                    LogQuery::stream(new LabelMatcher('service_name', MatchOp::Eq, $root->serviceName))
+                    LogQuery::stream(new LabelMatcher(ScopeLabels::logs('service'), MatchOp::Eq, $root->serviceName))
                         ->whereLabel('exception_group', MatchOp::Neq, ''),
                     $from,
                     $to,
@@ -138,7 +139,7 @@ final readonly class TraceExceptions
 
         try {
             $entries = $this->connections->logs()->query(
-                LogQuery::stream(new LabelMatcher('service_name', MatchOp::Eq, $root->serviceName)),
+                LogQuery::stream(new LabelMatcher(ScopeLabels::logs('service'), MatchOp::Eq, $root->serviceName)),
                 (new DateTimeImmutable)->setTimestamp(intdiv($root->startNano, 1_000_000_000)),
                 (new DateTimeImmutable)->setTimestamp(intdiv($root->endNano, 1_000_000_000) + 1),
                 limit: 50,
@@ -163,21 +164,9 @@ final readonly class TraceExceptions
         return array_map(static fn (array $l): array => ['time' => $l['time'], 'level' => $l['level'], 'tone' => $l['tone'], 'message' => $l['message']], array_slice($logs, 0, 20));
     }
 
-    /**
-     * The trace's own services as one stream selector — an exact match for a
-     * single service, an alternation for a distributed trace, and only as a
-     * last resort "any service" (a trace whose spans carry no service name).
-     */
+    /** The trace's own services as one stream selector (see {@see ScopeLabels::logServiceMatcher()}). */
     private static function serviceMatcher(Trace $trace): LabelMatcher
     {
-        $services = array_values(array_filter(array_map('strval', array_keys($trace->services))));
-
-        if ($services === []) {
-            return new LabelMatcher('service_name', MatchOp::Re, '.+');
-        }
-
-        return count($services) === 1
-            ? new LabelMatcher('service_name', MatchOp::Eq, $services[0])
-            : new LabelMatcher('service_name', MatchOp::Re, implode('|', array_map(static fn (string $s): string => preg_quote($s, '/'), $services)));
+        return ScopeLabels::logServiceMatcher(array_map('strval', array_keys($trace->services)));
     }
 }

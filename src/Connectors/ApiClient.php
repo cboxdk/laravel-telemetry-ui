@@ -148,8 +148,17 @@ readonly class ApiClient
 
         // Retry only transient connection failures; a 4xx/5xx response is left
         // for the caller to surface. throw:false keeps our own error handling.
+        // A request that reached the backend and ran out of time is not
+        // transient: the same query would take as long again, so retrying it
+        // turns one slow query into (retries + 1) × the timeout.
         if ($this->retries > 0) {
-            $request = $request->retry($this->retries + 1, 150, throw: false);
+            $request = $request->retry(
+                $this->retries + 1,
+                150,
+                static fn (\Throwable $exception): bool => $exception instanceof ConnectionException
+                    && ! str_contains($exception->getMessage(), 'Operation timed out'),
+                throw: false,
+            );
         }
 
         return $request;

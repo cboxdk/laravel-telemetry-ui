@@ -89,6 +89,34 @@ it('gives up after exhausting retries', function (): void {
     expect(fn () => $client->get('/x'))->toThrow(SourceException::class, 'Could not reach');
 });
 
+it('does not retry a request that reached the backend and timed out', function (): void {
+    $attempts = 0;
+    Http::fake(function () use (&$attempts) {
+        $attempts++;
+
+        throw new ConnectionException('cURL error 28: Operation timed out after 25001 milliseconds with 0 bytes received');
+    });
+
+    $client = new ApiClient('http://api.test', retries: 2);
+
+    expect(fn () => $client->get('/x'))->toThrow(SourceException::class)
+        ->and($attempts)->toBe(1);
+});
+
+it('still retries a connection that could not be made', function (): void {
+    $attempts = 0;
+    Http::fake(function () use (&$attempts) {
+        $attempts++;
+
+        throw new ConnectionException('cURL error 7: Failed to connect to api.test port 80: Connection refused');
+    });
+
+    $client = new ApiClient('http://api.test', retries: 2);
+
+    expect(fn () => $client->get('/x'))->toThrow(SourceException::class)
+        ->and($attempts)->toBe(3);
+});
+
 it('keeps the backend url and response body out of the user-facing message', function (): void {
     // The gate can be opened to semi-trusted operators, so the message a card
     // renders must not leak the internal endpoint or the raw backend body —
