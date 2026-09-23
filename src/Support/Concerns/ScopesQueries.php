@@ -208,6 +208,24 @@ trait ScopesQueries
         };
     }
 
+    /**
+     * The scope's environments as an RE2 pattern for an `=~` matcher in a
+     * hand-written query (a configured exporter query that labels the
+     * environment its own way): the alternation of the effective environments,
+     * `.+` when nothing narrows them, and a matches-nothing value when the
+     * viewer is locked to none — so such a query can't widen past the lock.
+     */
+    protected function environmentPattern(): string
+    {
+        $environments = $this->scopedEnvironments();
+
+        return match (true) {
+            $environments !== [] => $this->alternation($environments),
+            app(ScopeLock::class)->environmentsLocked() => self::NO_SCOPE,
+            default => '.+',
+        };
+    }
+
     protected function escapeLabelValue(string $value): string
     {
         return addcslashes($value, '"\\');

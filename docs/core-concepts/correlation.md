@@ -141,16 +141,27 @@ Append to `signals`. Any single-series PromQL works, as long as it carries the
  'query' => 'avg(rate(node_disk_io_time_seconds_total{{scope}}[1m]))'],
 ```
 
-Not every exporter carries the app's labels, though. A `mysqld_exporter`
-scraped on the same box labels its series with an `instance`, not a
-`service_name`. To pull it in, join on the host — drop the `{scope}` token and
-match the exporter's own label, mapping `host_name` to its `instance` for your
-setup:
+Not every exporter carries the app's labels, though. `node_exporter`,
+`mysqld_exporter` or `redis_exporter` label their series their own way (a
+`nodename`, an `instance`, an `environment`), not with `service_name`. For those,
+drop `{scope}` and use the bare values instead: `{host}` is the trace's host,
+`{service}` its root service and `{environment}` the environment it ran in (read
+from the trace attributes named in `scope.labels.traces`):
 
 ```php
-['label' => 'DB threads', 'group' => 'db', 'unit' => 'number',
- 'query' => 'mysql_global_status_threads_running{instance="web-1:9104"}'],
+['label' => 'Load (1m)', 'group' => 'host', 'unit' => 'number',
+ 'query' => 'max(node_load1{nodename="{host}"})'],
+['label' => 'PHP-FPM listen queue', 'group' => 'runtime', 'unit' => 'number', 'keep_zero' => true,
+ 'query' => 'sum(phpfpm_listen_queue{nodename="{host}"})'],
+['label' => 'DB threads running', 'group' => 'db', 'unit' => 'number',
+ 'query' => 'sum(mysql_global_status_threads_running{environment="{environment}",role="db"})'],
 ```
+
+A signal that uses a value the trace doesn't have (no host attribute, say) is
+skipped rather than run unscoped. A signal that is zero for the whole window is
+hidden as "no signal" — unless it sets `'keep_zero' => true`, for the ones where
+zero *is* the finding: an empty worker queue is what clears the server when a
+request was slow.
 
 The signal gets the same baseline and outlier treatment as the built-ins, so a
 trace that ran while MySQL was pinned on connections flags right alongside the

@@ -37,11 +37,12 @@ final class HostsTable extends Panel
         /** @var array<string, array<string, float>> $values field → host → value */
         $values = ['requests' => [], 'errors' => [], 'cpu' => [], 'memory' => []];
 
-        $collect = function (MetricQuery $query): array {
+        $collect = function (MetricQuery $query, ?string $hostLabel = null): array {
             $byHost = [];
+            $hostLabel ??= ScopeLabels::metrics('host');
 
             foreach ($this->metrics()->query($query) as $sample) {
-                $host = $sample->labels[ScopeLabels::metrics('host')] ?? '';
+                $host = $sample->labels[$hostLabel] ?? '';
 
                 if ($host !== '') {
                     $byHost[$host] = $sample->value;
@@ -60,8 +61,8 @@ final class HostsTable extends Panel
         try {
             $values['requests'] = $collect($count->increase($p)->sumBy(ScopeLabels::metrics('host')));
             $values['errors'] = $collect($errors->increase($p)->sumBy(ScopeLabels::metrics('host')));
-            $values['cpu'] = $collect($cpu->avgBy(ScopeLabels::metrics('host')));
-            $values['memory'] = $collect($memory->avgBy(ScopeLabels::metrics('host')));
+            $values['cpu'] = $this->hostColumn('cpu', $collect) ?? $collect($cpu->avgBy(ScopeLabels::metrics('host')));
+            $values['memory'] = $this->hostColumn('memory', $collect) ?? $collect($memory->avgBy(ScopeLabels::metrics('host')));
 
             // Metrics without a host label (the host is only a resource
             // attribute on spans): list the hosts traces report, and when
@@ -162,5 +163,34 @@ final class HostsTable extends Panel
             'bar' => max(0.0, min(1.0, $ratio)),
             'tone' => $ratio >= 0.95 ? 'danger' : ($ratio >= 0.8 ? 'warn' : null),
         ]);
+    }
+
+    /**
+     * A CPU or memory column from the host's own exporter, when one is
+     * configured (`telemetry-ui.hosts.<column>`): a PromQL query with one
+     * series per host, labelled by `telemetry-ui.hosts.host_label` (default:
+     * the metrics host label). `{environment}` expands to the scope's
+     * environments as an RE2 alternation for an `=~` matcher — `.+` when
+     * nothing narrows it, a matches-nothing value when locked to none — so a
+     * query written for the whole fleet still stays inside the viewer's lock.
+     * Null when the column isn't configured, so the built-in query runs.
+     *
+     * @param  callable(MetricQuery, ?string): array<string, float>  $collect
+     * @return array<string, float>|null
+     */
+    private function hostColumn(string $column, callable $collect): ?array
+    {
+        $template = config("telemetry-ui.hosts.$column");
+
+        if (! is_string($template) || $template === '') {
+            return null;
+        }
+
+        $label = config('telemetry-ui.hosts.host_label');
+
+        return $collect(
+            MetricQuery::raw(str_replace('{environment}', $this->environmentPattern(), $template)),
+            is_string($label) && $label !== '' ? $label : null,
+        );
     }
 }

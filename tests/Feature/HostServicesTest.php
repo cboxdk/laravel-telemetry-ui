@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 
@@ -104,4 +105,37 @@ it('renders the host detail header with a back link', function (): void {
         ->assertJsonPath('title', 'web-3')
         ->assertJsonPath('back.page', 'hosts')
         ->assertJsonPath('stats.0.label', 'CPU');
+});
+
+it('reads the cpu and memory columns from a configured exporter query, held to the lock', function (): void {
+    config()->set('telemetry-ui.hosts.cpu', '1 - avg by (nodename) (rate(node_cpu_seconds_total{mode="idle",environment=~"{environment}"}[5m]))');
+    config()->set('telemetry-ui.hosts.memory', '1 - avg by (nodename) (node_memory_MemAvailable_bytes{environment=~"{environment}"} / node_memory_MemTotal_bytes{environment=~"{environment}"})');
+    config()->set('telemetry-ui.hosts.host_label', 'nodename');
+    app(TelemetryUiManager::class)->restrictScopeUsing(fn ($user): array => ['environments' => ['production']]);
+
+    Http::fake([
+        'prometheus.test:9090/api/v1/query?*' => function ($request) {
+            $q = rawurldecode(requestQuery($request)['query'] ?? '');
+
+            [$label, $value] = match (true) {
+                str_contains($q, 'node_memory') => ['nodename', '0.5'],
+                str_contains($q, 'node_cpu') => ['nodename', '0.25'],
+                default => ['host_name', '1200'],
+            };
+
+            return Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => [
+                ['metric' => [$label => 'web-3'], 'value' => [1735689600, $value]],
+            ]]]);
+        },
+        '*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
+    ]);
+
+    $response = $this->getJson(panelUrl('hosts-table'))->assertOk();
+
+    expect(collect($response->json('rows'))->firstWhere('host.v', 'web-3'))
+        ->not->toBeNull()
+        ->and(json_encode($response->json('rows')))->toContain('25%')->toContain('50%');
+
+    Http::assertSent(fn ($request): bool => str_contains(rawurldecode($request->url()), 'node_cpu_seconds_total{mode="idle",environment=~"production"}'));
+    Http::assertNotSent(fn ($request): bool => str_contains(rawurldecode($request->url()), 'system_cpu_utilization'));
 });

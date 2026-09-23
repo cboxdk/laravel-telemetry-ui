@@ -128,7 +128,10 @@ treatment in [correlation](correlation.md).
 | `context.window` | `TELEMETRY_UI_CONTEXT_WINDOW` | `600` | Seconds padded around a trace so surrounding metric samples land in view. |
 | `context.baseline_window` | `TELEMETRY_UI_CONTEXT_BASELINE` | `21600` | Lookback (seconds) for each signal's "typical" value — the number the tile flags against ("95%, typical 30%"). |
 | `context.baseline_ttl` | `TELEMETRY_UI_CONTEXT_BASELINE_TTL` | `120` | How long a computed baseline is cached. Baselines are multi-hour averages that barely move, so this is well beyond the live cache and shared across nearby traces. |
-| `context.signals` | — | 5 built-ins | The signal list — each a `label` / `group` / `unit` / PromQL `query` with a `{scope}` token. See [correlation](correlation.md) to add your own. |
+| `context.signals` | — | 5 built-ins | The signal list — each a `label` / `group` / `unit` / PromQL `query` with a `{scope}` token (or `{host}`, `{service}`, `{environment}`), and optionally `keep_zero`. See [correlation](correlation.md) to add your own. |
+| `hosts.cpu` / `hosts.memory` | `TELEMETRY_UI_HOSTS_CPU` / `TELEMETRY_UI_HOSTS_MEMORY` | — | PromQL for the Hosts table's CPU and memory columns, one series per host, when the OTel host metrics aren't there (node_exporter). `{environment}` expands to the viewer's environments for an `=~` matcher. |
+| `hosts.host_label` | `TELEMETRY_UI_HOSTS_HOST_LABEL` | metrics host label | The label those queries carry the host in (`nodename` for node_exporter). |
+| `scope.labels.<signal>.<dimension>` | `TELEMETRY_UI_METRICS_ENVIRONMENT_LABEL`, … | laravel-telemetry's names | What service, environment and host are called in each backend. See [authorization](authorization.md#the-label-names-the-lock-filters-by). |
 
 ## MCP server
 

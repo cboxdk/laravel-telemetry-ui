@@ -128,3 +128,49 @@ it('derives scope and a padded window from a trace', function (): void {
             && str_contains($request->url(), 'end=1735689901');
     });
 });
+
+it('fills {host}, {service} and {environment} from the trace, for exporters with their own labels', function (): void {
+    config()->set('telemetry-ui.scope.labels.traces.environment', 'resource.deployment.environment');
+    config()->set('telemetry-ui.context.signals', [
+        ['label' => 'Load (1m)', 'group' => 'host', 'unit' => 'number', 'query' => 'max(node_load1{nodename="{host}"})'],
+        ['label' => 'DB threads running', 'group' => 'db', 'unit' => 'number', 'query' => 'sum(mysql_global_status_threads_running{environment="{environment}"})'],
+    ]);
+
+    Http::fake(['prometheus.test:9090/api/v1/query_range*' => Http::response(rangeResponse(1.0, 2.0, 3.0))]);
+
+    $span = new Span('s1', null, 'GET /geocode', 'geocodio-app', SpanKind::Server, 1735689600_000_000_000, 1735689601_000_000_000, [], false);
+    $trace = new Trace('t1', [$span], ['geocodio-app' => ['host.name' => 'api184.example', 'deployment.environment' => 'production']]);
+
+    $summaries = app(SignalContext::class)->forTrace($trace);
+
+    expect(array_map(fn (MetricSummary $s): string => $s->label, $summaries))->toBe(['Load (1m)', 'DB threads running']);
+    Http::assertSent(fn ($request): bool => str_contains(rawurldecode($request->url()), 'node_load1{nodename="api184.example"}'));
+    Http::assertSent(fn ($request): bool => str_contains(rawurldecode($request->url()), 'mysql_global_status_threads_running{environment="production"}'));
+});
+
+it('skips a signal that needs a value the trace does not have', function (): void {
+    config()->set('telemetry-ui.context.signals', [
+        ['label' => 'Load (1m)', 'group' => 'host', 'unit' => 'number', 'query' => 'max(node_load1{nodename="{host}"})'],
+    ]);
+
+    Http::fake(['prometheus.test:9090/api/v1/query_range*' => Http::response(rangeResponse(1.0, 2.0))]);
+
+    $span = new Span('s1', null, 'GET /geocode', 'geocodio-app', SpanKind::Server, 1735689600_000_000_000, 1735689601_000_000_000, [], false);
+    $trace = new Trace('t1', [$span], ['geocodio-app' => []]);
+
+    expect(app(SignalContext::class)->forTrace($trace))->toBe([]);
+    Http::assertNothingSent();
+});
+
+it('keeps a flat-zero signal that says zero is the answer', function (): void {
+    config()->set('telemetry-ui.context.signals', [
+        ['label' => 'Worker queue', 'group' => 'runtime', 'unit' => 'number', 'keep_zero' => true, 'query' => 'sum(phpfpm_listen_queue{{scope}})'],
+        ['label' => 'Hidden', 'group' => 'runtime', 'unit' => 'number', 'query' => 'sum(other{{scope}})'],
+    ]);
+
+    Http::fake(['prometheus.test:9090/api/v1/query_range*' => Http::response(rangeResponse(0.0, 0.0, 0.0))]);
+
+    $summaries = app(SignalContext::class)->for(['service_name' => 'cbox-web'], new DateTimeImmutable('@1735689600'), new DateTimeImmutable('@1735689780'));
+
+    expect(array_map(fn (MetricSummary $s): string => $s->label, $summaries))->toBe(['Worker queue']);
+});

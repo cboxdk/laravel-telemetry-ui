@@ -428,6 +428,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Hosts table
+    |--------------------------------------------------------------------------
+    |
+    | The Hosts page's CPU and memory columns read the OTel host metrics
+    | (system_cpu_utilization, system_memory_utilization) by default. A fleet
+    | that runs node_exporter instead sets a PromQL query per column, one series
+    | per host, labelled by `host_label` (default: the metrics host label).
+    | `{environment}` expands to the viewer's environments as an alternation,
+    | so use it with `=~`:
+    |
+    |   'cpu' => '1 - avg by (nodename) (rate(node_cpu_seconds_total{mode="idle",environment=~"{environment}"}[5m]))',
+    |   'host_label' => 'nodename',
+    |
+    */
+
+    'hosts' => [
+        'cpu' => env('TELEMETRY_UI_HOSTS_CPU'),
+        'memory' => env('TELEMETRY_UI_HOSTS_MEMORY'),
+        'host_label' => env('TELEMETRY_UI_HOSTS_HOST_LABEL'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | MCP server
     |--------------------------------------------------------------------------
     |
@@ -470,10 +493,17 @@ return [
     | of seconds padded around a trace so surrounding metric samples land in
     | view.
     |
-    | To pull in exporters that don't carry the app's labels, join on the host:
-    |   ['label' => 'DB threads', 'group' => 'db', 'unit' => 'number',
-    |    'query' => 'mysql_global_status_threads_running{instance="$host"}'],
-    | (map host_name -> the exporter's instance label for your setup).
+    | Exporters that don't carry the app's labels take the bare values instead:
+    | `{host}` (the trace's host), `{service}` and `{environment}`. A signal
+    | that uses one the trace doesn't have (no host attribute) is skipped.
+    |   ['label' => 'Load (1m)', 'group' => 'host', 'unit' => 'number',
+    |    'query' => 'max(node_load1{nodename="{host}"})'],
+    |   ['label' => 'DB threads running', 'group' => 'db', 'unit' => 'number',
+    |    'query' => 'sum(mysql_global_status_threads_running{environment="{environment}"})'],
+    |
+    | A signal that is zero for the whole window is hidden, unless it sets
+    | `'keep_zero' => true` — for the ones where zero is the finding (a worker
+    | or listen queue that stayed empty clears the server).
     |
     */
 

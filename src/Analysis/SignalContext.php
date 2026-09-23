@@ -49,22 +49,32 @@ final readonly class SignalContext
         }
 
         $scope = [ScopeLabels::metrics('service') => $root->serviceName];
+        $resource = $trace->services[$root->serviceName] ?? [];
 
-        $host = $trace->services[$root->serviceName][ScopeLabels::traceResourceKey('host')] ?? null;
-        if (is_string($host) && $host !== '') {
+        $host = $resource[ScopeLabels::traceResourceKey('host')] ?? null;
+        $host = is_string($host) ? $host : '';
+        if ($host !== '') {
             $scope[ScopeLabels::metrics('host')] = $host;
         }
 
+        $environment = $resource[ScopeLabels::traceResourceKey('environment')] ?? null;
+
         [$start, $end] = $this->paddedWindow($trace);
 
-        return $this->for($scope, $start, $end);
+        return $this->for($scope, $start, $end, [
+            'service' => $root->serviceName,
+            'host' => $host,
+            'environment' => is_string($environment) ? $environment : '',
+        ]);
     }
 
     /**
      * @param  array<string, string>  $scope  label => value, e.g. ['service_name' => 'cbox-web']
+     * @param  array{service?: string, host?: string, environment?: string}  $values  what the
+     *                                                                                `{service}`, `{host}` and `{environment}` tokens expand to
      * @return list<MetricSummary>
      */
-    public function for(array $scope, DateTimeInterface $start, DateTimeInterface $end): array
+    public function for(array $scope, DateTimeInterface $start, DateTimeInterface $end, array $values = []): array
     {
         if (! (bool) $this->config->get('telemetry-ui.context.enabled', true)) {
             return [];
@@ -89,7 +99,12 @@ final readonly class SignalContext
                 continue;
             }
 
-            $summary = $this->resolve($signal, $selector, $start, $end, $baselineStart);
+            $query = $this->expand((string) $signal['query'], $selector, $values);
+            if ($query === null) {
+                continue; // it needs a value this slice doesn't have (a trace with no host, …)
+            }
+
+            $summary = $this->resolve($signal, $query, $start, $end, $baselineStart);
             if ($summary !== null) {
                 $out[] = $summary;
             }
@@ -101,10 +116,8 @@ final readonly class SignalContext
     /**
      * @param  array<string, mixed>  $signal
      */
-    private function resolve(array $signal, string $selector, DateTimeInterface $start, DateTimeInterface $end, DateTimeInterface $baselineStart): ?MetricSummary
+    private function resolve(array $signal, string $query, DateTimeInterface $start, DateTimeInterface $end, DateTimeInterface $baselineStart): ?MetricSummary
     {
-        $query = $this->expand((string) $signal['query'], $selector);
-
         try {
             $series = $this->connections->metrics()->queryRange(MetricQuery::raw($query), $start, $end);
         } catch (SourceException) {
@@ -113,8 +126,11 @@ final readonly class SignalContext
 
         $points = $this->points($series);
 
-        if ($points === [] || max(array_map('abs', $points)) === 0.0) {
-            return null; // no signal here — don't render an empty tile.
+        // No signal here — don't render an empty tile. Unless the signal says
+        // a flat zero is the answer (`keep_zero`): "the worker queue was empty"
+        // is exactly what clears a server when a request was slow.
+        if ($points === [] || (max(array_map('abs', $points)) === 0.0 && ($signal['keep_zero'] ?? false) !== true)) {
+            return null;
         }
 
         $group = is_string($signal['group'] ?? null) ? $signal['group'] : 'custom';
@@ -184,8 +200,31 @@ final readonly class SignalContext
         return implode(',', $parts);
     }
 
-    private function expand(string $query, string $selector): string
+    /**
+     * Fill a signal's template. `{scope}` is the matcher list for the scope;
+     * `{service}`, `{host}` and `{environment}` are the bare values, escaped for
+     * a PromQL string, for exporters that label things their own way
+     * (`node_load1{nodename="{host}"}`, a database's metrics by
+     * `environment="{environment}"`). A template that uses a value the slice
+     * doesn't have is skipped (null) rather than run unscoped.
+     *
+     * @param  array{service?: string, host?: string, environment?: string}  $values
+     */
+    private function expand(string $query, string $selector, array $values = []): ?string
     {
+        foreach (['service', 'host', 'environment'] as $token) {
+            if (! str_contains($query, '{'.$token.'}')) {
+                continue;
+            }
+
+            $value = $values[$token] ?? '';
+            if ($value === '') {
+                return null;
+            }
+
+            $query = str_replace('{'.$token.'}', addcslashes($value, '"\\'), $query);
+        }
+
         $query = str_replace('{scope}', $selector, $query);
 
         // When the scope is empty, tidy the stray commas an empty {scope} leaves.
