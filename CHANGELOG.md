@@ -191,6 +191,9 @@ change with before/after code.
 - **Saved views**: name the current page + filters + window, recall it from the
   button or ⌘K (per browser).
 - The Explore query bar sticks while you scroll the results.
+- **Triage without the mouse**: with a trace open, `j` / `k` step through the
+  result list in place (neighbours prefetched), live-tail rows flash once as
+  they arrive, and row times carry the full timestamp.
 - **⌘K** never dead-ends: free text offers "search requests / logs /
   exceptions", a path offers its route page.
 - **Context everywhere.** The trace story ends with "Around this request"

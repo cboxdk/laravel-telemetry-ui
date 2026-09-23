@@ -32,7 +32,7 @@ const KEYS: { keys: string; what: string }[] = [
     { keys: 'n', what: 'Jump back to now (live window)' },
     { keys: 'r', what: 'Refresh every query on the page' },
     { keys: '⌘.', what: 'Collapse or expand the section sidebar' },
-    { keys: 'j  k', what: 'Move between result rows (↑ ↓ work too)' },
+    { keys: 'j  k', what: 'Move between result rows — with a trace open, step through them (↑ ↓ too)' },
     { keys: '⏎', what: 'Open the focused row' },
     { keys: 'Esc', what: 'Close the top drawer or menu' },
     { keys: '?', what: 'This list' },

@@ -191,7 +191,7 @@
     ]
   },
   "src/main.tsx": {
-    "file": "assets/main-COc4I7kS.js",
+    "file": "assets/main-DbwfWRv7.js",
     "name": "main",
     "src": "src/main.tsx",
     "isEntry": true,
@@ -204,7 +204,7 @@
       "src/components/charts/echarts.ts"
     ],
     "css": [
-      "assets/main-TVCbSEf4.css"
+      "assets/main-DFzbWFMb.css"
     ],
     "assets": [
       "assets/jetbrains-mono-cyrillic-400-normal-BEIGL1Tu.woff2",

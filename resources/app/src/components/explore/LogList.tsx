@@ -29,7 +29,7 @@ function time(iso: string): string {
 }
 
 /** Virtualised log lines; click a line to expand its attributes. */
-export function LogList({ rows }: { rows: LogEntryRow[]; height?: number }) {
+export function LogList({ rows, fresh = 0 }: { rows: LogEntryRow[]; height?: number; /** Leading rows from live tail — they flash once. */ fresh?: number }) {
     const list = useRef<HTMLDivElement>(null);
     const scroll = useScrollParent(list);
     const [open, setOpen] = useState<string | null>(null);
@@ -51,9 +51,9 @@ export function LogList({ rows }: { rows: LogEntryRow[]; height?: number }) {
         const key = `${row.nano ?? row.ms}-${i}`;
         const expanded = open === key;
         return (
-            <div className={`t-log t-log-${row.tone} ${expanded ? 'is-open' : ''}`}>
+            <div className={`t-log t-log-${row.tone} ${expanded ? 'is-open' : ''} ${i < fresh ? 'is-new' : ''}`}>
                 <button type="button" className="t-log-line" onClick={() => setOpen(expanded ? null : key)}>
-                    <span className="t-log-time mono">{time(row.time)}</span>
+                    <span className="t-log-time mono" title={row.time}>{time(row.time)}</span>
                     <span className={`t-log-level t-tone-${row.tone}`}>{row.level.toUpperCase().slice(0, 5)}</span>
                     {row.service && <span className="t-log-service mono">{row.service}</span>}
                     <span className="t-log-msg mono">{row.message}</span>

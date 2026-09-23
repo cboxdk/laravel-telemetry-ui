@@ -350,3 +350,18 @@ it('answers a typed 502 when the backend fails', function (string $signal, strin
 it('404s an unknown signal at the route', function (): void {
     $this->getJson(apiUrl('explore/metrics'))->assertNotFound();
 });
+
+it('hands back the compiled backend query for the view, per signal', function (): void {
+    fakeExploreSpans();
+
+    $requests = $this->getJson(apiUrl('explore/requests', ['where' => ['http.route=/orders']]))->assertOk();
+    expect($requests->json('query.language'))->toBe('TraceQL')
+        ->and($requests->json('query.text'))->toContain('span.http.route = "/orders"');
+
+    $logs = $this->getJson(apiUrl('explore/logs', ['where' => ['level=error']]))->assertOk();
+    expect($logs->json('query.language'))->toBe('LogQL')
+        ->and($logs->json('query.text'))->toStartWith('{');
+
+    $errors = $this->getJson(apiUrl('explore/errors'))->assertOk();
+    expect($errors->json('query.text'))->toContain('exception_group!=""');
+});

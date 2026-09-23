@@ -1,7 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useContext, useRef } from 'react';
 import type { ErrorRow, Group, SpanRow } from '../../api/types';
-import { ago, clock, count, ms, percent, statusTone } from '../../lib/format';
+import { ago, clock, count, dateTime, ms, percent, statusTone } from '../../lib/format';
 import { usePrefetch } from '../../api/hooks';
 import { useGo } from '../../lib/links';
 import { useScrollParent } from '../../lib/scrollParent';
@@ -19,7 +19,7 @@ function focusSibling(row: HTMLElement, dir: 1 | -1): void {
 }
 
 /** Request/trace rows: time · status · target + dimension chips · duration. */
-export function SpanList({ rows, selected, onSelect }: { rows: SpanRow[]; selected?: string; onSelect?: (row: SpanRow) => void }) {
+export function SpanList({ rows, selected, onSelect, fresh = 0 }: { rows: SpanRow[]; selected?: string; onSelect?: (row: SpanRow) => void; /** How many leading rows arrived by live tail — they flash once. */ fresh?: number }) {
     const list = useRef<HTMLDivElement>(null);
     const scroll = useScrollParent(list);
     const boot = useContext(BootContext);
@@ -29,11 +29,11 @@ export function SpanList({ rows, selected, onSelect }: { rows: SpanRow[]; select
 
     const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scroll.element, estimateSize: () => 52, overscan: 16, scrollMargin: scroll.margin });
     const items = virtualizer.getVirtualItems();
-    const render = (row: SpanRow) => {
+    const render = (row: SpanRow, index: number) => {
         const chips = [...custom, ...CHIP_KEYS].filter((k) => row.attributes[k]);
         return (
             <div
-                className={`t-lrow ${selected === row.traceId ? 'is-sel' : ''} ${row.error ? 'is-error' : ''}`}
+                className={`t-lrow ${selected === row.traceId ? 'is-sel' : ''} ${row.error ? 'is-error' : ''} ${index < fresh ? 'is-new' : ''}`}
                 role="button"
                 tabIndex={0}
                 onMouseEnter={() => prefetch({ to: 'trace', id: row.traceId })}
@@ -48,7 +48,7 @@ export function SpanList({ rows, selected, onSelect }: { rows: SpanRow[]; select
                     else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); focusSibling(e.currentTarget, -1); }
                 }}
             >
-                <span className="t-lrow-time mono">{clock(row.startMs)}</span>
+                <span className="t-lrow-time mono" title={dateTime(row.startMs)}>{clock(row.startMs)}</span>
                 {row.status ? <span className={`t-status t-status-${statusTone(row.status)}`}>{row.status}</span> : <span className={`t-status t-status-${row.error ? 'danger' : 'dim'}`}>{row.error ? 'ERR' : row.browser ? 'WEB' : '—'}</span>}
                 <span className="t-lrow-main">
                     <span className="t-lrow-path mono">
@@ -69,12 +69,12 @@ export function SpanList({ rows, selected, onSelect }: { rows: SpanRow[]; select
     return (
         <div className="t-list" ref={list}>
             {items.length === 0 && rows.length > 0
-                ? rows.slice(0, 60).map((r, i) => <div key={`${r.traceId}-${i}`}>{render(r)}</div>)
+                ? rows.slice(0, 60).map((r, i) => <div key={`${r.traceId}-${i}`}>{render(r, i)}</div>)
                 : (
                     <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
                         {items.map((v) => (
                             <div key={v.key} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: v.size, transform: `translateY(${v.start - scroll.margin}px)` }}>
-                                {render(rows[v.index]!)}
+                                {render(rows[v.index]!, v.index)}
                             </div>
                         ))}
                     </div>

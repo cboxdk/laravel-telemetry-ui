@@ -1,6 +1,6 @@
 import { Link, useParams } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
-import { useAnnotations, useExplore, useFacets } from '../api/hooks';
+import { useEffect, useMemo, useState } from 'react';
+import { useAnnotations, useExplore, useFacets, usePrefetch } from '../api/hooks';
 import type { ErrorRow, LogEntryRow, Signal, SpanRow } from '../api/types';
 import { Combobox } from '../components/Combobox';
 import { CopyButton } from '../components/CopyButton';
@@ -17,6 +17,7 @@ import { TimeChart } from '../components/charts/TimeChart';
 import { Icon } from '../components/Icon';
 import { apiUrl } from '../api/client';
 import { count, ms, percent } from '../lib/format';
+import { useGo } from '../lib/links';
 import { useLiveTail } from '../lib/liveTail';
 import { useTitle } from '../lib/title';
 import { formatFilter, list, parseDrawer, parseFilter, scopeOf, str, toggleFilter, withFilter } from '../lib/search';
@@ -58,6 +59,7 @@ export function ExplorePage() {
     const tail = useLiveTail<SpanRow | LogEntryRow>(signal === 'logs' ? 'logs' : 'requests', { ...scope, where, q }, live && streamable, since);
 
     const rows = useMemo(() => (data ? [...tail.rows, ...data.rows] : []), [data, tail.rows]);
+    useDrawerStepping(top?.type === 'trace' ? top.id : null, rows as SpanRow[], signal);
     const groupOptions = boot.dimensions.filter((d) => d.scope !== 'intrinsic' && (signal !== 'errors')).map((d) => ({ value: d.key, label: d.label, hint: d.key }));
 
     return (
@@ -190,11 +192,11 @@ export function ExplorePage() {
                                     onClear={() => set({ where: undefined, q: undefined })}
                                 />
                             ) : signal === 'logs' ? (
-                                <LogList rows={rows as LogEntryRow[]} />
+                                <LogList rows={rows as LogEntryRow[]} fresh={tail.rows.length} />
                             ) : signal === 'errors' ? (
                                 <ErrorList rows={rows as unknown as ErrorRow[]} />
                             ) : (
-                                <SpanList rows={rows as SpanRow[]} selected={top?.type === 'trace' ? top.id : undefined} />
+                                <SpanList rows={rows as SpanRow[]} selected={top?.type === 'trace' ? top.id : undefined} fresh={tail.rows.length} />
                             )}
                         </>
                     )}
@@ -202,6 +204,47 @@ export function ExplorePage() {
             </div>
         </div>
     );
+}
+
+/**
+ * With a trace open, j / k (and ↑ / ↓) walk the result list without closing
+ * the drawer: triage a page of failures without touching the mouse.
+ */
+function useDrawerStepping(openTraceId: string | null, rows: SpanRow[], signal: Signal): void {
+    const go = useGo();
+    const prefetch = usePrefetch();
+
+    // The next and previous trace are one keystroke away: have them ready.
+    useEffect(() => {
+        if (openTraceId === null) return;
+        const at = rows.findIndex((r) => r.traceId === openTraceId);
+        for (const neighbour of [rows[at + 1], rows[at - 1]]) {
+            if (neighbour) prefetch({ to: 'trace', id: neighbour.traceId });
+        }
+    }, [openTraceId, rows, prefetch]);
+
+    useEffect(() => {
+        if (openTraceId === null || signal === 'logs' || signal === 'errors') return;
+
+        const onKey = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            if (typeof target?.closest === 'function' && target.closest('input,textarea,select,[contenteditable]')) return;
+
+            const step = e.key === 'j' || e.key === 'ArrowDown' ? 1 : e.key === 'k' || e.key === 'ArrowUp' ? -1 : 0;
+            if (step === 0) return;
+
+            const at = rows.findIndex((r) => r.traceId === openTraceId);
+            const next = rows[(at === -1 ? 0 : at) + step];
+            if (!next) return;
+
+            e.preventDefault();
+            go({ to: 'trace', id: next.traceId }, { replaceDrawer: true });
+        };
+
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [openTraceId, rows, signal, go]);
 }
 
 /**
