@@ -5,6 +5,27 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-09-24
+
+### Added
+
+- **Faster trace lookups when the start is known.** Trace links carry `at`
+  (epoch ms) wherever the list knows when the request started — Explore, the
+  request log, trace search, slow queries, entity and detail pages — and the
+  drawer sends it as `traces/{id}?at=`. A backend that implements the new
+  optional `LocatesTracesInTime` contract (Tempo does) is then asked about
+  `traces.lookup_window` seconds either side only (default an hour; measured
+  on a busy Tempo: median 0.9 s against 2.1 s, worst 1.0 s against 5.0 s). A
+  miss falls back to the full lookup. `TelemetryTrace` takes `at` too.
+- `SourceException::$httpStatus`: the backend's HTTP status, when it answered
+  with one.
+
+### Fixed
+
+- Opening a trace a second time within the baseline cache's lifetime failed
+  with a TypeError on a Redis or Memcached cache: those stores hand a cached
+  number back as a string, and the context baseline was returned as cached.
+
 ## [2.2.0] - 2026-09-24
 
 ### Added
