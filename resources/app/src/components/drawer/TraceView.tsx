@@ -7,7 +7,7 @@ import { useBoot, DimensionValue } from '../DimensionValue';
 import { Sparkline } from '../charts/Sparkline';
 import { CopyButton } from '../CopyButton';
 import { Icon } from '../Icon';
-import { Empty, ErrorState, Skeleton } from '../States';
+import { Empty, ErrorState, Skeleton, Spinner } from '../States';
 
 type Tab = 'story' | 'waterfall' | 'logs' | 'context' | 'profile';
 
@@ -21,7 +21,14 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
     const { data, error, isLoading } = useTrace(traceId);
     const [tab, setTab] = useState<Tab>('story');
 
-    if (isLoading) return <div className="t-pad"><Skeleton height={320} /></div>;
+    if (isLoading) {
+        return (
+            <div className="t-pad">
+                <Spinner label={`Loading trace ${shortId(traceId)} from the trace store…`} />
+                <Skeleton height={320} />
+            </div>
+        );
+    }
     if (error || !data) return <div className="t-pad"><ErrorState error={error} /></div>;
 
     const root = data.root;

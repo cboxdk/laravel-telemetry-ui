@@ -11,9 +11,22 @@ import { useScope, useRefreshInterval } from '../lib/state';
 // exactly what depends on it — and nothing round-trips for client-only state.
 
 /**
+ * How long the pointer has to rest on a trace link before its trace is warmed.
+ * A trace is the one expensive read (the trace store can take seconds to find
+ * one), so sweeping the pointer down a list of thirty traces must not queue
+ * thirty lookups ahead of the one that gets clicked.
+ */
+export const TRACE_PREFETCH_DELAY_MS = 200;
+
+/** The one trace prefetch waiting out its delay; a newer hover replaces it. */
+let pendingTrace: ReturnType<typeof setTimeout> | null = null;
+
+/**
  * Warm a link's data on hover: by the time the click lands, the trace, entity
  * story or page is usually already in the cache. Deduped and cheap — a hover
  * that goes nowhere costs one request that the click would have made anyway.
+ * Traces are warmed only for the link the pointer rests on (see
+ * {@link TRACE_PREFETCH_DELAY_MS}).
  */
 export function usePrefetch() {
     const client = useQueryClient();
@@ -24,7 +37,12 @@ export function usePrefetch() {
             void client.prefetchQuery({ queryKey, queryFn: ({ signal }) => api.get<T>(path, params, signal), staleTime: 30_000 });
 
         if (link.to === 'trace' && typeof link.id === 'string') {
-            fetch<TraceData>(['trace', link.id], `traces/${link.id}`);
+            const id = link.id;
+            if (pendingTrace !== null) clearTimeout(pendingTrace);
+            pendingTrace = setTimeout(() => {
+                pendingTrace = null;
+                fetch<TraceData>(['trace', id], `traces/${id}`);
+            }, TRACE_PREFETCH_DELAY_MS);
         } else if (link.to === 'error' && typeof link.group === 'string') {
             fetch<ErrorGroupData>(['error', link.group, scope.service, scope.env], `errors/${encodeURIComponent(link.group)}`, { service: scope.service, env: scope.env });
         } else if (link.to === 'entity' && typeof link.type === 'string' && typeof link.value === 'string') {

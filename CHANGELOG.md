@@ -5,6 +5,17 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-09-24
+
+### Fixed
+
+- Hovering down a list of traces no longer queues a full trace lookup for
+  every row the pointer crosses. A trace is warmed only once the pointer has
+  rested on its row for 200 ms, and a newer hover replaces a waiting one, so the
+  trace that gets clicked is not stuck behind thirty others in the trace store.
+- The trace drawer says it is loading the trace from the trace store, instead
+  of showing a blank block for the seconds a lookup can take.
+
 ## [2.1.0] - 2026-09-24
 
 ### Added
