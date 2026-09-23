@@ -58,7 +58,7 @@ export function resolve(link: LinkData, current: { pathname: string; search: Sea
                 return { pathname: `/entity/${entity.type}`, search: { ...scope, value: params[entity.param] } };
             }
             if (link.page === 'error-detail' && params.group) {
-                return { pathname: `/errors/${params.group}`, search: scope };
+                return { pathname: `/errors/${encodeURIComponent(params.group)}`, search: scope };
             }
             if (link.page === 'dashboard') return { pathname: '/', search: scope };
             return { pathname: `/p/${link.page}`, search: { ...scope, ...params } };
@@ -86,7 +86,7 @@ export function useGo() {
     const router = useRouter();
     const resolveLink = useResolve();
     return useCallback(
-        (link: LinkData, opts: { replaceDrawer?: boolean; newTab?: boolean } = {}) => {
+        (link: LinkData, opts: { replaceDrawer?: boolean; newTab?: boolean; replace?: boolean } = {}) => {
             const target = resolveLink(link, opts.replaceDrawer);
             if (!target) return;
             if ('href' in target) {
@@ -97,7 +97,7 @@ export function useGo() {
                 window.open(hrefFor(router.options.basepath ?? '', target), '_blank', 'noopener');
                 return;
             }
-            void router.navigate({ to: target.pathname, search: target.search as never });
+            void router.navigate({ to: target.pathname, search: target.search as never, replace: opts.replace });
         },
         [router, resolveLink],
     );

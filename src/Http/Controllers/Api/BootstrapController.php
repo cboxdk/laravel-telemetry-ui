@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Http\Controllers\Api;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
+use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\AggregatesSpans;
 use Cbox\TelemetryUi\Contracts\CreatesIssues;
 use Cbox\TelemetryUi\Dimensions\Dimension;
@@ -69,8 +70,13 @@ final class BootstrapController
         try {
             $services = $fleet->services();
             $environments = $fleet->environments();
-        } catch (Throwable $exception) {
+        } catch (SourceException $exception) {
             $scopeError = $exception->getMessage();
+        } catch (Throwable) {
+            // Anything else (a host tenant resolver, a misconfigured
+            // connection) may carry internals in its message: say only that
+            // discovery failed.
+            $scopeError = 'Could not read the services and environments from the backends.';
         }
 
         $dimensions = $manager->dimensions()->all();
@@ -118,7 +124,7 @@ final class BootstrapController
             'refreshIntervals' => ViewState::INTERVALS,
             'abilities' => [
                 'manage' => Gate::allows('manageTelemetryUi'),
-                'createIssues' => Gate::allows('manageTelemetryUi') && $connections->hasIssues() && $connections->issues() instanceof CreatesIssues,
+                'createIssues' => Gate::allows('manageTelemetryUi') && self::canCreateIssues($connections),
             ],
             'capabilities' => [
                 'issues' => $connections->hasIssues(),
@@ -135,6 +141,19 @@ final class BootstrapController
     {
         try {
             return $connections->traces() instanceof AggregatesSpans;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * A tracker that is registered but not buildable (a typo in `driver`)
+     * must not 500 the whole dashboard.
+     */
+    private static function canCreateIssues(ConnectionManager $connections): bool
+    {
+        try {
+            return $connections->hasIssues() && $connections->issues() instanceof CreatesIssues;
         } catch (Throwable) {
             return false;
         }

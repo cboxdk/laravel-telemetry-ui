@@ -14,6 +14,8 @@ use Cbox\TelemetryUi\Explore\TraceExceptions;
 use Cbox\TelemetryUi\Http\Api\ApiError;
 use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\Http\Api\Serializer;
+use Cbox\TelemetryUi\Queries\Results\Trace;
+use Cbox\TelemetryUi\Support\ScopeLock;
 use Cbox\TelemetryUi\Support\TraceView;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
@@ -45,6 +47,14 @@ final class TraceController
         }
 
         if ($trace->spans === []) {
+            return ApiError::notFound("Trace {$traceId} was not found (it may have expired or been sampled away).");
+        }
+
+        // A trace id is a deep link anyone can paste: a locked viewer must not
+        // read one belonging to a service outside their lock. Search and
+        // Explore are already constrained; this is the one route that takes an
+        // id straight from the URL.
+        if (! self::withinLock($trace, app(ScopeLock::class))) {
             return ApiError::notFound("Trace {$traceId} was not found (it may have expired or been sampled away).");
         }
 
@@ -110,5 +120,27 @@ final class TraceController
         } catch (SourceException) {
             return [];
         }
+    }
+
+    /**
+     * Whether every service the trace touches is one this viewer may read. A
+     * trace that crosses out of the lock is treated as absent, not forbidden:
+     * its existence is itself information.
+     */
+    private static function withinLock(Trace $trace, ScopeLock $lock): bool
+    {
+        $allowed = $lock->services();
+
+        if (! $lock->servicesLocked()) {
+            return true;
+        }
+
+        foreach (array_keys($trace->services) as $service) {
+            if (! in_array((string) $service, $allowed, true)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

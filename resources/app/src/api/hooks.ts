@@ -26,7 +26,7 @@ export function usePrefetch() {
         if (link.to === 'trace' && typeof link.id === 'string') {
             fetch<TraceData>(['trace', link.id], `traces/${link.id}`);
         } else if (link.to === 'error' && typeof link.group === 'string') {
-            fetch<ErrorGroupData>(['error', link.group, scope.service, scope.env], `errors/${link.group}`, { service: scope.service, env: scope.env });
+            fetch<ErrorGroupData>(['error', link.group, scope.service, scope.env], `errors/${encodeURIComponent(link.group)}`, { service: scope.service, env: scope.env });
         } else if (link.to === 'entity' && typeof link.type === 'string' && typeof link.value === 'string') {
             const all: Params = { ...scope, value: link.value };
             fetch<EntityStory>(['entity', link.type, all], `entities/${encodeURIComponent(link.type)}/story`, all);
@@ -108,7 +108,9 @@ export function useFacets(signal: Signal, params: Params) {
     return useQuery({
         queryKey: ['facets', signal, all],
         queryFn: ({ signal: abort }) => api.get<FacetsResult>(`facets/${signal}`, all, abort),
-        placeholderData: keepPreviousData,
+        // Keep the old facets while a filter changes — never across signals,
+        // or a click writes a filter on a key this signal doesn't have.
+        placeholderData: (previous, query) => (query?.queryKey[1] === signal ? previous : undefined),
     });
 }
 
@@ -118,7 +120,7 @@ export function useEntityIndex(type: string, params: Params = {}) {
     return useQuery({
         queryKey: ['entities', type, all],
         queryFn: ({ signal }) => api.get<EntityIndex>(`entities/${encodeURIComponent(type)}`, all, signal),
-        placeholderData: keepPreviousData,
+        placeholderData: (previous, query) => (query?.queryKey[1] === type ? previous : undefined),
     });
 }
 
@@ -128,7 +130,7 @@ export function useEntityStory(type: string, value: string, params: Params = {})
     return useQuery({
         queryKey: ['entity', type, all],
         queryFn: ({ signal }) => api.get<EntityStory>(`entities/${encodeURIComponent(type)}/story`, all, signal),
-        placeholderData: keepPreviousData,
+        placeholderData: (previous, query) => (query?.queryKey[1] === type ? previous : undefined),
         enabled: value !== '',
     });
 }
@@ -146,7 +148,7 @@ export function useErrorGroup(group: string) {
     const scope = useScope();
     return useQuery({
         queryKey: ['error', group, scope.service, scope.env],
-        queryFn: ({ signal }) => api.get<ErrorGroupData>(`errors/${group}`, { service: scope.service, env: scope.env }, signal),
+        queryFn: ({ signal }) => api.get<ErrorGroupData>(`errors/${encodeURIComponent(group)}`, { service: scope.service, env: scope.env }, signal),
         staleTime: 30_000,
     });
 }

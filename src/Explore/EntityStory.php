@@ -64,15 +64,22 @@ final class EntityStory
     public function index(RequestScope $scope, Dimension $dimension): array
     {
         $signal = $this->signalFor($dimension);
-        $present = TraceCondition::nil($dimension->traceField());
+        // A derived dimension has no attribute of its own: "present" is a
+        // source value shaped like its pattern, and the rows must carry that
+        // source attribute for the value to be read back out.
+        $derived = $dimension->derived;
+        $present = $derived === null
+            ? TraceCondition::nil($dimension->traceField())
+            : TraceCondition::re($this->dimensions->resolve($derived->from)->traceField(), $derived->regex());
+        $keys = $derived === null ? [$dimension->key] : [$dimension->key, $derived->from];
 
         $rows = $signal === 'requests'
-            ? $this->spans->rows($scope, $signal, self::LIMIT, [$present], [$dimension->key])
-            : $this->spans->rowsFrom($this->spans->spanSample($scope, [$present], [$dimension->key]), $signal, [$dimension->key], true);
+            ? $this->spans->rows($scope, $signal, self::LIMIT, [$present], $keys)
+            : $this->spans->rowsFrom($this->spans->spanSample($scope, [$present], $keys), $signal, $keys, true);
 
         if ($rows === [] && $signal === 'requests') {
             $signal = 'traces';
-            $rows = $this->spans->rowsFrom($this->spans->spanSample($scope, [$present], [$dimension->key]), $signal, [$dimension->key], true);
+            $rows = $this->spans->rowsFrom($this->spans->spanSample($scope, [$present], $keys), $signal, $keys, true);
         }
 
         if ($signal !== 'requests') {

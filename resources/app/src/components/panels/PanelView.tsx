@@ -26,20 +26,29 @@ export function PanelView({ id, span = 1, params = {} }: { id: string; span?: nu
     const set = useSetSearch();
     const [live, setLive] = useState(false);
     const [draft, setDraft] = useState<TicketDraft | null>(null);
+    // Which URL keys this panel reads. Known only once it has answered, so it
+    // is state — a render-time write would leave the memo stale and keep
+    // sending another panel's params.
+    const [controlKeys, setControlKeys] = useState<string[] | undefined>(() => knownControls.get(id));
 
     const controlParams = useMemo(() => {
-        const keys = knownControls.get(id);
+        const keys = controlKeys;
         const out: Record<string, string> = {};
         for (const [k, v] of Object.entries(search)) {
             if (typeof v !== 'string' || RESERVED.has(k)) continue;
             if (keys === undefined || keys.includes(k)) out[k] = v;
         }
         return out;
-    }, [id, search]);
+    }, [search, controlKeys]);
 
     const { data, error, isLoading, isFetching } = usePanel(id, { ...controlParams, ...params }, live);
 
-    if (data?.controls) knownControls.set(id, data.controls.map((c) => c.param));
+    useEffect(() => {
+        if (!data) return;
+        const keys = (data.controls ?? []).map((c) => c.param);
+        knownControls.set(id, keys);
+        setControlKeys((previous) => (previous?.length === keys.length && previous.every((key, i) => key === keys[i]) ? previous : keys));
+    }, [id, data]);
 
     // A detail page's header names the thing (the exception, the route, the
     // host): the tab title should too. Runs after the page's own title.

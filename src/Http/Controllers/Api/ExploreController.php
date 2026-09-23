@@ -9,6 +9,7 @@ use Cbox\TelemetryUi\Explore\ErrorExplorer;
 use Cbox\TelemetryUi\Explore\LogExplorer;
 use Cbox\TelemetryUi\Explore\SpanExplorer;
 use Cbox\TelemetryUi\Http\Api\ApiError;
+use Cbox\TelemetryUi\Http\Api\Filter;
 use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Cbox\TelemetryUi\Queries\Compilers\LogqlCompiler;
@@ -40,7 +41,9 @@ final class ExploreController
         // A trace search can match many spans per trace; sample fewer by default.
         $default = $signal === 'traces' ? 200 : SpanExplorer::DEFAULT_LIMIT;
         $limit = max(1, min(SpanExplorer::MAX_LIMIT, (int) $request->query('limit', (string) $default)));
-        $groupBy = is_string($request->query('groupBy')) ? (string) $request->query('groupBy') : null;
+        $groupBy = is_string($request->query('groupBy')) && Filter::isKey((string) $request->query('groupBy'))
+            ? (string) $request->query('groupBy')
+            : null;
 
         try {
             $payload = match ($signal) {

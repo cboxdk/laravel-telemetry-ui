@@ -219,7 +219,7 @@ export function DataTable({ columns, rows, onParam, onTicket }: {
             onMouseEnter={() => row._link && prefetch(row._link)}
             onClick={(e) => onRow(row._link, e)}
             tabIndex={row._link ? 0 : undefined}
-            onKeyDown={(e) => { if (e.key === 'Enter' && row._link) go(row._link); }}
+            onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && row._link) { e.preventDefault(); go(row._link); } }}
         >
             {columns.map((c) => (
                 <div key={c.key} role="cell" className={`t-td ${c.align === 'right' ? 'is-num' : ''}`}>
@@ -253,7 +253,7 @@ export function DataTable({ columns, rows, onParam, onTicket }: {
                         onMouseEnter={() => row._link && prefetch(row._link)}
                         onClick={(e) => onRow(row._link, e)}
                         tabIndex={row._link ? 0 : undefined}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && row._link) go(row._link); }}
+                        onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && row._link) { e.preventDefault(); go(row._link); } }}
                     >
                         {head && (
                             <div role="cell" className="t-card-title">
@@ -292,23 +292,24 @@ export function DataTable({ columns, rows, onParam, onTicket }: {
         <div className="t-table" role="table">
             <div className="t-tr t-thead" role="row" style={{ gridTemplateColumns: template }}>
                 {columns.map((c) => (
-                    <button
-                        type="button"
+                    <div
                         key={c.key}
                         role="columnheader"
+                        aria-sort={sort?.key === c.key ? (sort.dir === -1 ? 'descending' : 'ascending') : 'none'}
                         className={`t-th ${c.align === 'right' ? 'is-num' : ''} ${sort?.key === c.key ? 'is-sorted' : ''}`}
-                        onClick={() => setSort((s) => (s?.key === c.key ? (s.dir === -1 ? { key: c.key, dir: 1 } : null) : { key: c.key, dir: -1 }))}
                     >
-                        {c.label}
-                        {sort?.key === c.key && <span className="t-sort">{sort.dir === -1 ? '↓' : '↑'}</span>}
-                    </button>
+                        <button type="button" onClick={() => setSort((s) => (s?.key === c.key ? (s.dir === -1 ? { key: c.key, dir: 1 } : null) : { key: c.key, dir: -1 }))}>
+                            {c.label}
+                            {sort?.key === c.key && <span className="t-sort">{sort.dir === -1 ? '↓' : '↑'}</span>}
+                        </button>
+                    </div>
                 ))}
                 {hasTicket && <span />}
             </div>
             {/* Long tables virtualise against the page scroll — no scroll box inside the panel. */}
-            <div className="t-tbody" ref={scroller}>
+            <div className="t-tbody" role="rowgroup" ref={scroller}>
                 {virtual ? (
-                    <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+                    <div role="presentation" style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
                         {virtualizer.getVirtualItems().map((v) =>
                             renderRow(sorted[v.index]!, v.index, { position: 'absolute', top: 0, left: 0, right: 0, transform: `translateY(${v.start - scroll.margin}px)`, height: ROW_H }),
                         )}

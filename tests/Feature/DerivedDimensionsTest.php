@@ -104,3 +104,34 @@ it('rides along on log lines and their filters', function (): void {
         return ! str_contains($query, 'portal_screen') || str_contains($query, 'http_route="portal:checkout"');
     });
 });
+
+it('selects the source attribute, not the derived key that no span carries', function (): void {
+    // A source outside the built-in select list: the whole point of from:.
+    TelemetryUi::dimension('portal.screen', label: 'Screen', from: 'app.context', pattern: 'portal:{value}');
+    fakeScreenSpans();
+
+    $this->getJson(apiUrl('explore/requests', ['groupBy' => 'portal.screen']))->assertOk();
+
+    $traceql = sentTraceql()[0] ?? '';
+
+    expect($traceql)->toContain('span.app.context')
+        ->and($traceql)->not->toContain('span.portal.screen');
+});
+
+it('reads the derived value from a source the built-ins do not know', function (): void {
+    TelemetryUi::dimension('portal.screen', label: 'Screen', from: 'app.context', pattern: 'portal:{value}');
+
+    Http::fake([
+        'tempo.test:3200/api/search*' => Http::response(['traces' => [
+            tempoHit('aaaa0000aaaa0000aaaa0000aaaa0009', 'POST /rpc', time() - 10, 12.0, [
+                'app.context' => 'portal:checkout', 'http.request.method' => 'POST', 'http.response.status_code' => 200,
+            ]),
+        ]]),
+        'loki.test:3100/*' => Http::response(lokiStreams([])),
+        'prometheus.test:9090/*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]),
+    ]);
+
+    $rows = $this->getJson(apiUrl('explore/requests'))->assertOk()->json('rows');
+
+    expect($rows[0]['attributes']['portal.screen'])->toBe('checkout');
+});

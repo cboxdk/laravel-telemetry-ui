@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { Bootstrap } from '../../api/types';
 import { formatDrawer, parseDrawer, scopeOf, str, type DrawerEntry } from '../../lib/search';
 import { useSearchState, useSetSearch } from '../../lib/state';
@@ -20,7 +20,8 @@ function label(e: DrawerEntry): string {
 export function DrawerStack({ boot }: { boot: Bootstrap }) {
     const search = useSearchState();
     const set = useSetSearch();
-    const stack = parseDrawer(str(search, 'drawer'));
+    const drawer = str(search, 'drawer');
+    const stack = useMemo(() => parseDrawer(drawer), [drawer]);
     const top = stack.at(-1);
 
     useEffect(() => {
@@ -29,7 +30,8 @@ export function DrawerStack({ boot }: { boot: Bootstrap }) {
             if (e.key !== 'Escape' || (e.target as HTMLElement).closest('input,textarea,.t-modal,.t-palette')) return;
             // An open menu takes the Escape first; otherwise pop one drawer (back to the one below).
             if (document.querySelector('.t-popover')) return;
-            set({ drawer: stack.length > 1 ? formatDrawer(stack.slice(0, -1)) : undefined });
+            // Replace: the drawer is a view of this page, not a place of its own.
+            set({ drawer: stack.length > 1 ? formatDrawer(stack.slice(0, -1)) : undefined }, { replace: true });
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
@@ -37,7 +39,7 @@ export function DrawerStack({ boot }: { boot: Bootstrap }) {
 
     if (!top) return null;
 
-    const truncate = (n: number) => set({ drawer: formatDrawer(stack.slice(0, n)) });
+    const truncate = (n: number) => set({ drawer: formatDrawer(stack.slice(0, n)) || undefined }, { replace: true });
     const full = top.type === 'trace' ? `/traces/${top.id}` : top.type === 'error' ? `/errors/${top.id}` : null;
 
     return (
@@ -60,7 +62,7 @@ export function DrawerStack({ boot }: { boot: Bootstrap }) {
                         <Icon name="external" size={12} />Full page
                     </Link>
                 )}
-                <button type="button" className="t-iconbtn" onClick={() => set({ drawer: undefined })} title="Close (Esc)"><Icon name="x" size={15} /></button>
+                <button type="button" className="t-iconbtn" onClick={() => set({ drawer: undefined }, { replace: true })} title="Close (Esc)"><Icon name="x" size={15} /></button>
             </div>
             <div className="t-drawer-body" key={`${top.type}:${top.id}`}>
                 {top.type === 'trace' && <TraceView traceId={top.id} />}

@@ -22,9 +22,22 @@ final readonly class Filter
         public string $value,
     ) {}
 
+    /**
+     * An attribute key, as an emitter may write one. Deliberately strict: the
+     * key is spliced into TraceQL/LogQL as an identifier, so anything that
+     * could close a selector or open a pipeline stage must never get through.
+     */
+    private const KEY = '[A-Za-z_][A-Za-z0-9_.\-]*';
+
+    /** Whether a string is a usable attribute key (see {@see KEY}). */
+    public static function isKey(string $key): bool
+    {
+        return preg_match('/^'.self::KEY.'$/', $key) === 1;
+    }
+
     public static function parse(string $raw): ?self
     {
-        if (preg_match('/^([^=!<>~\s]+)\s*(!=|=~|!~|>=|<=|=|>|<)(.*)$/s', trim($raw), $m) !== 1) {
+        if (preg_match('/^('.self::KEY.')\s*(!=|=~|!~|>=|<=|=|>|<)(.*)$/s', trim($raw), $m) !== 1) {
             return null;
         }
 

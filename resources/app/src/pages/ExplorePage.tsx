@@ -239,7 +239,7 @@ function useDrawerStepping(openTraceId: string | null, rows: SpanRow[], signal: 
             if (!next) return;
 
             e.preventDefault();
-            go({ to: 'trace', id: next.traceId }, { replaceDrawer: true });
+            go({ to: 'trace', id: next.traceId }, { replaceDrawer: true, replace: true });
         };
 
         window.addEventListener('keydown', onKey);
@@ -252,18 +252,18 @@ function useDrawerStepping(openTraceId: string | null, rows: SpanRow[], signal: 
  * back to now when the window was stepped, a wider window, drop the filters.
  */
 function NoMatches({ scope, filters, onNow, onWiden, onClear }: {
-    scope: { period: string; from?: string; to?: string };
+    scope: { period?: string; from?: string; to?: string };
     filters: number;
     onNow: () => void;
     onWiden: (period: string) => void;
     onClear: () => void;
 }) {
     const stepped = Boolean(scope.from && scope.to);
-    const wider = WIDER[scope.period] ?? (stepped ? '24h' : null);
+    const wider = (scope.period !== undefined ? WIDER[scope.period] : undefined) ?? (stepped ? '24h' : null);
 
     return (
         <Empty>
-            <p>Nothing matches{stepped ? ' in this window' : ` in the last ${scope.period}`}{filters > 0 ? ` with ${filters} filter${filters === 1 ? '' : 's'}` : ''}.</p>
+            <p>Nothing matches{stepped || scope.period === undefined ? ' in this window' : ` in the last ${scope.period}`}{filters > 0 ? ` with ${filters} filter${filters === 1 ? '' : 's'}` : ''}.</p>
             <div className="t-empty-actions">
                 {stepped && <button type="button" className="t-btn t-btn-sm t-btn-secondary" onClick={onNow}><Icon name="clock" size={12} />Back to now</button>}
                 {wider && <button type="button" className="t-btn t-btn-sm t-btn-secondary" onClick={() => onWiden(wider)}>Widen to {wider}</button>}

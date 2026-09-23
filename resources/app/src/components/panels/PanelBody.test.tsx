@@ -21,9 +21,14 @@ describe('panel renderers', () => {
         expect(await screen.findByText('/a')).toBeInTheDocument();
         expect(screen.getByText('POST')).toHaveClass('t-badge-ok');
 
-        await userEvent.click(screen.getByRole('columnheader', { name: 'Total' }));
+        const total = screen.getByRole('columnheader', { name: 'Total' });
+        expect(total).toHaveAttribute('aria-sort', 'none');
+
+        await userEvent.click(within(total).getByRole('button'));
+
         const rows = screen.getAllByRole('row').slice(1);
         expect(within(rows[0]!).getByText('/b')).toBeInTheDocument();
+        expect(screen.getByRole('columnheader', { name: /Total/ })).toHaveAttribute('aria-sort', 'descending');
     });
 
     it('whole-row drill-down opens the trace drawer', async () => {

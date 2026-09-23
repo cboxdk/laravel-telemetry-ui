@@ -33,7 +33,13 @@ final class TimeExpression
         }
 
         if (ctype_digit($value)) {
-            return new DateTimeImmutable('@'.$value);
+            // A crafted `?from=` must never reach the exception handler: any
+            // digits PHP can't turn into a date are simply not a time.
+            try {
+                return new DateTimeImmutable('@'.$value);
+            } catch (\Throwable) {
+                return null;
+            }
         }
 
         $now ??= new DateTimeImmutable;

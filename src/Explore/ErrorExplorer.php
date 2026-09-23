@@ -42,9 +42,25 @@ final class ErrorExplorer
         foreach ($scope->where as $filter) {
             $op = MatchOp::tryFrom($filter->op);
 
-            if ($op !== null && ! in_array($filter->key, ['source'], true)) {
-                $query = $query->whereLabel(self::label($filter->key), $op, $filter->value);
+            if ($op === null || in_array($filter->key, ['source'], true)) {
+                continue;
             }
+
+            // A derived dimension filters its source label, encoded — the same
+            // rule the log explorer applies, so both halves of the Errors page
+            // (records here, frontend spans in Tempo) select the same set.
+            $derived = $this->dimensions->resolve($filter->key)->derived;
+
+            if ($derived !== null) {
+                $label = self::label($derived->from);
+                $query = $filter->value === ''
+                    ? $query->whereLabel($label, $op === MatchOp::Neq ? MatchOp::Re : MatchOp::Nre, $derived->regex())
+                    : $query->whereLabel($label, $op, in_array($op, [MatchOp::Re, MatchOp::Nre], true) ? $derived->regex('(?:'.$filter->value.')') : $derived->encode($filter->value));
+
+                continue;
+            }
+
+            $query = $query->whereLabel(self::label($filter->key), $op, $filter->value);
         }
 
         return $query;

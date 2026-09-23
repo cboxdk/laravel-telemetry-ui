@@ -9,6 +9,7 @@ use Cbox\TelemetryUi\Explore\ErrorExplorer;
 use Cbox\TelemetryUi\Explore\LogExplorer;
 use Cbox\TelemetryUi\Explore\SpanExplorer;
 use Cbox\TelemetryUi\Http\Api\ApiError;
+use Cbox\TelemetryUi\Http\Api\Filter;
 use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +24,8 @@ use Illuminate\Support\Facades\Gate;
  */
 final class FacetsController
 {
+    private const MAX_KEYS = 60;
+
     public function __invoke(Request $request, SpanExplorer $spans, LogExplorer $logs, ErrorExplorer $errors, string $signal): JsonResponse
     {
         // The same per-page gate Explore applies: facet values are data.
@@ -31,7 +34,12 @@ final class FacetsController
         }
 
         $scope = RequestScope::fromRequest($request);
-        $keys = array_values(array_filter((array) $request->query('keys', []), static fn ($k): bool => is_string($k) && $k !== ''));
+        // Keys are spliced into the backend query as identifiers, and every
+        // one costs a select field plus a read-side fold: validate and bound.
+        $keys = array_slice(array_values(array_filter(
+            (array) $request->query('keys', []),
+            static fn ($k): bool => is_string($k) && Filter::isKey($k),
+        )), 0, self::MAX_KEYS);
         $limit = max(1, min(SpanExplorer::MAX_LIMIT, (int) $request->query('limit', (string) SpanExplorer::DEFAULT_LIMIT)));
 
         try {

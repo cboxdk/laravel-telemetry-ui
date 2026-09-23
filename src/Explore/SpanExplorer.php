@@ -81,10 +81,12 @@ final class SpanExplorer
 
         $select = [];
 
-        foreach (array_unique([...self::CORE_KEYS, ...$this->dimensionKeys(), ...$keys]) as $key) {
+        foreach (array_unique([...self::CORE_KEYS, ...$this->dimensionKeys(), ...$this->sourceKeys($keys)]) as $key) {
             $dimension = $this->dimensions->resolve($key);
 
-            if ($dimension->scope !== 'intrinsic') {
+            // Intrinsics aren't attributes, and a derived dimension's value
+            // lives in its source — which sourceKeys() already added.
+            if ($dimension->scope !== 'intrinsic' && $dimension->derived === null) {
                 $select[] = $dimension->traceField();
             }
         }
@@ -330,6 +332,9 @@ final class SpanExplorer
         // the rest are exact — and the payload says so.
         $derived = $this->dimensions->derived();
         $sampled = array_values(array_filter($keys, static fn (string $key): bool => isset($derived[$key])));
+        // Intrinsics (status, name, kind) are not attributes either, so the
+        // backend can't group by them: they are counted over the sample too.
+        $sampled = [...$sampled, ...array_values(array_filter($keys, fn (string $key): bool => $this->dimensions->resolve($key)->scope === 'intrinsic'))];
         $exact = $aggregates && $sampled === [];
 
         $rows = $aggregates && $sampled === [] ? [] : $this->rows($scope, $signal, $limit, [], $this->sourceKeys($keys));
@@ -339,8 +344,8 @@ final class SpanExplorer
 
         foreach ($keys as $key) {
             $dimension = $this->dimensions->resolve($key);
-            $values = $aggregates && ! isset($derived[$key])
-                ? ($this->exactTopValues($scope, $signal, $key) ?? [])
+            $values = $aggregates && ! in_array($key, $sampled, true)
+                ? ($this->exactTopValues($scope, $signal, $key) ?? Stats::topValues($bags, $key))
                 : Stats::topValues($bags, $key);
 
             $facets[] = [
@@ -401,10 +406,20 @@ final class SpanExplorer
      */
     private function dimensionKeys(): array
     {
-        return array_values(array_filter(
-            array_map(static fn ($d): string => $d->key, $this->dimensions->all()),
-            fn (string $key): bool => $this->dimensions->resolve($key)->scope !== 'intrinsic',
-        ));
+        $keys = [];
+
+        foreach ($this->dimensions->all() as $dimension) {
+            if ($dimension->scope === 'intrinsic') {
+                continue;
+            }
+
+            // A derived dimension is read out of its source attribute, so that
+            // is what the row must carry.
+            $derived = $dimension->derived;
+            $keys[] = $derived !== null ? $derived->from : $dimension->key;
+        }
+
+        return array_values(array_unique($keys));
     }
 
     /**
@@ -496,7 +511,7 @@ final class SpanExplorer
     private function row(TraceSummary $summary, ?MatchedSpan $span, array $keys): array
     {
         $attributes = [];
-        $wanted = array_flip([...self::CORE_KEYS, ...$this->dimensionKeys(), ...$keys]);
+        $wanted = array_flip([...self::CORE_KEYS, ...$this->dimensionKeys(), ...$this->sourceKeys($keys)]);
 
         foreach ($span->attributes ?? [] as $key => $value) {
             if (isset($wanted[$key]) && (is_scalar($value) || $value === null)) {

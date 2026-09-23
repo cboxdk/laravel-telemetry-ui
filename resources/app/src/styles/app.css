@@ -340,6 +340,7 @@ pre { margin: 0; }
 .t-table { display: flex; flex-direction: column; min-width: 0; font-size: 12.5px; }
 .t-tr { display: grid; align-items: center; gap: 12px; padding: 0 8px; min-height: 36px; border-bottom: 1px solid var(--border-subtle); }
 .t-thead { min-height: 30px; border-bottom-color: var(--border); position: sticky; top: 0; background: var(--card); z-index: 1; }
+.t-th > button { display: inline-flex; align-items: center; gap: 3px; font: inherit; color: inherit; max-width: 100%; }
 .t-th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; color: var(--muted-foreground); white-space: nowrap; }
 .t-th:hover, .t-th.is-sorted { color: var(--foreground); }
 .t-th.is-num, .t-td.is-num { text-align: right; justify-content: flex-end; }

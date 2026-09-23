@@ -1,5 +1,6 @@
 import { useRouter, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { parseSearch } from '../lib/search';
 import { matchingView, onViewsChanged, removeView, savedViews, saveView, type SavedView } from '../lib/views';
 import { Icon } from './Icon';
 import { Popover } from './Popover';
@@ -54,7 +55,8 @@ export function SavedViewsButton() {
                                 <li key={v.name}>
                                     <button
                                         type="button"
-                                        onClick={() => { close(); void router.navigate({ to: v.pathname, search: Object.fromEntries(new URLSearchParams(v.search)) as never }); }}
+                                        // parseSearch, not URLSearchParams: `where[]` is a list.
+                                        onClick={() => { close(); void router.navigate({ to: v.pathname, search: parseSearch(v.search) as never }); }}
                                     >
                                         <Icon name="compass" size={12} />
                                         <span className="t-ellipsis">{v.name}</span>
@@ -75,7 +77,8 @@ export function SavedViewsButton() {
 /** "Requests · 2 filters" — a name you can accept without typing. */
 function defaultName(pathname: string, search: string): string {
     const page = pathname.replace(/^\//, '').replace('explore/', '');
-    const filters = new URLSearchParams(search).getAll('where[]').length;
+    const where = parseSearch(search).where;
+    const filters = Array.isArray(where) ? where.length : where ? 1 : 0;
     const label = page.charAt(0).toUpperCase() + page.slice(1);
     return filters > 0 ? `${label} · ${filters} filter${filters === 1 ? '' : 's'}` : label;
 }

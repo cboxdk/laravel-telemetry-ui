@@ -71,7 +71,7 @@ export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap
             label: v.name,
             hint: v.pathname.replace('/explore/', ''),
             icon: 'pin',
-            run: () => void router.navigate({ to: v.pathname, search: Object.fromEntries(new URLSearchParams(v.search)) as never }),
+            run: () => void router.navigate({ to: v.pathname, search: parseSearch(v.search) as never }),
         }));
 
         const pages: Command[] = areas.flatMap((a) =>
