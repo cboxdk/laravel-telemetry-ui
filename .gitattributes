@@ -16,6 +16,11 @@
 /tsconfig.json      export-ignore
 /package.json       export-ignore
 /package-lock.json  export-ignore
-/resources/app      export-ignore
+# resources/app SHIPS: it is an npm package (@cboxdk/telemetry-ui) a host can
+# install straight out of vendor/ to mount the components in its own app.
+# Only its tests and the standalone entry's fixtures are left out.
+/resources/app/src/test             export-ignore
+/resources/app/src/**/*.test.ts     export-ignore
+/resources/app/src/**/*.test.tsx    export-ignore
 
 /CHANGELOG.md       export-ignore

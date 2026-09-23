@@ -1,5 +1,5 @@
-import { useRouter } from '@tanstack/react-router';
 import { usePrefetch } from '../api/hooks';
+import { useNavigation } from './navigation';
 import { type MouseEvent, type ReactNode, useCallback } from 'react';
 import type { Link as LinkData } from '../api/types';
 import { formatDrawer, parseDrawer, pushDrawer, scopeOf, stringifySearch, parseSearch, type DrawerEntry, type Search } from './search';
@@ -71,19 +71,16 @@ export function resolve(link: LinkData, current: { pathname: string; search: Sea
 }
 
 export function useResolve() {
-    const router = useRouter();
+    const navigation = useNavigation();
     return useCallback(
-        (link: LinkData, replaceDrawer = false) => {
-            const loc = router.state.location;
-            return resolve(link, { pathname: loc.pathname, search: parseSearch(loc.searchStr) }, replaceDrawer);
-        },
-        [router],
+        (link: LinkData, replaceDrawer = false) => resolve(link, { pathname: navigation.pathname, search: parseSearch(navigation.searchStr) }, replaceDrawer),
+        [navigation],
     );
 }
 
 /** Imperative navigation to a link (row clicks, keyboard). */
 export function useGo() {
-    const router = useRouter();
+    const navigation = useNavigation();
     const resolveLink = useResolve();
     return useCallback(
         (link: LinkData, opts: { replaceDrawer?: boolean; newTab?: boolean; replace?: boolean } = {}) => {
@@ -94,12 +91,12 @@ export function useGo() {
                 return;
             }
             if (opts.newTab) {
-                window.open(hrefFor(router.options.basepath ?? '', target), '_blank', 'noopener');
+                window.open(navigation.href(target.pathname, target.search), '_blank', 'noopener');
                 return;
             }
-            void router.navigate({ to: target.pathname, search: target.search as never, replace: opts.replace });
+            navigation.go({ pathname: target.pathname, search: target.search, replace: opts.replace });
         },
-        [router, resolveLink],
+        [navigation, resolveLink],
     );
 }
 
@@ -119,7 +116,7 @@ export function Go({ link, children, className, title, replaceDrawer, onParam }:
     replaceDrawer?: boolean;
     onParam?: (params: Record<string, string>) => void;
 }) {
-    const router = useRouter();
+    const navigation = useNavigation();
     const resolveLink = useResolve();
     const go = useGo();
     const prefetch = usePrefetch();
@@ -133,7 +130,7 @@ export function Go({ link, children, className, title, replaceDrawer, onParam }:
     }
 
     const target = resolveLink(link, replaceDrawer);
-    const href = !target ? '#' : 'href' in target ? target.href : hrefFor(router.options.basepath ?? '', target);
+    const href = !target ? '#' : 'href' in target ? target.href : navigation.href(target.pathname, target.search);
     const external = link.to === 'url';
 
     const onClick = (e: MouseEvent) => {

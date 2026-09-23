@@ -15,5 +15,6 @@ Short, task-focused recipes for the things people actually reach for.
 - [Connect through a Grafana datasource proxy](connect-via-grafana-proxy.md) —
   reach a hosted stack (e.g. monitor.cbox.dk) without exposing the backends.
 - [MCP server](mcp.md) — query your telemetry from an agent for incident RCA.
-- [Embed cards as widgets](embed-widgets.md) — removed in v2; how to link to
-  the dashboard or read the JSON API instead.
+- [Embed the dashboard in your own app](embed-widgets.md) — mount panels,
+  Explore and entity pages as React components inside your own React/Inertia
+  app, installed straight out of `vendor/`.

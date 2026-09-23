@@ -32,7 +32,11 @@ export function boot(): Boot {
     return cached;
 }
 
-/** Test hook. */
+/**
+ * Set the facts by hand, for a host that mounts the components itself: it
+ * knows where the package is mounted and holds the CSRF token already, and
+ * there is no shell document to read them out of.
+ */
 export function setBoot(value: Partial<Boot>): void {
     cached = { ...fallback, ...value };
 }

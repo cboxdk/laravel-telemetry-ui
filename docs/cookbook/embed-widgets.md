@@ -1,53 +1,158 @@
 ---
-title: Embed cards as widgets (removed in v2)
-description: Embedding cards as Livewire widgets in host pages was removed in v2 — link to the SPA or read the JSON API instead
+title: Embed the dashboard in your own app
+description: Mount panels, Explore and entity pages as React components inside a host app — installed from vendor/, no npm registry
 weight: 4
 ---
 
-# Embed cards as widgets (removed in v2)
+# Embed the dashboard in your own app
 
-In 1.x every card was a Livewire component, so a host could drop one onto its
-own Blade page with `@telemetryUiAssets` and
-`<livewire:telemetry-ui.requests-activity service="…" />`.
+The dashboard is a React app the package serves itself, but it is also a set of
+components you can mount inside your own. A host running React (Inertia, a
+plain SPA, anything with a bundler) can put a panel, the Explore surface or a
+whole page inside its own chrome, with its own navigation around it.
 
-**v2 removes this.** Livewire is gone, and so are `@telemetryUiAssets`, the
-`<livewire:telemetry-ui.*>` components, `<livewire:telemetry-ui.trace-drawer />`
-and the `:embedded` prop. There is no drop-in replacement in 2.0.
+There is no npm registry involved: the components ship **inside the composer
+package**, and npm installs them from `vendor/`.
 
-## What to do instead
+## Install
 
-**Link to the dashboard.** Every screen has a stable, shareable URL that
-carries its scope:
+```bash
+composer require cboxdk/laravel-telemetry-ui
+```
+
+```jsonc
+// package.json
+{
+    "dependencies": {
+        "@cboxdk/telemetry-ui": "file:vendor/cboxdk/laravel-telemetry-ui/resources/app"
+    }
+}
+```
+
+```bash
+npm install
+```
+
+npm reads the package's own manifest and installs what it needs (TanStack
+Query/Router/Virtual, ECharts). React is a peer dependency — yours, so there is
+only ever one copy.
+
+## Mount a panel
+
+```jsx
+import { TelemetryUiProvider, TelemetryPanel } from '@cboxdk/telemetry-ui';
+import '@cboxdk/telemetry-ui/styles.css';
+
+export default function Overview({ csrf }) {
+    return (
+        <TelemetryUiProvider config={{ base: '/observability', csrf }}>
+            <TelemetryPanel id="requests-activity" />
+            <TelemetryPanel id="routes-table" />
+        </TelemetryUiProvider>
+    );
+}
+```
+
+`base` is wherever you mounted the package (`telemetry-ui.path`). The provider
+fetches `/bootstrap` once and shares it, so several components on a page cost
+one bootstrap between them.
+
+In an Inertia app, `csrf` is the token you already share with the front end:
+
+```php
+// app/Http/Middleware/HandleInertiaRequests.php
+'csrf' => csrf_token(),
+```
+
+It is only needed for the writes (remembering the time window, filing an
+issue); read-only embeds work without it.
+
+## What you can mount
+
+| Component | What it renders |
+| --- | --- |
+| `<TelemetryPanel id params />` | One panel, by the id the API knows it by |
+| `<TelemetryPage page params />` | A whole registered page of panels |
+| `<TelemetryExplore signal />` | The Explore surface over requests / traces / logs / errors |
+| `<TelemetryEntity type />` | One entity's story (`?value=` in the view state) |
+| `<TelemetryEntities type />` | Every value of an entity type, with RED |
+| `<TelemetryTrace traceId />` | One trace: story, waterfall, logs, context |
+| `<TelemetryIssue group />` | One error group |
+
+Hooks and types come out of the same entry (`usePanel`, `useExplore`,
+`useEntityStory`, `useTrace`, `apiUrl`, and the payload types) for when you
+want the data and none of our markup.
+
+## Where the view state lives
+
+The dashboard's rule is that the URL is the query: filters, the time window and
+the drawer stack are search params. Embedded, that URL is the host's, so by
+default the state lives in React instead — filtering a panel inside your page
+does not rewrite your address bar.
+
+To put it in your URL, control it:
+
+```jsx
+const [search, setSearch] = useState('?period=24h');
+
+<TelemetryUiProvider config={{ base: '/observability' }} search={search} onSearchChange={setSearch}>
+    <TelemetryExplore signal="requests" />
+</TelemetryUiProvider>
+```
+
+Now `search` is a plain query string you can push into your own router
+(`router.visit(url, { preserveState: true })` in Inertia), and a deep link into
+your page restores the exact view.
+
+## Styling
+
+`@cboxdk/telemetry-ui/styles.css` carries the design tokens and the components,
+and nothing that touches your `<body>` — the element rules are scoped to the
+provider's own root. Two knobs:
+
+- **Dark mode**: the components follow a `dark` class on an ancestor. Pass
+  `className="dark"` to the provider to force it, or let your own theme class
+  on `<html>` decide.
+- **Fonts**: the dashboard's own faces are a separate, optional import
+  (`@cboxdk/telemetry-ui/fonts.css`). Without it the components inherit your
+  font stack.
+
+Override the tokens to match your product:
+
+```css
+.t-scope {
+    --primary: oklch(0.55 0.18 250);
+    --radius: 10px;
+}
+```
+
+## Authorization
+
+Every component talks to the same API the standalone dashboard uses: same
+`viewTelemetryUi` gate (including the per-page check), same tenancy scope lock,
+same typed errors. Embedding grants no access your gate doesn't already allow —
+but it does mean a page that renders these components is a page that shows
+telemetry, so gate the page itself accordingly.
+
+## When to link instead
+
+For the whole dashboard — rail, sub-navigation, every page — mount the package
+at a path and link to it. It carries its own routing, and the shell is built to
+own the page:
 
 ```blade
-<a href="{{ url(config('telemetry-ui.path').'/p/requests?service=cbox-web&period=24h') }}">Requests</a>
-<a href="{{ url(config('telemetry-ui.path').'/entity/route?value='.rawurlencode('GET /checkout')) }}">Checkout route</a>
 <a href="{{ url(config('telemetry-ui.path').'/explore/requests?where[]=user.id='.$user->id) }}">This user's requests</a>
 ```
 
-**Read the JSON API.** Each panel's data is available at
-`GET {path}/api/v2/panels/{id}` with the same scope params
-(`service`, `env`, `period`, `from`, `to`), as a typed payload
-(`kind: chart | stats | table | …`). Render it however your page renders
-things:
+`TelemetryUi::navLink()` puts a link back to your app in the rail, and
+`telemetry-ui.brand` gives it your name and logo, so the jump doesn't feel like
+leaving.
 
-```js
-const res = await fetch('/telemetry-ui/api/v2/panels/requests-activity?service=cbox-web&period=24h', {
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
-});
-const panel = await res.json(); // { id, span, kind: 'chart', series, stats, … }
-```
+## What 1.x had
 
-The API is same-origin and session-authenticated, and runs behind the
-`viewTelemetryUi` gate (with the per-page check for the page the panel is on)
-and the tenancy scope lock, so it can't leak telemetry past your access
-control. Don't call it from a public page. See the
-[API reference](../core-concepts/api.md) and the payload shapes in
-[pages & panels](../core-concepts/pages-and-panels.md#the-payload-contract).
-
-## Reshaping the built-in dashboard
-
-If what you wanted was the dashboard, tailored, use the registry instead
-([custom panels](../extension-points/custom-panels.md#add-replace-remove)):
-`TelemetryUi::setPanels()`, `removePanel()`, `removePage()`.
+In 1.x every card was a Livewire component, dropped onto a Blade page with
+`@telemetryUiAssets` and `<livewire:telemetry-ui.requests-activity />`. That is
+gone: v2 has no Livewire, no `@telemetryUiAssets` and no Blade components. The
+React components above are the replacement; for a Blade-only host, read the
+[JSON API](../core-concepts/api.md) and render it however that page renders
+things.

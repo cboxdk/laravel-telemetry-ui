@@ -33,6 +33,12 @@ const TITLES: Record<Signal, string> = { requests: 'Requests', traces: 'Traces',
  */
 export function ExplorePage() {
     const { signal } = useParams({ strict: false }) as { signal: Signal };
+
+    return <ExploreView signal={signal} />;
+}
+
+/** The surface itself, for a host that says which signal it wants. */
+export function ExploreView({ signal }: { signal: Signal }) {
     const boot = useBoot();
     const search = useSearchState();
     const set = useSetSearch();

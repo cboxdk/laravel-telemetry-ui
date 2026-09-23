@@ -2,28 +2,20 @@
  * dense, "instrument not entertainment". Data (ids, numbers, paths, SQL) is
  * JetBrains Mono; headings Plus Jakarta Sans; chrome system-ui. */
 
-*, *::before, *::after { box-sizing: border-box; }
-html, body { height: 100%; }
-body {
-    margin: 0;
-    font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 1.45;
-    background: var(--background);
-    color: var(--foreground);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
-#app { height: 100%; }
-a { color: var(--primary); text-decoration: none; }
-a:hover { color: var(--accent); }
-button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
-input, textarea { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
-h1, h2, h3, h4 { margin: 0; font-family: var(--font-display); letter-spacing: -0.01em; text-wrap: balance; }
-code { font-family: var(--font-mono); font-size: 0.92em; background: var(--muted); border-radius: 4px; padding: 1px 5px; }
-kbd { font-family: var(--font-mono); font-size: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; color: var(--muted-foreground); }
-pre { margin: 0; }
+
+/* The same element rules, scoped to the dashboard's own subtree, so they apply
+ * whether the package owns the page (shell.css) or is mounted inside a host. */
+.t-app, .t-scope { color: var(--foreground); font-family: var(--font-sans); font-size: 13px; line-height: 1.45; }
+.t-app *, .t-scope *, .t-app *::before, .t-scope *::before, .t-app *::after, .t-scope *::after { box-sizing: border-box; }
+.t-app a, .t-scope a { color: var(--primary); text-decoration: none; }
+.t-app a:hover, .t-scope a:hover { color: var(--accent); }
+.t-app button, .t-scope button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.t-app input, .t-scope input, .t-app textarea, .t-scope textarea { font: inherit; color: inherit; }
+.t-app :focus-visible, .t-scope :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.t-app h1, .t-scope h1, .t-app h2, .t-scope h2, .t-app h3, .t-scope h3, .t-app h4, .t-scope h4 { margin: 0; font-family: var(--font-display); letter-spacing: -0.01em; text-wrap: balance; }
+.t-app code, .t-scope code { font-family: var(--font-mono); font-size: 0.92em; background: var(--muted); border-radius: 4px; padding: 1px 5px; }
+.t-app kbd, .t-scope kbd { font-family: var(--font-mono); font-size: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; color: var(--muted-foreground); }
+.t-app pre, .t-scope pre { margin: 0; }
 
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .mono-soft { font-variant-numeric: tabular-nums; }

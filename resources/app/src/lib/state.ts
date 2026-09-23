@@ -1,12 +1,11 @@
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
-import { useNavigate, useRouterState } from '@tanstack/react-router';
-import { parseSearch, scopeOf, type Scope, type Search } from './search';
+import { useNavigation, useSearchParams } from './navigation';
+import { scopeOf, type Scope, type Search } from './search';
 import { api } from '../api/client';
 
-/** The current URL search, parsed with PHP-style arrays. */
+/** The current view state, parsed with PHP-style arrays (see {@see Navigation}). */
 export function useSearchState(): Search {
-    const search = useRouterState({ select: (s) => s.location.searchStr });
-    return useMemo(() => parseSearch(search), [search]);
+    return useSearchParams();
 }
 
 /**
@@ -75,18 +74,13 @@ export function useRefreshInterval(): number {
  * so the next visit starts from the same window.
  */
 export function useSetSearch() {
-    const navigate = useNavigate();
+    const navigation = useNavigation();
+    const current = useSearchParams();
     return useCallback(
         (patch: Record<string, string | string[] | undefined>, opts: { replace?: boolean } = {}) => {
-            void navigate({
-                to: '.',
-                search: ((prev: Record<string, unknown>) => {
-                    const next: Record<string, unknown> = { ...prev, ...patch };
-                    for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
-                    return next;
-                }) as never,
-                replace: opts.replace,
-            });
+            const next: Search = { ...current, ...patch };
+            for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
+            navigation.go({ search: next, replace: opts.replace });
 
             const scopeKeys = ['period', 'from', 'to', 'service', 'env', 'refresh'];
             const scopePatch = Object.fromEntries(Object.entries(patch).filter(([k]) => scopeKeys.includes(k)));
@@ -95,6 +89,6 @@ export function useSetSearch() {
                 api.post('view-state', Object.fromEntries(Object.entries(scopePatch).map(([k, v]) => [k, v ?? '']))).catch(() => undefined);
             }
         },
-        [navigate],
+        [navigation, current],
     );
 }

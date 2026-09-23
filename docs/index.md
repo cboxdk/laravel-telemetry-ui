@@ -83,7 +83,7 @@ incident RCA.
   [connect through a Grafana datasource proxy](cookbook/connect-via-grafana-proxy.md) ·
   [emitting annotations](cookbook/annotations.md) ·
   [MCP server](cookbook/mcp.md) ·
-  [embed cards as widgets (removed in v2)](cookbook/embed-widgets.md)
+  [embedding the dashboard in your own app](cookbook/embed-widgets.md)
 - Extension points — **[Developer integrations guide](extension-points/index.md)** (start here) ·
   [custom panels](extension-points/custom-panels.md) ·
   [custom detail pages](extension-points/detail-pages.md) ·

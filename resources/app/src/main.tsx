@@ -5,6 +5,7 @@ import '@fontsource/plus-jakarta-sans/600.css';
 import '@fontsource/plus-jakarta-sans/700.css';
 import './styles/tokens.css';
 import './styles/app.css';
+import './styles/shell.css';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';

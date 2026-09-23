@@ -159,6 +159,17 @@ change with before/after code.
   and page views → the analytics events (grouped by session for visitors),
   outgoing failures → client spans that failed. Commands, duplicate queries
   and a query's callers link their rows too (`Ui::rootOperation()`).
+- **Embeddable components**: the React source ships inside the composer
+  package as an npm package (`@cboxdk/telemetry-ui`), installed from
+  `file:vendor/cboxdk/laravel-telemetry-ui/resources/app` — no registry. A host
+  app mounts `<TelemetryPanel>`, `<TelemetryExplore>`, `<TelemetryEntity>`,
+  `<TelemetryTrace>` or a whole page inside its own chrome, against the same
+  gated, scope-locked API. The view state lives in React by default and can be
+  bridged to the host's URL; the stylesheet carries tokens and components only,
+  scoped to the provider's root, with fonts as a separate optional import.
+  Internally this is a navigation adapter: the components read their state
+  through an interface, so the standalone dashboard (TanStack Router) and an
+  embedded mount share one implementation.
 - **Derived dimensions**: `TelemetryUi::dimension('portal.screen', from:
   'http.route', pattern: 'portal:{value}')` promotes a value that lives
   *inside* another attribute to a first-class dimension — facet, chip,

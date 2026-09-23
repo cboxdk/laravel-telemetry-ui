@@ -4,6 +4,7 @@ import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import type { Bootstrap } from '../api/types';
 import { BootContext } from '../components/DimensionValue';
+import { RouterNavigation } from '../lib/navigation';
 import { parseSearch, stringifySearch } from '../lib/search';
 
 export const bootFixture: Bootstrap = {
@@ -37,7 +38,7 @@ export const bootFixture: Bootstrap = {
  * given URL, so links, search state and drill-downs behave as in the app.
  */
 export async function renderAt(ui: ReactNode, url = '/explore/requests?period=1h') {
-    const root = createRootRoute({ component: () => <Outlet /> });
+    const root = createRootRoute({ component: () => <RouterNavigation><Outlet /></RouterNavigation> });
     const page = createRoute({ getParentRoute: () => root, path: '$', component: () => <>{ui}</> });
     const home = createRoute({ getParentRoute: () => root, path: '/', component: () => <>{ui}</> });
     const router = createRouter({

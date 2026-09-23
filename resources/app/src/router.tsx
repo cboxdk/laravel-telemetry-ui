@@ -5,9 +5,16 @@ import { ExplorePage } from './pages/ExplorePage';
 import { NotFound } from './pages/NotFound';
 import { ErrorPage, OverviewPage, PanelPage } from './pages/PanelPage';
 import { TracePage } from './pages/TracePage';
+import { RouterNavigation } from './lib/navigation';
 import { parseSearch, stringifySearch } from './lib/search';
 
-const rootRoute = createRootRoute({ component: () => <Outlet />, notFoundComponent: NotFound });
+// The standalone dashboard puts its state in the browser URL; every component
+// below reads it through the navigation adapter, so the same tree also renders
+// inside a host app that owns its own routing.
+const rootRoute = createRootRoute({
+    component: () => <RouterNavigation><Outlet /></RouterNavigation>,
+    notFoundComponent: NotFound,
+});
 const shell = createRoute({ getParentRoute: () => rootRoute, id: 'shell', component: AppShell });
 
 const routes = [

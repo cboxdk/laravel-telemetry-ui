@@ -19,6 +19,12 @@ import { useTitle } from '../lib/title';
 /** Every value of an entity type (routes, queries, customers…) with RED. */
 export function EntityIndexPage() {
     const { type } = useParams({ strict: false }) as { type: string };
+
+    return <EntityIndexView type={type} />;
+}
+
+/** Every value of one entity type. */
+export function EntityIndexView({ type }: { type: string }) {
     const boot = useBoot();
     const search = useSearchState();
     const [filter, setFilter] = useState('');
@@ -84,6 +90,12 @@ export function EntityIndexPage() {
  */
 export function EntityPage() {
     const { type } = useParams({ strict: false }) as { type: string };
+
+    return <EntityView type={type} />;
+}
+
+/** One entity's story. The value comes from the view state (`?value=`). */
+export function EntityView({ type }: { type: string }) {
     const search = useSearchState();
     const set = useSetSearch();
     const value = str(search, 'value');
