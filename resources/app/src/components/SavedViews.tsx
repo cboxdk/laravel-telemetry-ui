@@ -1,5 +1,5 @@
-import { useRouter, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { useNavigation } from '../lib/navigation';
 import { parseSearch } from '../lib/search';
 import { matchingView, onViewsChanged, removeView, savedViews, saveView, type SavedView } from '../lib/views';
 import { Icon } from './Icon';
@@ -17,8 +17,8 @@ export function useSavedViews(): SavedView[] {
  * here or from ⌘K. Stored per browser.
  */
 export function SavedViewsButton() {
-    const router = useRouter();
-    const location = useRouterState({ select: (s) => s.location });
+    const navigation = useNavigation();
+    const location = { pathname: navigation.pathname, searchStr: navigation.searchStr };
     const views = useSavedViews();
     const [name, setName] = useState('');
 
@@ -56,7 +56,7 @@ export function SavedViewsButton() {
                                     <button
                                         type="button"
                                         // parseSearch, not URLSearchParams: `where[]` is a list.
-                                        onClick={() => { close(); void router.navigate({ to: v.pathname, search: parseSearch(v.search) as never }); }}
+                                        onClick={() => { close(); navigation.go({ pathname: v.pathname, search: parseSearch(v.search) }); }}
                                     >
                                         <Icon name="compass" size={12} />
                                         <span className="t-ellipsis">{v.name}</span>

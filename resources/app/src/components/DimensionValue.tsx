@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { useRouter, useRouterState } from '@tanstack/react-router';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { Bootstrap, DimensionDef, Link as LinkData, Signal } from '../api/types';
 import { loadLabel } from '../lib/dimensionLabels';
+import { useNavigation } from '../lib/navigation';
 import { useGo } from '../lib/links';
 import { formatFilter, list, parseSearch, scopeOf, withFilter, type Op } from '../lib/search';
 import { Icon } from './Icon';
@@ -52,37 +52,30 @@ export function ValueText({ dimKey, value }: { dimKey: string; value: string }) 
  * Explore surface the filter lands on it; elsewhere it opens Explore.
  */
 export function useDrill() {
-    const router = useRouter();
-    const location = useRouterState({ select: (s) => s.location });
+    const navigation = useNavigation();
 
     return useMemo(() => {
-        const search = parseSearch(location.searchStr);
-        const onExplore = location.pathname.startsWith('/explore/');
-        const signal: Signal = onExplore ? (location.pathname.split('/')[2] as Signal) : 'requests';
+        const search = parseSearch(navigation.searchStr);
+        const onExplore = navigation.pathname.startsWith('/explore/');
+        const signal: Signal = onExplore ? (navigation.pathname.split('/')[2] as Signal) : 'requests';
 
         const apply = (key: string, value: string, op: Op) => {
             const base = onExplore ? list(search, 'where') : [];
             const where = withFilter(base, { key, op, value });
-            void router.navigate({
-                to: `/explore/${signal}`,
-                search: (onExplore ? { ...search, where } : { ...scopeOf(search), where }) as never,
-            });
+            navigation.go({ pathname: `/explore/${signal}`, search: onExplore ? { ...search, where } : { ...scopeOf(search), where } });
         };
 
         return {
             filter: (key: string, value: string) => apply(key, value, '='),
             exclude: (key: string, value: string) => apply(key, value, '!='),
             groupBy: (key: string) => {
-                void router.navigate({
-                    to: `/explore/${signal}`,
-                    search: (onExplore ? { ...search, groupBy: key } : { ...scopeOf(search), groupBy: key }) as never,
-                });
+                navigation.go({ pathname: `/explore/${signal}`, search: onExplore ? { ...search, groupBy: key } : { ...scopeOf(search), groupBy: key } });
             },
             open: (entity: string, value: string) => {
-                void router.navigate({ to: `/entity/${encodeURIComponent(entity)}`, search: { ...scopeOf(search), value } as never });
+                navigation.go({ pathname: `/entity/${encodeURIComponent(entity)}`, search: { ...scopeOf(search), value } });
             },
         };
-    }, [router, location.pathname, location.searchStr]);
+    }, [navigation]);
 }
 
 /**

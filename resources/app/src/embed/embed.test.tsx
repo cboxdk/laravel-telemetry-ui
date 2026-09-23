@@ -38,3 +38,67 @@ describe('embedding in a host app', () => {
         expect(urls.some((u) => u.includes('/observability/api/v2/panels/requests-activity'))).toBe(true);
     });
 });
+
+describe('theming an embed', () => {
+    it('reads chart tokens from the provider root, so a host override reaches the charts', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(bootFixture), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+        const { tokenColor } = await import('../lib/colors');
+        const spy = vi.spyOn(window, 'getComputedStyle');
+
+        const { container } = mount(<span>chart</span>);
+        tokenColor('primary');
+
+        const root = container.querySelector('.t-scope');
+        expect(root).not.toBeNull();
+        expect(spy.mock.calls.some(([element]) => element === root)).toBe(true);
+        spy.mockRestore();
+    });
+});
+
+describe('navigating inside an embed', () => {
+    it('keeps a change to the mounted page in place and hands a different page to the host', async () => {
+        const { MemoryNavigation, PathScope, useNavigation } = await import('../lib/navigation');
+        const { act } = await import('@testing-library/react');
+        const onNavigate = vi.fn();
+        const onSearchChange = vi.fn();
+        let navigation: ReturnType<typeof useNavigation> | null = null;
+        const Probe = () => { navigation = useNavigation(); return null; };
+
+        render(
+            <MemoryNavigation search="" onSearchChange={onSearchChange} onNavigate={onNavigate}>
+                <PathScope pathname="/explore/requests"><Probe /></PathScope>
+            </MemoryNavigation>,
+        );
+
+        act(() => navigation!.go({ pathname: '/explore/requests', search: { groupBy: 'http.route' } }));
+        expect(onSearchChange).toHaveBeenCalledWith('?groupBy=http.route');
+        expect(onNavigate).not.toHaveBeenCalled();
+
+        act(() => navigation!.go({ pathname: '/entity/route', search: { value: '/checkout' } }));
+        expect(onNavigate).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/entity/route', search: '?value=%2Fcheckout' }));
+    });
+});
+
+describe('an embedded Explore', () => {
+    it('switches signal in place instead of leaving for the dashboard', async () => {
+        const { MemoryNavigation, PathScope, useNavigation } = await import('../lib/navigation');
+        const { act } = await import('@testing-library/react');
+        const onNavigate = vi.fn();
+        const onSearchChange = vi.fn();
+        const claimed: string[] = [];
+        let navigation: ReturnType<typeof useNavigation> | null = null;
+        const Probe = () => { navigation = useNavigation(); return null; };
+        const claim = (p: string) => { if (!p.startsWith('/explore/')) return false; claimed.push(p); return true; };
+
+        render(
+            <MemoryNavigation search="" onSearchChange={onSearchChange} onNavigate={onNavigate}>
+                <PathScope pathname="/explore/requests" claim={claim}><Probe /></PathScope>
+            </MemoryNavigation>,
+        );
+
+        act(() => navigation!.go({ pathname: '/explore/logs', search: { where: ['service.name=api'] } }));
+        expect(claimed).toEqual(['/explore/logs']);
+        expect(onSearchChange).toHaveBeenCalled();
+        expect(onNavigate).not.toHaveBeenCalled();
+    });
+});

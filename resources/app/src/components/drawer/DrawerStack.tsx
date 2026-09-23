@@ -1,7 +1,7 @@
-import { Link } from '@tanstack/react-router';
 import { useEffect, useMemo } from 'react';
 import type { Bootstrap } from '../../api/types';
 import { formatDrawer, parseDrawer, scopeOf, str, type DrawerEntry } from '../../lib/search';
+import { NavLink } from '../../lib/navigation';
 import { useSearchState, useSetSearch } from '../../lib/state';
 import { Icon } from '../Icon';
 import { ErrorGroupView } from './ErrorGroupView';
@@ -58,9 +58,9 @@ export function DrawerStack({ boot }: { boot: Bootstrap }) {
                 </nav>
                 <span className="t-topbar-spacer" />
                 {full && (
-                    <Link to={full} search={scopeOf(search) as never} className="t-btn t-btn-sm t-btn-ghost" title="Open as a full page">
+                    <NavLink to={full} search={scopeOf(search)} className="t-btn t-btn-sm t-btn-ghost" title="Open as a full page">
                         <Icon name="external" size={12} />Full page
-                    </Link>
+                    </NavLink>
                 )}
                 <button type="button" className="t-iconbtn" onClick={() => set({ drawer: undefined }, { replace: true })} title="Close (Esc)"><Icon name="x" size={15} /></button>
             </div>

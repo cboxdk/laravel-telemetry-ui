@@ -1,4 +1,4 @@
-import { Link, useParams } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { useAnnotations, useExplore, useFacets, usePrefetch } from '../api/hooks';
 import type { ErrorRow, LogEntryRow, Signal, SpanRow } from '../api/types';
@@ -18,6 +18,7 @@ import { Icon } from '../components/Icon';
 import { apiUrl } from '../api/client';
 import { count, ms, percent } from '../lib/format';
 import { useGo } from '../lib/links';
+import { NavLink } from '../lib/navigation';
 import { useLiveTail } from '../lib/liveTail';
 import { useTitle } from '../lib/title';
 import { formatFilter, list, parseDrawer, parseFilter, scopeOf, str, toggleFilter, withFilter } from '../lib/search';
@@ -75,9 +76,9 @@ export function ExploreView({ signal }: { signal: Signal }) {
                     <h1 className="t-page-title">{TITLES[signal]}</h1>
                     <div className="t-seg t-signal-tabs" role="tablist">
                         {boot.explore.map((s) => (
-                            <Link key={s.signal} to={`/explore/${s.signal}`} search={{ ...scopeOf(search), where } as never} className={s.signal === signal ? 'is-on' : ''} role="tab" aria-selected={s.signal === signal}>
+                            <NavLink key={s.signal} to={`/explore/${s.signal}`} search={{ ...scopeOf(search), where }} className={s.signal === signal ? 'is-on' : ''} role="tab" aria-selected={s.signal === signal}>
                                 {s.label}
-                            </Link>
+                            </NavLink>
                         ))}
                     </div>
                     <div className="t-topbar-spacer" />

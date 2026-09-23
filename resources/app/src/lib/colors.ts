@@ -3,13 +3,26 @@
 // painting it on a 1×1 canvas and reading the pixel back.
 const cache = new Map<string, string>();
 
+/**
+ * Where the tokens are read from. Standalone that's the document; embedded
+ * it's the provider's own root, so a host's `dark` class or token overrides on
+ * that root reach the charts too — not only the CSS around them.
+ */
+let tokenRoot: HTMLElement | null = null;
+
+export function setTokenRoot(element: HTMLElement | null): void {
+    tokenRoot = element;
+    cache.clear();
+}
+
 export function tokenColor(name: string, alpha = 1): string {
-    const theme = document.documentElement.classList.contains('dark') ? 'd' : 'l';
+    const root = tokenRoot ?? document.documentElement;
+    const theme = root.closest('.dark') !== null ? 'd' : 'l';
     const key = `${theme}:${name}:${alpha}`;
     const hit = cache.get(key);
     if (hit) return hit;
 
-    const raw = getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim() || '#888';
+    const raw = getComputedStyle(root).getPropertyValue(`--${name}`).trim() || '#888';
     let rgb = 'rgb(136,136,136)';
 
     try {

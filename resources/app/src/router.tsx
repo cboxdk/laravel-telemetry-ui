@@ -3,7 +3,7 @@ import { AppShell } from './components/shell/AppShell';
 import { EntityIndexPage, EntityPage } from './pages/EntityPages';
 import { ExplorePage } from './pages/ExplorePage';
 import { NotFound } from './pages/NotFound';
-import { ErrorPage, OverviewPage, PanelPage } from './pages/PanelPage';
+import { ErrorPage, OverviewPage, PanelPageRoute } from './pages/PanelPage';
 import { TracePage } from './pages/TracePage';
 import { RouterNavigation } from './lib/navigation';
 import { parseSearch, stringifySearch } from './lib/search';
@@ -22,7 +22,7 @@ const routes = [
     createRoute({ getParentRoute: () => shell, path: '/explore/$signal', component: ExplorePage }),
     createRoute({ getParentRoute: () => shell, path: '/entities/$type', component: EntityIndexPage }),
     createRoute({ getParentRoute: () => shell, path: '/entity/$type', component: EntityPage }),
-    createRoute({ getParentRoute: () => shell, path: '/p/$page', component: PanelPage }),
+    createRoute({ getParentRoute: () => shell, path: '/p/$page', component: PanelPageRoute }),
     createRoute({ getParentRoute: () => shell, path: '/errors/$group', component: ErrorPage }),
     createRoute({ getParentRoute: () => shell, path: '/traces/$traceId', component: TracePage }),
 ];

@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useBootstrap } from '../api/hooks';
 import { setBoot } from '../boot';
 import { BootContext } from '../components/DimensionValue';
+import { DrawerStack } from '../components/drawer/DrawerStack';
 import { ErrorState, Spinner } from '../components/States';
+import { setTokenRoot } from '../lib/colors';
 import { MemoryNavigation } from '../lib/navigation';
 import { seedRemembered } from '../lib/state';
 
@@ -25,7 +27,7 @@ export interface TelemetryUiConfig {
  * window, drawer) lives in React rather than in the address bar. Pass
  * `search` + `onSearchChange` to put it in the host's URL instead.
  */
-export function TelemetryUiProvider({ config, children, client, search, onSearchChange, pathname, className }: {
+export function TelemetryUiProvider({ config, children, client, search, onSearchChange, onNavigate, pathname, className }: {
     config: TelemetryUiConfig;
     children: ReactNode;
     /** Extra classes on the root, e.g. `dark` to force the dark theme. */
@@ -34,9 +36,23 @@ export function TelemetryUiProvider({ config, children, client, search, onSearch
     client?: QueryClient;
     search?: string;
     onSearchChange?: (search: string) => void;
+    /**
+     * A link to a different dashboard page than the one mounted (a route's
+     * entity page from a panel, say). Default: open it in the full dashboard.
+     * Handle it to route to a page of your own that embeds the target.
+     */
+    onNavigate?: (target: { pathname: string; search: string; url: string }) => void;
     pathname?: string;
 }) {
     const [own] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 10_000 } } }));
+
+    // Charts read their colours from this root, so the host's theme class and
+    // token overrides on it apply to canvas-drawn charts as well.
+    const root = useRef<HTMLDivElement>(null);
+    useLayoutEffect(() => {
+        setTokenRoot(root.current);
+        return () => setTokenRoot(null);
+    }, [className]);
 
     // Before anything fetches: the API path and the token come from the host.
     useMemo(() => {
@@ -46,10 +62,10 @@ export function TelemetryUiProvider({ config, children, client, search, onSearch
 
     return (
         <QueryClientProvider client={client ?? own}>
-            <MemoryNavigation search={search} onSearchChange={onSearchChange} pathname={pathname}>
+            <MemoryNavigation search={search} onSearchChange={onSearchChange} onNavigate={onNavigate} pathname={pathname}>
                 {/* The components' element rules are scoped to this root, so
                     mounting them never restyles the host's page. */}
-                <div className={`t-scope ${className ?? ''}`}>
+                <div ref={root} className={`t-scope ${className ?? ''}`}>
                     <Bootstrapped>{children}</Bootstrapped>
                 </div>
             </MemoryNavigation>
@@ -68,5 +84,11 @@ function Bootstrapped({ children }: { children: ReactNode }) {
     if (isLoading && !boot) return <div className="t-pad"><Spinner label="Loading telemetry…" /></div>;
     if (!boot) return <div className="t-pad"><ErrorState error={error} /></div>;
 
-    return <BootContext.Provider value={boot}>{children}</BootContext.Provider>;
+    // Rows open traces and issues in the drawer, as in the dashboard.
+    return (
+        <BootContext.Provider value={boot}>
+            {children}
+            <DrawerStack boot={boot} />
+        </BootContext.Provider>
+    );
 }

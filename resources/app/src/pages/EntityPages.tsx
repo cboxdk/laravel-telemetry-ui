@@ -1,4 +1,4 @@
-import { Link, useParams } from '@tanstack/react-router';
+import { useParams } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useEntityIndex, useEntityStory } from '../api/hooks';
 import type { EntityStory, Link as LinkData, SpanRow } from '../api/types';
@@ -12,6 +12,7 @@ import { SpanList } from '../components/explore/Results';
 import { Icon } from '../components/Icon';
 import { ago, clock, count, ms, percent, statusTone } from '../lib/format';
 import { Go, useGo } from '../lib/links';
+import { NavLink } from '../lib/navigation';
 import { scopeOf, str } from '../lib/search';
 import { useSearchState, useSetSearch } from '../lib/state';
 import { useTitle } from '../lib/title';
@@ -45,13 +46,13 @@ export function EntityIndexView({ type }: { type: string }) {
                 </div>
                 <div className="t-row-gap">
                     <input className="t-input t-input-sm" placeholder={`Filter ${(def?.plural ?? type).toLowerCase()}…`} value={filter} onChange={(e) => setFilter(e.target.value)} />
-                    <Link
+                    <NavLink
                         to={`/explore/${data?.signal ?? 'requests'}`}
-                        search={{ ...scopeOf(search), groupBy: data?.entity.key ?? def?.key, ...(data?.signal === 'traces' ? { where: [`${data.entity.key}!=`] } : {}) } as never}
+                        search={{ ...scopeOf(search), groupBy: data?.entity.key ?? def?.key, ...(data?.signal === 'traces' ? { where: [`${data.entity.key}!=`] } : {}) }}
                         className="t-btn t-btn-sm t-btn-secondary"
                     >
                         <Icon name="group" size={12} />Explore grouped
-                    </Link>
+                    </NavLink>
                 </div>
             </header>
 
@@ -112,7 +113,7 @@ export function EntityView({ type }: { type: string }) {
             <header className="t-page-head t-entity-header">
                 <div className="t-entity-titles">
                     <div className="t-eyebrow">
-                        <Link to={`/entities/${encodeURIComponent(type)}`} search={scopeOf(search) as never}>{data?.entity.plural ?? dim?.plural ?? type}</Link>
+                        <NavLink to={`/entities/${encodeURIComponent(type)}`} search={scopeOf(search)}>{data?.entity.plural ?? dim?.plural ?? type}</NavLink>
                         <span> / {data?.entity.label ?? dim?.label ?? type}</span>
                     </div>
                     {name

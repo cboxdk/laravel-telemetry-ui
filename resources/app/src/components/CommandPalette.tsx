@@ -1,7 +1,7 @@
-import { useRouter } from '@tanstack/react-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Bootstrap } from '../api/types';
 import { useGo } from '../lib/links';
+import { useNavigation } from '../lib/navigation';
 import { parseFilter, parseSearch, scopeOf } from '../lib/search';
 import { useSetSearch } from '../lib/state';
 import { useTheme } from '../lib/theme';
@@ -23,7 +23,7 @@ interface Command {
  * pasted trace id or error group, or run a `key=value` filter in Explore.
  */
 export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap; areas: NavArea[]; open: boolean; onClose: () => void }) {
-    const router = useRouter();
+    const navigation = useNavigation();
     const go = useGo();
     const set = useSetSearch();
     const [, toggleTheme] = useTheme();
@@ -42,8 +42,8 @@ export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap
 
     const commands = useMemo<Command[]>(() => {
         const nav = (to: string, search: Record<string, unknown> = {}) => () => {
-            const current = parseSearch(router.state.location.searchStr);
-            void router.navigate({ to, search: { ...scopeOf(current), ...search } as never });
+            const current = parseSearch(navigation.searchStr);
+            navigation.go({ pathname: to, search: { ...scopeOf(current), ...search } as never });
         };
         const q = query.trim();
         const dynamic: Command[] = [];
@@ -71,7 +71,7 @@ export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap
             label: v.name,
             hint: v.pathname.replace('/explore/', ''),
             icon: 'pin',
-            run: () => void router.navigate({ to: v.pathname, search: parseSearch(v.search) as never }),
+            run: () => navigation.go({ pathname: v.pathname, search: parseSearch(v.search) }),
         }));
 
         const pages: Command[] = areas.flatMap((a) =>
@@ -100,7 +100,7 @@ export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap
         ];
 
         return [...dynamic, ...matched, ...search].slice(0, 60);
-    }, [query, areas, boot, router, go, set, toggleTheme, views]);
+    }, [query, areas, boot, navigation, go, set, toggleTheme, views]);
 
     if (!open) return null;
 

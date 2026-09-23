@@ -5,10 +5,15 @@ import { PanelView } from '../components/panels/PanelView';
 import { ErrorState, Skeleton } from '../components/States';
 import { useTitle } from '../lib/title';
 
+/** The `/p/$page` route. */
+export function PanelPageRoute() {
+    const { page } = useParams({ strict: false }) as { page?: string };
+
+    return <PanelPage page={page ?? 'dashboard'} />;
+}
+
 /** Any registered page (Jobs, Queues, Cache, Statamic …) as a grid of panels. */
-export function PanelPage({ page: fixed, params }: { page?: string; params?: Record<string, string> }) {
-    const routeParams = useParams({ strict: false }) as { page?: string };
-    const page = fixed ?? routeParams.page ?? 'dashboard';
+export function PanelPage({ page, params }: { page: string; params?: Record<string, string> }) {
     const boot = useBoot();
     const { data, error, isLoading } = usePage(page);
     const meta = boot.pages[page];

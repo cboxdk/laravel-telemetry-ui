@@ -1,6 +1,6 @@
-import { useMemo, useState, type ReactNode } from 'react';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useMemo, useState, type AnchorHTMLAttributes, type MouseEvent, type ReactNode } from 'react';
 import { useRouter, useRouterState } from '@tanstack/react-router';
+import { boot } from '../boot';
 import { parseSearch, stringifySearch, type Search } from './search';
 
 /**
@@ -19,6 +19,8 @@ export interface Navigation {
     /** Absolute href for a target, for real anchors (middle-click, copy link). */
     href(pathname: string, search: Search): string;
     go(target: { pathname?: string; search: Search; replace?: boolean }): void;
+    /** The page is ours (standalone), so the document title is too. */
+    ownsDocument: boolean;
 }
 
 const NavigationContext = createContext<Navigation | null>(null);
@@ -44,6 +46,7 @@ export function RouterNavigation({ children }: { children: ReactNode }) {
         searchStr: location.searchStr ?? '',
         href: (pathname, search) => `${base.replace(/\/$/, '')}${pathname}${stringifySearch(search)}`,
         go: ({ pathname, search, replace }) => void router.navigate({ to: pathname ?? '.', search: search as never, replace }),
+        ownsDocument: true,
     }), [router, location.pathname, location.searchStr, base]);
 
     return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
@@ -54,31 +57,98 @@ export function RouterNavigation({ children }: { children: ReactNode }) {
  * a panel inside someone else's page shouldn't rewrite their address bar. Pass
  * `search` + `onSearchChange` to bridge it to the host's own router when you do
  * want it in the URL.
+ *
+ * Changing the search (filters, window, the drawer) happens in place. Moving to
+ * another *page* can't: an embed renders what the host put there, not a
+ * router. That leaves for the full dashboard — or goes to `onNavigate`, so a
+ * host can route it to a page of its own that embeds the target.
  */
-export function MemoryNavigation({ children, pathname = '/', search, onSearchChange }: {
+export function MemoryNavigation({ children, pathname = '/', search, onSearchChange, onNavigate }: {
     children: ReactNode;
     pathname?: string;
     search?: string;
     onSearchChange?: (search: string) => void;
+    /** A link to another dashboard page. Default: open it in the full dashboard. */
+    onNavigate?: (target: { pathname: string; search: string; url: string }) => void;
 }) {
     const [own, setOwn] = useState('');
-    const [path, setPath] = useState(pathname);
     const controlled = search !== undefined;
     const searchStr = controlled ? search : own;
 
     const value = useMemo<Navigation>(() => ({
-        pathname: path,
+        pathname,
         searchStr,
-        href: (to, next) => `${to}${stringifySearch(next)}`,
+        // Real anchors point at the full dashboard: middle-click and "copy
+        // link" land somewhere that renders every page.
+        href: (to, next) => `${boot().base}${to}${stringifySearch(next)}`,
         go: ({ pathname: to, search: next }) => {
             const encoded = stringifySearch(next);
-            if (to !== undefined && to !== '.') setPath(to);
+
+            if (to !== undefined && to !== '.' && to !== pathname) {
+                const url = `${boot().base}${to}${encoded}`;
+                if (onNavigate) onNavigate({ pathname: to, search: encoded, url });
+                else window.location.assign(url);
+                return;
+            }
+
             if (controlled) onSearchChange?.(encoded);
             else setOwn(encoded);
         },
-    }), [path, searchStr, controlled, onSearchChange]);
+        ownsDocument: false,
+    }), [pathname, searchStr, controlled, onSearchChange, onNavigate]);
 
     return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
+}
+
+/**
+ * Tell the components below which dashboard page they are showing, so a link
+ * to that same page (a filter, a drawer) stays in place and only a link to a
+ * different page leaves. `claim` keeps other pages in place too, when the
+ * mounted component can show them itself (Explore switching signal).
+ */
+export function PathScope({ pathname, claim, children }: {
+    pathname: string;
+    claim?: (pathname: string) => boolean;
+    children: ReactNode;
+}) {
+    const parent = useNavigation();
+
+    const value = useMemo<Navigation>(() => ({
+        ...parent,
+        pathname,
+        go: (target) => {
+            const here = target.pathname === pathname || (target.pathname !== undefined && claim?.(target.pathname) === true);
+            parent.go(here ? { ...target, pathname: undefined } : target);
+        },
+    }), [parent, pathname, claim]);
+
+    return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
+}
+
+/**
+ * An anchor into the dashboard that works under either navigation: a real
+ * href for middle-click, a client-side move on a plain click.
+ */
+export function NavLink({ to, search = {}, children, ...rest }: {
+    to: string;
+    search?: Search;
+    children: ReactNode;
+} & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href'>) {
+    const navigation = useNavigation();
+
+    const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
+        rest.onClick?.(e);
+        if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+        e.preventDefault();
+        navigation.go({ pathname: to, search });
+    };
+
+    return <a {...rest} href={navigation.href(to, search)} onClick={onClick}>{children}</a>;
+}
+
+/** Whether the dashboard owns the page (so may set its title). */
+export function useOwnsDocument(): boolean {
+    return useContext(NavigationContext)?.ownsDocument ?? true;
 }
 
 /** The current search params, parsed. */
