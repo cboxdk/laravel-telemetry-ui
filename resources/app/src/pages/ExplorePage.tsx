@@ -80,6 +80,7 @@ export function ExplorePage() {
                     where={where}
                     onChange={(w) => set({ where: w })}
                     dimensions={boot.dimensions}
+                    facetValues={(key) => facets.data?.facets.find((f) => f.key === key)?.values ?? []}
                     q={q}
                     onQ={(v) => set({ q: v || undefined })}
                     placeholder={signal === 'logs' ? 'Search log lines…' : signal === 'errors' ? 'Search exceptions…' : 'Search span names…'}
@@ -175,7 +176,13 @@ export function ExplorePage() {
                             )}
 
                             {rows.length === 0 ? (
-                                <Empty>Nothing matches in this window. Widen the period or remove a filter.</Empty>
+                                <NoMatches
+                                    scope={scope}
+                                    filters={where.length + (q ? 1 : 0)}
+                                    onNow={() => set({ from: undefined, to: undefined })}
+                                    onWiden={(period) => set({ period, from: undefined, to: undefined })}
+                                    onClear={() => set({ where: undefined, q: undefined })}
+                                />
                             ) : signal === 'logs' ? (
                                 <LogList rows={rows as LogEntryRow[]} />
                             ) : signal === 'errors' ? (
@@ -190,6 +197,34 @@ export function ExplorePage() {
         </div>
     );
 }
+
+/**
+ * An empty result is a question, not a wall: offer the ways out that apply —
+ * back to now when the window was stepped, a wider window, drop the filters.
+ */
+function NoMatches({ scope, filters, onNow, onWiden, onClear }: {
+    scope: { period: string; from?: string; to?: string };
+    filters: number;
+    onNow: () => void;
+    onWiden: (period: string) => void;
+    onClear: () => void;
+}) {
+    const stepped = Boolean(scope.from && scope.to);
+    const wider = WIDER[scope.period] ?? (stepped ? '24h' : null);
+
+    return (
+        <Empty>
+            <p>Nothing matches{stepped ? ' in this window' : ` in the last ${scope.period}`}{filters > 0 ? ` with ${filters} filter${filters === 1 ? '' : 's'}` : ''}.</p>
+            <div className="t-empty-actions">
+                {stepped && <button type="button" className="t-btn t-btn-sm t-btn-secondary" onClick={onNow}><Icon name="clock" size={12} />Back to now</button>}
+                {wider && <button type="button" className="t-btn t-btn-sm t-btn-secondary" onClick={() => onWiden(wider)}>Widen to {wider}</button>}
+                {filters > 0 && <button type="button" className="t-btn t-btn-sm t-btn-ghost" onClick={onClear}><Icon name="x" size={12} />Clear filters</button>}
+            </div>
+        </Empty>
+    );
+}
+
+const WIDER: Record<string, string> = { '15m': '1h', '1h': '24h', '24h': '7d', '7d': '30d', '14d': '30d' };
 
 function defaultKeys(boot: ReturnType<typeof useBoot>, signal: Signal): string[] {
     return boot.dimensions.filter((d) => !d.builtin || d.signals.includes(signal)).map((d) => d.key);

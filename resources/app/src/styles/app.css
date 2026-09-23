@@ -282,7 +282,7 @@ pre { margin: 0; }
     /* Wrap instead of scrolling sideways (a scrolling bar also clips its dropdowns). */
     .t-topbar { flex-wrap: wrap; height: auto; min-height: var(--topbar-h); row-gap: 6px; padding: 8px 10px; }
     .t-topbar > * { flex: none; }
-    .t-topbar-spacer, .t-topbar .t-kbd-btn, .t-topbar > .t-iconbtn { display: none; }
+    .t-topbar-spacer, .t-topbar .t-kbd-btn, .t-topbar .t-kbd-hint, .t-topbar > .t-iconbtn { display: none; }
     .t-topbar-scope { flex: 1 1 100%; min-width: 0; }
     .t-topbar .t-period { order: 1; }
     .t-topbar .t-refresh { order: 2; }
@@ -463,6 +463,7 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
 .t-state-backend svg, .t-state-network svg { color: var(--warning-text); }
 .t-state-forbidden svg { color: var(--destructive); }
 .t-state.is-compact { padding: 8px 10px; border: 0; }
+.t-empty-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px; }
 .t-empty { padding: 26px 12px; text-align: center; color: var(--muted-foreground); font-size: 12.5px; }
 
 /* ── Dimensions ───────────────────────────────────────────────────────── */
@@ -834,6 +835,13 @@ a.t-corr-item:hover { border-color: var(--border-strong); color: var(--foregroun
 .t-modal { width: min(620px, 92vw); display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; background: var(--popover); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-popover); }
 .t-modal-head { display: flex; align-items: center; justify-content: space-between; }
 .t-modal-head h3 { font-size: 15px; }
+.t-modal-head h2 { font-size: 16px; font-family: var(--font-display); }
+.t-shortcut-list { display: grid; gap: 2px; margin: 0; }
+.t-shortcut-list > div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: baseline; padding: 6px 4px; border-radius: var(--radius-sm); }
+.t-shortcut-list > div:hover { background: var(--secondary); }
+.t-kbd-hint kbd { font-size: 11px; }
+.t-shortcut-list dt { display: flex; gap: 4px; justify-content: flex-end; }
+.t-shortcut-list dd { margin: 0; font-size: 12.5px; color: var(--foreground); }
 .t-modal-foot { justify-content: flex-end; }
 .t-palette { width: min(640px, 94vw); background: var(--popover); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-popover); overflow: hidden; }
 .t-palette-input { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--muted-foreground); }

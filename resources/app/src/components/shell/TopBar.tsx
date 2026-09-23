@@ -79,6 +79,9 @@ export function TopBar({ boot, onPalette }: { boot: Bootstrap; onPalette: () => 
                     }}
                 />
             )}
+            <button type="button" className="t-iconbtn t-kbd-hint" onClick={() => window.dispatchEvent(new CustomEvent('telemetry-ui:shortcuts'))} title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+                <kbd>?</kbd>
+            </button>
             <button type="button" className="t-btn t-btn-ghost t-kbd-btn" onClick={onPalette} title="Search (⌘K)">
                 <Icon name="search" size={14} />
                 <kbd>⌘K</kbd>

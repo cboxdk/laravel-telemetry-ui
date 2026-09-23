@@ -2,6 +2,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useContext, useRef } from 'react';
 import type { ErrorRow, Group, SpanRow } from '../../api/types';
 import { ago, clock, count, ms, percent, statusTone } from '../../lib/format';
+import { usePrefetch } from '../../api/hooks';
 import { useGo } from '../../lib/links';
 import { useScrollParent } from '../../lib/scrollParent';
 import { BootContext, DimensionValue, useDimension } from '../DimensionValue';
@@ -23,6 +24,7 @@ export function SpanList({ rows, selected, onSelect }: { rows: SpanRow[]; select
     const scroll = useScrollParent(list);
     const boot = useContext(BootContext);
     const go = useGo();
+    const prefetch = usePrefetch();
     const custom = (boot?.dimensions ?? []).filter((d) => !d.builtin).map((d) => d.key);
 
     const virtualizer = useVirtualizer({ count: rows.length, getScrollElement: () => scroll.element, estimateSize: () => 52, overscan: 16, scrollMargin: scroll.margin });
@@ -34,6 +36,7 @@ export function SpanList({ rows, selected, onSelect }: { rows: SpanRow[]; select
                 className={`t-lrow ${selected === row.traceId ? 'is-sel' : ''} ${row.error ? 'is-error' : ''}`}
                 role="button"
                 tabIndex={0}
+                onMouseEnter={() => prefetch({ to: 'trace', id: row.traceId })}
                 onClick={(e) => {
                     if ((e.target as HTMLElement).closest('button:not(.t-lrow),a')) return;
                     if (onSelect) onSelect(row);
@@ -83,10 +86,11 @@ export function SpanList({ rows, selected, onSelect }: { rows: SpanRow[]; select
 /** Sentry-style issue rows for the errors signal. */
 export function ErrorList({ rows }: { rows: ErrorRow[] }) {
     const go = useGo();
+    const prefetch = usePrefetch();
     return (
         <div className="t-list t-errlist">
             {rows.map((row) => (
-                <div key={row.group} className="t-erow" role="button" tabIndex={0} onClick={() => go({ to: 'error', group: row.group }, { replaceDrawer: true })} onKeyDown={(e) => e.key === 'Enter' && go({ to: 'error', group: row.group }, { replaceDrawer: true })}>
+                <div key={row.group} className="t-erow" role="button" tabIndex={0} onMouseEnter={() => prefetch({ to: 'error', group: row.group })} onClick={() => go({ to: 'error', group: row.group }, { replaceDrawer: true })} onKeyDown={(e) => e.key === 'Enter' && go({ to: 'error', group: row.group }, { replaceDrawer: true })}>
                     <span className="t-erow-main">
                         <span className="t-erow-type mono">{row.type || 'Error'}</span>
                         <span className="t-erow-msg">{row.message}</span>

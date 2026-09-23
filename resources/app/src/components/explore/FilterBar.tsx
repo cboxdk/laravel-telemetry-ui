@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { DimensionDef } from '../../api/types';
+import { count } from '../../lib/format';
 import { formatFilter, negate, parseFilter, withoutFilter, type Filter } from '../../lib/search';
 import { ValueText } from '../DimensionValue';
 import { Icon } from '../Icon';
@@ -8,15 +9,19 @@ import { Icon } from '../Icon';
  * The active query as removable chips — the URL *is* the query. Click a
  * chip's operator to invert it; ✕ removes it; "+ filter" takes `key=value`
  * (any operator: = != =~ !~ > >= < <=) with key suggestions from the
- * dimension registry. Undeclared attributes are just as filterable.
+ * dimension registry and — once you type `key=` — the values actually present
+ * in this view, with their counts. Undeclared attributes are just as
+ * filterable.
  */
-export function FilterBar({ where, onChange, dimensions, q, onQ, placeholder }: {
+export function FilterBar({ where, onChange, dimensions, q, onQ, placeholder, facetValues }: {
     where: string[];
     onChange: (where: string[]) => void;
     dimensions: DimensionDef[];
     q: string;
     onQ: (q: string) => void;
     placeholder?: string;
+    /** Values seen for a key in this view, for the value typeahead. */
+    facetValues?: (key: string) => { value: string; count: number }[];
 }) {
     const [adding, setAdding] = useState(false);
     const [draft, setDraft] = useState('');
@@ -25,6 +30,16 @@ export function FilterBar({ where, onChange, dimensions, q, onQ, placeholder }: 
     const input = useRef<HTMLInputElement>(null);
 
     const byKey = useMemo(() => new Map(dimensions.map((d) => [d.key, d])), [dimensions]);
+
+    // `user.id=` → offer the values in this view; otherwise offer keys.
+    const partial = /^\s*([\w.:\-]+)\s*(=|!=)\s*(.*)$/.exec(draft);
+    const valueSuggestions = useMemo(() => {
+        if (!partial || !facetValues) return [];
+        const typed = partial[3]!.trim().toLowerCase();
+        return facetValues(partial[1]!)
+            .filter((v) => typed === '' || v.value.toLowerCase().includes(typed))
+            .slice(0, 8);
+    }, [partial?.[1], partial?.[3], facetValues]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const suggestions = useMemo(() => {
         const typed = draft.trim().toLowerCase();
@@ -46,14 +61,16 @@ export function FilterBar({ where, onChange, dimensions, q, onQ, placeholder }: 
     const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            if (parseFilter(draft)) commit(draft);
+            const value = valueSuggestions[active];
+            if (value && partial) commit(`${partial[1]}${partial[2]}${value.value}`);
+            else if (parseFilter(draft)) commit(draft);
             else if (suggestions[active]) setDraft(`${suggestions[active]!.key}=`);
         } else if (e.key === 'Escape') {
             setAdding(false);
             setDraft('');
         } else if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setActive((a) => Math.min(suggestions.length - 1, a + 1));
+            setActive((a) => Math.min((valueSuggestions.length > 0 ? valueSuggestions.length : suggestions.length) - 1, a + 1));
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             setActive((a) => Math.max(0, a - 1));
@@ -96,7 +113,19 @@ export function FilterBar({ where, onChange, dimensions, q, onQ, placeholder }: 
                         onBlur={() => setTimeout(() => { if (draft === '') setAdding(false); }, 150)}
                         aria-label="Add filter"
                     />
-                    {suggestions.length > 0 && (
+                    {valueSuggestions.length > 0 && partial && (
+                        <ul className="t-suggest">
+                            {valueSuggestions.map((v, i) => (
+                                <li key={v.value}>
+                                    <button type="button" className={i === active ? 'is-active' : ''} onMouseDown={(e) => { e.preventDefault(); commit(`${partial[1]}${partial[2]}${v.value}`); }}>
+                                        <span><ValueText dimKey={partial[1]!} value={v.value} /></span>
+                                        <code>{count(v.count)}</code>
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    {valueSuggestions.length === 0 && suggestions.length > 0 && (
                         <ul className="t-suggest">
                             {suggestions.map((d, i) => (
                                 <li key={d.key}>

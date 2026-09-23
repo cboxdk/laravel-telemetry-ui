@@ -1,12 +1,13 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
-import { useBootstrap } from '../../api/hooks';
+import { useBootstrap, useManualRefresh, usePrefetchPage } from '../../api/hooks';
 import type { Bootstrap } from '../../api/types';
 import { parseSearch, scopeOf } from '../../lib/search';
 import { seedRemembered } from '../../lib/state';
 import { load, save } from '../../lib/storage';
 import { useTheme } from '../../lib/theme';
 import { CommandPalette } from '../CommandPalette';
+import { Shortcuts } from '../Shortcuts';
 import { BootContext } from '../DimensionValue';
 import { DrawerStack } from '../drawer/DrawerStack';
 import { ErrorState, Spinner } from '../States';
@@ -56,6 +57,7 @@ function Shell({ boot }: { boot: Bootstrap }) {
     const [mobileOpen, setMobileOpen] = useState(false);
     useEffect(() => setMobileOpen(false), [location.pathname]);
     const [paletteOpen, setPaletteOpen] = useState(false);
+    useManualRefresh();
 
     useEffect(() => save('railPinned', pinned), [pinned]);
     useEffect(() => save('subnavCollapsed', collapsed), [collapsed]);
@@ -108,6 +110,7 @@ function Shell({ boot }: { boot: Bootstrap }) {
             </div>
             <DrawerStack boot={boot} />
             <CommandPalette boot={boot} areas={areas} open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+            <Shortcuts onPalette={() => setPaletteOpen(true)} />
         </div>
     );
 }
@@ -203,6 +206,8 @@ function Subnav({ area, overlay, pathname, search, onCollapse, onSearch, scope }
     onSearch: () => void;
     scope: Record<string, string>;
 }) {
+    const prefetchPage = usePrefetchPage();
+
     return (
         <nav className={`t-subnav ${overlay ? 'is-overlay' : ''}`} aria-label={area.label}>
             <div className="t-subnav-head">
@@ -224,6 +229,8 @@ function Subnav({ area, overlay, pathname, search, onCollapse, onSearch, scope }
                                 to={item.to}
                                 search={{ ...scope, ...(item.search ?? {}) } as never}
                                 className={`t-subnav-item ${item.match(pathname, search) ? 'is-active' : ''}`}
+                                // Warm the page's panels while the pointer is still travelling.
+                                onMouseEnter={() => { const slug = /^\/p\/(.+)$/.exec(item.to)?.[1] ?? (item.to === '/' ? 'dashboard' : null); if (slug) prefetchPage(slug); }}
                             >
                                 {item.label}
                             </Link>

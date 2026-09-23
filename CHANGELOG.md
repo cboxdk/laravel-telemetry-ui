@@ -177,6 +177,15 @@ change with before/after code.
 - **Stacktraces read like Sentry's**: paths relative to the project root, app
   frames emphasised, runs of framework frames folded to one expandable line,
   a raw view one click away (`Ui::code(..., 'stacktrace')`).
+- **Value typeahead in the filter bar**: type `user.id=` and the values in
+  this view are offered with their counts (and their resolved names).
+- **Hover prefetch**: links, table rows, result rows and sidebar pages warm
+  their data on hover, so the click lands on a rendered page.
+- **Keyboard layer**: `?` opens the shortcut sheet (also the topbar's `?`),
+  `/` focuses the page's search, `[` / `]` step the time window by its own
+  length (never past now), `n` jumps back to now, `r` refetches everything.
+- **Empty results offer the way out**: back to now, widen the window, clear
+  the filters — whichever applies.
 - **⌘K** never dead-ends: free text offers "search requests / logs /
   exceptions", a path offers its route page.
 - **Context everywhere.** The trace story ends with "Around this request"

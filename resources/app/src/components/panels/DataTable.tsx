@@ -1,6 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Cell, Column, Link, Row, TicketDraft } from '../../api/types';
+import { usePrefetch } from '../../api/hooks';
 import { Go, useGo } from '../../lib/links';
 import { useScrollParent } from '../../lib/scrollParent';
 import { BootContext, DimensionValue } from '../DimensionValue';
@@ -168,6 +169,7 @@ export function DataTable({ columns, rows, onParam, onTicket }: {
 }) {
     const [sort, setSort] = useState<{ key: string; dir: 1 | -1 } | null>(null);
     const go = useGo();
+    const prefetch = usePrefetch();
     const scroller = useRef<HTMLDivElement>(null);
     const table = useRef<HTMLDivElement>(null);
     const scroll = useScrollParent(scroller);
@@ -214,6 +216,7 @@ export function DataTable({ columns, rows, onParam, onTicket }: {
             role="row"
             className={`t-tr ${row._link ? 'is-link' : ''}`}
             style={{ gridTemplateColumns: template, ...style }}
+            onMouseEnter={() => row._link && prefetch(row._link)}
             onClick={(e) => onRow(row._link, e)}
             tabIndex={row._link ? 0 : undefined}
             onKeyDown={(e) => { if (e.key === 'Enter' && row._link) go(row._link); }}
@@ -247,6 +250,7 @@ export function DataTable({ columns, rows, onParam, onTicket }: {
                         key={i}
                         role="row"
                         className={`t-card-row ${row._link ? 'is-link' : ''}`}
+                        onMouseEnter={() => row._link && prefetch(row._link)}
                         onClick={(e) => onRow(row._link, e)}
                         tabIndex={row._link ? 0 : undefined}
                         onKeyDown={(e) => { if (e.key === 'Enter' && row._link) go(row._link); }}

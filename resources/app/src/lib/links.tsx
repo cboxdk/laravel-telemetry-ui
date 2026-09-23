@@ -1,4 +1,5 @@
 import { useRouter } from '@tanstack/react-router';
+import { usePrefetch } from '../api/hooks';
 import { type MouseEvent, type ReactNode, useCallback } from 'react';
 import type { Link as LinkData } from '../api/types';
 import { formatDrawer, parseDrawer, pushDrawer, scopeOf, stringifySearch, parseSearch, type DrawerEntry, type Search } from './search';
@@ -121,6 +122,7 @@ export function Go({ link, children, className, title, replaceDrawer, onParam }:
     const router = useRouter();
     const resolveLink = useResolve();
     const go = useGo();
+    const prefetch = usePrefetch();
 
     if (link.to === 'param') {
         return (
@@ -142,7 +144,7 @@ export function Go({ link, children, className, title, replaceDrawer, onParam }:
     };
 
     return (
-        <a href={href} className={className} title={title} onClick={onClick} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
+        <a href={href} className={className} title={title} onClick={onClick} onMouseEnter={() => prefetch(link)} onFocus={() => prefetch(link)} {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>
             {children}
         </a>
     );
