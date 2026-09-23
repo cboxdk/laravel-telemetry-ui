@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Explore;
 
+use Cbox\TelemetryUi\Dimensions\Derivation;
 use Cbox\TelemetryUi\Dimensions\Dimensions;
 use Cbox\TelemetryUi\Http\Api\Filter;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -61,7 +62,16 @@ final class TraceFilters
 
     private static function attribute(Filter $filter, TraceOp $op, Dimensions $dimensions): TraceCondition
     {
-        $field = $dimensions->resolve($filter->key)->traceField();
+        $dimension = $dimensions->resolve($filter->key);
+
+        // A derived dimension is a slice of another attribute: ask the backend
+        // about that one instead, exactly (`screen = "checkout"` becomes
+        // `http.route = "hubhus:checkout"`), so nothing is filtered read-side.
+        if ($dimension->derived !== null) {
+            return self::derived($filter, $op, $dimensions->resolve($dimension->derived->from)->traceField(), $dimension->derived);
+        }
+
+        $field = $dimension->traceField();
 
         // Numbers and booleans compare as tokens (Tempo is strictly typed:
         // `status_code = 500` matches an int attribute, `= "500"` does not).
@@ -98,6 +108,22 @@ final class TraceFilters
         }
 
         return str_ends_with($key, '.id') || str_ends_with($key, '_id');
+    }
+
+    private static function derived(Filter $filter, TraceOp $op, string $field, Derivation $derived): TraceCondition
+    {
+        // `screen=` / `screen!=` with no value ask whether the dimension is
+        // there at all: any source value shaped like the pattern.
+        if ($filter->value === '') {
+            return new TraceCondition($field, $op === TraceOp::Neq ? TraceOp::Re : TraceOp::Nre, $derived->regex());
+        }
+
+        return match ($op) {
+            TraceOp::Eq, TraceOp::Neq => new TraceCondition($field, $op, $derived->encode($filter->value)),
+            // The reader's own regex applies to the value, not to the encoding.
+            TraceOp::Re, TraceOp::Nre => new TraceCondition($field, $op, $derived->regex('(?:'.$filter->value.')')),
+            default => new TraceCondition($field, $op, $derived->encode($filter->value)),
+        };
     }
 
     private static function eqOnly(TraceOp $op): TraceOp

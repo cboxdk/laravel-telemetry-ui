@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi;
 
+use Cbox\TelemetryUi\Dimensions\Derivation;
 use Cbox\TelemetryUi\Dimensions\Dimension;
 use Cbox\TelemetryUi\Dimensions\Dimensions;
 use Cbox\TelemetryUi\Events\ViewStateChanged;
@@ -614,8 +615,16 @@ final class TelemetryUiManager
         ?string $format = null,
         ?string $plural = null,
         ?Closure $resolve = null,
+        ?string $from = null,
+        ?string $pattern = null,
     ): self {
         $existing = $this->dimensionRegistry()->get($key);
+
+        // `from:` + `pattern:` read the value out of another attribute —
+        // "the screen is the part of http.route after `hubhus:`".
+        $derived = $from !== null
+            ? new Derivation($from, $pattern ?? Derivation::PLACEHOLDER)
+            : $existing?->derived;
 
         $this->dimensionRegistry()->add(new Dimension(
             key: $key,
@@ -629,6 +638,7 @@ final class TelemetryUiManager
             format: $format ?? $existing?->format,
             plural: $plural ?? $existing?->plural,
             resolve: $resolve ?? $existing?->resolve,
+            derived: $derived,
         ));
 
         return $this;

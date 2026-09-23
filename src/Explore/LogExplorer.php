@@ -59,9 +59,24 @@ final class LogExplorer
 
             $op = MatchOp::tryFrom($filter->op);
 
-            if ($op !== null) {
-                $query = $query->whereLabel(self::label($filter->key), $op, $filter->value);
+            if ($op === null) {
+                continue;
             }
+
+            // A derived dimension filters its source label, encoded — so the
+            // backend still answers it (no read-side pass over the stream).
+            $derived = $this->dimensions->resolve($filter->key)->derived;
+
+            if ($derived !== null) {
+                $label = self::label($derived->from);
+                $query = $filter->value === ''
+                    ? $query->whereLabel($label, $op === MatchOp::Neq ? MatchOp::Re : MatchOp::Nre, $derived->regex())
+                    : $query->whereLabel($label, $op, in_array($op, [MatchOp::Re, MatchOp::Nre], true) ? $derived->regex('(?:'.$filter->value.')') : $derived->encode($filter->value));
+
+                continue;
+            }
+
+            $query = $query->whereLabel(self::label($filter->key), $op, $filter->value);
         }
 
         $q = trim($scope->param('q'));
@@ -98,7 +113,7 @@ final class LogExplorer
                 }
             }
 
-            $rows[] = self::row($entry);
+            $rows[] = self::row($entry, $this->dimensions);
         }
 
         usort($rows, static fn (array $a, array $b): int => strcmp($b['nano'], $a['nano']) ?: 0);
@@ -193,7 +208,7 @@ final class LogExplorer
     /**
      * @return LogRow
      */
-    public static function row(LogEntry $entry): array
+    public static function row(LogEntry $entry, ?Dimensions $dimensions = null): array
     {
         $traceId = $entry->labels['trace_id'] ?? null;
         $level = strtolower($entry->labels['level'] ?? $entry->labels['detected_level'] ?? $entry->labels['severity_text'] ?? self::inferLevel($entry->line));
@@ -203,6 +218,23 @@ final class LogExplorer
         foreach ($entry->labels as $key => $value) {
             if (! in_array($key, self::HIDDEN, true)) {
                 $labels[$key] = $value;
+            }
+        }
+
+        // Dimensions derived from a label ride along as their own label, so
+        // chips, facets and group-by see them like any other.
+        foreach ($dimensions?->derived() ?? [] as $dimension) {
+            $derived = $dimension->derived;
+
+            if ($derived === null) {
+                continue;
+            }
+
+            $source = $labels[self::label($derived->from)] ?? '';
+            $value = $source !== '' ? $derived->extract($source) : null;
+
+            if ($value !== null) {
+                $labels[self::label($dimension->key)] = $value;
             }
         }
 

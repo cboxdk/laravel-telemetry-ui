@@ -260,6 +260,8 @@ export interface DimensionDef {
     linksOut: boolean;
     /** Has a name resolver (TelemetryUi::resolve()): ids render as names. */
     resolvable?: boolean;
+    /** Read out of this attribute instead of emitted on its own (from:/pattern:). */
+    derivedFrom?: string | null;
 }
 
 export interface EntityDef {

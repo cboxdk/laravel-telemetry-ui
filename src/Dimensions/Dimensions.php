@@ -43,6 +43,41 @@ final class Dimensions
         return array_values($this->dimensions);
     }
 
+    /**
+     * Attributes plus every derived dimension that can be read out of them —
+     * so a chip, facet or group-by sees `hubhus.screen` on a span that only
+     * carries `http.route`.
+     *
+     * @param  array<string, string>  $attributes
+     * @return array<string, string>
+     */
+    public function derive(array $attributes): array
+    {
+        foreach ($this->dimensions as $dimension) {
+            if ($dimension->derived === null || isset($attributes[$dimension->key])) {
+                continue;
+            }
+
+            $value = $dimension->valueIn($attributes);
+
+            if ($value !== null) {
+                $attributes[$dimension->key] = $value;
+            }
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * Derived dimensions, by key — the read-side keys a backend can't aggregate.
+     *
+     * @return array<string, Dimension>
+     */
+    public function derived(): array
+    {
+        return array_filter($this->dimensions, static fn (Dimension $d): bool => $d->derived !== null);
+    }
+
     public function get(string $key): ?Dimension
     {
         return $this->dimensions[$key] ?? null;

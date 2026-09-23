@@ -31,6 +31,7 @@ final readonly class Dimension
      * @param  (Closure(string): (string|null))|string|null  $link  a URL template with `{value}`, or a closure — a link OUT to the host
      * @param  list<string>  $signals  which Explore signals facet on it by default
      * @param  (Closure(list<string>): iterable<array-key, mixed>)|null  $resolve  batch id → display name lookup
+     * @param  Derivation|null  $derived  read this dimension out of another attribute ({@see Derivation})
      */
     public function __construct(
         public string $key,
@@ -44,7 +45,27 @@ final readonly class Dimension
         public ?string $format = null,
         public ?string $plural = null,
         public ?Closure $resolve = null,
+        public ?Derivation $derived = null,
     ) {}
+
+    /**
+     * The value this dimension has on a span/log line carrying `$attributes`,
+     * or null. Derived dimensions read it out of their source attribute.
+     *
+     * @param  array<string, string>  $attributes
+     */
+    public function valueIn(array $attributes): ?string
+    {
+        if ($this->derived === null) {
+            $value = $attributes[$this->key] ?? '';
+
+            return $value === '' ? null : $value;
+        }
+
+        $source = $attributes[$this->derived->from] ?? '';
+
+        return $source === '' ? null : $this->derived->extract($source);
+    }
 
     /**
      * Display names for a batch of values, `[value => name]`, only for values
@@ -85,7 +106,7 @@ final readonly class Dimension
      */
     public function withResolver(?Closure $resolve): self
     {
-        return new self($this->key, $this->label, $this->group, $this->link, $this->entity, $this->scope, $this->builtin, $this->signals, $this->format, $this->plural, $resolve);
+        return new self($this->key, $this->label, $this->group, $this->link, $this->entity, $this->scope, $this->builtin, $this->signals, $this->format, $this->plural, $resolve, $this->derived);
     }
 
     /**
@@ -137,7 +158,7 @@ final readonly class Dimension
     }
 
     /**
-     * @return array{key: string, label: string, group: string|null, entity: string, scope: string, builtin: bool, signals: list<string>, format: string|null, plural: string, linksOut: bool, resolvable: bool}
+     * @return array{key: string, label: string, group: string|null, entity: string, scope: string, builtin: bool, signals: list<string>, format: string|null, plural: string, linksOut: bool, resolvable: bool, derivedFrom: string|null}
      */
     public function toArray(): array
     {
@@ -153,6 +174,7 @@ final readonly class Dimension
             'plural' => $this->plural ?? $this->label.'s',
             'linksOut' => $this->link !== null,
             'resolvable' => $this->resolve !== null,
+            'derivedFrom' => $this->derived?->from,
         ];
     }
 }

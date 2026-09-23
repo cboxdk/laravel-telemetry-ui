@@ -159,6 +159,14 @@ change with before/after code.
   and page views → the analytics events (grouped by session for visitors),
   outgoing failures → client spans that failed. Commands, duplicate queries
   and a query's callers link their rows too (`Ui::rootOperation()`).
+- **Derived dimensions**: `TelemetryUi::dimension('hubhus.screen', from:
+  'http.route', pattern: 'hubhus:{value}')` promotes a value that lives
+  *inside* another attribute to a first-class dimension — facet, chip,
+  group-by, filter and its own entity page — without touching the emitter.
+  Filters compile back to an exact query on the source attribute
+  (`http.route = "hubhus:checkout"`, `=~` and "any value" to one anchored
+  regex), so nothing is filtered read-side; only the facet counts are
+  sampled, and the payload says so.
 - **Names instead of ids**: `TelemetryUi::resolve('user.id', User::class,
   'name')` (Eloquent model + attribute/closure, optional match column) or a
   batch closure, also as `dimension(..., resolve:)`. The SPA shows the name

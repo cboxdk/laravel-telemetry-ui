@@ -324,15 +324,24 @@ final class SpanExplorer
     {
         $keys = $keys !== [] ? array_values(array_unique($keys)) : $this->defaultFacetKeys($signal);
 
-        $exact = $this->connections->traces() instanceof AggregatesSpans;
-        $rows = $exact ? [] : $this->rows($scope, $signal, $limit, [], $keys);
+        $aggregates = $this->connections->traces() instanceof AggregatesSpans;
+        // Derived dimensions live inside another attribute, so no backend can
+        // group by them: those facets are counted over the sample even when
+        // the rest are exact — and the payload says so.
+        $derived = $this->dimensions->derived();
+        $sampled = array_values(array_filter($keys, static fn (string $key): bool => isset($derived[$key])));
+        $exact = $aggregates && $sampled === [];
+
+        $rows = $aggregates && $sampled === [] ? [] : $this->rows($scope, $signal, $limit, [], $this->sourceKeys($keys));
         $bags = array_map(static fn (array $row): array => $row['attributes'], $rows);
 
         $facets = [];
 
         foreach ($keys as $key) {
             $dimension = $this->dimensions->resolve($key);
-            $values = $exact ? ($this->exactTopValues($scope, $signal, $key) ?? []) : Stats::topValues($bags, $key);
+            $values = $aggregates && ! isset($derived[$key])
+                ? ($this->exactTopValues($scope, $signal, $key) ?? [])
+                : Stats::topValues($bags, $key);
 
             $facets[] = [
                 'key' => $key,
@@ -344,6 +353,29 @@ final class SpanExplorer
         }
 
         return ['facets' => $facets, 'exact' => $exact, 'sample' => count($rows)];
+    }
+
+    /**
+     * The attributes to select for a set of facet keys: a derived dimension
+     * needs its source attribute on the row, not its own key.
+     *
+     * @param  list<string>  $keys
+     * @return list<string>
+     */
+    private function sourceKeys(array $keys): array
+    {
+        $out = [];
+
+        foreach ($keys as $key) {
+            $out[] = $key;
+            $derived = $this->dimensions->resolve($key)->derived;
+
+            if ($derived !== null) {
+                $out[] = $derived->from;
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     /**
@@ -425,7 +457,9 @@ final class SpanExplorer
 
         $dimension = $this->dimensions->resolve($key);
 
-        if ($dimension->scope === 'intrinsic') {
+        // Intrinsics and derived dimensions aren't backend-aggregatable: the
+        // caller falls back to counting the sample (and says it sampled).
+        if ($dimension->scope === 'intrinsic' || $dimension->derived !== null) {
             return null;
         }
 
@@ -483,6 +517,8 @@ final class SpanExplorer
         // The operation the span ran under (its trace's root) — "who calls
         // this query / renders this view" for span-level entities.
         $attributes['trace.root'] = $summary->rootTraceName;
+        // Dimensions the host declared as a slice of another attribute.
+        $attributes = $this->dimensions->derive($attributes);
 
         return [
             'traceId' => $summary->traceId,
