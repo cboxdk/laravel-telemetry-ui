@@ -11,7 +11,16 @@ import { Popover } from '../Popover';
  * the host's connection profiles, search and copy-link. Every control writes
  * the URL, so the whole view stays shareable.
  */
-export function TopBar({ boot, onPalette }: { boot: Bootstrap; onPalette: () => void }) {
+export function TopBar({ boot, onPalette, embedded = false }: {
+    boot: Bootstrap;
+    onPalette?: () => void;
+    /**
+     * Inside a host's page: the scope, window and refresh controls only. The
+     * palette, the shortcuts and the connection switcher belong to the
+     * standalone dashboard, whose keyboard and pages they drive.
+     */
+    embedded?: boolean;
+}) {
     const scope = useScope();
     const set = useSetSearch();
     const refresh = useRefreshInterval();
@@ -33,7 +42,7 @@ export function TopBar({ boot, onPalette }: { boot: Bootstrap; onPalette: () => 
     };
 
     return (
-        <header className="t-topbar">
+        <header className={embedded ? 't-topbar t-topbar-embedded' : 't-topbar'}>
             <div className="t-topbar-scope">
                 {!serviceForced && (
                     <Combobox
@@ -67,7 +76,7 @@ export function TopBar({ boot, onPalette }: { boot: Bootstrap; onPalette: () => 
                 onChange={(v) => set({ refresh: v === '0' ? undefined : v })}
                 className="t-refresh"
             />
-            {boot.connections.length > 0 && (
+            {!embedded && boot.connections.length > 0 && (
                 <Combobox
                     label="Backend"
                     value={boot.currentConnection}
@@ -79,13 +88,17 @@ export function TopBar({ boot, onPalette }: { boot: Bootstrap; onPalette: () => 
                     }}
                 />
             )}
-            <button type="button" className="t-iconbtn t-kbd-hint" onClick={() => window.dispatchEvent(new CustomEvent('telemetry-ui:shortcuts'))} title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
-                <kbd>?</kbd>
-            </button>
-            <button type="button" className="t-btn t-btn-ghost t-kbd-btn" onClick={onPalette} title="Search (⌘K)">
-                <Icon name="search" size={14} />
-                <kbd>⌘K</kbd>
-            </button>
+            {!embedded && (
+                <>
+                    <button type="button" className="t-iconbtn t-kbd-hint" onClick={() => window.dispatchEvent(new CustomEvent('telemetry-ui:shortcuts'))} title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+                        <kbd>?</kbd>
+                    </button>
+                    <button type="button" className="t-btn t-btn-ghost t-kbd-btn" onClick={onPalette} title="Search (⌘K)">
+                        <Icon name="search" size={14} />
+                        <kbd>⌘K</kbd>
+                    </button>
+                </>
+            )}
             {boot.app.copyLink && (
                 <button type="button" className="t-iconbtn" onClick={copyLink} title="Copy link to this view">
                     <Icon name={copied ? 'sparkle' : 'link'} size={15} />

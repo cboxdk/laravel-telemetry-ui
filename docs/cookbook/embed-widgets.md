@@ -78,6 +78,7 @@ issue); read-only embeds work without it.
 | `<TelemetryEntities type />` | Every value of an entity type, with RED |
 | `<TelemetryTrace traceId />` | One trace: story, waterfall, logs, context |
 | `<TelemetryIssue group />` | One error group |
+| `<TelemetryToolbar />` | The scope and window controls — service, environment, time window, refresh, copy link — for the top of your page; everything mounted beside it follows them |
 
 Hooks and types come out of the same entry (`usePanel`, `useExplore`,
 `useEntityStory`, `useTrace`, `apiUrl`, and the payload types) for when you
@@ -127,7 +128,16 @@ people in your app — for example on a page of yours that embeds the target:
 ```
 
 Real anchors carry the dashboard URL as their `href`, so middle-click and
-"copy link" always land somewhere that renders the target. Embedded
+"copy link" always land somewhere that renders the target. If you serve the
+pages yourself, map the anchors too, so a copied link opens your page:
+
+```jsx
+<TelemetryUiProvider
+    config={{ base: '/observability' }}
+    onNavigate={({ pathname, search }) => router.visit(`/ops${pathname}${search}`)}
+    href={({ pathname, search }) => `/ops${pathname}${search}`}
+>
+``` Embedded
 components leave the document title and the page's theme class alone; those
 are yours.
 
@@ -135,7 +145,13 @@ are yours.
 
 `@cboxdk/telemetry-ui/styles.css` carries the design tokens and the components,
 and nothing that touches your `<body>` — the element rules are scoped to the
-provider's own root. Two knobs:
+provider's own root. The tokens themselves are declared on `:root`, though,
+under common names (`--primary`, `--border`, `--accent`, `--font-sans`,
+`--radius-sm`, …), so in an app whose own design system uses the same names
+they override yours everywhere. Import `@cboxdk/telemetry-ui/components.css`
+instead — the component rules alone — and answer the tokens on `.t-scope`
+from your own palette (see the override example below; every token in
+`tokens.css` is read by some component). Two knobs either way:
 
 - **Dark mode**: the components follow a `dark` class on an ancestor. Pass
   `className="dark"` to the provider to force it, or let your own theme class

@@ -79,6 +79,35 @@ describe('navigating inside an embed', () => {
     });
 });
 
+describe('the embedded toolbar', () => {
+    it('offers the window and scope controls without the standalone palette', async () => {
+        const { TelemetryToolbar } = await import('./index');
+        vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(bootFixture), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+
+        mount(<TelemetryToolbar />);
+
+        expect(await screen.findByRole('group', { name: 'Time window' })).toBeInTheDocument();
+        expect(screen.queryByTitle('Search (⌘K)')).toBeNull();
+        expect(screen.queryByLabelText('Keyboard shortcuts')).toBeNull();
+    });
+});
+
+describe('links inside an embed', () => {
+    it('points anchors where the host maps them, so a copied link opens the host page', async () => {
+        const { MemoryNavigation, useNavigation } = await import('../lib/navigation');
+        let navigation: ReturnType<typeof useNavigation> | null = null;
+        const Probe = () => { navigation = useNavigation(); return null; };
+
+        render(
+            <MemoryNavigation search="" href={({ pathname, search }) => `/host${pathname}${search}`}>
+                <Probe />
+            </MemoryNavigation>,
+        );
+
+        expect(navigation!.href('/entity/route', { value: '/checkout' })).toBe('/host/entity/route?value=%2Fcheckout');
+    });
+});
+
 describe('an embedded Explore', () => {
     it('switches signal in place instead of leaving for the dashboard', async () => {
         const { MemoryNavigation, PathScope, useNavigation } = await import('../lib/navigation');

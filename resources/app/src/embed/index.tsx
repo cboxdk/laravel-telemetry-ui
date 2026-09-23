@@ -18,6 +18,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { PanelView } from '../components/panels/PanelView';
 import { PathScope } from '../lib/navigation';
 import { TraceView } from '../components/drawer/TraceView';
+import { TopBar } from '../components/shell/TopBar';
+import { useBoot } from '../components/DimensionValue';
 import { ErrorGroupView } from '../components/drawer/ErrorGroupView';
 import { EntityIndexView, EntityView } from '../pages/EntityPages';
 import { ExploreView } from '../pages/ExplorePage';
@@ -25,6 +27,17 @@ import { PanelPage } from '../pages/PanelPage';
 import type { Signal } from '../api/types';
 
 export { TelemetryUiProvider, type TelemetryUiConfig } from './TelemetryUiProvider';
+
+/**
+ * The scope and time-window controls — service, environment, window, refresh,
+ * copy link — for the top of a host's page. Every control writes the view
+ * state, so the panels, Explore and entity pages mounted beside it follow.
+ */
+export function TelemetryToolbar() {
+    const boot = useBoot();
+
+    return <TopBar boot={boot} embedded />;
+}
 
 /** One panel, by the id the API knows it by (`requests-activity`, `routes-table`, …). */
 export function TelemetryPanel({ id, span = 2, params }: { id: string; span?: number; params?: Record<string, string> }) {

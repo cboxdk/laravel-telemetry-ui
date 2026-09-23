@@ -27,7 +27,7 @@ export interface TelemetryUiConfig {
  * window, drawer) lives in React rather than in the address bar. Pass
  * `search` + `onSearchChange` to put it in the host's URL instead.
  */
-export function TelemetryUiProvider({ config, children, client, search, onSearchChange, onNavigate, pathname, className }: {
+export function TelemetryUiProvider({ config, children, client, search, onSearchChange, onNavigate, href, pathname, className }: {
     config: TelemetryUiConfig;
     children: ReactNode;
     /** Extra classes on the root, e.g. `dark` to force the dark theme. */
@@ -42,6 +42,12 @@ export function TelemetryUiProvider({ config, children, client, search, onSearch
      * Handle it to route to a page of your own that embeds the target.
      */
     onNavigate?: (target: { pathname: string; search: string; url: string }) => void;
+    /**
+     * Where an anchor to a dashboard page points (middle-click, "copy link").
+     * Default: the full dashboard. Map it alongside `onNavigate` when the
+     * host serves the pages itself.
+     */
+    href?: (target: { pathname: string; search: string }) => string;
     pathname?: string;
 }) {
     const [own] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 10_000 } } }));
@@ -62,7 +68,7 @@ export function TelemetryUiProvider({ config, children, client, search, onSearch
 
     return (
         <QueryClientProvider client={client ?? own}>
-            <MemoryNavigation search={search} onSearchChange={onSearchChange} onNavigate={onNavigate} pathname={pathname}>
+            <MemoryNavigation search={search} onSearchChange={onSearchChange} onNavigate={onNavigate} href={href} pathname={pathname}>
                 {/* The components' element rules are scoped to this root, so
                     mounting them never restyles the host's page. */}
                 <div ref={root} className={`t-scope ${className ?? ''}`}>

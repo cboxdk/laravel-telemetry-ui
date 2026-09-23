@@ -63,13 +63,19 @@ export function RouterNavigation({ children }: { children: ReactNode }) {
  * router. That leaves for the full dashboard — or goes to `onNavigate`, so a
  * host can route it to a page of its own that embeds the target.
  */
-export function MemoryNavigation({ children, pathname = '/', search, onSearchChange, onNavigate }: {
+export function MemoryNavigation({ children, pathname = '/', search, onSearchChange, onNavigate, href }: {
     children: ReactNode;
     pathname?: string;
     search?: string;
     onSearchChange?: (search: string) => void;
     /** A link to another dashboard page. Default: open it in the full dashboard. */
     onNavigate?: (target: { pathname: string; search: string; url: string }) => void;
+    /**
+     * Where an anchor points, for middle-click and "copy link". Default: the
+     * full dashboard. A host that embeds the pages under its own routes maps
+     * them here, so a copied link opens the host's page, not the package's.
+     */
+    href?: (target: { pathname: string; search: string }) => string;
 }) {
     const [own, setOwn] = useState('');
     const controlled = search !== undefined;
@@ -80,7 +86,7 @@ export function MemoryNavigation({ children, pathname = '/', search, onSearchCha
         searchStr,
         // Real anchors point at the full dashboard: middle-click and "copy
         // link" land somewhere that renders every page.
-        href: (to, next) => `${boot().base}${to}${stringifySearch(next)}`,
+        href: (to, next) => (href ? href({ pathname: to, search: stringifySearch(next) }) : `${boot().base}${to}${stringifySearch(next)}`),
         go: ({ pathname: to, search: next }) => {
             const encoded = stringifySearch(next);
 
@@ -95,7 +101,7 @@ export function MemoryNavigation({ children, pathname = '/', search, onSearchCha
             else setOwn(encoded);
         },
         ownsDocument: false,
-    }), [pathname, searchStr, controlled, onSearchChange, onNavigate]);
+    }), [pathname, searchStr, controlled, onSearchChange, onNavigate, href]);
 
     return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
 }

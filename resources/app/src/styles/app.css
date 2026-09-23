@@ -265,6 +265,11 @@
     height: var(--topbar-h); flex: none; display: flex; align-items: center; gap: 8px; padding: 0 16px;
     border-bottom: 1px solid var(--border); background: var(--background);
 }
+/* Embedded (TelemetryToolbar): a bar in the host's page, not the app's chrome. */
+.t-topbar.t-topbar-embedded {
+    height: auto; min-height: 44px; padding: 6px 10px; border: 1px solid var(--border);
+    border-radius: var(--radius-md); background: var(--card); flex-wrap: wrap; row-gap: 6px;
+}
 .t-topbar-scope { display: flex; align-items: center; gap: 8px; flex: none; }
 .t-topbar .t-period { flex: none; }
 @media (max-width: 1100px) { .t-topbar .t-period .t-seg > button:nth-child(5) { display: none; } .t-topbar .t-combo-label { display: none; } }
