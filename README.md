@@ -66,6 +66,8 @@ MCP).
 composer require cboxdk/laravel-telemetry-ui
 ```
 
+PHP 8.3+, Laravel 12 or 13. No Node toolchain — the UI ships prebuilt.
+
 `cboxdk/laravel-telemetry` is a **hard dependency** — it defines the schema this
 UI reads, and provides the write path for annotations (the dashboard also
 instruments its own stack).

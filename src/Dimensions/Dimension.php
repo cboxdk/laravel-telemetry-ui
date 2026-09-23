@@ -18,7 +18,7 @@ use Closure;
  *
  * Declared dimensions appear in the facet sidebar, group-by menus and the
  * filter bar, and as clickable chips on every trace and request — and each of
- * them has an entity page (`/entities/{slug}/{value}`) that tells its story.
+ * them has an entity page (`/entity/{slug}?value=…` — a query param, because values contain slashes) that tells its story.
  *
  * A `resolve` callback turns raw ids into names for display ("Acme ApS #8655"):
  * it receives a batch of values and returns `[value => name]` for the ones it

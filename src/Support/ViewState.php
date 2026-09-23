@@ -29,7 +29,7 @@ use Symfony\Component\HttpFoundation\Cookie;
  *
  * ## Why a cookie
  *
- * The cards are server-rendered Livewire components: they query the backend
+ * The panels are fetched by the SPA: they query the backend
  * during the first render, so the window has to be known in PHP *before* the
  * query runs. A client-side store (localStorage, Alpine) is too late — the page
  * would paint the default range, run a full round of backend queries against

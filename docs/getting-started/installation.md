@@ -10,6 +10,9 @@ weight: 1
 composer require cboxdk/laravel-telemetry-ui
 ```
 
+Requires **PHP 8.3+** and **Laravel 12 or 13**. There is no Node toolchain to
+run: the dashboard's assets ship prebuilt in the package.
+
 The package auto-registers. Point it at your backends:
 
 ```dotenv

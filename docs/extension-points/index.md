@@ -132,6 +132,7 @@ Detail panels scoped to one entity, hidden pages, `entityPage()` and the
   was removed in v2; link to the SPA or read the API instead.
 - **[Custom drivers](custom-drivers.md)** — `ConnectionManager::extend('victoriametrics', fn ($config) => new MyDriver(...))` to add a backend; panels depend only on the contracts.
 - **[Issue trackers](issue-trackers.md)** — add a tracker (or a list of repos) implementing `IssuesSource`.
+- **[Navigation](navigation.md)** — `TelemetryUi::navLink()` puts links out of the dashboard (your settings, your home) at the foot of the rail, for hosts that mount it as the whole UI.
 - **[View state](view-state.md)** — `TelemetryUi::viewState()` to read (and move) the reader's time window, auto-refresh interval and scope, plus the `ViewStateChanged` event; it survives reload and links that carry no query string.
 - **[Connection switcher](connection-switcher.md)** — `TelemetryUi::connection()` puts your backend profiles in the dashboard header, so switching doesn't mean leaving.
 - **[MCP server](../cookbook/mcp.md)** — `TelemetryUi::mcpTool(MyTool::class)` exposes a read tool to agents.

@@ -37,7 +37,7 @@ weight: 99
 
 ## Later polish
 
-- Per-service detection scoping (today detection is fleet-wide).
+- Detection heuristics beyond a metric-name family (shape, cardinality).
 - Exceptions grouping with first/last-seen (needs app-side state).
 
 Done: short-TTL query cache (`cache.ttl`, cached GET responses so a busy
@@ -116,4 +116,4 @@ were removed); token auth for an externally hosted SPA.
   building on the MCP tools and `SignalContext`.
 - Post-to-Slack action alongside ticket creation.
 - Threshold / alert hints.
-- Per-service detection scoping (today detection is fleet-wide).
+- Detection heuristics beyond a metric-name family (shape, cardinality).

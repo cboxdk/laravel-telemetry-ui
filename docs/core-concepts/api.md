@@ -51,12 +51,12 @@ filters are applied per signal.
 | POST | `/view-state` | Reports the reader's window/scope (`period`, `from`, `to`, `service`, `env`, `refresh`); returns `{state}`. Sets the cookie and fires `ViewStateChanged` only when it changed. | master |
 | GET | `/pages/{page}` | `{page, label, group, panels: [{id, span}]}`. 404 for an unknown page, or a detected page with no data in scope. | page |
 | GET | `/panels/{panel}` | `{id, span, kind, …}` — the panel payload. Extra params scope detail panels. | any page the panel is on |
-| GET | `/explore/{signal}` | `signal` ∈ `requests`, `traces`, `logs`, `errors`. `{signal, rows, stats, series, heatmap, groupBy, groups, sample, range, where}`. Params `q`, `groupBy`, `limit` (default 500, max 2000). | page covering the signal |
+| GET | `/explore/{signal}` | `signal` ∈ `requests`, `traces`, `logs`, `errors`. `{signal, rows, stats, series, heatmap, groupBy, groups, sample, range, where}`. Params `q`, `groupBy`, `limit` (default 500 — 200 for `traces`, which can match many spans per trace — max 2000). | page covering the signal |
 | | | The explore payload also carries `query`: the compiled TraceQL/LogQL for that exact view (`{language, text}`), or null when it can't be rendered. | |
-| GET | `/facets/{signal}` | `{signal, facets: [{key, label, group, custom, values: [{value, count}]}], exact, sample}`. Param `keys[]` (default: the signal's built-in dimensions plus every declared one). | page covering the signal |
-| GET | `/entities/{type}` | Entity index: `{entity, signal, values, stats, sample}`. | `requests` |
+| GET | `/facets/{signal}` | `{signal, facets: [{key, label, group, custom, values: [{value, count}]}], exact, sample}`. Params `keys[]` (default: the signal's built-in dimensions plus every declared one; at most 60) and `limit` (the sample the counts come from when they aren't exact). | page covering the signal |
+| GET | `/entities/{type}` | Entity index: `{entity, signal, unit, values, stats, sample}`. `unit` says whether a value's count is requests or spans. | `requests` |
 | GET | `/entities/{type}/story?value=` | One value's story: `{entity, signal, where, red, series, heatmap, statusMix, insights, breakdowns, slowest, failing, recent, errors, deploys, raw, panels, sample, range}`. 422 without `value`. | `requests` |
-| GET | `/traces/{traceId}` | `{traceId, root, durationMs, error, spanCount, services, waterfall, chain, identities, context, profile, report, logs, dimensionLinks}`. Correlation parts are empty when their backend is down. | `traces` |
+| GET | `/traces/{traceId}` | `{traceId, root, durationMs, error, spanCount, services, waterfall, chain, identities, context, profile, report, logs, logsMatch, exceptions, dimensionLinks}`. `exceptions` are the exception records for the trace and `logsMatch` says whether its logs were matched by trace id or by a time window. A trace whose services fall outside the viewer's scope lock answers 404. Correlation parts are empty when their backend is down. | `traces` |
 | GET | `/errors/{group}` | Error group: `{group, stats, occurrences, detail, request, suspect, releases, lookbackDays, canCreateIssue, tracker, draft, llm}`. | `exceptions` |
 | GET | `/issues/{id}` | A tracker issue. 404 when no tracker is configured. | master |
 | POST | `/issues` | Create an issue from `{title, body, labels[]}`; 201 with the issue. | `manageTelemetryUi` |
@@ -79,7 +79,7 @@ page slug as its second argument. The page covering each Explore signal:
 
 `rows` and `stats` always come from the bounded sample. `groups` (and facet
 counts) are exact when the traces backend implements `AggregatesSpans`;
-`groupsExact` and the facets response's `exact` say which you got.
+`groupsExact` and the facets response's `exact` flag (its `sample` is a row count, not the object the explore payload carries) say which you got.
 
 ### Live tail (SSE)
 

@@ -15,8 +15,8 @@ return [
     | Enabled
     |--------------------------------------------------------------------------
     |
-    | Master switch. When disabled the package registers no routes and no
-    | Livewire components, making it completely inert (e.g. in queue
+    | Master switch. When disabled the package registers no routes at all —
+    | no SPA, no API, no assets — making it completely inert (e.g. in queue
     | workers or environments where the dashboard should not exist).
     |
     */
@@ -164,19 +164,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Branding
-    |--------------------------------------------------------------------------
-    |
-    | White-label the dashboard when embedding it in your own product: the
-    | sidebar name/logo and the accent colour. `name` defaults to your app
-    | name; `logo` is an image URL (shown before the name); `accent` is any CSS
-    | colour and overrides the green highlight. For deeper changes, publish and
-    | override the views (they're namespaced `telemetry-ui::`).
-    |
-    */
-
-    /*
-    |--------------------------------------------------------------------------
     | Copy link
     |--------------------------------------------------------------------------
     |
@@ -218,6 +205,19 @@ return [
     'dimensions' => [
         'label_ttl' => (int) env('TELEMETRY_UI_LABEL_TTL', 300),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Branding
+    |--------------------------------------------------------------------------
+    |
+    | White-label the dashboard when embedding it in your own product: the
+    | sidebar name/logo and the accent colour. `name` defaults to your app
+    | name; `logo` is an image URL (shown before the name); `accent` is any CSS
+    | colour and overrides the accent. There are no views to override in v2:
+    | for deeper changes, read the JSON API and build your own surface.
+    |
+    */
 
     'brand' => [
         'name' => env('TELEMETRY_UI_BRAND_NAME'),
@@ -652,13 +652,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Cards
+    | Dashboard panels
     |--------------------------------------------------------------------------
     |
-    | Cards shown on the dashboard, in order. Packages may append their own
-    | at runtime via TelemetryUi::card(MyCard::class); entries listed here
-    | come first. Every card is a Livewire component extending
-    | Cbox\TelemetryUi\Cards\Card.
+    | The panels on the dashboard page, in order. Packages may append their
+    | own at runtime with TelemetryUi::panel(MyPanel::class); entries listed
+    | here come first. A panel is a plain class extending
+    | Cbox\TelemetryUi\Panels\Panel — see docs/extension-points.
     |
     */
 

@@ -23,6 +23,22 @@ TELEMETRY_UI_ISSUES_TOKEN=ghp_…        # repo scope; a fine-grained read-only 
 
 Lists issues **and** pull requests for the repo (PRs are badged separately).
 
+### Several repos in one project
+
+A project split across repos (frontend, api, a sidecar) configures a **list**
+of connections instead of one, each with an optional `label`:
+
+```php
+// config/telemetry-ui.php
+'issues' => [
+    ['driver' => 'github', 'repo' => 'acme/frontend', 'token' => env('GITHUB_TOKEN'), 'label' => 'frontend'],
+    ['driver' => 'github', 'repo' => 'acme/api', 'token' => env('GITHUB_TOKEN'), 'label' => 'api'],
+],
+```
+
+The Issues page aggregates them, tags each row with its label and offers a repo
+filter. Mixed drivers work too — a GitHub repo next to a Linear team.
+
 ## Sentry
 
 ```php

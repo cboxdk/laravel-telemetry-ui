@@ -145,3 +145,12 @@ it('replaces, removes panels and removes whole pages (white-label)', function ()
 
     $this->getJson(apiUrl('pages/users'))->assertNotFound();
 });
+
+it('documents every registry method the docs tell hosts to call', function (): void {
+    $facade = file_get_contents(__DIR__.'/../../src/Facades/TelemetryUi.php');
+
+    // A missing @method is invisible to an IDE and to a host running PHPStan.
+    foreach (['page', 'panel', 'setPanels', 'removePanel', 'dimension', 'resolve', 'routeFamily', 'metricPanel', 'entityPage', 'navLink', 'mcpTool', 'restrictScopeUsing'] as $method) {
+        expect($facade)->toContain(" {$method}(");
+    }
+});

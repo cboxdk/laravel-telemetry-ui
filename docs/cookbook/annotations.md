@@ -34,7 +34,7 @@ If telemetry is disabled the command is a no-op (it won't fail your deploy).
 
 ## Marker types
 
-Five ship by default; each is both read (matched in Loki by its `event`) and
+Eight ship by default; each is both read (matched in Loki by its `event`) and
 writable by its key:
 
 | Key | Event | Colour |
@@ -44,6 +44,13 @@ writable by its key:
 | `scaling` | `app.scaling` | blue |
 | `migration` | `app.migration` | green |
 | `feature` | `app.feature_flag` | amber |
+| `version` | `app.version` | teal |
+| `cache_purge` | `app.cache_purge` | orange |
+| `statamic_cache_purge` | `statamic.cache.purge` | pink |
+
+`version` is the one `annotations.auto_version` writes for you when the
+deployed version changes; the two purge markers explain a latency cliff that
+is a cold cache rather than a deploy.
 
 ## Adding your own
 

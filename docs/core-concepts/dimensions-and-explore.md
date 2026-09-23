@@ -129,7 +129,7 @@ Defined in `src/Dimensions/Dimensions.php`, matching what
 | `http.response.status_code` | Status code | — |
 | `http.request.method` | Method | — |
 | `http.route` | Route | `route` |
-| `url.path` | Path | — |
+| `url.path` | Path | `path` |
 | `user.id` | User | `user` |
 | `client.address` | Client IP | `ip` |
 | `geo.country.iso_code` | Country | — |
@@ -196,9 +196,10 @@ time × latency heatmap, an optional group-by table and a virtualised,
 newest-first result list. Clicking a row opens the trace (or error group) in
 the drawer.
 
-Results are a bounded sample: `limit` defaults to 500 and is capped at 2000.
-The response's `sample` block says how big the sample was and whether it was
-truncated. See the [API reference](api.md#explore-and-facets).
+Results are a bounded sample: `limit` defaults to 500 (200 for `traces`, where one search can match many spans per trace) and is capped at 2000.
+The response's `sample` block says how big the sample was, whether it was
+truncated, whether its counts are exact, and — as `readSideFiltered` — whether
+a filter the backend could not evaluate was applied after fetching. See the [API reference](api.md#explore-and-facets).
 
 ### Working the view
 

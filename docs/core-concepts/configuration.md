@@ -28,6 +28,11 @@ var (if any) that overrides it without publishing.
 | `domain` | `TELEMETRY_UI_DOMAIN` | `null` | Optional domain to pin the routes to. |
 | `middleware` | — | `['web']` | Middleware on every dashboard and API route. The package **always** appends its own `Authorize` middleware (checks the `viewTelemetryUi` gate), so you don't list it. The `build/*` asset route skips the gate and the throttle. |
 | `throttle` | `TELEMETRY_UI_THROTTLE` | `600,1` | Rate limit as `maxAttempts,decayMinutes`. The SPA sends one API request per panel, facet list and Explore query (and again on each auto-refresh tick), so the budget is per request, not per page. Set to `null` / empty to disable. |
+| `copy_link` | `TELEMETRY_UI_COPY_LINK` | `true` | The header button that copies a shareable URL for the current view. Turn it off where the URL can't travel — a desktop host on `127.0.0.1:<random port>` copies a link only that machine can open. |
+| `brand.name` / `brand.logo` / `brand.accent` | `TELEMETRY_UI_BRAND_NAME` / `_LOGO` / `_ACCENT` | app name / — / — | White-label the shell: rail name, logo image URL, accent colour. There are no views to override in v2; for more, read the JSON API. |
+| `dimensions.label_ttl` | `TELEMETRY_UI_LABEL_TTL` | `300` | How long a name from `TelemetryUi::resolve()` is cached per value (misses included). `0` disables caching. See [dimensions](dimensions-and-explore.md#names-instead-of-ids). |
+| `analytics.internal_hosts` | `TELEMETRY_UI_INTERNAL_HOSTS` | — | Comma-separated hosts that count as your own site, so a self-referral is classified as "Internal" instead of "Referral". Subdomains count. |
+| `host-services` | — | built-ins | The exporter tiles on a host's detail page: each entry is a service name (`mysql`, `redis`, `postgres`, `node`) with an `up` metric and the `tiles` to show, where `{host}` is substituted with the host being viewed. Add an entry to surface your own exporter. |
 
 ### The gate
 
@@ -78,6 +83,9 @@ env-var surface is:
   becomes a Basic one. Add arbitrary headers under a connection's `headers`.
 - **`prefix`** (metrics) is the API path prefix — `mimir` is just `prometheus`
   under a prefix (default `/prometheus`).
+- **`verify`** (`TELEMETRY_UI_METRICS_CA_BUNDLE`, `_TEMPO_`, `_LOKI_`) points at
+  a CA bundle for a backend behind a private certificate authority. It takes a
+  path; leave it unset to use the system trust store.
 
 ### Issue tracker (optional)
 
@@ -144,7 +152,7 @@ the [annotations cookbook](../cookbook/annotations.md).
 | --- | --- | --- | --- |
 | `annotations.enabled` | `TELEMETRY_UI_ANNOTATIONS` | `true` | Read + draw annotations. |
 | `annotations.ttl` | `TELEMETRY_UI_ANNOTATIONS_TTL` | `30` | Seconds to cache the annotation read. |
-| `annotations.markers` | — | 6 built-ins | Map of marker key → `{ event, label, color, id_label, notes_label }`. Each is both read (matched in Loki by `event`) and written (`php artisan telemetry-ui:annotate <key>`). Add your own. |
+| `annotations.markers` | — | 8 built-ins | Map of marker key → `{ event, label, color, id_label, notes_label }`. Each is both read (matched in Loki by `event`) and written (`php artisan telemetry-ui:annotate <key>`). Add your own. |
 | `annotations.auto_version.enabled` | `TELEMETRY_UI_AUTO_VERSION` | `false` | Let `telemetry-ui:scan-versions` auto-annotate a newly-seen `laravel_version`. |
 | `annotations.auto_version.metric` | `TELEMETRY_UI_AUTO_VERSION_METRIC` | `system_cpu_utilization_ratio` | The metric carrying the `laravel_version` label to scan. |
 | `annotations.auto_version.lookback_days` | `TELEMETRY_UI_AUTO_VERSION_LOOKBACK` | `30` | How far back the scan looks for versions. |
@@ -159,7 +167,7 @@ panels](pages-and-panels.md).
 
 ## Live tail
 
-The SSE live-tail endpoint reads two keys that are not in the published config.
+The SSE live-tail endpoint reads two keys, both in the published config and both with env vars:
 Add them if you need other values:
 
 | Key | Default | Notes |
