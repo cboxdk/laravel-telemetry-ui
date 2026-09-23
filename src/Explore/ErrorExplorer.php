@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Explore;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Dimensions\Dimensions;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
@@ -30,12 +31,12 @@ final class ErrorExplorer
     ) {}
 
     /**
-     * @return list<Occurrence>
+     * The exception-record stream this scope reads: every log line carrying an
+     * `exception_group`, narrowed by the scope's filters. `source` is decided
+     * read-side (frontend records come from spans), so it isn't a label here.
      */
-    public function occurrences(RequestScope $scope, int $limit = self::DEFAULT_LIMIT): array
+    public function query(RequestScope $scope): LogQuery
     {
-        [$start, $end] = $scope->range();
-
         $query = $scope->logQuery()->whereLabel('exception_group', MatchOp::Neq, '');
 
         foreach ($scope->where as $filter) {
@@ -45,6 +46,18 @@ final class ErrorExplorer
                 $query = $query->whereLabel(self::label($filter->key), $op, $filter->value);
             }
         }
+
+        return $query;
+    }
+
+    /**
+     * @return list<Occurrence>
+     */
+    public function occurrences(RequestScope $scope, int $limit = self::DEFAULT_LIMIT): array
+    {
+        [$start, $end] = $scope->range();
+
+        $query = $this->query($scope);
 
         $wantSource = null;
 

@@ -52,6 +52,7 @@ filters are applied per signal.
 | GET | `/pages/{page}` | `{page, label, group, panels: [{id, span}]}`. 404 for an unknown page, or a detected page with no data in scope. | page |
 | GET | `/panels/{panel}` | `{id, span, kind, …}` — the panel payload. Extra params scope detail panels. | any page the panel is on |
 | GET | `/explore/{signal}` | `signal` ∈ `requests`, `traces`, `logs`, `errors`. `{signal, rows, stats, series, heatmap, groupBy, groups, sample, range, where}`. Params `q`, `groupBy`, `limit` (default 500, max 2000). | page covering the signal |
+| | | The explore payload also carries `query`: the compiled TraceQL/LogQL for that exact view (`{language, text}`), or null when it can't be rendered. | |
 | GET | `/facets/{signal}` | `{signal, facets: [{key, label, group, custom, values: [{value, count}]}], exact, sample}`. Param `keys[]` (default: the signal's built-in dimensions plus every declared one). | page covering the signal |
 | GET | `/entities/{type}` | Entity index: `{entity, signal, values, stats, sample}`. | `requests` |
 | GET | `/entities/{type}/story?value=` | One value's story: `{entity, signal, where, red, series, heatmap, statusMix, insights, breakdowns, slowest, failing, recent, errors, deploys, raw, panels, sample, range}`. 422 without `value`. | `requests` |

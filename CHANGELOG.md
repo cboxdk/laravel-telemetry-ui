@@ -186,6 +186,11 @@ change with before/after code.
   length (never past now), `n` jumps back to now, `r` refetches everything.
 - **Empty results offer the way out**: back to now, widen the window, clear
   the filters — whichever applies.
+- **See the query**: Explore shows the compiled TraceQL / LogQL for the exact
+  view, with "copy query" and "copy as curl" (`query` on the explore payload).
+- **Saved views**: name the current page + filters + window, recall it from the
+  button or ⌘K (per browser).
+- The Explore query bar sticks while you scroll the results.
 - **⌘K** never dead-ends: free text offers "search requests / logs /
   exceptions", a path offers its route page.
 - **Context everywhere.** The trace story ends with "Around this request"

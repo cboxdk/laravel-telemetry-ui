@@ -380,6 +380,8 @@ export interface ExploreResult<R = SpanRow | LogEntryRow | ErrorRow> {
     sample: Sample;
     range: { start: number; end: number };
     where: string[];
+    /** The backend query this view compiled to (TraceQL / LogQL), if available. */
+    query?: CompiledQuery | null;
 }
 
 export interface Facet {
@@ -448,6 +450,11 @@ export interface Insight {
     text: string;
     dim?: { key: string; value: string };
     link?: Link;
+}
+
+export interface CompiledQuery {
+    language: string;
+    text: string;
 }
 
 export interface EntityStory {

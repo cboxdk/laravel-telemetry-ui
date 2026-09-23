@@ -7,6 +7,7 @@ import { useSetSearch } from '../lib/state';
 import { useTheme } from '../lib/theme';
 import { Icon } from './Icon';
 import type { NavArea } from './shell/nav';
+import { useSavedViews } from './SavedViews';
 
 interface Command {
     id: string;
@@ -29,6 +30,7 @@ export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap
     const [query, setQuery] = useState('');
     const [active, setActive] = useState(0);
     const input = useRef<HTMLInputElement>(null);
+    const views = useSavedViews();
 
     useEffect(() => {
         if (open) {
@@ -63,6 +65,15 @@ export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap
             }
         }
 
+        const viewCommands: Command[] = views.map((v) => ({
+            id: `view-${v.name}`,
+            group: 'Saved views',
+            label: v.name,
+            hint: v.pathname.replace('/explore/', ''),
+            icon: 'pin',
+            run: () => void router.navigate({ to: v.pathname, search: Object.fromEntries(new URLSearchParams(v.search)) as never }),
+        }));
+
         const pages: Command[] = areas.flatMap((a) =>
             a.sections.flatMap((s) => s.items.map((i) => ({ id: `nav-${i.to}`, group: a.label, label: i.label, hint: s.title, icon: a.icon, run: nav(i.to, i.search) }))),
         );
@@ -76,7 +87,7 @@ export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap
             ...boot.periods.map((p) => ({ id: `period-${p.value}`, group: 'Time window', label: `Last ${p.label}`, icon: 'clock', run: () => set({ period: p.value, from: undefined, to: undefined }) })),
         ];
 
-        const all = [...pages, ...scope, ...actions];
+        const all = [...viewCommands, ...pages, ...scope, ...actions];
         const needle = q.toLowerCase();
         const matched = needle === '' ? all : f || dynamic.length > 0 ? [] : all.filter((c) => `${c.label} ${c.group} ${c.hint ?? ''}`.toLowerCase().includes(needle));
 
@@ -89,7 +100,7 @@ export function CommandPalette({ boot, areas, open, onClose }: { boot: Bootstrap
         ];
 
         return [...dynamic, ...matched, ...search].slice(0, 60);
-    }, [query, areas, boot, router, go, set, toggleTheme]);
+    }, [query, areas, boot, router, go, set, toggleTheme, views]);
 
     if (!open) return null;
 

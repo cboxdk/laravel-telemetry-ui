@@ -3,6 +3,9 @@ import { useMemo, useState } from 'react';
 import { useAnnotations, useExplore, useFacets } from '../api/hooks';
 import type { ErrorRow, LogEntryRow, Signal, SpanRow } from '../api/types';
 import { Combobox } from '../components/Combobox';
+import { CopyButton } from '../components/CopyButton';
+import { Popover } from '../components/Popover';
+import { SavedViewsButton } from '../components/SavedViews';
 import { useBoot } from '../components/DimensionValue';
 import { ErrorState, Empty, Skeleton } from '../components/States';
 import { FacetPanel } from '../components/explore/FacetPanel';
@@ -12,6 +15,7 @@ import { ErrorList, GroupTable, SpanList } from '../components/explore/Results';
 import { HeatmapChart } from '../components/charts/HeatmapChart';
 import { TimeChart } from '../components/charts/TimeChart';
 import { Icon } from '../components/Icon';
+import { apiUrl } from '../api/client';
 import { count, ms, percent } from '../lib/format';
 import { useLiveTail } from '../lib/liveTail';
 import { useTitle } from '../lib/title';
@@ -69,6 +73,7 @@ export function ExplorePage() {
                         ))}
                     </div>
                     <div className="t-topbar-spacer" />
+                    <SavedViewsButton />
                     {streamable && (
                         <button type="button" className={`t-btn t-btn-sm ${live ? 't-btn-live' : 't-btn-secondary'}`} onClick={() => setLive((l) => !l)} title="Live tail over SSE">
                             <Icon name={live ? 'pause' : 'play'} size={12} />
@@ -105,6 +110,7 @@ export function ExplorePage() {
                         <>
                             <div className="t-rtop">
                                 <StatsLine signal={signal} stats={data.stats} sample={data.sample} where={where} onWhere={(w) => set({ where: w })} />
+                                {data.query && <QueryPeek query={data.query} url={apiUrl(`explore/${signal}`, { ...scope, ...params })} />}
                                 {signal !== 'errors' && (
                                     <div className="t-groupby">
                                         <span>Sample</span>
@@ -221,6 +227,37 @@ function NoMatches({ scope, filters, onNow, onWiden, onClear }: {
                 {filters > 0 && <button type="button" className="t-btn t-btn-sm t-btn-ghost" onClick={onClear}><Icon name="x" size={12} />Clear filters</button>}
             </div>
         </Empty>
+    );
+}
+
+/**
+ * "What did you actually ask the backend?" — the compiled TraceQL/LogQL for
+ * this exact view, copyable, plus the API call behind it as curl. Filters in
+ * the UI are a query you can take elsewhere.
+ */
+function QueryPeek({ query, url }: { query: { language: string; text: string }; url: string }) {
+    const absolute = new URL(url, window.location.origin).toString();
+
+    return (
+        <Popover
+            align="right"
+            trigger={(toggle, open) => (
+                <button type="button" className={`t-pill t-pill-btn ${open ? 'is-on' : ''}`} onClick={toggle} title={`Show the ${query.language} behind this view`}>
+                    <Icon name="code" size={11} />{query.language}
+                </button>
+            )}
+        >
+            {() => (
+                <div className="t-querypeek">
+                    <div className="t-eyebrow">{query.language} sent to the backend</div>
+                    <pre className="t-code">{query.text}</pre>
+                    <div className="t-row-gap">
+                        <CopyButton text={query.text} label={`Copy ${query.language}`} />
+                        <CopyButton text={`curl -s '${absolute}' -H 'Accept: application/json'`} label="Copy as curl" />
+                    </div>
+                </div>
+            )}
+        </Popover>
     );
 }
 

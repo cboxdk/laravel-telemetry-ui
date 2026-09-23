@@ -463,6 +463,21 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
 .t-state-backend svg, .t-state-network svg { color: var(--warning-text); }
 .t-state-forbidden svg { color: var(--destructive); }
 .t-state.is-compact { padding: 8px 10px; border: 0; }
+.t-pill-btn { cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.t-pill-btn:hover, .t-pill-btn.is-on { border-color: var(--primary); color: var(--primary); }
+.t-views { display: flex; flex-direction: column; gap: 8px; padding: 10px; width: min(320px, 82vw); }
+.t-views-save { display: flex; gap: 6px; }
+.t-views-save input { flex: 1; min-width: 0; }
+.t-views-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; max-height: 260px; overflow: auto; }
+.t-views-list li { display: flex; align-items: center; gap: 2px; }
+.t-views-list li > button:first-child { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 6px; font-size: 12.5px; color: var(--foreground); text-align: left; }
+.t-views-list li > button:first-child:hover { background: var(--secondary); }
+.t-views-list code { margin-left: auto; color: var(--muted-foreground); font-size: 10.5px; }
+.t-views-x { padding: 4px; border-radius: 5px; color: var(--muted-foreground); }
+.t-views-x:hover { color: var(--destructive); background: var(--destructive-soft); }
+.t-views-empty { margin: 0; font-size: 11.5px; color: var(--muted-foreground); }
+.t-querypeek { display: flex; flex-direction: column; gap: 8px; padding: 10px; width: min(560px, 80vw); }
+.t-querypeek .t-code { white-space: pre-wrap; word-break: break-word; padding: 8px 10px; max-height: 240px; overflow: auto; }
 .t-empty-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px; }
 .t-empty { padding: 26px 12px; text-align: center; color: var(--muted-foreground); font-size: 12.5px; }
 
@@ -493,7 +508,8 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
 
 /* ── Explore ──────────────────────────────────────────────────────────── */
 .t-explore-page { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-.t-xbar { display: flex; flex-direction: column; gap: 10px; padding: 14px 20px 12px; border-bottom: 1px solid var(--border); background: var(--background); flex: none; }
+/* The query stays reachable while you scroll the results. */
+.t-xbar { display: flex; flex-direction: column; gap: 10px; padding: 14px 20px 12px; border-bottom: 1px solid var(--border); background: var(--background); flex: none; position: sticky; top: 0; z-index: 3; }
 .t-xbar-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .t-qbuild {
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 6px 8px; min-height: 40px;
@@ -586,6 +602,7 @@ button.t-rstat:focus-visible { outline: 2px solid var(--ring); outline-offset: 1
 .t-cap { font-size: 11px; color: var(--muted-foreground); margin-bottom: 2px; }
 
 .t-groups { display: flex; flex-direction: column; border-bottom: 1px solid var(--border); padding: 6px 12px 10px; font-size: 12.5px; }
+.t-groups-head { position: sticky; top: 0; background: var(--card); z-index: 1; }
 .t-groups-head, .t-groups-row { display: grid; grid-template-columns: minmax(0, 1fr) 80px 80px 80px 80px; gap: 12px; align-items: center; padding: 0 8px; min-height: 30px; }
 .t-groups-head { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground); font-weight: 600; }
 .t-groups-row { border-radius: 6px; color: var(--foreground); }
