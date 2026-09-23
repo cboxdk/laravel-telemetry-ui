@@ -167,6 +167,11 @@ change with before/after code.
   (`http.route = "hubhus:checkout"`, `=~` and "any value" to one anchored
   regex), so nothing is filtered read-side; only the facet counts are
   sampled, and the payload says so.
+- **`TelemetryUi::routeFamily()`**: one call turns a naming routing layer into
+  its own area — a page with the family's throughput and a per-value table
+  (prefix stripped, each row opening that value's page) — and declares the
+  matching derived dimension, so the same values are facets and filters
+  everywhere else. Livewire's own page is this shape.
 - **Names instead of ids**: `TelemetryUi::resolve('user.id', User::class,
   'name')` (Eloquent model + attribute/closure, optional match column) or a
   batch closure, also as `dimension(..., resolve:)`. The SPA shows the name

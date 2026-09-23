@@ -696,6 +696,71 @@ final class TelemetryUiManager
         };
     }
 
+    /**
+     * A routing layer that names its requests — Livewire's `livewire:{component}`,
+     * a host's own `hubhus:{screen}` — as a first-class area of the dashboard:
+     *
+     *     TelemetryUi::routeFamily('hubhus', label: 'Screens',
+     *         pattern: 'hubhus:{value}', dimension: 'hubhus.screen');
+     *
+     * Registers a page with the family's throughput and a per-value table
+     * (volume, status mix, latency, p95), and — when `$dimension` is given —
+     * declares that dimension derived from `http.route`, so the same values
+     * become facets, chips, filters and entity pages everywhere else too.
+     *
+     * @param  string  $slug  the page slug (also the family's id)
+     * @param  string  $pattern  how the layer writes the route, with `{value}`
+     * @param  string|null  $valueLabel  what one value is called ("Screen")
+     */
+    public function routeFamily(
+        string $slug,
+        string $label,
+        string $pattern,
+        ?string $dimension = null,
+        ?string $group = 'Activity',
+        ?string $icon = null,
+        ?string $valueLabel = null,
+        ?string $source = null,
+    ): self {
+        $source ??= 'http.route';
+        $this->routeFamilies[$slug] = [
+            'label' => $label,
+            'pattern' => $pattern,
+            'source' => $source,
+            'dimension' => $dimension,
+            'valueLabel' => $valueLabel ?? rtrim($label, 's'),
+        ];
+
+        $this->page($slug, $label, group: $group, icon: $icon);
+        $this->setPanels($slug, [Builtin\Family\FamilyActivity::class, Builtin\Family\FamilyTable::class]);
+
+        if ($dimension !== null) {
+            $this->dimension(
+                $dimension,
+                label: $valueLabel ?? rtrim($label, 's'),
+                group: $label,
+                plural: $label,
+                from: $source,
+                pattern: $pattern,
+            );
+        }
+
+        return $this;
+    }
+
+    /**
+     * The family a page belongs to, for its panels.
+     *
+     * @return array{label: string, pattern: string, source: string, dimension: string|null, valueLabel: string}|null
+     */
+    public function routeFamilyFor(string $slug): ?array
+    {
+        return $this->routeFamilies[$slug] ?? null;
+    }
+
+    /** @var array<string, array{label: string, pattern: string, source: string, dimension: string|null, valueLabel: string}> */
+    private array $routeFamilies = [];
+
     public function removeDimension(string $key): self
     {
         $this->dimensionRegistry()->remove($key);

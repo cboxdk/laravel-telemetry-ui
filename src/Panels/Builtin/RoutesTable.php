@@ -14,6 +14,8 @@ use Cbox\TelemetryUi\Support\Format;
  * Per-route request table: status classes, totals, avg and p95, with
  * drill-down links to matching traces.
  *
+ * @phpstan-import-type Link from Ui
+ *
  * @phpstan-type RouteRow array{method: string, route: string, ok: float, '4xx': float, '5xx': float, total: float, time: float, p95: float|null, spark: list<float>}
  */
 class RoutesTable extends Panel
@@ -120,13 +122,11 @@ class RoutesTable extends Panel
         $table = [];
 
         foreach ($rows as $row) {
-            // The purpose-built detail page for this route (its own throughput,
-            // latency, error rate and traces) — not a pre-filtered trace search.
-            $link = Ui::entity('route', $row['route']);
+            $link = $this->routeLink($row['route']);
 
             $table[] = [
                 'method' => Ui::cell($row['method'], ['badge' => $row['method'], 'tone' => $row['method'] === 'GET' ? 'info' : 'ok']),
-                'route' => Ui::cell($row['route'], ['mono' => true, 'link' => $link, 'dim' => ['key' => 'http.route', 'value' => $row['route']]]),
+                'route' => Ui::cell($this->routeValue($row['route']), ['mono' => true, 'link' => $link, 'dim' => $this->routeDimension($row['route'])]),
                 'trend' => Ui::cell(null, ['spark' => $row['spark'], 'tone' => $row['5xx'] > 0 ? 'danger' : ($row['4xx'] > 0 ? 'warn' : 'ok')]),
                 'ok' => Ui::cell(Format::count($row['ok']), ['raw' => $row['ok']]),
                 '4xx' => Ui::cell(Format::count($row['4xx']), ['raw' => $row['4xx'], 'tone' => $row['4xx'] > 0 ? 'warn' : null]),
@@ -142,7 +142,7 @@ class RoutesTable extends Panel
 
         return Ui::table($this->tableTitle(), [
             Ui::col('method', 'Method'),
-            Ui::col('route', 'Route'),
+            Ui::col('route', $this->routeColumnLabel()),
             Ui::col('trend', 'Trend'),
             Ui::num('ok', '1/2/3XX'),
             Ui::num('4xx', '4XX'),
@@ -154,7 +154,7 @@ class RoutesTable extends Panel
             'subtitle' => $this->tableSubtitle(),
             'error' => $error,
             'empty' => 'No requests in this period.',
-            'controls' => $this->searchable() ? [Ui::search('route_search', 'Search', $this->search, 'Search routes…')] : null,
+            'controls' => $this->searchable() ? [Ui::search('route_search', 'Search', $this->search, 'Search '.strtolower($this->routeColumnLabel()).'s…')] : null,
             'drill' => $this->drillLink(),
         ], static fn ($v): bool => $v !== null));
     }
@@ -185,6 +185,40 @@ class RoutesTable extends Panel
     protected function tableTitle(): string
     {
         return 'Routes';
+    }
+
+    /** What the key column is called — a family calls it "Screen". */
+    protected function routeColumnLabel(): string
+    {
+        return 'Route';
+    }
+
+    /** What the row shows for a route (a family strips its prefix). */
+    protected function routeValue(string $route): string
+    {
+        return $route;
+    }
+
+    /**
+     * Where the row leads: the route's own page by default.
+     *
+     * @return Link
+     */
+    protected function routeLink(string $route): array
+    {
+        // The purpose-built detail page for this route (its own throughput,
+        // latency, error rate and traces) — not a pre-filtered trace search.
+        return Ui::entity('route', $route);
+    }
+
+    /**
+     * The dimension value behind the row, for the cell's drill-down menu.
+     *
+     * @return array{key: string, value: string}
+     */
+    protected function routeDimension(string $route): array
+    {
+        return ['key' => 'http.route', 'value' => $route];
     }
 
     protected function tableSubtitle(): string

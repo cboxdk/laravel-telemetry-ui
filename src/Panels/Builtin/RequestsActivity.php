@@ -31,7 +31,7 @@ class RequestsActivity extends Panel
             // preceding equal window, for the throughput delta.
             $previous = $this->metrics()->query($count->increase($this->promDuration())->sumBy(), $start);
         } catch (SourceException $exception) {
-            return $this->chartCard('Requests', error: $exception->getMessage());
+            return $this->chartCard($this->activityTitle(), error: $exception->getMessage());
         }
 
         $classTotals = ['ok' => 0.0, '4xx' => 0.0, '5xx' => 0.0];
@@ -44,7 +44,7 @@ class RequestsActivity extends Panel
         $previousTotal = array_sum(array_map(static fn ($sample): float => $sample->value, $previous));
 
         return $this->chartCard(
-            title: 'Requests',
+            title: $this->activityTitle(),
             subtitle: 'Incoming HTTP requests per minute, split by response status class',
             series: $this->bucketedSeries($range),
             stats: [
@@ -136,5 +136,11 @@ class RequestsActivity extends Panel
             '5xx' => '5xx',
             default => 'ok',
         };
+    }
+
+    /** What this throughput chart is about — a route family names itself. */
+    protected function activityTitle(): string
+    {
+        return 'Requests';
     }
 }
