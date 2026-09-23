@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Http\Api\ApiError;
 use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
+use Cbox\TelemetryUi\Panels\Builtin\Declared\MetricPanel;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,23 +24,27 @@ final class PanelController
     public function __invoke(Request $request, TelemetryUiManager $manager, string $panel): JsonResponse
     {
         $class = $manager->findPanel($panel);
+        $declared = $class === null ? $manager->declaredPanel($panel) : null;
 
-        if ($class === null) {
+        if ($class === null && $declared === null) {
             return ApiError::notFound("Unknown panel [{$panel}].");
         }
 
-        $pages = $manager->pagesFor($class);
+        $class ??= MetricPanel::class;
+        $pages = $declared !== null ? [$declared['page']] : $manager->pagesFor($class);
 
         if ($pages !== [] && array_filter($pages, static fn (string $page): bool => Gate::allows('viewTelemetryUi', [$page])) === []) {
             return ApiError::forbidden();
         }
 
         try {
-            $data = (new $class(RequestScope::fromRequest($request)))->serve();
+            $scope = RequestScope::fromRequest($request);
+            // A declared panel is told which one it is.
+            $data = (new $class($declared !== null ? $scope->with(['_panel' => $panel]) : $scope))->serve();
         } catch (SourceException $exception) {
             return ApiError::backend($exception->getMessage());
         }
 
-        return Json::ok(['id' => $panel, 'span' => $class::span(), ...$data]);
+        return Json::ok(['id' => $panel, 'span' => $declared['spec']['span'] ?? $class::span(), ...$data]);
     }
 }

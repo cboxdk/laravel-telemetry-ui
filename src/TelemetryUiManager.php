@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Model;
 use Laravel\Mcp\Server\Tool;
 
 /**
+ * @phpstan-type DeclaredPanel array{title: string, metric: string, type: string, unit: string|null, by: string|null, rate: bool, quantile: float|null, stat: string|null, subtitle: string|null, span: int, where: array<string, string>}
+ *
  * Registry for dashboard pages, panels, dimensions and MCP tools. Registration
  * is data-only (class-strings, labels, closures) so packages can contribute
  * from their service providers at zero boot cost.
@@ -556,6 +558,83 @@ final class TelemetryUiManager
 
         return array_values(array_unique($panels));
     }
+
+    /**
+     * A chart for a metric the host (or a sidecar in any language) emits —
+     * declared, not coded:
+     *
+     *     TelemetryUi::metricPanel('indexer-queue', page: 'indexer',
+     *         title: 'Queue depth', metric: 'indexer_queue_depth',
+     *         type: 'area', stat: 'Now');
+     *
+     * Anything a Prometheus/Mimir-compatible backend holds can become a panel
+     * this way: a Go or Rust process exporting OTLP gets a real page without a
+     * line of PHP per chart. `by` splits the series by a label, `rate` turns a
+     * counter into per-minute throughput, `quantile` reads a histogram, and
+     * `where` adds label matchers (`state="open"`).
+     *
+     * @param  array<string, string>  $where  extra label matchers
+     */
+    public function metricPanel(
+        string $id,
+        string $title,
+        string $metric,
+        string $page,
+        string $type = 'line',
+        ?string $unit = null,
+        ?string $by = null,
+        bool $rate = false,
+        ?float $quantile = null,
+        ?string $stat = null,
+        ?string $subtitle = null,
+        int $span = 1,
+        array $where = [],
+    ): self {
+        $this->declaredPanels[$page][$id] = [
+            'title' => $title,
+            'metric' => $metric,
+            'type' => $type,
+            'unit' => $unit,
+            'by' => $by,
+            'rate' => $rate,
+            'quantile' => $quantile,
+            'stat' => $stat,
+            'subtitle' => $subtitle,
+            'span' => max(1, min(3, $span)),
+            'where' => $where,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Declared panels on a page, by id, in registration order.
+     *
+     * @return array<string, DeclaredPanel>
+     */
+    public function declaredPanels(string $page): array
+    {
+        return $this->declaredPanels[$page] ?? [];
+    }
+
+    /**
+     * A declared panel's spec and the page it belongs to.
+     *
+     * @return array{page: string, spec: DeclaredPanel}|null
+     */
+    public function declaredPanel(string $id): ?array
+    {
+        foreach ($this->declaredPanels as $page => $panels) {
+            if (isset($panels[$id])) {
+                return ['page' => $page, 'spec' => $panels[$id]];
+            }
+        }
+
+        return null;
+    }
+
+    /** @var array<string, array<string, DeclaredPanel>> */
+    private array $declaredPanels = [];
 
     /**
      * The panel class registered under an id (`routes-table`), or null.

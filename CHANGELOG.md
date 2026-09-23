@@ -167,6 +167,10 @@ change with before/after code.
   (`http.route = "hubhus:checkout"`, `=~` and "any value" to one anchored
   regex), so nothing is filtered read-side; only the facet counts are
   sampled, and the payload says so.
+- **`TelemetryUi::metricPanel()`**: declare a chart over any metric instead of
+  writing a panel class — gauge, counter (`rate:`), histogram (`quantile:`),
+  split `by:` a label, narrowed with `where:`. A sidecar in another language
+  that exports OTLP gets a real page with no PHP per chart.
 - **`TelemetryUi::routeFamily()`**: one call turns a naming routing layer into
   its own area — a page with the family's throughput and a per-value table
   (prefix stripped, each row opening that value's page) — and declares the

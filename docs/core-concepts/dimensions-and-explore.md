@@ -58,6 +58,34 @@ returns the registry.
 Undeclared attributes stay filterable by their raw key. They just don't get a
 label, a facet or an entity page.
 
+### A dimension that lives inside another attribute
+
+A value doesn't have to be its own attribute. When a routing layer encodes it
+in a standard one — `livewire:{component}`, `hubhus:{screen}` — declare where
+to read it from:
+
+```php
+TelemetryUi::dimension('hubhus.screen', label: 'Screen', group: 'Hubhus',
+    from: 'http.route', pattern: 'hubhus:{value}');
+```
+
+The pattern is a template, not a regex: the literal parts around `{value}` are
+what the emitter writes. That keeps both directions exact, so filters still
+compile to a query the backend answers —
+`hubhus.screen = "checkout"` becomes `http.route = "hubhus:checkout"`,
+`hubhus.screen != ""` ("any screen") and `=~` become one anchored regex on the
+source. Nothing is filtered after the fact.
+
+The dimension is otherwise ordinary: chips on rows, a filter key with value
+typeahead, group-by, and its own entity page. The one difference is counting —
+no backend can group by a value it doesn't store, so **facet counts for a
+derived dimension come from the sample** and the response reports
+`exact: false`.
+
+For the common case — a layer that names requests and deserves its own page —
+`TelemetryUi::routeFamily()` does this plus the page in one call. See
+[developer integrations](../extension-points/index.md#a-routing-layer-as-its-own-area).
+
 ### Names instead of ids
 
 Traces carry ids (`user.id = 20`, `hubhus.customer_id = 8655`). Give a

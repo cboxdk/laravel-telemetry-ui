@@ -54,6 +54,50 @@ a table, stats row, bars or any other kind with the `Ui` builders. The kinds
 are listed in [pages & panels](../core-concepts/pages-and-panels.md#the-payload-contract);
 the toolkit and conventions are in [custom panels](custom-panels.md).
 
+## Declare a panel instead of coding it
+
+A chart over a metric needs no class — useful when the metric comes from a
+sidecar in another language (Go, Rust, anything exporting OTLP), where there
+is no PHP to hang a panel on:
+
+```php
+TelemetryUi::page('indexer', 'Indexer', group: 'Infrastructure');
+TelemetryUi::setPanels('indexer', []);            // no built-ins on this page
+
+TelemetryUi::metricPanel('indexer-queue', page: 'indexer',
+    title: 'Queue depth', metric: 'indexer_queue_depth', type: 'area', stat: 'Now');
+
+TelemetryUi::metricPanel('indexer-docs', page: 'indexer', span: 2,
+    title: 'Documents indexed', metric: 'indexer_docs_total', rate: true, by: 'status');
+
+TelemetryUi::metricPanel('indexer-latency', page: 'indexer',
+    title: 'Latency p95', metric: 'indexer_duration_seconds_bucket', quantile: 0.95, unit: 'ms');
+```
+
+A gauge reads as itself, `rate: true` turns a counter into per-minute
+throughput, `quantile:` reads a histogram, `by:` splits the series by a label
+and `where:` adds label matchers. Declared panels get the same scope, gate,
+auto-refresh, deploy markers and brush-to-zoom as coded ones — they are just
+configuration instead of code. Reach for a panel class when the payload isn't a chart
+(tables, composites, stories).
+
+## A routing layer as its own area
+
+Some layers name their requests rather than emitting their own attribute:
+Livewire writes `livewire:{component}`, and a host's own layer might write
+`hubhus:{screen}`. One call makes that a first-class part of the dashboard:
+
+```php
+TelemetryUi::routeFamily('hubhus', label: 'Screens',
+    pattern: 'hubhus:{value}', dimension: 'hubhus.screen');
+```
+
+That registers a page (the family's throughput plus a per-value table with the
+prefix stripped, each row opening that value's page) **and** declares
+`hubhus.screen` as a [derived dimension](../core-concepts/dimensions-and-explore.md#a-dimension-that-lives-inside-another-attribute),
+so the same values become facets, chips, filters and entity pages everywhere
+else.
+
 ## Register: add, replace, remove
 
 ```php

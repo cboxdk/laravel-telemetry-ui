@@ -49,10 +49,18 @@ final class PageController
             'page' => $page,
             'label' => $meta['label'],
             'group' => $meta['group'],
-            'panels' => array_map(static fn (string $panel): array => [
-                'id' => $panel::id(),
-                'span' => $panel::span(),
-            ], $manager->panels($page)),
+            'panels' => [
+                ...array_map(static fn (string $panel): array => [
+                    'id' => $panel::id(),
+                    'span' => $panel::span(),
+                ], $manager->panels($page)),
+                // Panels the host declared rather than coded (metricPanel()).
+                ...array_map(
+                    static fn (string $id, array $spec): array => ['id' => $id, 'span' => $spec['span']],
+                    array_keys($manager->declaredPanels($page)),
+                    array_values($manager->declaredPanels($page)),
+                ),
+            ],
         ]);
     }
 }
