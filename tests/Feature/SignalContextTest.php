@@ -7,6 +7,8 @@ use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Queries\Results\Span;
 use Cbox\TelemetryUi\Queries\Results\SpanKind;
 use Cbox\TelemetryUi\Queries\Results\Trace;
+use Illuminate\Cache\ArrayStore;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 function rangeResponse(float ...$values): array
@@ -173,4 +175,32 @@ it('keeps a flat-zero signal that says zero is the answer', function (): void {
     $summaries = app(SignalContext::class)->for(['service_name' => 'cbox-web'], new DateTimeImmutable('@1735689600'), new DateTimeImmutable('@1735689780'));
 
     expect(array_map(fn (MetricSummary $s): string => $s->label, $summaries))->toBe(['Worker queue']);
+});
+
+it('reads a cached baseline back from a store that returns numbers as strings, as Redis does', function (): void {
+    // Laravel's Redis and Memcached stores keep a number unserialized, so it
+    // comes back as a numeric string. The array store used elsewhere doesn't.
+    Cache::extend('numbers-as-strings', fn () => Cache::repository(new class extends ArrayStore
+    {
+        public function get($key): mixed
+        {
+            $value = parent::get($key);
+
+            return is_int($value) || is_float($value) ? (string) $value : $value;
+        }
+    }));
+    config()->set('cache.stores.stringy', ['driver' => 'numbers-as-strings']);
+    config()->set('cache.default', 'stringy');
+    config()->set('telemetry-ui.context.signals', [
+        ['label' => 'Host CPU', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_cpu_utilization_ratio{{scope}})'],
+    ]);
+
+    Http::fake(['prometheus.test:9090/api/v1/query_range*' => Http::response(rangeResponse(0.2, 0.5, 0.9))]);
+
+    $read = fn (): array => app(SignalContext::class)->for(['service_name' => 'cbox-web'], new DateTimeImmutable('@1735689600'), new DateTimeImmutable('@1735689780'));
+
+    $first = $read();
+    $second = $read(); // the baseline now comes from the cache, as a string
+
+    expect($second[0]->baseline)->toBeFloat()->toEqualWithDelta($first[0]->baseline, 1e-9);
 });

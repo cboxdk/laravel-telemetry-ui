@@ -160,7 +160,9 @@ final readonly class SignalContext
         $bucket = intdiv($end->getTimestamp(), 300) * 300;
         $key = 'telemetry-ui:baseline:'.hash('xxh128', $query.'|'.$bucket);
 
-        return $this->cache->store()->remember($key, $ttl, function () use ($query, $start, $end): ?float {
+        // Redis (and Memcached) keep a number as the bare number and hand it
+        // back as a string, so what comes out of the cache is read, not trusted.
+        $cached = $this->cache->store()->remember($key, $ttl, function () use ($query, $start, $end): ?float {
             try {
                 $points = $this->points($this->connections->metrics()->queryRange(MetricQuery::raw($query), $start, $end));
             } catch (SourceException) {
@@ -169,6 +171,8 @@ final readonly class SignalContext
 
             return $points === [] ? null : array_sum($points) / count($points);
         });
+
+        return is_numeric($cached) ? (float) $cached : null;
     }
 
     /**
