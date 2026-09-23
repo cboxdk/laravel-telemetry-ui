@@ -172,6 +172,26 @@ Results are a bounded sample: `limit` defaults to 500 and is capped at 2000.
 The response's `sample` block says how big the sample was and whether it was
 truncated. See the [API reference](api.md#explore-and-facets).
 
+### Working the view
+
+- **Filters**: every chip is a `where[]` in the URL. `+ filter` suggests keys
+  from the registry, and once you type `key=` it suggests the values actually
+  present in this view, with counts and resolved names. Click a chip's
+  operator to invert it, ✕ to drop it, backspace on the empty box to pop the
+  last one.
+- **The query behind it**: the chip next to the stats shows the compiled
+  TraceQL / LogQL for this exact view, with copy and copy-as-curl. The same
+  string is on the API response as `query`.
+- **Saved views** name the page + filters + window and come back from the
+  button or ⌘K. They live in the viewer's browser (localStorage), so they are
+  a personal convenience, not shared config.
+- **Keyboard**: `?` lists everything. `/` focuses search, `[` / `]` step the
+  window by its own length, `n` returns to now, `r` refetches, `j` / `k` walk
+  the results — with a trace open they step it in place, so a page of failures
+  triages without the mouse.
+- **Empty is actionable**: no matches offers back-to-now, a wider window and
+  clearing the filters, whichever applies.
+
 ### Facets and group-by: exact or sampled
 
 Whether counts are exact depends on the traces backend:
