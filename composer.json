@@ -33,7 +33,7 @@
         "illuminate/contracts": "^12.0|^13.0",
         "illuminate/http": "^12.0|^13.0",
         "illuminate/support": "^12.0|^13.0",
-        "laravel/mcp": "~0.8.2"
+        "laravel/mcp": "~0.8.2 || ^0.9 || ^1.0"
     },
     "require-dev": {
         "larastan/larastan": "^3.0",

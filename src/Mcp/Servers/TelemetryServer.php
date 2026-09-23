@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Mcp\Tools\QueryRangeTool;
 use Cbox\TelemetryUi\Mcp\Tools\SearchTracesTool;
 use Cbox\TelemetryUi\Mcp\Tools\TraceContextTool;
 use Cbox\TelemetryUi\TelemetryUiManager;
+use Composer\InstalledVersions;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Tool;
 
@@ -24,7 +25,7 @@ class TelemetryServer extends Server
 {
     protected string $name = 'Telemetry UI';
 
-    protected string $version = '0.1.0';
+    protected string $version = '2.0.0';
 
     protected string $instructions = <<<'MARKDOWN'
         You are connected to a Laravel app's observability stack (Tempo traces,
@@ -61,6 +62,11 @@ class TelemetryServer extends Server
      */
     protected function boot(): void
     {
+        // Advertise the installed package version, not a constant that drifts.
+        if (InstalledVersions::isInstalled('cboxdk/laravel-telemetry-ui')) {
+            $this->version = InstalledVersions::getPrettyVersion('cboxdk/laravel-telemetry-ui') ?? $this->version;
+        }
+
         $extra = app(TelemetryUiManager::class)->mcpTools();
 
         if ($extra !== []) {

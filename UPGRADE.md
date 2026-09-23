@@ -177,17 +177,25 @@ $rows[] = [
 `$this->pageLink($page, $extra)` is the protected helper on `Panel` that
 replaces `pageUrl()`; it returns `Ui::page(...)` with empty params dropped.
 
-### Embedding cards in host Blade pages is removed
+### Embedding: Livewire widgets are gone, React components replace them
 
 `@telemetryUiAssets`, `<livewire:telemetry-ui.*>` widgets (including
-`<livewire:telemetry-ui.trace-drawer />`) and the `:embedded` prop are gone,
-with no replacement in 2.0. If you embedded cards:
+`<livewire:telemetry-ui.trace-drawer />`) and the `:embedded` prop are gone.
+What replaces them depends on your front end:
 
-- link to the dashboard page instead (`/telemetry-ui/p/{page}`, or an entity
-  page such as `/telemetry-ui/entity/route?value=GET%20/checkout`), or
-- read the data from the JSON API (`GET /telemetry-ui/api/v2/panels/{panel}`)
-  and render it yourself. The API runs behind the same `viewTelemetryUi` gate
-  and scope lock. See [the API reference](docs/core-concepts/api.md).
+- **A React (or Inertia) front end** mounts the dashboard's own components —
+  `<TelemetryPanel id="requests-activity" />`, `<TelemetryExplore />`,
+  `<TelemetryEntity />`, `<TelemetryTrace />` — inside its pages. They ship in
+  the composer package and install from `vendor/` with
+  `"@cboxdk/telemetry-ui": "file:vendor/cboxdk/laravel-telemetry-ui/resources/app"`.
+  See [embed the dashboard in your own app](docs/cookbook/embed-widgets.md).
+- **A Blade-only front end** links to the dashboard (`/telemetry-ui/p/{page}`,
+  or an entity page such as `/telemetry-ui/entity/route?value=GET%20/checkout`),
+  or reads the JSON API (`GET /telemetry-ui/api/v2/panels/{panel}`) and renders
+  it itself.
+
+Both run behind the same `viewTelemetryUi` gate and scope lock as the
+dashboard. See [the API reference](docs/core-concepts/api.md).
 
 ### Routes and deep links
 

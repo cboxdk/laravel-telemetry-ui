@@ -7,9 +7,9 @@ counterpart to
 [`cboxdk/laravel-telemetry`](https://github.com/cboxdk/laravel-telemetry),
 schema-aware of every metric and span attribute it emits.
 
-> **Status: v2.0 in development** on `feat/v2-spa`. v2 replaces the Livewire UI
-> with a versioned JSON API and a React single-page app. Coming from 1.x? Read
-> [UPGRADE.md](UPGRADE.md) and the [CHANGELOG](CHANGELOG.md) first.
+> **v2** replaces the Livewire UI with a versioned JSON API and a React app the
+> package serves itself. Coming from 1.x? Read [UPGRADE.md](UPGRADE.md) and the
+> [CHANGELOG](CHANGELOG.md) first.
 
 ## Why not just Grafana?
 
@@ -32,7 +32,10 @@ MCP).
 - **Dimensions** — declare the attributes that matter to you
   (`TelemetryUi::dimension('billing.customer_id', label: 'Customer')`) and they
   show up as facets, group-by options, filter chips and clickable chips, with
-  an optional link back into your app.
+  an optional link back into your app. Show names instead of ids
+  (`TelemetryUi::resolve('user.id', User::class, 'name')`), or read a dimension
+  out of another attribute when a routing layer encodes it there
+  (`from: 'http.route', pattern: 'portal:{value}'`).
 - **Entity pages** — a route, query, job, host, user or customer is a page that
   tells a story: RED, trend with deploys, where failures concentrate,
   correlated error groups, slowest and failing traces. Raw attributes come
@@ -55,8 +58,16 @@ MCP).
   screen; optional schema families (e.g. `cboxdk/statamic-telemetry`) light up
   their own pages when their metrics exist.
 - **Extensible in PHP** — add pages and panels with plain PHP classes that
-  return a typed payload (`Ui::table()`, `Ui::stats()`, a chart). No JS build
-  on your side.
+  return a typed payload (`Ui::table()`, `Ui::stats()`, a chart), or declare a
+  chart over any metric with `TelemetryUi::metricPanel()` — no class, which is
+  how a sidecar in another language gets its own page. No JS build on your side.
+- **Embeddable** — mount panels, Explore, entity pages and traces as React
+  components inside your own React/Inertia app. They ship inside the composer
+  package, so npm installs them from `vendor/`; no registry.
+- **Fast to work in** — filter-bar value typeahead, ⌘K, keyboard triage (`j`/`k`
+  through traces, `[`/`]` to step the time window), saved views, the compiled
+  TraceQL/LogQL behind any view with copy-as-curl, and no dead ends: every
+  number that names a subset opens it.
 - **Inert when idle** — boot registers class-string maps only; disable with one
   env var.
 
@@ -102,12 +113,14 @@ Full documentation lives in [`docs/`](docs/index.md):
   [Dimensions & Explore](docs/core-concepts/dimensions-and-explore.md) ·
   [JSON API](docs/core-concepts/api.md)
 - Cookbook: [Grafana proxy](docs/cookbook/connect-via-grafana-proxy.md) ·
-  [annotations](docs/cookbook/annotations.md) · [MCP](docs/cookbook/mcp.md)
-- Extending: [custom panels](docs/extension-points/custom-panels.md) ·
+  [annotations](docs/cookbook/annotations.md) · [MCP](docs/cookbook/mcp.md) ·
+  [embed in your own app](docs/cookbook/embed-widgets.md)
+- Extending: [developer integrations](docs/extension-points/index.md) (start here) ·
+  [custom panels](docs/extension-points/custom-panels.md) ·
   [custom detail pages](docs/extension-points/detail-pages.md) ·
   [custom drivers](docs/extension-points/custom-drivers.md) ·
   [issue trackers](docs/extension-points/issue-trackers.md)
-- [Design direction](docs/design/direction.md) · [ADRs](docs/adr/) ·
+- [Design direction](docs/design/direction.md) · [ADRs](docs/adr/index.md) ·
   [Roadmap](docs/roadmap.md)
 
 ## Development

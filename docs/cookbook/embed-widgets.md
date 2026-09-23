@@ -73,7 +73,7 @@ issue); read-only embeds work without it.
 | --- | --- |
 | `<TelemetryPanel id params />` | One panel, by the id the API knows it by |
 | `<TelemetryPage page params />` | A whole registered page of panels |
-| `<TelemetryExplore signal />` | The Explore surface over requests / traces / logs / errors |
+| `<TelemetryExplore signal onSignalChange />` | The Explore surface over requests / traces / logs / errors; its signal tabs switch in place |
 | `<TelemetryEntity type />` | One entity's story (`?value=` in the view state) |
 | `<TelemetryEntities type />` | Every value of an entity type, with RED |
 | `<TelemetryTrace traceId />` | One trace: story, waterfall, logs, context |
@@ -103,6 +103,33 @@ const [search, setSearch] = useState('?period=24h');
 Now `search` is a plain query string you can push into your own router
 (`router.visit(url, { preserveState: true })` in Inertia), and a deep link into
 your page restores the exact view.
+
+## Links to other pages
+
+Anything that stays on the mounted view happens in place: filters, group-by,
+the time window, and the drawer — clicking a request or an error opens its
+trace or issue in the same slide-over the dashboard uses, inside your page.
+
+A link to a *different* page (a route's entity page from a panel row, "Full
+page" in the drawer) can't render where you mounted one component, so by
+default it opens in the full dashboard at `{base}`. Handle it yourself to keep
+people in your app — for example on a page of yours that embeds the target:
+
+```jsx
+<TelemetryUiProvider
+    config={{ base: '/observability' }}
+    onNavigate={({ pathname, search, url }) => {
+        // pathname is the dashboard path: /entity/route, /traces/{id}, /p/jobs …
+        if (pathname.startsWith('/traces/')) router.visit(`/ops${pathname}${search}`);
+        else window.location.assign(url);
+    }}
+>
+```
+
+Real anchors carry the dashboard URL as their `href`, so middle-click and
+"copy link" always land somewhere that renders the target. Embedded
+components leave the document title and the page's theme class alone; those
+are yours.
 
 ## Styling
 

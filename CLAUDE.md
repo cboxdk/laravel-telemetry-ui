@@ -4,9 +4,9 @@ Laravel package: observability dashboard querying Tempo (TraceQL), Loki
 (LogQL) and Prometheus/Mimir (PromQL) directly. Companion to
 `cboxdk/laravel-telemetry` (../laravel-telemetry), whose metric names and
 span attributes this UI hardcodes knowledge of — see
-docs/design/direction.md for the screen → query mapping. v2 (branch
-`feat/v2-spa`) is a versioned JSON API + React SPA; Livewire is gone — see
-docs/design/v2-architecture.md.
+docs/design/direction.md for the screen → query mapping. v2 (2.0.0+)
+is a versioned JSON API + React SPA; Livewire is gone — see
+docs/design/v2-architecture.md. 1.x fixes go on the `1.x` branch.
 
 ## Commands
 
@@ -48,7 +48,9 @@ docs/design/v2-architecture.md.
   (from ../statamic-telemetry) has subpages that each detect their own
   `statamic_*` family.
 - `resources/app/` — the React SPA (Vite, TS, TanStack Query/Router/Virtual,
-  ECharts lazy chunk). Talks to the API over plain fetch only.
+  ECharts lazy chunk). Talks to the API over plain fetch only. Also the
+  embeddable npm package `@cboxdk/telemetry-ui` (`src/embed/`): components
+  read view state through `lib/navigation.tsx`, never the router directly.
 - Routes gated by `viewTelemetryUi` (local-only default; per-page second
   argument), `manageTelemetryUi` for writes.
 

@@ -85,7 +85,7 @@ The things a generic, app-only or read-only dashboard can't do:
 - Feature-tested drill-down/detail pages, dimensional filtering, and the
   info-leak boundary.
 
-## v2 — JSON API + React SPA (in progress, branch `feat/v2-spa`)
+## v2 — JSON API + React SPA (done, 2.0.0)
 
 Plan: [v2 architecture](design/v2-architecture.md) ·
 [implementation plan](design/v2-plan.md) ·
@@ -104,11 +104,14 @@ Plan: [v2 architecture](design/v2-architecture.md) ·
 - Stacked, deep-linkable drawer (`?drawer=`), ⌘K palette, brush-to-zoom on the
   global range, live tail over SSE with a polling fallback.
 
-Before tagging 2.0: the feature-parity checklist in the architecture doc,
-live verification against real backends, and a maintained `1.x` branch.
+- Developer integrations: names instead of ids (`resolve()`), derived
+  dimensions read out of another attribute, route families as pages, and
+  declared metric panels for sidecars in other languages.
+- Embeddable React components for host apps, installed from `vendor/` as an
+  npm package — the replacement for the 1.x Livewire widgets.
 
-Open: a replacement for embedding panels in host pages (1.x Livewire widgets
-were removed); token auth for an externally hosted SPA.
+1.x keeps a maintenance branch (`1.x`) for fixes. Still open: token auth for
+an externally hosted SPA.
 
 ## Next
 
