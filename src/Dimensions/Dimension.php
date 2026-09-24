@@ -32,6 +32,7 @@ final readonly class Dimension
      * @param  list<string>  $signals  which Explore signals facet on it by default
      * @param  (Closure(list<string>): iterable<array-key, mixed>)|null  $resolve  batch id → display name lookup
      * @param  Derivation|null  $derived  read this dimension out of another attribute ({@see Derivation})
+     * @param  string|null  $spanKind  restrict this dimension to one span kind ('client', 'server', …)
      */
     public function __construct(
         public string $key,
@@ -46,6 +47,7 @@ final readonly class Dimension
         public ?string $plural = null,
         public ?Closure $resolve = null,
         public ?Derivation $derived = null,
+        public ?string $spanKind = null,
     ) {}
 
     /**

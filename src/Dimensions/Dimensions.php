@@ -181,7 +181,12 @@ final class Dimensions
             new Dimension('view.name', 'View', 'Rendering', entity: 'view', builtin: true, signals: []),
             new Dimension('laravel.job.class', 'Job', 'Queue', entity: 'job', builtin: true, signals: []),
             new Dimension('messaging.destination.name', 'Queue', 'Queue', entity: 'queue', builtin: true, signals: []),
-            new Dimension('server.address', 'Outgoing host', 'Outgoing', entity: 'outgoing', builtin: true, signals: []),
+            // kind: server.address means two different things by span kind.
+            // On a CLIENT span it is the remote peer — an outgoing host. On a
+            // SERVER span it is the local host that received the request, so
+            // without this every inbound request would be listed as somewhere
+            // this app calls out to.
+            new Dimension('server.address', 'Outgoing host', 'Outgoing', entity: 'outgoing', builtin: true, signals: [], spanKind: 'client'),
             new Dimension('laravel.command', 'Command', 'Console', entity: 'command', builtin: true, signals: []),
             new Dimension('name', 'Span name', 'Span', scope: 'intrinsic', builtin: true, signals: ['traces']),
         ];

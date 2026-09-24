@@ -44,6 +44,7 @@ public function boot(): void
 | `signals` | `['requests', 'traces']` | Which Explore signals show it as a facet by default. |
 | `format` | `null` | A presentation hint for the SPA: `string`, `number`, `status` (built-ins also use `sql`). |
 | `plural` | label + `s` | Used on the entity index ("Customers"). |
+| `spanKind` | `null` | Restrict the dimension to one span kind (`client`, `server`, …). The built-in `server.address` uses it: on a CLIENT span the value is the remote peer, on a SERVER span it is the local host that received the request, so without it every inbound request is listed as an outgoing dependency. |
 
 Registration is data-only; it costs nothing at boot. Re-declaring a key merges
 with what is there, so you can add a link to a built-in:

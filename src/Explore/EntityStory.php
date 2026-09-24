@@ -15,6 +15,7 @@ use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Format;
@@ -74,18 +75,19 @@ final class EntityStory
             ? TraceCondition::nil($dimension->traceField())
             : TraceCondition::re($this->dimensions->resolve($derived->from)->traceField(), $derived->regex());
         $keys = $derived === null ? [$dimension->key] : [$dimension->key, $derived->from];
+        $where = [...$this->qualifiers($dimension), $present];
 
         $rows = $signal === 'requests'
-            ? $this->spans->rows($scope, $signal, self::LIMIT, [$present], $keys)
-            : $this->spans->rowsFrom($this->spans->spanSample($scope, [$present], $keys), $signal, $keys, true);
+            ? $this->spans->rows($scope, $signal, self::LIMIT, $where, $keys)
+            : $this->spans->rowsFrom($this->spans->spanSample($scope, $where, $keys), $signal, $keys, true);
 
         if ($rows === [] && $signal === 'requests') {
             $signal = 'traces';
-            $rows = $this->spans->rowsFrom($this->spans->spanSample($scope, [$present], $keys), $signal, $keys, true);
+            $rows = $this->spans->rowsFrom($this->spans->spanSample($scope, $where, $keys), $signal, $keys, true);
         }
 
         if ($signal !== 'requests') {
-            $rows = $this->spans->markErrors($rows, $scope, $signal, [$present], 200);
+            $rows = $this->spans->markErrors($rows, $scope, $signal, $where, 200);
         }
 
         $groups = array_values(array_filter(
@@ -109,22 +111,22 @@ final class EntityStory
     public function story(RequestScope $scope, Dimension $dimension, string $value): array
     {
         $signal = $this->signalFor($dimension);
-        $match = $this->matchCondition($dimension, $value);
+        $where = [...$this->qualifiers($dimension), $this->matchCondition($dimension, $value)];
         $keys = $this->breakdownKeys($dimension);
 
         $summaries = $signal === 'requests'
-            ? $this->spans->summaries($scope, $signal, self::LIMIT, [$match], $keys)
-            : $this->spans->spanSample($scope, [$match], $keys);
+            ? $this->spans->summaries($scope, $signal, self::LIMIT, $where, $keys)
+            : $this->spans->spanSample($scope, $where, $keys);
 
         if ($summaries === [] && $signal === 'requests') {
             $signal = 'traces';
-            $summaries = $this->spans->spanSample($scope, [$match], $keys);
+            $summaries = $this->spans->spanSample($scope, $where, $keys);
         }
 
         $rows = $this->spans->rowsFrom($summaries, $signal, $keys, $signal !== 'requests');
 
         if ($signal !== 'requests') {
-            $rows = $this->spans->markErrors($rows, $scope, $signal, [$match], 200);
+            $rows = $this->spans->markErrors($rows, $scope, $signal, $where, 200);
         }
 
         [$start, $end] = $scope->range();
@@ -195,6 +197,25 @@ final class EntityStory
             'custom' => ! $dimension->builtin,
             'linksOut' => $dimension->link !== null,
         ];
+    }
+
+    /**
+     * Conditions that qualify what the dimension even means.
+     *
+     * `server.address` is the case this exists for: on a CLIENT span it is
+     * the remote peer, on a SERVER span it is the local host that received
+     * the request. Listing both under "Outgoing hosts" turns every inbound
+     * request into an imaginary outgoing dependency — and a trace opened
+     * from there is the receiving side, with no outgoing call in its
+     * waterfall, because there never was one.
+     *
+     * @return list<TraceCondition>
+     */
+    private function qualifiers(Dimension $dimension): array
+    {
+        return $dimension->spanKind === null
+            ? []
+            : [TraceCondition::token('kind', TraceOp::Eq, $dimension->spanKind)];
     }
 
     private function matchCondition(Dimension $dimension, string $value): TraceCondition

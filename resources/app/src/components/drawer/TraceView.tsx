@@ -272,6 +272,10 @@ function ReportSection({ title, items, duplicates, summary, icon, spans }: { tit
 
 /** What a span does, for the bar colour: the waterfall reads by category at a glance. */
 const CATEGORIES: { key: string; label: string; test: (a: Record<string, string>, s: SpanData) => boolean }[] = [
+    // Before the db/cache tests, which a connect span would otherwise match:
+    // a handshake is its own kind of wait, and the thing you are looking for
+    // when the first query sits behind an unexplained gap.
+    { key: 'connect', label: 'Connect', test: (_a, s) => s.name === 'db.connect' || s.name === 'redis.connect' },
     { key: 'db', label: 'Database', test: (a) => Boolean(a['db.system.name'] ?? a['db.system']) && !(a['db.system.name'] ?? a['db.system'] ?? '').includes('redis') },
     { key: 'cache', label: 'Cache / Redis', test: (a, s) => Boolean(a['cache.key'] ?? a['cache.store']) || (a['db.system.name'] ?? a['db.system'] ?? '') === 'redis' || s.name.startsWith('cache.') },
     { key: 'http', label: 'Outgoing HTTP', test: (a, s) => s.kind === 'client' && Boolean(a['server.address'] ?? a['url.full']) },
@@ -354,6 +358,72 @@ function Waterfall({ data }: { data: TraceData }) {
     );
 }
 
+/**
+ * The phases inside an outgoing HTTP call: DNS, connection setup, waiting on
+ * the far end, and the response coming back.
+ *
+ * The span says a call took 284ms. It does not say whether that was a name
+ * lookup, a TLS handshake or the server thinking — and those have entirely
+ * different fixes. cURL measures it already and the emitter records it; this
+ * is the only place it is legible.
+ *
+ * Widths are relative to the sum of the phases, NOT to the span. Guzzle
+ * follows redirects itself, so the phases describe the LAST hop while the
+ * span covers them all: normalising against the span would silently shrink
+ * every segment on a redirected call and read as a fast request.
+ */
+const HTTP_PHASES: { attr: string; label: string; hint: string }[] = [
+    { attr: 'http.client.dns_ms', label: 'DNS', hint: 'Name lookup' },
+    { attr: 'http.client.tcp_ms', label: 'TCP', hint: 'Connection setup' },
+    { attr: 'http.client.tls_ms', label: 'TLS', hint: 'Handshake — through a proxy this includes the tunnel' },
+    { attr: 'http.client.connect_ms', label: 'Connect', hint: 'QUIC does its handshake inside the transport, so setup is one number' },
+    { attr: 'http.client.ttfb_ms', label: 'Waiting', hint: 'Sending the request body and waiting for the first response headers' },
+    { attr: 'http.client.transfer_ms', label: 'Download', hint: 'Response body' },
+];
+
+function TransferPhases({ attrs, durationMs }: { attrs: Record<string, string>; durationMs: number }) {
+    const phases = HTTP_PHASES
+        .map((p) => ({ ...p, ms: Number(attrs[p.attr]) }))
+        .filter((p) => Number.isFinite(p.ms));
+
+    if (phases.length === 0) return null;
+
+    const total = phases.reduce((sum, p) => sum + p.ms, 0);
+    if (total <= 0) return null;
+
+    const reused = attrs['http.client.connection_reused'] === 'true';
+    // A gap means redirects: the span covers every hop, the phases the last.
+    const unaccounted = durationMs - total;
+
+    return (
+        <div className="t-phases">
+            <div className="t-eyebrow">Transfer phases</div>
+            <div className="t-phasebar">
+                {phases.map((p) => (
+                    <span
+                        key={p.attr}
+                        className={`t-phase t-phase-${p.label.toLowerCase()}`}
+                        style={{ width: `${(p.ms / total) * 100}%` }}
+                        title={`${p.label} — ${p.hint}`}
+                    />
+                ))}
+            </div>
+            <dl className="t-phaselist">
+                {phases.map((p) => (
+                    <div key={p.attr} className="t-phaselist-row">
+                        <dt><i className={`t-phase t-phase-${p.label.toLowerCase()}`} />{p.label}</dt>
+                        <dd className="mono">{ms(p.ms)}</dd>
+                    </div>
+                ))}
+            </dl>
+            {reused && <p className="t-note">Connection reused — no lookup or handshake was needed.</p>}
+            {unaccounted > total * 0.25 && unaccounted > 5 && (
+                <p className="t-note">Phases describe the final hop ({ms(total)}); the span covers the whole call including redirects.</p>
+            )}
+        </div>
+    );
+}
+
 function SpanDetail({ span, links, onClose }: { span: SpanData; links: Record<string, string>; onClose: () => void }) {
     return (
         <div className="t-spandetail">
@@ -365,6 +435,7 @@ function SpanDetail({ span, links, onClose }: { span: SpanData; links: Record<st
             {span.links.length > 0 && (
                 <div className="t-chips">{span.links.map((l) => <Go key={l.spanId} link={{ to: 'trace', id: l.traceId }} className="t-minchip">linked {shortId(l.traceId)}</Go>)}</div>
             )}
+            <TransferPhases attrs={span.attributes} durationMs={span.durationMs} />
             <dl className="t-kv t-raw">
                 {Object.entries(span.attributes).map(([k, v]) => (
                     <div key={k} className="t-kv-row"><dt className="mono">{k}</dt><dd><DimensionValue dimKey={k} value={v} linkOut={links[k]} /></dd></div>
