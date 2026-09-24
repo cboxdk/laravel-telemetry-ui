@@ -1,13 +1,13 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { DimensionDef, Signal } from '../../api/types';
 import { count } from '../../lib/format';
-import { formatFilter, negate, parseFilter, withoutFilter, type Filter } from '../../lib/search';
+import { formatFilter, parseFilter, withoutFilter, type Filter, type Op } from '../../lib/search';
 import { ValueText } from '../DimensionValue';
 import { Icon } from '../Icon';
 
 /**
- * The active query as removable chips — the URL *is* the query. Click a
- * chip's operator to invert it; ✕ removes it; "+ filter" takes `key=value`
+ * The active query as removable chips — the URL *is* the query. Click a chip
+ * to edit it in place (operator, value); ✕ removes it; "+ filter" takes `key=value`
  * (any operator: = != =~ !~ > >= < <=) with key suggestions from the
  * dimension registry and — once you type `key=` — the values actually present
  * in this view, with their counts. Undeclared attributes are just as
@@ -54,6 +54,7 @@ export function FilterBar({ where, onChange, dimensions, signal, q, onQ, placeho
     const [draft, setDraft] = useState('');
     const [text, setText] = useState(q);
     const [active, setActive] = useState(0);
+    const [editing, setEditing] = useState<string | null>(null);
     const input = useRef<HTMLInputElement>(null);
 
     const byKey = useMemo(() => new Map(dimensions.map((d) => [d.key, d])), [dimensions]);
@@ -119,8 +120,18 @@ export function FilterBar({ where, onChange, dimensions, signal, q, onQ, placeho
         }
     };
 
-    const flip = (raw: string, f: Filter) => {
-        onChange(where.map((w) => (w === raw ? formatFilter({ ...f, op: negate(f.op) }) : w)));
+    // Edit in place: the filter keeps its position in the query.
+    const replace = (raw: string, next: Filter) => {
+        const formatted = formatFilter(next);
+        onChange(where.map((w) => (w === raw ? formatted : w)).filter((w, i, all) => all.indexOf(w) === i));
+        setEditing(null);
+    };
+
+    const valuesFor = (key: string, op: Op): string[] => {
+        const presets = fieldByKey.get(key)?.presets;
+        if (presets) return presets;
+        if (op !== '=' && op !== '!=') return [];
+        return (facetValues?.(key) ?? []).map((v) => v.value);
     };
 
     return (
@@ -133,11 +144,26 @@ export function FilterBar({ where, onChange, dimensions, signal, q, onQ, placeho
                 const label = dim?.label ?? fieldByKey.get(f.key)?.label ?? f.key;
                 const neg = f.op === '!=' || f.op === '!~';
                 return (
-                    <span key={raw} className={`t-chip ${dim && !dim.builtin ? 'is-custom' : ''} ${neg ? 'is-neg' : ''}`} title={raw}>
-                        <span className="k">{label}</span>
-                        <button type="button" className="op" onClick={() => flip(raw, f)} title="Invert">{f.op}</button>
-                        <b>{f.value === '' ? '∅' : f.op === '=' || f.op === '!=' ? <ValueText dimKey={f.key} value={f.value} /> : f.value}</b>
-                        <button type="button" className="x" onClick={() => onChange(withoutFilter(where, raw))} aria-label={`Remove ${raw}`}><Icon name="x" size={11} /></button>
+                    <span key={raw} className="t-chip-wrap">
+                        <span className={`t-chip ${dim && !dim.builtin ? 'is-custom' : ''} ${neg ? 'is-neg' : ''} ${editing === raw ? 'is-editing' : ''}`} title={raw}>
+                            <button type="button" className="t-chip-edit" onClick={() => setEditing(editing === raw ? null : raw)} aria-label={`Edit ${raw}`} aria-expanded={editing === raw}>
+                                <span className="k">{label}</span>
+                                <span className="op">{f.op}</span>
+                                <b>{f.value === '' ? '∅' : f.op === '=' || f.op === '!=' ? <ValueText dimKey={f.key} value={f.value} /> : f.value}</b>
+                            </button>
+                            <button type="button" className="x" onClick={() => onChange(withoutFilter(where, raw))} aria-label={`Remove ${raw}`}><Icon name="x" size={11} /></button>
+                        </span>
+                        {editing === raw && (
+                            <ChipEditor
+                                filter={f}
+                                label={label}
+                                ops={opsFor(f)}
+                                values={valuesFor}
+                                onApply={(next) => replace(raw, next)}
+                                onRemove={() => { onChange(withoutFilter(where, raw)); setEditing(null); }}
+                                onClose={() => setEditing(null)}
+                            />
+                        )}
                     </span>
                 );
             })}
@@ -196,4 +222,92 @@ export function FilterBar({ where, onChange, dimensions, signal, q, onQ, placeho
 /** The arrow-key row stays visible as the key list scrolls. */
 function keepInView(el: HTMLButtonElement | null): void {
     el?.scrollIntoView?.({ block: 'nearest' });
+}
+
+const EQUALITY: Op[] = ['=', '!=', '=~', '!~'];
+const COMPARISON: Op[] = ['>', '>=', '<', '<='];
+
+/**
+ * The operators that mean something for this filter: comparisons for
+ * duration, = / != for the tokens the backend only matches exactly (status,
+ * kind), and the full set when the value is a number (status code 500).
+ */
+function opsFor(f: Filter): Op[] {
+    if (f.key === 'duration') return COMPARISON;
+    if (f.key === 'status' || f.key === 'kind') return ['=', '!='];
+    const numeric = /^-?\d+(\.\d+)?$/.test(f.value) || COMPARISON.includes(f.op);
+    return numeric ? [...EQUALITY, ...COMPARISON] : EQUALITY;
+}
+
+/**
+ * Edit an applied filter without removing and retyping it: pick the operator,
+ * change the value (with the same value suggestions as adding), Enter applies,
+ * Esc or a click outside cancels.
+ */
+function ChipEditor({ filter, label, ops, values, onApply, onRemove, onClose }: {
+    filter: Filter;
+    label: string;
+    ops: Op[];
+    values: (key: string, op: Op) => string[];
+    onApply: (next: Filter) => void;
+    onRemove: () => void;
+    onClose: () => void;
+}) {
+    const [op, setOp] = useState<Op>(filter.op);
+    const [value, setValue] = useState(filter.value);
+    // Until you type, the suggestions are every option, not ones like the
+    // current value.
+    const [typedValue, setTypedValue] = useState(false);
+    const root = useRef<HTMLDivElement>(null);
+    const input = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        input.current?.focus();
+        input.current?.select();
+        const onDoc = (e: MouseEvent) => {
+            // The chip's own button toggles; anything else outside cancels.
+            const target = e.target as Node;
+            if (root.current && !root.current.contains(target) && !root.current.parentElement?.contains(target)) onClose();
+        };
+        document.addEventListener('mousedown', onDoc);
+        return () => document.removeEventListener('mousedown', onDoc);
+    }, [onClose]);
+
+    const typed = typedValue ? value.trim().toLowerCase() : '';
+    const suggestions = values(filter.key, op).filter((v) => v !== value && (typed === '' || v.toLowerCase().includes(typed))).slice(0, 8);
+    const apply = (next: string = value) => onApply({ key: filter.key, op, value: next.trim() });
+
+    return (
+        <div
+            className="t-chip-editor"
+            ref={root}
+            role="dialog"
+            aria-label={`Edit ${label} filter`}
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
+        >
+            <div className="t-chip-editor-head">
+                <span className="t-eyebrow">{label}</span>
+                <code>{filter.key}</code>
+            </div>
+            <div className="t-seg t-chip-editor-ops" role="radiogroup" aria-label="Operator">
+                {ops.map((o) => (
+                    <button key={o} type="button" role="radio" aria-checked={o === op} className={o === op ? 'is-on' : ''} onClick={() => { setOp(o); input.current?.focus(); input.current?.select(); }}>{o}</button>
+                ))}
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); apply(); }}>
+                <input ref={input} className="t-input t-input-sm mono" value={value} onChange={(e) => { setValue(e.target.value); setTypedValue(true); }} aria-label="Value" placeholder={op === '=~' || op === '!~' ? 'regex' : 'value'} />
+            </form>
+            {suggestions.length > 0 && (
+                <ul className="t-chip-editor-values">
+                    {suggestions.map((v) => (
+                        <li key={v}><button type="button" onClick={() => apply(v)}><ValueText dimKey={filter.key} value={v} /></button></li>
+                    ))}
+                </ul>
+            )}
+            <div className="t-chip-editor-foot">
+                <button type="button" className="t-btn t-btn-sm t-btn-ghost" onClick={onRemove}>Remove</button>
+                <button type="button" className="t-btn t-btn-sm t-btn-primary" onClick={() => apply()}>Apply</button>
+            </div>
+        </div>
+    );
 }

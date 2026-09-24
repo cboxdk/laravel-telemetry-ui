@@ -5,6 +5,24 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The Explore filter bar offered only the first eight keys, your own
+  dimensions first, so built-ins fell off the list — and never offered
+  `duration` or `kind` at all, since they are span fields rather than
+  dimensions. It now lists every key that applies to the current signal (and
+  none that don't), puts Duration (requests, traces) and Span kind (traces)
+  first, starts Duration as `duration>` with 100ms–5s presets, and labels a
+  field's chip by name.
+- An applied filter couldn't be edited: clicking its operator only inverted
+  `=`/`=~` (a `>` did nothing) and the value wasn't clickable at all. Clicking
+  a chip now opens an editor in place — the operators that apply to that key
+  (comparisons for duration, `=`/`!=` for status and kind, all of them for a
+  number), the value with the same suggestions as adding one, Enter to apply,
+  Esc to cancel — and the filter keeps its position in the query.
+
 ## [2.5.3] - 2026-09-25
 
 ### Fixed
@@ -219,18 +237,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   same query would only take as long again, so one slow query cost
   `(retries + 1) ×` the timeout. Connections that could not be made are still
   retried.
-
-## [Unreleased]
-
-### Fixed
-
-- The Explore filter bar offered only the first eight keys, your own
-  dimensions first, so built-ins fell off the list — and never offered
-  `duration` or `kind` at all, since they are span fields rather than
-  dimensions. It now lists every key that applies to the current signal (and
-  none that don't), puts Duration (requests, traces) and Span kind (traces)
-  first, starts Duration as `duration>` with 100ms–5s presets, and labels a
-  field's chip by name.
 
 ## [2.0.1] - 2026-09-23
 

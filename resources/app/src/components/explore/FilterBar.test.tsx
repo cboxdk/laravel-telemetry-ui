@@ -19,7 +19,9 @@ describe('FilterBar', () => {
         await userEvent.click(await screen.findByRole('button', { name: 'Remove user.id=4' }));
         expect(onChange).toHaveBeenLastCalledWith([]);
 
-        await userEvent.click(screen.getByTitle('Invert'));
+        await userEvent.click(screen.getByRole('button', { name: 'Edit user.id=4' }));
+        await userEvent.click(screen.getByRole('radio', { name: '!=' }));
+        await userEvent.click(screen.getByRole('button', { name: 'Apply' }));
         expect(onChange).toHaveBeenLastCalledWith(['user.id!=4']);
 
         await userEvent.click(screen.getByRole('button', { name: /filter/ }));
@@ -60,5 +62,35 @@ describe('FilterBar', () => {
     it('labels a field chip by name', async () => {
         await renderAt(<FilterBar where={['duration>400ms']} onChange={() => {}} dimensions={bootFixture.dimensions} signal="traces" q="" onQ={() => {}} />);
         expect(await screen.findByText('Duration')).toBeInTheDocument();
+    });
+
+    it('edits an applied comparison in place: operator, value, position kept', async () => {
+        const onChange = vi.fn();
+        await renderAt(<FilterBar where={['http.route=/checkout', 'duration>400ms', 'user.id=4']} onChange={onChange} dimensions={bootFixture.dimensions} signal="traces" q="" onQ={() => {}} />);
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Edit duration>400ms' }));
+        // Duration only compares; equality would mean nothing to the backend.
+        expect(screen.queryByRole('radio', { name: '=' })).toBeNull();
+        await userEvent.click(screen.getByRole('radio', { name: '<=' }));
+        const value = screen.getByLabelText('Value');
+        await userEvent.clear(value);
+        await userEvent.type(value, '2s{Enter}');
+
+        expect(onChange).toHaveBeenLastCalledWith(['http.route=/checkout', 'duration<=2s', 'user.id=4']);
+    });
+
+    it('applies a suggested value and cancels on Escape', async () => {
+        const onChange = vi.fn();
+        await renderAt(<FilterBar where={['duration>400ms']} onChange={onChange} dimensions={bootFixture.dimensions} signal="requests" q="" onQ={() => {}} />);
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Edit duration>400ms' }));
+        await userEvent.click(screen.getByRole('button', { name: '1s' }));
+        expect(onChange).toHaveBeenLastCalledWith(['duration>1s']);
+
+        onChange.mockClear();
+        await userEvent.click(screen.getByRole('button', { name: 'Edit duration>400ms' }));
+        await userEvent.keyboard('{Escape}');
+        expect(screen.queryByRole('dialog')).toBeNull();
+        expect(onChange).not.toHaveBeenCalled();
     });
 });
