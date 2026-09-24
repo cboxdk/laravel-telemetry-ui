@@ -5,6 +5,20 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-09-24
+
+### Changed
+
+- **The trace drawer draws as soon as the trace store answers.** It fetches
+  the trace with `?without=context`, then the metrics, logs, profile and
+  exceptions around it from the new `traces/{id}/context`, and shows that it
+  is reading them meanwhile. Measured through a host on a busy Tempo: the
+  drawer draws after a median 1.0 s instead of 2.8 s (worst 1.1 s instead of
+  4.5 s); the context follows about 1.7 s later without blocking it.
+  `traces/{id}` without the parameter answers as before, and `useTrace` still
+  returns the whole trace; the drawer uses the new `useTraceStory` and
+  `useTraceContext`.
+
 ## [2.3.0] - 2026-09-24
 
 ### Added
