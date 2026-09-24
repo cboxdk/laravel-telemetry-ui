@@ -94,6 +94,7 @@ export function ExploreView({ signal }: { signal: Signal }) {
                     where={where}
                     onChange={(w) => set({ where: w })}
                     dimensions={boot.dimensions}
+                    signal={signal}
                     facetValues={(key) => facets.data?.facets.find((f) => f.key === key)?.values ?? []}
                     q={q}
                     onQ={(v) => set({ q: v || undefined })}

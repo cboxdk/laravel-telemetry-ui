@@ -220,6 +220,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `(retries + 1) ×` the timeout. Connections that could not be made are still
   retried.
 
+## [Unreleased]
+
+### Fixed
+
+- The Explore filter bar offered only the first eight keys, your own
+  dimensions first, so built-ins fell off the list — and never offered
+  `duration` or `kind` at all, since they are span fields rather than
+  dimensions. It now lists every key that applies to the current signal (and
+  none that don't), puts Duration (requests, traces) and Span kind (traces)
+  first, starts Duration as `duration>` with 100ms–5s presets, and labels a
+  field's chip by name.
+
 ## [2.0.1] - 2026-09-23
 
 ### Changed

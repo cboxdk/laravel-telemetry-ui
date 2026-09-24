@@ -543,6 +543,7 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
 .t-suggest button { display: flex; justify-content: space-between; gap: 12px; width: 100%; padding: 6px 8px; border-radius: 6px; font-size: 12.5px; text-align: left; }
 .t-suggest button.is-active, .t-suggest button:hover { background: var(--secondary); }
 .t-suggest code { background: none; padding: 0; color: var(--muted-foreground); font-size: 11px; }
+.t-suggest-keys { max-height: min(60vh, 440px); overflow-y: auto; overscroll-behavior: contain; }
 .t-add { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border: 1px dashed var(--border-strong); border-radius: 7px; color: var(--muted-foreground); font-size: 12px; }
 .t-add:hover { color: var(--primary); border-color: var(--accent-edge); }
 .t-qbuild-search { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--muted-foreground); min-width: 200px; flex: 0 1 280px; }
