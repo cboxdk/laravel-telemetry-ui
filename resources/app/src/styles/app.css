@@ -830,6 +830,7 @@ a.t-corr-item:hover { border-color: var(--border-strong); color: var(--foregroun
 .t-wf-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .t-wf-legend i { width: 10px; height: 6px; border-radius: 2px; display: inline-block; }
 .t-wf-c-app { background: var(--chart-1); }
+.t-wf-c-connect { background: var(--chart-4); }
 .t-wf-c-db { background: var(--chart-3); }
 .t-wf-c-cache { background: var(--chart-5); }
 .t-wf-c-http { background: var(--chart-6); }
@@ -841,6 +842,22 @@ a.t-corr-item:hover { border-color: var(--border-strong); color: var(--foregroun
 .t-spandetail { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 12px; background: var(--canvas); }
 .t-spandetail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .t-spandetail-head .t-iconbtn { margin-left: auto; }
+.t-phases { margin: 10px 0 12px; }
+.t-phases .t-eyebrow { margin-bottom: 5px; }
+.t-phasebar { display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: var(--muted); }
+.t-phasebar .t-phase { height: 100%; }
+.t-phaselist { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 7px 0 0; }
+.t-phaselist-row { display: flex; align-items: center; gap: 6px; }
+.t-phaselist dt { display: flex; align-items: center; gap: 5px; color: var(--muted-foreground); font-size: 12px; }
+.t-phaselist dd { margin: 0; font-size: 12px; }
+.t-phaselist .t-phase { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.t-phase-dns { background: var(--chart-2); }
+.t-phase-tcp { background: var(--chart-4); }
+.t-phase-tls { background: var(--chart-5); }
+.t-phase-connect { background: var(--chart-4); }
+.t-phase-waiting { background: var(--chart-6); }
+.t-phase-download { background: var(--chart-1); }
+.t-phases .t-note { margin: 7px 0 0; }
 .t-tracelogs { display: flex; flex-direction: column; }
 .t-context { display: flex; flex-direction: column; }
 .t-context-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px 80px 110px; gap: 12px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border-subtle); font-size: 12px; }

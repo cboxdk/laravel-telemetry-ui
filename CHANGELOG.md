@@ -5,6 +5,44 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2026-09-24
+
+### Fixed
+
+- **"Outgoing hosts" no longer lists inbound requests.** The entity is keyed
+  on `server.address`, which means two different things depending on span
+  kind: on a CLIENT span it is the remote peer, on a SERVER span it is the
+  local host that received the request. Without a kind qualifier every
+  inbound request was counted as somewhere the app calls out to — and the
+  trace you opened from there was the receiving side, showing no outgoing
+  call in its waterfall, because there never was one. An API subdomain
+  serving 300 requests appeared as a dependency with 300 outgoing spans.
+
+  `Dimension` gains a `spanKind` parameter and the entity index, story and
+  error-marking queries all apply it. The older outgoing-detail panels
+  already filtered on `kind = client`; the v2 entity surface did not.
+
+### Added
+
+- **Transfer phases on an outgoing HTTP span.** `http.client.dns_ms`,
+  `tcp_ms`, `tls_ms`/`connect_ms`, `ttfb_ms` and `transfer_ms` have been
+  recorded for a while but were visible only as raw attributes. The span
+  detail now draws them as a segmented bar with per-phase figures, so "the
+  call took 284ms" becomes "the TLS handshake took 240ms of it".
+
+  Widths are normalised against the sum of the phases, not the span: Guzzle
+  follows redirects itself, so the phases describe the final hop while the
+  span covers them all, and normalising against the span would shrink every
+  segment on a redirected call and read as a fast request. A reused
+  connection says so instead of reporting a 0ms lookup, and a span whose
+  phases fall well short of its duration says the phases cover the final hop.
+
+- **A `Connect` category in the waterfall.** `db.connect` and `redis.connect`
+  spans (cboxdk/laravel-telemetry 2.7.0) get their own colour, tested before
+  the database and cache categories they would otherwise fall into. A
+  handshake is its own kind of wait, and it is what you are looking for when
+  the first query sits behind an unexplained gap.
+
 ## [2.4.1] - 2026-09-24
 
 ### Fixed

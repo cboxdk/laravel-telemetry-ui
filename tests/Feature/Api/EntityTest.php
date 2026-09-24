@@ -221,3 +221,61 @@ it('reads the exception records of only the services an entity\'s traces ran in'
     expect($exceptionQueries)->not->toBeEmpty()
         ->each->toContain('{service_name="shop"}');
 });
+
+it('lists only client spans as outgoing hosts', function (): void {
+    // `server.address` means two different things by span kind: the remote
+    // peer on a CLIENT span, the local host that received the request on a
+    // SERVER span. Without the kind qualifier every inbound request is
+    // listed as somewhere this app calls out to — and the trace you open
+    // from there is the receiving side, with no outgoing call in its
+    // waterfall, because there never was one.
+    $queries = [];
+
+    Http::fake(function (Request $request) use (&$queries) {
+        if (str_contains($request->url(), 'loki.test')) {
+            return Http::response(lokiStreams([]));
+        }
+
+        if (str_contains($request->url(), 'prometheus.test')) {
+            return Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]);
+        }
+
+        $queries[] = (string) (requestQuery($request)['q'] ?? '');
+
+        return Http::response(['traces' => []]);
+    });
+
+    $this->getJson(apiUrl('entities/outgoing'))->assertOk();
+
+    expect($queries)->not->toBeEmpty();
+
+    foreach ($queries as $q) {
+        expect($q)->toContain('kind = client');
+    }
+});
+
+it('scopes an outgoing host story to client spans too', function (): void {
+    $queries = [];
+
+    Http::fake(function (Request $request) use (&$queries) {
+        if (str_contains($request->url(), 'loki.test')) {
+            return Http::response(lokiStreams([]));
+        }
+
+        if (str_contains($request->url(), 'prometheus.test')) {
+            return Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]);
+        }
+
+        $queries[] = (string) (requestQuery($request)['q'] ?? '');
+
+        return Http::response(['traces' => []]);
+    });
+
+    $this->getJson(apiUrl('entities/outgoing/story', ['value' => 'api.stripe.com']))->assertOk();
+
+    expect($queries)->not->toBeEmpty();
+
+    foreach ($queries as $q) {
+        expect($q)->toContain('kind = client')->toContain('api.stripe.com');
+    }
+});
