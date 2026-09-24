@@ -7,11 +7,11 @@ use Illuminate\Support\Facades\Http;
 function fakeHealthyBackends(): void
 {
     Http::fake([
-        'prometheus.test:9090/api/v1/query*' => Http::response([
+        // The series index, not a query: the metrics probe asks for metric
+        // names the same way the other two ask for tag and label values.
+        'prometheus.test:9090/api/v1/label/__name__/values*' => Http::response([
             'status' => 'success',
-            'data' => ['resultType' => 'vector', 'result' => [
-                ['metric' => [], 'value' => [1735689600, '1']],
-            ]],
+            'data' => ['http_server_requests_total', 'queue_jobs_total'],
         ]),
         'tempo.test:3200/api/v2/search/tag/*' => Http::response([
             'tagValues' => [['type' => 'string', 'value' => 'checkout']],
@@ -73,5 +73,25 @@ it('probes a configured issues tracker', function (): void {
 
     $this->artisan('telemetry-ui:check --connection=issues')
         ->expectsOutputToContain('OK')
+        ->assertExitCode(0);
+});
+
+it('probes metrics without a PromQL function', function (): void {
+    fakeHealthyBackends();
+
+    $this->artisan('telemetry-ui:check')->assertExitCode(0);
+
+    // vector(1) used to be the smoke test. It is a PromQL *function*, and a
+    // backend can serve the read API without implementing it — telemetryd
+    // answers `1` and refuses `vector(1)`, so this check failed on a
+    // connection that was working perfectly.
+    Http::assertNotSent(fn ($request): bool => str_contains(urldecode($request->url()), 'vector('));
+});
+
+it('reports how many metric names the backend holds', function (): void {
+    fakeHealthyBackends();
+
+    $this->artisan('telemetry-ui:check')
+        ->expectsOutputToContain('2 metric name(s)')
         ->assertExitCode(0);
 });
