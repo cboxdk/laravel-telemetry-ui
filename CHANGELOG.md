@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`telemetry-ui:check` no longer fails a healthy metrics connection.** The
+  smoke test was `vector(1)`, and `vector` is a PromQL *function*: a backend
+  can serve the read API without implementing it. telemetryd answers `1` and
+  refuses `vector(1)`, so `check` reported `metrics FAIL — status 400`
+  against a connection that was working perfectly. The probe now asks for
+  the series index — metadata, the same way the traces and logs probes ask
+  for tag and label values — and falls back to a bare scalar for drivers
+  without one. It also answers something worth printing: how many metric
+  names are actually there.
+
 - **"Outgoing hosts" no longer lists inbound requests.** The entity is keyed
   on `server.address`, which means two different things depending on span
   kind: on a CLIENT span it is the remote peer, on a SERVER span it is the
