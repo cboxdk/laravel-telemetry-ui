@@ -5,6 +5,26 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.1] - 2026-09-24
+
+### Fixed
+
+- **An entity page no longer scans every log stream for exceptions.** With no
+  service selected it looked for exception records with
+  `{service_name=~".+"}`, which makes Loki read every stream it has — 6.5 s of
+  an 8.2 s page on a busy store. It now reads only the services the entity's
+  traces ran in: the same page answers in 1.4 s.
+- **A page mounted in a host fills the host's width.** `.t-page` centred itself
+  with `margin: 0 auto`, which on a flex child also turns off stretching, so an
+  embedded page shrank to its content — a narrow sliver while it was loading —
+  and stopped at 1680 px on a wide screen. Inside `.t-scope` it now takes the
+  full width and leaves the gutter to the host.
+- **Slow reads say what they are reading.** The entity page, the entity list,
+  Explore and the error and issue drawers show a line such as "Reading this
+  route's requests from the trace store…" above a full-width placeholder
+  instead of a bare grey block, and the entity page shows "Updating…" while a
+  new window loads. New `Loading` state component.
+
 ## [2.4.0] - 2026-09-24
 
 ### Changed
