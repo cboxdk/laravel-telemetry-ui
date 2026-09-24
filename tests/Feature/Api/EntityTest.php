@@ -206,3 +206,18 @@ it('counts failed occurrences of a span-level entity from a status = error searc
         ->and($story['insights'][0]['text'])->not->toContain('server errors')
         ->and(collect($story['breakdowns'])->firstWhere('key', 'trace.root')['drill'])->toBeFalse();
 });
+
+it('reads the exception records of only the services an entity\'s traces ran in', function (): void {
+    fakeEntityBackends();
+
+    $this->getJson(apiUrl('entities/route/story', ['value' => '/orders']))->assertOk();
+
+    $exceptionQueries = collect(Http::recorded())
+        ->map(fn (array $pair): string => rawurldecode((string) $pair[0]->url()))
+        ->filter(fn (string $url): bool => str_contains($url, 'loki.test') && str_contains($url, 'exception_group'));
+
+    // Not {service_name=~".+"}: with no service selected that makes the store
+    // read every stream it has, for records only these services can hold.
+    expect($exceptionQueries)->not->toBeEmpty()
+        ->each->toContain('{service_name="shop"}');
+});

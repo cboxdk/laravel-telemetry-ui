@@ -6,7 +6,7 @@ import { Go } from '../../lib/links';
 import { ComposeIssue } from '../ComposeIssue';
 import { CopyButton } from '../CopyButton';
 import { Icon } from '../Icon';
-import { Empty, ErrorState, Skeleton } from '../States';
+import { Empty, ErrorState, Loading } from '../States';
 import { CodeBody } from '../panels/PanelBody';
 
 /**
@@ -18,7 +18,7 @@ export function ErrorGroupView({ group }: { group: string }) {
     const { data, error, isLoading } = useErrorGroup(group);
     const [composing, setComposing] = useState(false);
 
-    if (isLoading) return <div className="t-pad"><Skeleton height={320} /></div>;
+    if (isLoading) return <div className="t-pad"><Loading label="Reading this error's occurrences…" height={320} /></div>;
     if (error || !data) return <div className="t-pad"><ErrorState error={error} /></div>;
 
     const d = data.detail;

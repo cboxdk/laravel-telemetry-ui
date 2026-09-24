@@ -287,6 +287,10 @@
 
 /* ── Pages & panels ───────────────────────────────────────────────────── */
 .t-page { padding: 22px 24px 48px; max-width: 1680px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+/* Embedded, a page fills the host's container: the host decides the width and
+   the gutter. `margin: auto` on a flex child also turns off stretching, so the
+   page shrank to its content — a narrow sliver while it was still loading. */
+.t-scope .t-page { max-width: none; width: 100%; margin: 0; padding: 0; }
 .t-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .t-page-title { font-size: 21px; font-weight: 700; line-height: 1.2; overflow-wrap: anywhere; }
 .t-page-sub { margin: 3px 0 0; color: var(--muted-foreground); font-size: 12px; }
@@ -445,6 +449,7 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
 @keyframes t-spin { to { transform: rotate(360deg); } }
 .t-skel-line { display: block; height: 11px; border-radius: 4px; background: var(--secondary); animation: t-pulse 1.4s ease-in-out infinite; margin: 3px 0 7px; max-width: 100%; }
 .t-skel-line.is-sub { height: 8px; opacity: 0.7; margin-bottom: 0; }
+.t-loading { display: flex; flex-direction: column; gap: 12px; width: 100%; }
 .t-skeleton {
     border-radius: var(--radius-md);
     background: linear-gradient(90deg, var(--secondary) 0%, var(--muted) 50%, var(--secondary) 100%);

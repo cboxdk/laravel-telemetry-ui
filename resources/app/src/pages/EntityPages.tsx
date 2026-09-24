@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useEntityIndex, useEntityStory } from '../api/hooks';
 import type { EntityStory, Link as LinkData, SpanRow } from '../api/types';
 import { useBoot, useDimension, DimensionValue, useDrill, useValueLabel, ValueText } from '../components/DimensionValue';
-import { Empty, ErrorState, Skeleton } from '../components/States';
+import { Empty, ErrorState, Loading, Spinner } from '../components/States';
 import { PanelView } from '../components/panels/PanelView';
 import { fillRows } from './PanelPage';
 import { HeatmapChart } from '../components/charts/HeatmapChart';
@@ -57,7 +57,7 @@ export function EntityIndexView({ type }: { type: string }) {
             </header>
 
             <section className="t-panel span-3">
-                {isLoading && !data ? <Skeleton height={300} /> : error ? <ErrorState error={error} /> : values.length === 0 ? (
+                {isLoading && !data ? <Loading label={`Reading every ${(def?.label ?? type).toLowerCase()} seen in this window…`} height={300} /> : error ? <ErrorState error={error} /> : values.length === 0 ? (
                     <Empty>No {(def?.plural ?? type).toLowerCase()} seen in this window.</Empty>
                 ) : (
                     <div className="t-groups t-entity-index">
@@ -101,7 +101,7 @@ export function EntityView({ type }: { type: string }) {
     const set = useSetSearch();
     const value = str(search, 'value');
     const tab = str(search, 'tab') || 'story';
-    const { data, error, isLoading } = useEntityStory(type, value);
+    const { data, error, isLoading, isFetching } = useEntityStory(type, value);
     const dim = useDimension(data?.entity.key ?? '');
     const name = useValueLabel(data?.entity.key ?? '', value);
     useTitle(name ?? value, data?.entity.label ?? dim?.label ?? type);
@@ -121,6 +121,7 @@ export function EntityView({ type }: { type: string }) {
                         : <h1 className="t-page-title mono t-entity-value">{value}</h1>}
                 </div>
                 <div className="t-row-gap">
+                    {isFetching && data && <Spinner label="Updating…" />}
                     {data?.entity.linkOut && <a className="t-btn t-btn-sm t-btn-primary" href={data.entity.linkOut} target="_blank" rel="noopener noreferrer">Open in app <Icon name="external" size={12} /></a>}
                     <Go link={{ to: 'explore', signal: data?.signal ?? 'requests', where: data?.where ?? [] }} className="t-btn t-btn-sm t-btn-secondary"><Icon name="compass" size={12} />Explore</Go>
                     <Go link={{ to: 'explore', signal: 'logs', where: [`${(data?.entity.key ?? type).replace(/[.-]/g, '_')}=${value}`] }} className="t-btn t-btn-sm t-btn-ghost">Logs</Go>
@@ -135,7 +136,7 @@ export function EntityView({ type }: { type: string }) {
                 ))}
             </div>
 
-            {isLoading && !data ? <Skeleton height={400} /> : error && !data ? <ErrorState error={error} /> : data ? (
+            {isLoading && !data ? <Loading label={`Reading this ${(dim?.label ?? type).toLowerCase()}'s requests from the trace store…`} height={400} /> : error && !data ? <ErrorState error={error} /> : data ? (
                 tab === 'raw' ? <RawTab data={data} /> : tab === 'metrics' ? (
                     // The entity header above already names it: skip the detail page's own header.
                     <div className="t-grid">{fillRows(data.panels.filter((p) => !p.id.endsWith('-header'))).map((p) => <PanelView key={p.id} id={p.id} span={p.span} params={p.params} />)}</div>

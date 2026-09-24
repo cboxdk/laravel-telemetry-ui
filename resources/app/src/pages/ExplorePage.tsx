@@ -7,7 +7,7 @@ import { CopyButton } from '../components/CopyButton';
 import { Popover } from '../components/Popover';
 import { SavedViewsButton } from '../components/SavedViews';
 import { useBoot } from '../components/DimensionValue';
-import { ErrorState, Empty, Skeleton } from '../components/States';
+import { Empty, ErrorState, Loading } from '../components/States';
 import { FacetPanel } from '../components/explore/FacetPanel';
 import { FilterBar } from '../components/explore/FilterBar';
 import { LogList } from '../components/explore/LogList';
@@ -115,7 +115,7 @@ export function ExploreView({ signal }: { signal: Signal }) {
                 />
 
                 <section className="t-results">
-                    {explore.error && !data ? <div className="t-pad"><ErrorState error={explore.error} /></div> : !data ? <div className="t-pad"><Skeleton height={380} /></div> : (
+                    {explore.error && !data ? <div className="t-pad"><ErrorState error={explore.error} /></div> : !data ? <div className="t-pad"><Loading label={`Searching ${signal}…`} height={380} /></div> : (
                         <>
                             <div className="t-rtop">
                                 <StatsLine signal={signal} stats={data.stats} sample={data.sample} where={where} onWhere={(w) => set({ where: w })} />

@@ -10,6 +10,20 @@ export function Spinner({ label }: { label?: string }) {
     );
 }
 
+/**
+ * A read that can take seconds (a trace-store search, a log scan): say what is
+ * being read, above a placeholder the full width of what will replace it — so
+ * a slow backend reads as "working", not as a broken, empty page.
+ */
+export function Loading({ label, height = 320 }: { label: string; height?: number }) {
+    return (
+        <div className="t-loading">
+            <Spinner label={label} />
+            <Skeleton height={height} />
+        </div>
+    );
+}
+
 export function Skeleton({ height = 160 }: { height?: number }) {
     return <div className="t-skeleton" style={{ height }} aria-hidden="true" />;
 }

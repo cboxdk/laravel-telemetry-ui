@@ -3,11 +3,11 @@ import { ago } from '../../lib/format';
 import { Go } from '../../lib/links';
 import { Icon } from '../Icon';
 import { Markdown } from '../Markdown';
-import { ErrorState, Skeleton } from '../States';
+import { ErrorState, Loading } from '../States';
 
 export function IssueView({ id }: { id: string }) {
     const { data, error, isLoading } = useIssue(id);
-    if (isLoading) return <div className="t-pad"><Skeleton height={240} /></div>;
+    if (isLoading) return <div className="t-pad"><Loading label="Loading the issue…" height={240} /></div>;
     if (error || !data) return <div className="t-pad"><ErrorState error={error} /></div>;
 
     return (

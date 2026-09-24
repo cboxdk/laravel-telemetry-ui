@@ -12,11 +12,13 @@ use Cbox\TelemetryUi\Http\Api\Filter;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Cbox\TelemetryUi\Http\Api\Serializer;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Format;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 use Cbox\TelemetryUi\TelemetryUiManager;
 
 /**
@@ -312,9 +314,20 @@ final class EntityStory
 
         [$start, $end] = $scope->range();
 
+        // Read only the streams of the services these traces ran in. With no
+        // service selected the scope's selector is "any service", which makes
+        // the store scan every stream it has — seconds on a busy one, for
+        // records that can only belong to these services anyway.
+        $query = $scope->logQuery();
+
+        if ($query->stream === []) {
+            $services = array_values(array_unique(array_filter(array_map(static fn (array $r): string => (string) $r['service'], $rows))));
+            $query = new LogQuery([ScopeLabels::logServiceMatcher($services)], $query->pipeline, $query->raw);
+        }
+
         try {
             $entries = $this->connections->logs()->query(
-                $scope->logQuery()->whereLabel('exception_group', MatchOp::Neq, ''),
+                $query->whereLabel('exception_group', MatchOp::Neq, ''),
                 $start,
                 $end,
                 500,
