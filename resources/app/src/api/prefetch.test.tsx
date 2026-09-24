@@ -70,6 +70,6 @@ describe('telling the trace store where to look', () => {
         act(() => prefetch!({ to: 'trace', id: 'cold' }));
         await act(async () => { vi.advanceTimersByTime(TRACE_PREFETCH_DELAY_MS); });
 
-        expect(urls).toEqual(['/t/api/v2/traces/with-time?at=1735689600500', '/t/api/v2/traces/cold']);
+        expect(urls).toEqual(['/t/api/v2/traces/with-time?at=1735689600500&without=context', '/t/api/v2/traces/cold?without=context']);
     });
 });

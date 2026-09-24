@@ -536,6 +536,16 @@ export interface TraceData {
     dimensionLinks: Record<string, string>;
 }
 
+/**
+ * What surrounded a trace, read from the metrics and logs backends
+ * (`traces/{id}/context`) — the slow half, which the drawer loads after the
+ * trace itself.
+ */
+export type TraceCorrelation = Pick<TraceData, 'context' | 'profile' | 'logs' | 'logsMatch' | 'exceptions'>;
+
+/** The trace alone (`traces/{id}?without=context`): only the trace store has to answer. */
+export type TraceStory = Omit<TraceData, keyof TraceCorrelation>;
+
 export interface ErrorDetail {
     type: string;
     message: string;

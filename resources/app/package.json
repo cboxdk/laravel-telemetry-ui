@@ -1,6 +1,6 @@
 {
     "name": "@cboxdk/telemetry-ui",
-    "version": "2.3.0",
+    "version": "2.4.0",
     "description": "React components for the Laravel Telemetry UI dashboard \u2014 mount panels, Explore and entity pages inside your own app.",
     "license": "MIT",
     "type": "module",

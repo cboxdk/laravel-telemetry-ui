@@ -34,6 +34,7 @@ Route::prefix('api/v2')->name('telemetry-ui.api.')->group(static function (): vo
     Route::get('/entities/{type}', [Api\EntityController::class, 'index'])->where('type', '[A-Za-z0-9_\.\-]+')->name('entities');
     Route::get('/entities/{type}/story', [Api\EntityController::class, 'show'])->where('type', '[A-Za-z0-9_\.\-]+')->name('entity');
     Route::get('/traces/{traceId}', Api\TraceController::class)->where('traceId', '[0-9a-fA-F]{1,64}')->name('trace');
+    Route::get('/traces/{traceId}/context', [Api\TraceController::class, 'context'])->where('traceId', '[0-9a-fA-F]{1,64}')->name('trace.context');
     Route::get('/errors/{group}', Api\ErrorGroupController::class)->where('group', '[A-Za-z0-9]{1,64}')->name('error');
     Route::get('/issues/{id}', [Api\IssueController::class, 'show'])->where('id', '.+')->name('issue');
     Route::post('/issues', [Api\IssueController::class, 'store'])->name('issues.store');

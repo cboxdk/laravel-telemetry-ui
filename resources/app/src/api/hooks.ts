@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { api, type Params } from './client';
 import type {
     Bootstrap, EntityIndex, EntityStory, ErrorGroupData, ExploreResult, FacetsResult,
-    IssueData, PageDef, PanelPayload, Signal, TraceData, Annotation,
+    IssueData, PageDef, PanelPayload, Signal, TraceCorrelation, TraceData, TraceStory, Annotation,
 } from './types';
 import { useScope, useRefreshInterval } from '../lib/state';
 import { rememberTraceTime, traceTime } from '../lib/traceTimes';
@@ -43,7 +43,7 @@ export function usePrefetch() {
             if (pendingTrace !== null) clearTimeout(pendingTrace);
             pendingTrace = setTimeout(() => {
                 pendingTrace = null;
-                fetch<TraceData>(['trace', id], `traces/${id}`, traceParams(id));
+                fetch<TraceStory>(['trace-story', id], `traces/${id}`, { ...traceParams(id), without: 'context' });
             }, TRACE_PREFETCH_DELAY_MS);
         } else if (link.to === 'error' && typeof link.group === 'string') {
             fetch<ErrorGroupData>(['error', link.group, scope.service, scope.env], `errors/${encodeURIComponent(link.group)}`, { service: scope.service, env: scope.env });
@@ -170,6 +170,31 @@ export function useTrace(traceId: string) {
         queryFn: ({ signal }) => api.get<TraceData>(`traces/${traceId}`, traceParams(traceId), signal),
         staleTime: 5 * 60_000,
         retry: 1,
+    });
+}
+
+/**
+ * The trace alone — what the drawer draws first. The metrics and logs around
+ * it are a dozen or more backend reads; {@link useTraceContext} fetches them
+ * once this has arrived, so the waterfall doesn't wait on them.
+ */
+export function useTraceStory(traceId: string) {
+    return useQuery({
+        queryKey: ['trace-story', traceId],
+        queryFn: ({ signal }) => api.get<TraceStory>(`traces/${traceId}`, { ...traceParams(traceId), without: 'context' }, signal),
+        staleTime: 5 * 60_000,
+        retry: 1,
+    });
+}
+
+/** What surrounded a trace: context signals, logs, profile, exceptions. */
+export function useTraceContext(traceId: string, enabled: boolean) {
+    return useQuery({
+        queryKey: ['trace-context', traceId],
+        queryFn: ({ signal }) => api.get<TraceCorrelation>(`traces/${traceId}/context`, traceParams(traceId), signal),
+        staleTime: 5 * 60_000,
+        retry: 1,
+        enabled,
     });
 }
 

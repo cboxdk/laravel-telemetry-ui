@@ -42,39 +42,15 @@ final class TraceController
         Request $request,
         string $traceId,
     ): JsonResponse {
-        if (! Gate::allows('viewTelemetryUi', ['traces'])) {
-            return ApiError::forbidden();
-        }
+        $trace = self::located($connections, $request, $traceId);
 
-        try {
-            $trace = self::fetch($connections->traces(), $traceId, $request);
-        } catch (SourceException $exception) {
-            return ApiError::backend($exception->getMessage());
-        }
-
-        if ($trace->spans === []) {
-            return ApiError::notFound("Trace {$traceId} was not found (it may have expired or been sampled away).");
-        }
-
-        // A trace id is a deep link anyone can paste: a locked viewer must not
-        // read one belonging to a service outside their lock. Search and
-        // Explore are already constrained; this is the one route that takes an
-        // id straight from the URL.
-        if (! self::withinLock($trace, app(ScopeLock::class))) {
-            return ApiError::notFound("Trace {$traceId} was not found (it may have expired or been sampled away).");
+        if ($trace instanceof JsonResponse) {
+            return $trace;
         }
 
         $root = $trace->root();
 
-        $logs = self::safe(static fn (): array => $traceLogs->forTrace($trace));
-        $logsMatch = $logs !== [] ? 'trace' : null;
-
-        if ($logs === []) {
-            $logs = $exceptions->logsByWindow($trace);
-            $logsMatch = $logs !== [] ? 'time' : null;
-        }
-
-        return Json::ok([
+        $story = [
             'traceId' => $trace->traceId,
             'root' => $root !== null ? Serializer::span($root) : null,
             'durationMs' => round($trace->durationMs(), 3),
@@ -98,16 +74,100 @@ final class TraceController
                 'color' => $hop['color'],
             ], TraceView::chain($trace)),
             'identities' => TraceView::identities($trace),
+            'report' => RequestReport::from($trace),
+            'dimensionLinks' => Serializer::dimensionLinks($trace),
+        ];
+
+        // `?without=context` leaves out what is read from the metrics and logs
+        // backends around the trace — a dozen or more queries, run one after
+        // another — so the waterfall can render as soon as the trace store has
+        // answered. The dashboard then fetches `traces/{id}/context`.
+        if ($request->query('without') === 'context') {
+            return Json::ok($story);
+        }
+
+        return Json::ok([...$story, ...self::correlation($trace, $context, $profile, $traceLogs, $exceptions)]);
+    }
+
+    /**
+     * What surrounded a trace, read from the metrics and logs backends: host
+     * and runtime signals against their baseline, the trace's log lines, its
+     * profile and its exceptions. The slow half of a trace, served on its own
+     * so the drawer doesn't wait for it. `services` is echoed so a host that
+     * checks a trace's scope on the response can check this one the same way.
+     */
+    public function context(
+        ConnectionManager $connections,
+        SignalContext $context,
+        TraceProfile $profile,
+        TraceLogs $traceLogs,
+        TraceExceptions $exceptions,
+        Request $request,
+        string $traceId,
+    ): JsonResponse {
+        $trace = self::located($connections, $request, $traceId);
+
+        if ($trace instanceof JsonResponse) {
+            return $trace;
+        }
+
+        return Json::ok([
+            'traceId' => $trace->traceId,
+            'services' => array_map(Serializer::attributes(...), $trace->services),
+            ...self::correlation($trace, $context, $profile, $traceLogs, $exceptions),
+        ]);
+    }
+
+    /**
+     * The trace, or the answer to give instead: forbidden, the backend's
+     * failure, or not found — which is also the answer for a trace outside
+     * the viewer's lock, because its existence is itself information.
+     */
+    private static function located(ConnectionManager $connections, Request $request, string $traceId): Trace|JsonResponse
+    {
+        if (! Gate::allows('viewTelemetryUi', ['traces'])) {
+            return ApiError::forbidden();
+        }
+
+        try {
+            $trace = self::fetch($connections->traces(), $traceId, $request);
+        } catch (SourceException $exception) {
+            return ApiError::backend($exception->getMessage());
+        }
+
+        // A trace id is a deep link anyone can paste: a locked viewer must not
+        // read one belonging to a service outside their lock. Search and
+        // Explore are already constrained; this is the one route that takes an
+        // id straight from the URL.
+        if ($trace->spans === [] || ! self::withinLock($trace, app(ScopeLock::class))) {
+            return ApiError::notFound("Trace {$traceId} was not found (it may have expired or been sampled away).");
+        }
+
+        return $trace;
+    }
+
+    /**
+     * @return array{context: array<array<string, mixed>>, profile: array<mixed>, logs: array<mixed>, logsMatch: string|null, exceptions: array<mixed>}
+     */
+    private static function correlation(Trace $trace, SignalContext $context, TraceProfile $profile, TraceLogs $traceLogs, TraceExceptions $exceptions): array
+    {
+        $logs = self::safe(static fn (): array => $traceLogs->forTrace($trace));
+        $logsMatch = $logs !== [] ? 'trace' : null;
+
+        if ($logs === []) {
+            $logs = $exceptions->logsByWindow($trace);
+            $logsMatch = $logs !== [] ? 'time' : null;
+        }
+
+        return [
             'context' => array_map(Serializer::metricSummary(...), self::safe(static fn (): array => $context->forTrace($trace))),
             'profile' => self::safe(static fn (): array => $profile->forTrace($trace)),
-            'report' => RequestReport::from($trace),
             'logs' => $logs,
             // 'trace' = joined on trace id; 'time' = the service's lines in the
             // root span's window (records without trace context).
             'logsMatch' => $logsMatch,
             'exceptions' => $exceptions->forTrace($trace),
-            'dimensionLinks' => Serializer::dimensionLinks($trace),
-        ]);
+        ];
     }
 
     /**

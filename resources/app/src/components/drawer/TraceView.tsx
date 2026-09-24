@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useTrace } from '../../api/hooks';
-import type { Link as LinkData, ReportItem, SpanData, TraceData } from '../../api/types';
+import { useTraceContext, useTraceStory } from '../../api/hooks';
+import type { Link as LinkData, ReportItem, SpanData, TraceCorrelation, TraceData } from '../../api/types';
 import { count, ms, shortId, statusTone } from '../../lib/format';
 import { Go } from '../../lib/links';
 import { useBoot, DimensionValue } from '../DimensionValue';
@@ -17,9 +17,22 @@ type Tab = 'story' | 'waterfall' | 'logs' | 'context' | 'profile';
  * metrics vs baseline, the trace's logs, the profile — with the waterfall one
  * tab away and raw attributes behind each span.
  */
+/** Until the correlation arrives, the tabs that show it say so rather than "none". */
+const NO_CORRELATION: TraceCorrelation = { context: [], profile: [], logs: [], logsMatch: null, exceptions: [] };
+
 export function TraceView({ traceId, full }: { traceId: string; full?: boolean }) {
-    const { data, error, isLoading } = useTrace(traceId);
+    // The trace first, the metrics and logs around it after: the drawer draws
+    // as soon as the trace store answers and fills the rest in.
+    const { data: story, error, isLoading } = useTraceStory(traceId);
+    const correlation = useTraceContext(traceId, story !== undefined);
+    const pending = story !== undefined && correlation.isPending;
+    const data: TraceData | undefined = story === undefined ? undefined : { ...story, ...(correlation.data ?? NO_CORRELATION) };
     const [tab, setTab] = useState<Tab>('story');
+    const correlationState = pending
+        ? <div className="t-pad"><Spinner label="Reading the metrics and logs around this request…" /></div>
+        : correlation.error
+            ? <div className="t-pad"><ErrorState error={correlation.error} compact /></div>
+            : null;
 
     if (isLoading) {
         return (
@@ -36,7 +49,7 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
     const tabs: { key: Tab; label: string; n?: number }[] = [
         { key: 'story', label: 'Story' },
         { key: 'waterfall', label: 'Waterfall', n: data.spanCount },
-        { key: 'logs', label: 'Logs', n: data.logs.length },
+        { key: 'logs', label: 'Logs', n: pending ? undefined : data.logs.length },
         { key: 'context', label: 'Context', n: data.context.filter((c) => c.outlier).length || undefined },
         ...(data.profile.length > 0 ? [{ key: 'profile' as Tab, label: 'Profile' }] : []),
     ];
@@ -73,17 +86,17 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
                 </div>
             </div>
             <div className="t-dbody">
-                {tab === 'story' && <Story data={data} />}
+                {tab === 'story' && <Story data={data} pending={pending} />}
                 {tab === 'waterfall' && <Waterfall data={data} />}
-                {tab === 'logs' && <Logs data={data} />}
-                {tab === 'context' && <><Context data={data} /><Around data={data} attrs={Object.assign({}, ...[...data.waterfall].reverse().map((r) => r.span.attributes), data.root?.attributes ?? {}) as Record<string, string>} /></>}
+                {tab === 'logs' && (correlationState ?? <Logs data={data} />)}
+                {tab === 'context' && <>{correlationState ?? <Context data={data} />}<Around data={data} attrs={Object.assign({}, ...[...data.waterfall].reverse().map((r) => r.span.attributes), data.root?.attributes ?? {}) as Record<string, string>} /></>}
                 {tab === 'profile' && <Profile data={data} />}
             </div>
         </div>
     );
 }
 
-function Story({ data }: { data: TraceData }) {
+function Story({ data, pending = false }: { data: TraceData; pending?: boolean }) {
     const boot = useBoot();
     const root = data.root;
     // Declared dimensions can be stamped on any span; the root wins on conflict.
@@ -170,6 +183,8 @@ function Story({ data }: { data: TraceData }) {
                     <Context data={{ ...data, context: data.context.filter((c) => c.outlier) }} />
                 </section>
             )}
+
+            {pending && <Spinner label="Reading the metrics and logs around this request…" />}
 
             <Around data={data} attrs={attrs} />
         </div>
