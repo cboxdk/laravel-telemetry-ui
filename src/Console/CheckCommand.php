@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Console;
 
 use Cbox\Telemetry\TelemetryManager;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
+use Cbox\TelemetryUi\Contracts\EnumeratesMetricNames;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Support\ScopeLabels;
 use Illuminate\Console\Command;
@@ -114,10 +115,22 @@ final class CheckCommand extends Command
 
     private function probeMetrics(ConnectionManager $manager): string
     {
-        // vector(1) is a trivial instant query every Prometheus/Mimir answers.
-        $samples = $manager->metrics()->query(MetricQuery::raw('vector(1)'));
+        $metrics = $manager->metrics();
 
-        return count($samples).' sample(s) returned';
+        // The series index, the same way the traces and logs probes ask for
+        // tag and label values. It is metadata rather than a synthetic query,
+        // so it works on any backend serving the read API, and it answers
+        // something worth printing: how many metric names are actually there.
+        if ($metrics instanceof EnumeratesMetricNames) {
+            return count($metrics->metricNamesMatching(['.+'])).' metric name(s)';
+        }
+
+        // A bare scalar for drivers without a series index. NOT vector(1):
+        // that is a PromQL *function*, and a backend can implement the query
+        // API without implementing it — telemetryd answers `1` and refuses
+        // `vector(1)`, which failed this check on a connection that was
+        // working perfectly.
+        return count($metrics->query(MetricQuery::raw('1'))).' sample(s) returned';
     }
 
     private function probeTraces(ConnectionManager $manager): string
