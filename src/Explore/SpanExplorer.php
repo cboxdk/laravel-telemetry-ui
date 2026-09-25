@@ -281,7 +281,23 @@ final class SpanExplorer
         // and the groups all describe the same population. Without it,
         // "group by Outgoing host" counts every inbound request as a
         // dependency — the same bug the entity pages had.
-        $qualifiers = $groupBy !== null ? $this->dimensions->resolve($groupBy)->qualifiers() : [];
+        //
+        // The kind alone is not enough: `kind = client` also matches every
+        // db.query, redis command and connect span, none of which carry
+        // server.address, so the list fills with "(none)". A dimension that
+        // needs a kind to mean anything needs the attribute present as well
+        // — grouping by "Outgoing host" means the spans that ARE outgoing
+        // calls, not every client span in the trace.
+        $qualifiers = [];
+
+        if ($groupBy !== null) {
+            $dimension = $this->dimensions->resolve($groupBy);
+            $qualifiers = $dimension->qualifiers();
+
+            if ($qualifiers !== [] && $dimension->derived === null) {
+                $qualifiers[] = TraceCondition::nil($dimension->traceField());
+            }
+        }
 
         $rows = $this->rows($scope, $signal, $limit, $qualifiers, $keys);
 
