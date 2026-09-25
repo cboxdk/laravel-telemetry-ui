@@ -5,6 +5,21 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.2] - 2026-09-25
+
+### Fixed
+
+- **Grouping by a kind-qualified dimension requires the attribute too.**
+  2.5.1 narrowed "group by Outgoing host" to client spans, which stopped
+  inbound requests being counted as dependencies but traded one wrong
+  answer for another: `kind = client` also matches every `db.query`, redis
+  command and connect span, none of which carry `server.address`. The list
+  filled with `(none)` instead.
+
+  A dimension that needs a span kind to mean anything needs its attribute
+  present as well — grouping by "Outgoing host" means the spans that *are*
+  outgoing calls, not every client span in the trace.
+
 ## [2.5.1] - 2026-09-25
 
 ### Fixed

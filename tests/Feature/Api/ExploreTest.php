@@ -393,7 +393,12 @@ it('groups by outgoing host without counting inbound requests', function (): voi
     expect($queries)->not->toBeEmpty();
 
     foreach ($queries as $q) {
-        expect($q)->toContain('kind = client');
+        // Both halves: `kind = client` alone also matches every db.query,
+        // redis command and connect span, none of which carry
+        // server.address — the list then fills with "(none)" instead of
+        // inbound requests, which is a different wrong answer.
+        expect($q)->toContain('kind = client')
+            ->toContain('span.server.address != nil');
     }
 });
 
