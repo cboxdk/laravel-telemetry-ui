@@ -696,6 +696,7 @@ final class TelemetryUiManager
         ?Closure $resolve = null,
         ?string $from = null,
         ?string $pattern = null,
+        ?string $spanKind = null,
     ): self {
         $existing = $this->dimensionRegistry()->get($key);
 
@@ -718,6 +719,11 @@ final class TelemetryUiManager
             plural: $plural ?? $existing?->plural,
             resolve: $resolve ?? $existing?->resolve,
             derived: $derived,
+            // Carried over, not defaulted away: re-declaring a built-in to
+            // change its label or add a resolver must not quietly widen what
+            // it means. Dropping it here turned every inbound request back
+            // into an outgoing dependency.
+            spanKind: $spanKind ?? $existing?->spanKind,
         ));
 
         return $this;

@@ -127,7 +127,7 @@ final readonly class Dimension
      */
     public function withResolver(?Closure $resolve): self
     {
-        return new self($this->key, $this->label, $this->group, $this->link, $this->entity, $this->scope, $this->builtin, $this->signals, $this->format, $this->plural, $resolve, $this->derived);
+        return new self($this->key, $this->label, $this->group, $this->link, $this->entity, $this->scope, $this->builtin, $this->signals, $this->format, $this->plural, $resolve, $this->derived, $this->spanKind);
     }
 
     /**
