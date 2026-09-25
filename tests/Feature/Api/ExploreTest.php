@@ -429,3 +429,62 @@ it('leaves an ordinary group-by unqualified', function (): void {
         expect($q)->not->toContain('kind = client');
     }
 });
+
+it('keeps the kind qualifier when drilling into an outgoing host', function (): void {
+    // The group says one outgoing call to leadvalidator.test; clicking it
+    // filters on server.address and, without the qualifier, returns every
+    // inbound request to that hostname instead — 88 of them on a real
+    // instance. The original bug, one click later.
+    $queries = [];
+
+    Http::fake(function (Request $request) use (&$queries) {
+        if (str_contains($request->url(), 'loki.test')) {
+            return Http::response(lokiStreams([]));
+        }
+
+        if (str_contains($request->url(), 'prometheus.test')) {
+            return Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]);
+        }
+
+        $queries[] = (string) (requestQuery($request)['q'] ?? '');
+
+        return Http::response(['traces' => []]);
+    });
+
+    $this->getJson(apiUrl('explore/traces', ['where' => ['server.address=api.stripe.com']]))->assertOk();
+
+    expect($queries)->not->toBeEmpty();
+
+    foreach ($queries as $q) {
+        expect($q)->toContain('kind = client')->toContain('api.stripe.com');
+    }
+});
+
+it('does not narrow an exclusion filter to one span kind', function (): void {
+    // `!=` removes a value from whatever the caller was already looking at.
+    // Narrowing that to client spans would drop rows they never asked to
+    // lose.
+    $queries = [];
+
+    Http::fake(function (Request $request) use (&$queries) {
+        if (str_contains($request->url(), 'loki.test')) {
+            return Http::response(lokiStreams([]));
+        }
+
+        if (str_contains($request->url(), 'prometheus.test')) {
+            return Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]);
+        }
+
+        $queries[] = (string) (requestQuery($request)['q'] ?? '');
+
+        return Http::response(['traces' => []]);
+    });
+
+    $this->getJson(apiUrl('explore/traces', ['where' => ['server.address!=api.stripe.com']]))->assertOk();
+
+    expect($queries)->not->toBeEmpty();
+
+    foreach ($queries as $q) {
+        expect($q)->not->toContain('kind = client');
+    }
+});

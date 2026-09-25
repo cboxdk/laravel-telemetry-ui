@@ -48,12 +48,26 @@ final class TraceFilters
             return [];
         }
 
-        $derived = $dimensions->resolve($filter->key)->derived;
+        $dimension = $dimensions->resolve($filter->key);
+        $derived = $dimension->derived;
 
         if ($derived !== null && $filter->op === '!=' && $filter->value !== '') {
             $field = $dimensions->resolve($derived->from)->traceField();
 
             return [new TraceCondition($field, TraceOp::Re, $derived->regex()), $condition];
+        }
+
+        // A filter on a kind-qualified dimension carries the qualifier too,
+        // or drilling into a group leaves the population the group described.
+        // `server.address` on an app's own hostname is the case: the group
+        // says one outgoing call, and the drill-down without this returns
+        // every inbound request to that host instead.
+        //
+        // Only for `=`. A `!=` filter excludes a value from whatever the
+        // caller was already looking at; narrowing that to one span kind
+        // would silently drop rows they had not asked to lose.
+        if ($dimension->spanKind !== null && $filter->op === '=') {
+            return [...$dimension->qualifiers(), $condition];
         }
 
         return [$condition];

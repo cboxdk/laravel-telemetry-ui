@@ -135,3 +135,17 @@ it('reads the derived value from a source the built-ins do not know', function (
 
     expect($rows[0]['attributes']['portal.screen'])->toBe('checkout');
 });
+
+it('keeps a built-in dimension outgoing-only when it is relabelled or resolved', function (): void {
+    // Both paths rebuilt the Dimension and let spanKind default away, so
+    // `TelemetryUi::resolve('server.address', ...)` — a natural thing to do
+    // to show hostnames — silently turned every inbound request back into an
+    // outgoing dependency.
+    TelemetryUi::dimension('server.address', label: 'Upstream');
+
+    expect(TelemetryUi::dimensions()->resolve('server.address')->spanKind)->toBe('client');
+
+    TelemetryUi::resolve('server.address', fn (array $values): array => []);
+
+    expect(TelemetryUi::dimensions()->resolve('server.address')->spanKind)->toBe('client');
+});

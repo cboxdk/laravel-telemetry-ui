@@ -5,6 +5,27 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.3] - 2026-09-25
+
+### Fixed
+
+- **`spanKind` survives re-declaring a dimension.** `TelemetryUi::dimension()`
+  did not accept it and rebuilt the dimension without it, and
+  `Dimension::withResolver()` dropped it too — so
+  `TelemetryUi::resolve('server.address', …)`, a natural thing to do to show
+  hostnames, silently turned every inbound request back into an outgoing
+  dependency. The builder now takes `spanKind:` and both paths carry the
+  existing value forward.
+
+- **Drilling into a group keeps the group's qualifier.** Grouping by Outgoing
+  host was qualified; clicking a value was not. On a hostname that is both
+  the app's own and something it calls, the group said one outgoing call and
+  the drill-down returned every inbound request to that host — 88 of them on
+  a real instance. A `=` filter on a kind-qualified dimension now carries the
+  qualifier. `!=` deliberately does not: an exclusion removes a value from
+  what the caller was already looking at, and narrowing that to one span kind
+  would drop rows they never asked to lose.
+
 ## [2.5.2] - 2026-09-25
 
 ### Fixed
