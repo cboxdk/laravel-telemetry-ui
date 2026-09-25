@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Dimensions;
 
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Closure;
 
 /**
@@ -49,6 +51,23 @@ final readonly class Dimension
         public ?Derivation $derived = null,
         public ?string $spanKind = null,
     ) {}
+
+    /**
+     * Conditions that qualify what this dimension even means.
+     *
+     * `server.address` is the case this exists for: on a CLIENT span it is
+     * the remote peer, on a SERVER span it is the local host that received
+     * the request. Anything grouping or drilling by it has to say which,
+     * or every inbound request is reported as an outgoing dependency.
+     *
+     * @return list<TraceCondition>
+     */
+    public function qualifiers(): array
+    {
+        return $this->spanKind === null
+            ? []
+            : [TraceCondition::token('kind', TraceOp::Eq, $this->spanKind)];
+    }
 
     /**
      * The value this dimension has on a span/log line carrying `$attributes`,

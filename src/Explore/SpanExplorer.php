@@ -276,10 +276,17 @@ final class SpanExplorer
         $groupBy = $groupBy !== null && $groupBy !== '' ? $groupBy : null;
         $keys = $groupBy !== null ? [...$keys, $groupBy] : $keys;
 
-        $rows = $this->rows($scope, $signal, $limit, [], $keys);
+        // Grouping by a dimension that only means something on one span kind
+        // narrows the whole view to that kind, so the RED stats, the series
+        // and the groups all describe the same population. Without it,
+        // "group by Outgoing host" counts every inbound request as a
+        // dependency — the same bug the entity pages had.
+        $qualifiers = $groupBy !== null ? $this->dimensions->resolve($groupBy)->qualifiers() : [];
+
+        $rows = $this->rows($scope, $signal, $limit, $qualifiers, $keys);
 
         if ($signal === 'traces') {
-            $rows = $this->markErrors($rows, $scope, $signal, [], $limit, wholeTrace: true);
+            $rows = $this->markErrors($rows, $scope, $signal, $qualifiers, $limit, wholeTrace: true);
         }
 
         [$start, $end] = $scope->range();
@@ -290,7 +297,7 @@ final class SpanExplorer
         $exact = false;
 
         if ($groupBy !== null) {
-            $exactGroups = $this->exactGroups($scope, $signal, $groupBy);
+            $exactGroups = $this->exactGroups($scope, $signal, $groupBy, $qualifiers);
             $exact = $exactGroups !== null;
             $groups = $exactGroups ?? Stats::groupBy($rows, $groupBy);
         }
@@ -423,11 +430,12 @@ final class SpanExplorer
     }
 
     /**
+     * @param  list<TraceCondition>  $extra
      * @return list<array{value: string, count: int, errors: int, errorRate: float, avg: float, p95: float|null, share: float}>|null
      */
-    private function exactGroups(RequestScope $scope, string $signal, string $key): ?array
+    private function exactGroups(RequestScope $scope, string $signal, string $key, array $extra = []): ?array
     {
-        $buckets = $this->aggregate($scope, $signal, $key, 50);
+        $buckets = $this->aggregate($scope, $signal, $key, 50, $extra);
 
         if ($buckets === null) {
             return null;
@@ -460,9 +468,10 @@ final class SpanExplorer
     }
 
     /**
+     * @param  list<TraceCondition>  $extra
      * @return list<SpanBucket>|null
      */
-    private function aggregate(RequestScope $scope, string $signal, string $key, int $limit): ?array
+    private function aggregate(RequestScope $scope, string $signal, string $key, int $limit, array $extra = []): ?array
     {
         $source = $this->connections->traces();
 
@@ -480,7 +489,7 @@ final class SpanExplorer
 
         [$start, $end] = $scope->range();
 
-        $query = $this->query($scope, $signal);
+        $query = $this->query($scope, $signal, $extra);
 
         return $source->aggregateSpans(
             new SpanAggregation(new TraceQuery($query->conditions), $dimension->traceField(), limit: $limit),

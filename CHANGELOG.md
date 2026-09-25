@@ -5,6 +5,24 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.1] - 2026-09-25
+
+### Fixed
+
+- **Explore's group-by now applies a dimension's span kind too.** 2.5.0
+  qualified the entity pages but not Explore, so "group by Outgoing host"
+  still reported every inbound request as a dependency — the same bug, one
+  screen over, and on the surface people actually use for grouping. An API
+  subdomain with 198 inbound requests sat at the top of the list.
+
+  The qualifier now lives on `Dimension::qualifiers()`, so the entity pages
+  and Explore read it from one place instead of each remembering to. It
+  narrows the rows, the RED stats, the series and the exact group counts
+  alike, so every number on the screen describes the same population. A
+  group-by on a dimension without a `spanKind` is untouched — there is a
+  test for that too, because narrowing every group-by would quietly drop
+  rows.
+
 ## [2.5.0] - 2026-09-24
 
 ### Fixed
