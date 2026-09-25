@@ -365,3 +365,62 @@ it('hands back the compiled backend query for the view, per signal', function ()
     $errors = $this->getJson(apiUrl('explore/errors'))->assertOk();
     expect($errors->json('query.text'))->toContain('exception_group!=""');
 });
+
+it('groups by outgoing host without counting inbound requests', function (): void {
+    // The entity pages were fixed first and this surface was not, so
+    // "group by Outgoing host" in Explore still reported every inbound
+    // request as a dependency — the same bug, one screen over. Measured on
+    // a real instance: an API subdomain with 198 inbound requests sat at
+    // the top of the list.
+    $queries = [];
+
+    Http::fake(function (Request $request) use (&$queries) {
+        if (str_contains($request->url(), 'loki.test')) {
+            return Http::response(lokiStreams([]));
+        }
+
+        if (str_contains($request->url(), 'prometheus.test')) {
+            return Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]);
+        }
+
+        $queries[] = (string) (requestQuery($request)['q'] ?? '');
+
+        return Http::response(['traces' => []]);
+    });
+
+    $this->getJson(apiUrl('explore/traces', ['groupBy' => 'server.address']))->assertOk();
+
+    expect($queries)->not->toBeEmpty();
+
+    foreach ($queries as $q) {
+        expect($q)->toContain('kind = client');
+    }
+});
+
+it('leaves an ordinary group-by unqualified', function (): void {
+    // The qualifier belongs to the dimension, not to grouping in general:
+    // narrowing every group-by to one span kind would quietly drop rows.
+    $queries = [];
+
+    Http::fake(function (Request $request) use (&$queries) {
+        if (str_contains($request->url(), 'loki.test')) {
+            return Http::response(lokiStreams([]));
+        }
+
+        if (str_contains($request->url(), 'prometheus.test')) {
+            return Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => []]]);
+        }
+
+        $queries[] = (string) (requestQuery($request)['q'] ?? '');
+
+        return Http::response(['traces' => []]);
+    });
+
+    $this->getJson(apiUrl('explore/traces', ['groupBy' => 'http.route']))->assertOk();
+
+    expect($queries)->not->toBeEmpty();
+
+    foreach ($queries as $q) {
+        expect($q)->not->toContain('kind = client');
+    }
+});
