@@ -206,3 +206,17 @@ function sentLogql(): array
 
     return $out;
 }
+
+/**
+ * A Prometheus instant-query response: one labelled sample per entry.
+ *
+ * @param  list<array{0: array<string, string>, 1: float|int}>  $series
+ * @return array<string, mixed>
+ */
+function labelledVector(array $series): array
+{
+    return ['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => array_map(
+        static fn (array $s): array => ['metric' => $s[0], 'value' => [1735689600, (string) $s[1]]],
+        $series,
+    )]];
+}

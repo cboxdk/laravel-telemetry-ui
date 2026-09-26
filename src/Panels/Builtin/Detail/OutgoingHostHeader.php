@@ -27,7 +27,10 @@ final class OutgoingHostHeader extends Panel
         $p = $this->promDuration();
         $count = $this->metric('http_client_request_duration_seconds_count');
         $errors = $this->metric('http_client_request_duration_seconds_count', 'http_response_status_code=~"5.."');
-        $failures = $this->metric('http_client_connection_failures_total');
+        // `http_client_connection_failures_total` never existed; a call
+        // that failed before a response carries `error.type` and no
+        // status code.
+        $failures = $this->metric('http_client_request_duration_seconds_count', 'error_type!="",http_response_status_code=""');
         $sum = $this->metric('http_client_request_duration_seconds_sum');
 
         $error = null;

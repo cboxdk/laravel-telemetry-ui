@@ -24,7 +24,15 @@ class OutgoingActivity extends Panel
         [$start, $end] = $this->range();
 
         $count = $this->metric('http_client_request_duration_seconds_count');
-        $failures = $this->metric('http_client_connection_failures_total');
+        // A call that never reached the far end. This used to query
+        // `http_client_connection_failures_total`, which nothing has ever
+        // emitted — so the headline that exists to show a dependency
+        // going away read zero through every outage.
+        //
+        // The emitter puts `error.type` on the duration metric and omits
+        // the status code when there was no response, which is both more
+        // honest and more useful: the series says WHAT failed.
+        $failures = $this->metric('http_client_request_duration_seconds_count', 'error_type!="",http_response_status_code=""');
         $p = $this->promDuration();
 
         try {

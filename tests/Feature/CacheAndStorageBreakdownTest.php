@@ -4,14 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Http;
 
-function labelledVector(array $series): array
-{
-    return ['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => array_map(
-        static fn (array $s): array => ['metric' => $s[0], 'value' => [1735689600, (string) $s[1]]],
-        $series,
-    )]];
-}
-
 it('breaks cache operations down per store with a hit ratio', function (): void {
     Http::fake(['prometheus.test:9090/api/v1/query*' => Http::response(labelledVector([
         [['store' => 'redis', 'operation' => 'hit'], 900],

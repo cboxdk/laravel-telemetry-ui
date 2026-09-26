@@ -18,8 +18,8 @@ final class HostDetailMemory extends SystemCharts
 
         return [
             'title' => 'Memory',
-            'query' => MetricQuery::raw('sum by (state) (avg by (host_name, state) ('.$selector.'))'),
-            'label' => 'state',
+            'query' => MetricQuery::raw('sum by (system_memory_state) (avg by (host_name, system_memory_state) ('.$selector.'))'),
+            'label' => 'system_memory_state',
             'unit' => 'bytes',
             'type' => 'area',
         ];
