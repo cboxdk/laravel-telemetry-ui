@@ -525,8 +525,35 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
     border: 1px solid var(--border-strong); background: var(--secondary); font-family: var(--font-mono); font-size: 11.5px;
 }
 .t-chip .k { color: var(--muted-foreground); font-family: var(--font-sans); }
-.t-chip .op { color: var(--muted-foreground); padding: 0 2px; border-radius: 4px; }
-.t-chip .op:hover { background: var(--card); color: var(--foreground); }
+.t-chip .op { color: var(--muted-foreground); padding: 0 2px; border-radius: 4px; font-variant-ligatures: none; }
+.t-chip-wrap { position: relative; display: inline-flex; }
+.t-cell-actions-trigger {
+    margin-left: auto; width: 22px; height: 22px; display: grid; place-items: center; flex: 0 0 auto;
+    border-radius: 6px; color: var(--muted-foreground); opacity: 0;
+    transition: opacity var(--dur-hover) var(--ease), background var(--dur-hover) var(--ease);
+}
+/* Quiet until the row is under the cursor — a table of menus reads as noise. */
+.t-tr:hover .t-cell-actions-trigger, .t-cell-actions-trigger.is-open, .t-cell-actions-trigger:focus-visible { opacity: 1; }
+.t-cell-actions-trigger:hover, .t-cell-actions-trigger.is-open { background: var(--secondary); color: var(--foreground); }
+.t-menu-danger { color: var(--destructive); }
+.t-chip-edit { display: inline-flex; align-items: center; gap: 4px; height: 100%; padding: 0 2px 0 0; border-radius: 5px; font: inherit; color: inherit; cursor: pointer; min-width: 0; }
+.t-chip-edit:hover .op { background: var(--card); color: var(--foreground); }
+.t-chip:hover, .t-chip.is-editing { border-color: var(--ring); }
+.t-chip-editor {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; width: 300px; max-width: calc(100vw - 32px);
+    display: grid; gap: 8px; padding: 10px;
+    background: var(--popover); color: var(--popover-foreground); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-popover); animation: t-pop var(--dur-menu) var(--ease);
+}
+.t-chip-editor-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.t-chip-editor-head code { background: none; padding: 0; color: var(--muted-foreground); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-chip-editor-ops { justify-self: start; }
+.t-chip-editor-ops > button { font-family: var(--font-mono); font-variant-ligatures: none; min-width: 32px; justify-content: center; }
+.t-chip-editor .t-input { width: 100%; }
+.t-chip-editor-values { list-style: none; margin: 0; padding: 0; max-height: 200px; overflow-y: auto; }
+.t-chip-editor-values button { width: 100%; text-align: left; padding: 5px 8px; border-radius: 6px; font-size: 12.5px; font-family: var(--font-mono); }
+.t-chip-editor-values button:hover { background: var(--secondary); }
+.t-chip-editor-foot { display: flex; justify-content: space-between; }
 .t-chip b { font-weight: 600; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .t-chip .x { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 5px; color: var(--muted-foreground); }
 .t-chip .x:hover { background: var(--card); color: var(--foreground); }
@@ -543,6 +570,7 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
 .t-suggest button { display: flex; justify-content: space-between; gap: 12px; width: 100%; padding: 6px 8px; border-radius: 6px; font-size: 12.5px; text-align: left; }
 .t-suggest button.is-active, .t-suggest button:hover { background: var(--secondary); }
 .t-suggest code { background: none; padding: 0; color: var(--muted-foreground); font-size: 11px; }
+.t-suggest-keys { max-height: min(60vh, 440px); overflow-y: auto; overscroll-behavior: contain; }
 .t-add { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 9px; border: 1px dashed var(--border-strong); border-radius: 7px; color: var(--muted-foreground); font-size: 12px; }
 .t-add:hover { color: var(--primary); border-color: var(--accent-edge); }
 .t-qbuild-search { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--muted-foreground); min-width: 200px; flex: 0 1 280px; }

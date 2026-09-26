@@ -42,6 +42,19 @@ export interface Control {
     placeholder?: string;
 }
 
+/**
+ * Something a viewer can do to a row. `endpoint` is a path under this
+ * dashboard's own API — never a URL, so a payload cannot make the browser
+ * post somewhere else.
+ */
+export interface CellAction {
+    label: string;
+    endpoint: string;
+    body?: Record<string, unknown>;
+    confirm?: string;
+    tone?: string;
+}
+
 export interface Cell {
     v: string | number | null;
     raw?: number | null;
@@ -54,6 +67,7 @@ export interface Cell {
     badges?: { label: string; tone?: string }[];
     dim?: { key: string; value: string };
     sub?: string;
+    actions?: CellAction[];
 }
 
 export interface Column {

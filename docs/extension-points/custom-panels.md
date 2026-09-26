@@ -221,3 +221,30 @@ replacing it, subclass it (the overview panels that detail pages reuse are not
   the base path.
 - Boot stays cheap: register class-strings, never instantiate connectors in a
   service provider.
+
+## Offering an action on a row
+
+A panel can put buttons on a row: `Ui::action()` inside a cell's `actions`.
+The dashboard renders them as a quiet menu that appears on hover, posts to
+the endpoint on click, and refetches every panel afterwards — a write can
+change what any of them is showing.
+
+```php
+Ui::cell($issue->status, ['actions' => [
+    Ui::action('Resolve', "insights/issues/{$issue->fingerprint}", ['action' => 'resolve']),
+    Ui::action('Ignore', "insights/issues/{$issue->fingerprint}", ['action' => 'ignore'],
+        confirm: 'Never hear about this again?', tone: 'danger'),
+]])
+```
+
+The endpoint is a **path under this dashboard's own API**, never a URL —
+`Ui::action()` refuses an absolute one. A panel payload is data, and data
+must not be able to make someone's browser post to another host;
+constraining it to a relative path keeps every action inside the same
+origin, gate and throttle as the rest of the dashboard.
+
+An action in a payload is an **offer, not an authorization**. Whether the
+viewer may actually do it is the endpoint's decision — check
+`manageTelemetryUi` (or your own ability) there, and return the usual error
+shape on refusal. The menu shows the message it gets back rather than
+pretending the action worked.

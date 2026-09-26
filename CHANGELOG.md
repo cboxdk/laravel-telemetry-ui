@@ -5,6 +5,35 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] - 2026-09-26
+
+### Added
+
+- **Row actions in a panel.** `Ui::action()` puts buttons on a table row:
+  a quiet menu on hover that posts to an endpoint and refetches afterwards,
+  since a write can change what any panel is showing. The endpoint is a
+  path under this dashboard's own API and an absolute URL is refused — a
+  payload is data, and data must not be able to make someone's browser post
+  to another host. An action is an offer, not an authorization: the endpoint
+  still decides, and a refusal is shown rather than swallowed. This is what
+  lets a package that adds pages also add the buttons for them.
+
+### Fixed
+
+- The Explore filter bar offered only the first eight keys, your own
+  dimensions first, so built-ins fell off the list — and never offered
+  `duration` or `kind` at all, since they are span fields rather than
+  dimensions. It now lists every key that applies to the current signal (and
+  none that don't), puts Duration (requests, traces) and Span kind (traces)
+  first, starts Duration as `duration>` with 100ms–5s presets, and labels a
+  field's chip by name.
+- An applied filter couldn't be edited: clicking its operator only inverted
+  `=`/`=~` (a `>` did nothing) and the value wasn't clickable at all. Clicking
+  a chip now opens an editor in place — the operators that apply to that key
+  (comparisons for duration, `=`/`!=` for status and kind, all of them for a
+  number), the value with the same suggestions as adding one, Enter to apply,
+  Esc to cancel — and the filter keeps its position in the query.
+
 ## [2.5.3] - 2026-09-25
 
 ### Fixed
