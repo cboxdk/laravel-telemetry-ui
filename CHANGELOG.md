@@ -5,6 +5,43 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Infrastructure discovery.** `telemetry-ui:discover` finds which
+  exporters are already scraped into your metrics store — node, redis
+  (and Valkey), postgres, mysql, haproxy, nginx, php-fpm, elasticsearch,
+  mongodb, `cboxdk/laravel-health` — and ties each instance to the host or
+  dependency your traces already name. Nothing to configure: adding an
+  exporter is an infrastructure job, and this looks for the result.
+  Matching is on evidence only; an instance nothing claims is listed as
+  unmatched rather than attached to the nearest plausible host, and hosts
+  with no exporter are listed too. The map is cached
+  (`telemetry-ui.discovery.ttl`, 15 minutes).
+- Every metric name in the catalogue was verified against the exporter's
+  own output rather than written from memory: each image run against a
+  real backing service and its `/metrics` scraped. That corrected three
+  wrong names before they shipped — HAProxy has no `haproxy_backend_up`
+  (it is `haproxy_backend_status`), PostgreSQL replication lag is
+  `pg_replication_lag_seconds`, and a standalone MongoDB exposes only
+  `mongodb_up`.
+- `telemetry-ui:check --signals` reports which configured context signals
+  actually return data. A signal whose metric is absent is skipped
+  silently, which is right for an optional exporter and hides a typo.
+
+### Fixed
+
+- **Four of the five shipped context signals queried metric names nothing
+  emits.** `system_cpu_utilization_ratio`, `system_cpu_load_average_ratio`,
+  `system_memory_utilization_ratio` and `process_resident_memory_bytes`
+  returned no series against a stock `cboxdk/laravel-telemetry` install, so
+  the trace correlation panel showed one tile instead of five — and because
+  every signal fails open by design, it never said so. The OpenTelemetry
+  `_ratio` suffix for a unit-`1` gauge is not applied by this pipeline; the
+  defaults now accept either spelling, pin the load average to `period="1m"`,
+  use `process_memory_rss_bytes`, and add disk usage.
+
 ## [2.6.1] - 2026-09-26
 
 ### Fixed

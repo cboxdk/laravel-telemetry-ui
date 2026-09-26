@@ -526,6 +526,25 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Infrastructure discovery
+    |--------------------------------------------------------------------------
+    |
+    | Adding an exporter is an infrastructure job: install node_exporter on
+    | the box, point redis_exporter at the cache, scrape them. Nothing needs
+    | configuring here — `telemetry-ui:discover` finds what is there and ties
+    | each instance to the host or dependency your traces already name.
+    |
+    | Run it on a schedule; infrastructure changes at deploy speed, not
+    | request speed. The map is cached for "ttl" seconds.
+    |
+    */
+
+    'discovery' => [
+        'ttl' => (int) env('TELEMETRY_UI_DISCOVERY_TTL', 900),
+    ],
+
     'context' => [
         'enabled' => (bool) env('TELEMETRY_UI_CONTEXT', true),
         'window' => (int) env('TELEMETRY_UI_CONTEXT_WINDOW', 600),
@@ -536,12 +555,22 @@ return [
         // this long (well beyond the live query cache) and shared across nearby
         // traces — keeps opening a trace cheap.
         'baseline_ttl' => (int) env('TELEMETRY_UI_CONTEXT_BASELINE_TTL', 120),
+        // Each entry is PromQL with a {scope} token. A signal whose metric
+        // does not exist is skipped silently — which is the right behaviour
+        // for an optional exporter, and the reason a typo in one of these
+        // is invisible. `telemetry-ui:check --signals` reports which ones
+        // actually resolve; run it after editing this list.
+        //
+        // The OpenTelemetry convention appends `_ratio` to a gauge whose
+        // unit is `1`, but not every pipeline applies it, so the shipped
+        // signals accept either spelling.
         'signals' => [
-            ['label' => 'Host CPU', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_cpu_utilization_ratio{{scope}})'],
-            ['label' => 'Load avg', 'group' => 'host', 'unit' => 'number', 'query' => 'max(system_cpu_load_average_ratio{{scope}})'],
-            ['label' => 'Host memory', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_memory_utilization_ratio{{scope},state="used"})'],
+            ['label' => 'Host CPU', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_cpu_utilization_ratio{{scope}} or system_cpu_utilization{{scope}})'],
+            ['label' => 'Load avg', 'group' => 'host', 'unit' => 'number', 'query' => 'max(system_cpu_load_average{{scope},period="1m"})'],
+            ['label' => 'Host memory', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_memory_utilization_ratio{{scope},state="used"} or system_memory_utilization{{scope},state="used"})'],
             ['label' => 'Net in', 'group' => 'host', 'unit' => 'bytes/s', 'query' => 'sum(rate(system_network_io_bytes{{scope},direction="receive"}[1m]))'],
-            ['label' => 'Process RSS', 'group' => 'runtime', 'unit' => 'bytes', 'query' => 'avg(process_resident_memory_bytes{{scope}})'],
+            ['label' => 'Disk used', 'group' => 'host', 'unit' => 'bytes', 'query' => 'max(system_filesystem_usage_bytes{{scope},state="used"})'],
+            ['label' => 'Process RSS', 'group' => 'runtime', 'unit' => 'bytes', 'query' => 'avg(process_memory_rss_bytes{{scope}})'],
         ],
     ],
 

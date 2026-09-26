@@ -46,6 +46,12 @@ MCP).
 - **Signal correlation** — a trace shows the host/runtime signals recorded
   *around* it (CPU, load, memory, network, RSS), each flagged against its
   typical baseline ("Host CPU 95%, typical 30%").
+- **Infrastructure discovery** — finds the exporters already scraped into
+  your Prometheus (node, redis, postgres, mysql, haproxy, nginx, php-fpm,
+  elasticsearch) and ties each instance to the host or dependency your
+  traces name. Nothing to configure; every metric name verified against
+  the exporter's own output, and whatever could not be matched is printed
+  rather than silently dropped.
 - **Annotations** — deploy/incident/scaling/version markers on every chart,
   written through the telemetry pipeline (`telemetry-ui:annotate`) and
   auto-detected for un-announced deploys (`telemetry-ui:scan-versions`).
@@ -108,7 +114,8 @@ Full documentation lives in [`docs/`](docs/index.md):
 - [Getting started](docs/getting-started/installation.md)
 - [Connections](docs/core-concepts/connections.md) ·
   [Configuration reference](docs/core-concepts/configuration.md) ·
-  [Signal correlation](docs/core-concepts/correlation.md)
+  [Signal correlation](docs/core-concepts/correlation.md) ·
+  [Infrastructure discovery](docs/core-concepts/infrastructure.md)
 - [Pages & panels](docs/core-concepts/pages-and-panels.md) ·
   [Dimensions & Explore](docs/core-concepts/dimensions-and-explore.md) ·
   [JSON API](docs/core-concepts/api.md)

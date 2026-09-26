@@ -21,7 +21,9 @@ use Throwable;
 final class CheckCommand extends Command
 {
     /** @var string */
-    protected $signature = 'telemetry-ui:check {--connection=* : Only probe these named connections}';
+    protected $signature = 'telemetry-ui:check'
+        .' {--connection=* : Only probe these named connections}'
+        .' {--signals : Also check that each configured context signal resolves}';
 
     /** @var string */
     protected $description = 'Probe each configured Telemetry UI connection and report reachability + auth.';
@@ -70,6 +72,10 @@ final class CheckCommand extends Command
 
         $this->reportEmitter();
 
+        if ((bool) $this->option('signals')) {
+            $this->reportSignals($manager, $config);
+        }
+
         if ($failed) {
             $this->error('One or more connections failed. Check url, token/basic_auth and tenant in config/telemetry-ui.php.');
 
@@ -85,6 +91,75 @@ final class CheckCommand extends Command
         $this->info('All configured connections are reachable.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Which `context.signals` actually produce data.
+     *
+     * A signal whose metric is absent is skipped silently, which is right
+     * for an optional exporter and terrible for a typo: the correlation
+     * panel simply shows one fewer tile and nobody is told why. This makes
+     * the silence visible, so a name that matches nothing is a line in a
+     * table instead of a feature that quietly does nothing.
+     */
+    private function reportSignals(ConnectionManager $manager, Config $config): void
+    {
+        $signals = $config->get('telemetry-ui.context.signals');
+
+        if (! is_array($signals) || $signals === []) {
+            $this->newLine();
+            $this->warn('No context signals configured.');
+
+            return;
+        }
+
+        $rows = [];
+        $resolved = 0;
+
+        foreach ($signals as $signal) {
+            if (! is_array($signal)) {
+                continue;
+            }
+
+            $label = is_string($signal['label'] ?? null) ? $signal['label'] : '(unlabelled)';
+            $query = is_string($signal['query'] ?? null) ? $signal['query'] : '';
+
+            if ($query === '') {
+                $rows[] = [$label, '<fg=red>no query</>', ''];
+
+                continue;
+            }
+
+            // Unscoped on purpose: this asks whether the metric exists at
+            // all, not whether one service reported it in some window.
+            $promql = str_replace(['{{scope}}', '{scope},', '{scope}'], ['', '', ''], $query);
+
+            try {
+                $samples = $manager->metrics()->query(new MetricQuery('', raw: $promql));
+
+                if ($samples === []) {
+                    $rows[] = [$label, '<fg=yellow>no data</>', $this->shorten($promql)];
+
+                    continue;
+                }
+
+                $resolved++;
+                $rows[] = [$label, '<fg=green>OK</>', count($samples).' series'];
+            } catch (Throwable $exception) {
+                $rows[] = [$label, '<fg=red>FAIL</>', $this->shorten($exception->getMessage())];
+            }
+        }
+
+        $this->newLine();
+        $this->line('<options=bold>Context signals</>');
+        $this->table(['Signal', 'Status', 'Detail'], $rows);
+
+        if ($resolved < count($rows)) {
+            $this->warn(
+                'A signal with no data contributes nothing to the correlation panel. '
+                .'Either its exporter is not running, or the metric name does not match what your pipeline emits.'
+            );
+        }
     }
 
     /**

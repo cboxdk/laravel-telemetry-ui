@@ -77,7 +77,8 @@ incident RCA.
   [JSON API](core-concepts/api.md) ·
   [configuration reference](core-concepts/configuration.md) ·
   [authorization](core-concepts/authorization.md) ·
-  [signal correlation](core-concepts/correlation.md)
+  [signal correlation](core-concepts/correlation.md) ·
+  [infrastructure discovery](core-concepts/infrastructure.md)
 - Cookbook:
   [web analytics & RUM](cookbook/analytics.md) ·
   [connect through a Grafana datasource proxy](cookbook/connect-via-grafana-proxy.md) ·
