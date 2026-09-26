@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels;
 
 use Cbox\TelemetryUi\Panels\Concerns\BuildsCharts;
 use DateTimeInterface;
+use InvalidArgumentException;
 
 /**
  * Builders for the panel JSON contract the SPA renders — the one place the
@@ -29,7 +30,8 @@ use DateTimeInterface;
  * client decides where that lives.
  *
  * @phpstan-type Link array{to: string, type?: string, value?: string, id?: string, at?: int, group?: string, page?: string, params?: array<string, string>, signal?: string, where?: list<string>, href?: string, label?: string}
- * @phpstan-type Cell array{v: string|int|float|null, raw?: float|int|null, tone?: string|null, mono?: bool, link?: Link, spark?: list<float>, bar?: float, badge?: string, dim?: array{key: string, value: string}, sub?: string}
+ * @phpstan-type Action array{label: string, endpoint: string, body?: array<string, scalar|null>, confirm?: string, tone?: string}
+ * @phpstan-type Cell array{v: string|int|float|null, raw?: float|int|null, tone?: string|null, mono?: bool, link?: Link, spark?: list<float>, bar?: float, badge?: string, dim?: array{key: string, value: string}, sub?: string, actions?: list<Action>}
  * @phpstan-type Column array{key: string, label: string, align?: string, width?: string}
  * @phpstan-type Stat array{label: string, value: string, tone?: string|null, delta?: string, deltaTone?: string, points?: list<float>, sparkColor?: string, link?: Link}
  * @phpstan-type Control array{param: string, label: string, type: string, value: string, options?: list<array{value: string, label: string}>, placeholder?: string}
@@ -156,12 +158,45 @@ final class Ui
     // ---- cells & columns ----------------------------------------------------
 
     /**
-     * @param  array{raw?: float|int|null, tone?: string|null, mono?: bool, link?: Link, spark?: list<float>, bar?: float, badge?: string, dim?: array{key: string, value: string}, sub?: string}  $opts
+     * @param  array{raw?: float|int|null, tone?: string|null, mono?: bool, link?: Link, spark?: list<float>, bar?: float, badge?: string, dim?: array{key: string, value: string}, sub?: string, actions?: list<Action>}  $opts
      * @return Cell
      */
     public static function cell(string|int|float|null $value, array $opts = []): array
     {
         return ['v' => $value, ...array_filter($opts, static fn ($v): bool => $v !== null)];
+    }
+
+    /**
+     * Something a viewer can *do* to this row, offered in a menu on the cell.
+     *
+     * `$endpoint` is a path under this dashboard's own API — never a URL.
+     * A panel payload is data, and data must not be able to make someone's
+     * browser POST to an arbitrary host; constraining it to a relative path
+     * keeps an action inside the same origin, gate and throttle as
+     * everything else the dashboard does. A package that adds pages adds
+     * its endpoints under that API too (`insights/issues/{id}`).
+     *
+     * The write itself is the endpoint's business, including whether the
+     * viewer is allowed to make it — an action in a payload is an offer, not
+     * an authorization.
+     *
+     * @param  array<string, scalar|null>  $body  JSON body to post
+     * @param  string|null  $confirm  ask this first; destructive actions should
+     * @return Action
+     */
+    public static function action(string $label, string $endpoint, array $body = [], ?string $confirm = null, ?string $tone = null): array
+    {
+        if (str_contains($endpoint, '://') || str_starts_with($endpoint, '//')) {
+            throw new InvalidArgumentException('A panel action posts to this dashboard\'s API, so [endpoint] must be a relative path.');
+        }
+
+        return array_filter([
+            'label' => $label,
+            'endpoint' => ltrim($endpoint, '/'),
+            'body' => $body === [] ? null : $body,
+            'confirm' => $confirm,
+            'tone' => $tone,
+        ], static fn ($v): bool => $v !== null);
     }
 
     /**

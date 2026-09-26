@@ -527,6 +527,15 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
 .t-chip .k { color: var(--muted-foreground); font-family: var(--font-sans); }
 .t-chip .op { color: var(--muted-foreground); padding: 0 2px; border-radius: 4px; font-variant-ligatures: none; }
 .t-chip-wrap { position: relative; display: inline-flex; }
+.t-cell-actions-trigger {
+    margin-left: auto; width: 22px; height: 22px; display: grid; place-items: center; flex: 0 0 auto;
+    border-radius: 6px; color: var(--muted-foreground); opacity: 0;
+    transition: opacity var(--dur-hover) var(--ease), background var(--dur-hover) var(--ease);
+}
+/* Quiet until the row is under the cursor — a table of menus reads as noise. */
+.t-tr:hover .t-cell-actions-trigger, .t-cell-actions-trigger.is-open, .t-cell-actions-trigger:focus-visible { opacity: 1; }
+.t-cell-actions-trigger:hover, .t-cell-actions-trigger.is-open { background: var(--secondary); color: var(--foreground); }
+.t-menu-danger { color: var(--destructive); }
 .t-chip-edit { display: inline-flex; align-items: center; gap: 4px; height: 100%; padding: 0 2px 0 0; border-radius: 5px; font: inherit; color: inherit; cursor: pointer; min-width: 0; }
 .t-chip-edit:hover .op { background: var(--card); color: var(--foreground); }
 .t-chip:hover, .t-chip.is-editing { border-color: var(--ring); }

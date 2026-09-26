@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Row actions in a panel.** `Ui::action()` puts buttons on a table row:
+  a quiet menu on hover that posts to an endpoint and refetches afterwards,
+  since a write can change what any panel is showing. The endpoint is a
+  path under this dashboard's own API and an absolute URL is refused — a
+  payload is data, and data must not be able to make someone's browser post
+  to another host. An action is an offer, not an authorization: the endpoint
+  still decides, and a refusal is shown rather than swallowed. This is what
+  lets a package that adds pages also add the buttons for them.
+
 ### Fixed
 
 - The Explore filter bar offered only the first eight keys, your own

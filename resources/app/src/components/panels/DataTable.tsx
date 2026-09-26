@@ -1,6 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useContext, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Cell, Column, Link, Row, TicketDraft } from '../../api/types';
+import { CellActions } from './CellActions';
 import { usePrefetch } from '../../api/hooks';
 import { Go, useGo } from '../../lib/links';
 import { useScrollParent } from '../../lib/scrollParent';
@@ -60,6 +61,7 @@ export function CellView({ cell, onParam }: { cell: Cell | null; onParam?: (p: R
             <span className="t-cell-main">
                 {cell.spark && cell.spark.length > 0 ? <Sparkline points={cell.spark} tone={tone ?? null} /> : content}
                 {cell.bar !== undefined && <span className="t-cellbar"><i style={{ width: `${Math.max(1, Math.min(100, cell.bar * 100))}%` }} /></span>}
+                {cell.actions && cell.actions.length > 0 && <CellActions actions={cell.actions} />}
             </span>
             {cell.sub && <span className="t-cell-sub" title={cell.sub}>{cell.sub}</span>}
         </div>
