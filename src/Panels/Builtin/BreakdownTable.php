@@ -78,7 +78,7 @@ abstract class BreakdownTable extends Panel
                 }
             }
 
-            foreach ($this->metrics()->query($this->metric($spec['durationMetric'].'_sum')->increase($p)->sumBy($key)) as $sample) {
+            foreach ($this->metrics()->query($this->metric($spec['durationMetric'].'_sum')->increase($p)->sumBy($key)->times(1000)) as $sample) {
                 $name = $sample->labels[$key] ?? '?';
 
                 if (isset($rows[$name])) {
@@ -94,7 +94,7 @@ abstract class BreakdownTable extends Panel
                 }
             }
 
-            foreach ($this->metrics()->query($this->metric($spec['durationMetric'].'_bucket')->quantile(0.95, $p, $key)) as $sample) {
+            foreach ($this->metrics()->query($this->metric($spec['durationMetric'].'_bucket')->quantile(0.95, $p, $key)->times(1000)) as $sample) {
                 $name = $sample->labels[$key] ?? '?';
 
                 if (isset($rows[$name]) && ! is_nan($sample->value)) {

@@ -30,8 +30,8 @@ final class JobDetailHeader extends Panel
         $p = $this->promDuration();
         $processed = $this->metric('queue_jobs_processed_total');
         $failed = $this->metric('queue_jobs_failed_total');
-        $durSum = $this->metric('queue_job_duration_milliseconds_sum');
-        $durCount = $this->metric('queue_job_duration_milliseconds_count');
+        $durSum = $this->metric('queue_job_duration_seconds_sum')->times(1000);
+        $durCount = $this->metric('queue_job_duration_seconds_count');
 
         $error = null;
         $proc = $fail = $time = $cnt = 0.0;

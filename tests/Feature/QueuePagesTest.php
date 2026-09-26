@@ -303,8 +303,8 @@ it('lists jobs with outcome tones, a row drill-down and a search control', funct
             $value = match (true) {
                 str_contains($q, 'queue_jobs_failed_total') => '2',
                 str_contains($q, 'queue_jobs_released_total') => '0',
-                str_contains($q, 'duration_milliseconds_bucket') => '180',
-                str_contains($q, 'duration_milliseconds_sum') => '4000',
+                str_contains($q, 'duration_seconds_bucket') => '180',
+                str_contains($q, 'duration_seconds_sum') => '4000',
                 default => '40',
             };
 

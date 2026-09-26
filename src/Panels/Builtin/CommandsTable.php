@@ -17,7 +17,7 @@ final class CommandsTable extends BreakdownTable
             'title' => 'Commands',
             'keyLabel' => 'command',
             'keyColumn' => 'Command',
-            'durationMetric' => 'command_duration_milliseconds',
+            'durationMetric' => 'command_duration_seconds',
             'outcomes' => [
                 'completed' => 'commands_completed_total',
                 'failed' => 'commands_failed_total',

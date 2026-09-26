@@ -12,7 +12,7 @@ final class ScheduleTable extends BreakdownTable
             'title' => 'Scheduled tasks',
             'keyLabel' => 'task',
             'keyColumn' => 'Task',
-            'durationMetric' => 'schedule_task_duration_milliseconds',
+            'durationMetric' => 'schedule_task_duration_seconds',
             'outcomes' => [
                 'processed' => 'schedule_tasks_processed_total',
                 'failed' => 'schedule_tasks_failed_total',

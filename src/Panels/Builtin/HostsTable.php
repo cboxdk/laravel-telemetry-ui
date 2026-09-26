@@ -55,7 +55,7 @@ final class HostsTable extends Panel
         // Backends spell dimensionless gauges differently (`_ratio` per the
         // Prometheus convention, bare on telemetryd) — match both.
         $cpu = $this->metric('', '__name__=~"system_cpu_utilization(_ratio)?"');
-        $memory = $this->metric('', '__name__=~"system_memory_utilization(_ratio)?",state="used"');
+        $memory = $this->metric('', '__name__=~"system_memory_utilization(_ratio)?",system_memory_state="used"');
         $note = null;
 
         try {

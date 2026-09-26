@@ -63,15 +63,15 @@ class JobsTable extends Panel
             }
 
             $times = $this->metrics()->query(
-                $this->metric('queue_job_duration_milliseconds_sum')->increase($p)->sumBy('job_name', 'queue'),
+                $this->metric('queue_job_duration_seconds_sum')->increase($p)->sumBy('job_name', 'queue')->times(1000),
             );
 
             $counts = $this->metrics()->query(
-                $this->metric('queue_job_duration_milliseconds_count')->increase($p)->sumBy('job_name', 'queue'),
+                $this->metric('queue_job_duration_seconds_count')->increase($p)->sumBy('job_name', 'queue'),
             );
 
             $p95s = $this->metrics()->query(
-                $this->metric('queue_job_duration_milliseconds_bucket')->quantile(0.95, $p, 'job_name', 'queue'),
+                $this->metric('queue_job_duration_seconds_bucket')->quantile(0.95, $p, 'job_name', 'queue')->times(1000),
             );
         } catch (SourceException $exception) {
             return $this->payload([], $exception->getMessage());

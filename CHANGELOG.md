@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Requires `cboxdk/laravel-telemetry` ^3.0**, which moved every duration
+  to seconds and renamed the system-metric attribute keys to the semantic
+  conventions. The panels follow: `command_duration_seconds`,
+  `queue_job_duration_seconds_*`, `queue_job_wait_time_seconds_bucket`,
+  `schedule_task_duration_seconds`, and `system_memory_state`,
+  `system_filesystem_state`, `network_io_direction` in place of the bare
+  `state` and `direction`. Durations are scaled in the query where the cell
+  formats milliseconds, the way the HTTP panels already did.
+
+
 ### Fixed
 
 - **Discovery matched nothing on some backends, silently.** Host and

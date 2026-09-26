@@ -35,7 +35,7 @@ it('parses instant vector queries', function (): void {
         ]),
     ]);
 
-    $samples = prometheus()->query(MetricQuery::raw('sum by (service_name) (rate(http_server_request_duration_milliseconds_count[5m]))'));
+    $samples = prometheus()->query(MetricQuery::raw('sum by (service_name) (rate(http_server_request_duration_seconds_count[5m]))'));
 
     expect($samples)->toHaveCount(2)
         ->and($samples[0])->toBeInstanceOf(Sample::class)
@@ -44,7 +44,7 @@ it('parses instant vector queries', function (): void {
         ->and($samples[1]->value)->toBe(7.0);
 
     Http::assertSent(fn ($request): bool => str_contains($request->url(), '/api/v1/query')
-        && requestQuery($request)['query'] === 'sum by (service_name) (rate(http_server_request_duration_milliseconds_count[5m]))');
+        && requestQuery($request)['query'] === 'sum by (service_name) (rate(http_server_request_duration_seconds_count[5m]))');
 });
 
 it('parses range queries into time series with a derived step', function (): void {
@@ -92,11 +92,11 @@ it('lists label values with a series matcher', function (): void {
         ]),
     ]);
 
-    $values = prometheus()->labelValues('service_name', 'http_server_request_duration_milliseconds_count');
+    $values = prometheus()->labelValues('service_name', 'http_server_request_duration_seconds_count');
 
     expect($values)->toBe(['billing', 'checkout']);
 
-    Http::assertSent(fn ($request): bool => requestQuery($request)['match'] === ['http_server_request_duration_milliseconds_count']);
+    Http::assertSent(fn ($request): bool => requestQuery($request)['match'] === ['http_server_request_duration_seconds_count']);
 });
 
 it('resolves many metric-name patterns in a single labels call', function (): void {

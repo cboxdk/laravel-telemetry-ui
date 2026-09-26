@@ -21,15 +21,15 @@ final class QueueLag extends Panel
     {
         [$start, $end] = $this->range();
 
-        $bucket = $this->metric('queue_job_wait_time_milliseconds_bucket');
+        $bucket = $this->metric('queue_job_wait_time_seconds_bucket');
 
         try {
             $p95Now = $this->total(
-                $bucket->quantile(0.95, $this->promDuration()),
+                $bucket->quantile(0.95, $this->promDuration())->times(1000),
             );
 
             $range = $this->metrics()->queryRange(
-                $bucket->quantile(0.95, $this->rateWindow(), 'queue'),
+                $bucket->quantile(0.95, $this->rateWindow(), 'queue')->times(1000),
                 $start,
                 $end,
             );
