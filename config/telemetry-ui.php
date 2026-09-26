@@ -570,9 +570,9 @@ return [
         // signals accept either spelling.
         'signals' => [
             ['label' => 'Host CPU', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_cpu_utilization_ratio{{scope}} or system_cpu_utilization{{scope}})'],
-            ['label' => 'Load avg', 'group' => 'host', 'unit' => 'number', 'query' => 'max(system_cpu_load_average{{scope},period="1m"})'],
+            ['label' => 'Load avg', 'group' => 'host', 'unit' => 'number', 'query' => 'max(system_cpu_load_average_1m{{scope}})'],
             ['label' => 'Host memory', 'group' => 'host', 'unit' => 'ratio', 'query' => 'avg(system_memory_utilization_ratio{{scope},system_memory_state="used"} or system_memory_utilization{{scope},system_memory_state="used"})'],
-            ['label' => 'Net in', 'group' => 'host', 'unit' => 'bytes/s', 'query' => 'sum(rate(system_network_io_bytes{{scope},network_io_direction="receive"}[1m]))'],
+            ['label' => 'Net in', 'group' => 'host', 'unit' => 'bytes/s', 'query' => 'sum(rate(system_network_io_bytes_total{{scope},network_io_direction="receive"}[1m]))'],
             ['label' => 'Disk used', 'group' => 'host', 'unit' => 'bytes', 'query' => 'max(system_filesystem_usage_bytes{{scope},system_filesystem_state="used"})'],
             ['label' => 'Process RSS', 'group' => 'runtime', 'unit' => 'bytes', 'query' => 'avg(process_memory_rss_bytes{{scope}})'],
         ],

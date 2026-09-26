@@ -8,12 +8,10 @@ final class SystemCpu extends SystemCharts
 {
     protected function spec(): array
     {
-        // OTLP ingestion suffixes unit-"1" gauges with _ratio; a direct
-        // Prometheus scrape of the package endpoint does not.
         return [
             'title' => 'CPU load average',
-            'query' => $this->metric('', '__name__=~"system_cpu_load_average(_ratio)?"')->avgBy('period'),
-            'label' => 'period',
+            'query' => $this->loadAverageQuery(),
+            'label' => 'window',
             'unit' => '',
             'type' => 'line',
             'subtitle' => 'Runnable processes averaged over 1, 5 and 15 minutes — compare with the core count',

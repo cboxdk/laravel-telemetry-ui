@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Queries\Compilers\PromqlCompiler;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\DataPoint;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
@@ -84,6 +85,26 @@ abstract class SystemCharts extends Panel
         }
 
         return $stats;
+    }
+
+    /**
+     * The three load averages as one chart.
+     *
+     * semconv names them as three metrics rather than one with a `period`
+     * label, which is right — they are three different measurements — and
+     * inconvenient for exactly one purpose: drawing them on the same axis.
+     * `label_replace` puts the window back as a label at query time, so
+     * the series are conformant on the wire and legible on the chart.
+     */
+    protected function loadAverageQuery(): MetricQuery
+    {
+        $selector = (new PromqlCompiler)->compile(
+            $this->metric('', '__name__=~"system_cpu_load_average_(1|5|15)m"'),
+        );
+
+        return MetricQuery::raw(
+            'avg by (window) (label_replace('.$selector.', "window", "$1", "__name__", "system_cpu_load_average_(.+)"))',
+        );
     }
 
     /** Format::bytes plus TB — disks are the one place terabytes show up. */

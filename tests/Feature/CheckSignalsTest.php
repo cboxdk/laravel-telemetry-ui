@@ -65,12 +65,17 @@ it('leaves the shipped defaults querying names the emitter really produces', fun
     $signals = config('telemetry-ui.context.signals');
     $queries = implode(' ', array_column($signals, 'query'));
 
-    // cboxdk/laravel-telemetry emits these; it does not append the
-    // OpenTelemetry `_ratio` suffix, so a signal that only spells the
-    // suffixed name resolves to nothing.
+    // cboxdk/laravel-telemetry emits these; a direct Prometheus scrape of
+    // its endpoint does not append the OpenTelemetry `_ratio` suffix, so a
+    // signal that only spells the suffixed name resolves to nothing.
     expect($queries)->toContain('system_cpu_utilization{')
         ->toContain('system_memory_utilization{')
-        ->toContain('system_cpu_load_average{')
         ->toContain('process_memory_rss_bytes')
-        ->not->toContain('process_resident_memory_bytes');
+        ->not->toContain('process_resident_memory_bytes')
+        // semconv names the load windows separately, and the network
+        // counter is monotonic — so it carries `_total` and the old bare
+        // spelling matches nothing.
+        ->toContain('system_cpu_load_average_1m{')
+        ->not->toContain('system_cpu_load_average{')
+        ->toContain('system_network_io_bytes_total{');
 });
