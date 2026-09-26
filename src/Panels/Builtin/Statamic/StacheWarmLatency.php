@@ -30,7 +30,7 @@ final class StacheWarmLatency extends Panel
      */
     public function data(): array
     {
-        $bucket = $this->metric('statamic_stache_warm_duration_milliseconds_bucket');
+        $bucket = $this->metric('statamic_stache_warm_duration_seconds_bucket');
         $window = $this->promDuration();
 
         $rows = [];
@@ -38,7 +38,7 @@ final class StacheWarmLatency extends Panel
 
         try {
             foreach (self::PERCENTILES as $percentile) {
-                $value = $this->total($bucket->quantile($percentile / 100, $window));
+                $value = $this->total($bucket->quantile($percentile / 100, $window)->times(1000));
                 $rows[] = ['percentile' => 'p'.$percentile, 'value' => is_nan($value) ? null : $value];
             }
         } catch (SourceException $exception) {

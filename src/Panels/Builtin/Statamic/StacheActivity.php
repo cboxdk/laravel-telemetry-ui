@@ -19,14 +19,14 @@ final class StacheActivity extends Panel
 
         $warms = $this->metric('statamic_stache_warms_total');
         $clears = $this->metric('statamic_stache_clears_total');
-        $bucket = $this->metric('statamic_stache_warm_duration_milliseconds_bucket');
+        $bucket = $this->metric('statamic_stache_warm_duration_seconds_bucket');
         $w = $this->rateWindow();
         $p = $this->promDuration();
 
         try {
             $totalWarms = $this->total($warms->increase($p)->sumBy());
             $totalClears = $this->total($clears->increase($p)->sumBy());
-            $p95 = $this->total($bucket->quantile(0.95, $p));
+            $p95 = $this->total($bucket->quantile(0.95, $p)->times(1000));
 
             $warmRange = $this->metrics()->queryRange($warms->rate($w)->sumBy()->times(60), $start, $end);
             $clearRange = $this->metrics()->queryRange($clears->rate($w)->sumBy()->times(60), $start, $end);
