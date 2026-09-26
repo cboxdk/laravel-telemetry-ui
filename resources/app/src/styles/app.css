@@ -536,6 +536,12 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
 .t-tr:hover .t-cell-actions-trigger, .t-cell-actions-trigger.is-open, .t-cell-actions-trigger:focus-visible { opacity: 1; }
 .t-cell-actions-trigger:hover, .t-cell-actions-trigger.is-open { background: var(--secondary); color: var(--foreground); }
 .t-menu-danger { color: var(--destructive); }
+/* Portalled out of the cell, which clips to truncate long values. */
+.t-cell-actions-menu {
+    position: fixed; z-index: 80; width: 220px;
+    background: var(--popover); color: var(--popover-foreground);
+    border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-popover);
+}
 .t-chip-edit { display: inline-flex; align-items: center; gap: 4px; height: 100%; padding: 0 2px 0 0; border-radius: 5px; font: inherit; color: inherit; cursor: pointer; min-width: 0; }
 .t-chip-edit:hover .op { background: var(--card); color: var(--foreground); }
 .t-chip:hover, .t-chip.is-editing { border-color: var(--ring); }

@@ -15,6 +15,23 @@ function fetchOk() {
 }
 
 describe('row actions', () => {
+    it('portals the menu out of the cell, which clips its content', async () => {
+        await renderAt(<CellView cell={{ v: 'Open', actions: [{ label: 'Resolve', endpoint: 'insights/issues/a' }] }} />);
+
+        await userEvent.click(await screen.findByRole('button', { name: 'Actions' }));
+
+        // A table cell truncates with overflow:hidden, so a menu rendered
+        // inside one is invisible in a real browser even though jsdom
+        // happily reports it. It has to hang off the body.
+        const menu = screen.getByRole('menu');
+
+        expect(menu.parentElement).toBe(document.body);
+        // Positioned against the trigger, not flowed inside the cell.
+        // (jsdom loads no stylesheet, so the `fixed` itself is CSS's job.)
+        expect(menu.style.top).not.toBe('');
+        expect(menu.closest('.t-cell')).toBeNull();
+    });
+
     it('posts the action to the dashboard API, with its body', async () => {
         const fetch = fetchOk();
         await renderAt(<CellView cell={{
@@ -23,7 +40,7 @@ describe('row actions', () => {
         }} />);
 
         await userEvent.click(await screen.findByRole('button', { name: 'Actions' }));
-        await userEvent.click(screen.getByRole('button', { name: 'Resolve' }));
+        await userEvent.click(screen.getByRole('menuitem', { name: 'Resolve' }));
 
         await waitFor(() => expect(fetch).toHaveBeenCalled());
 
@@ -43,7 +60,7 @@ describe('row actions', () => {
         }} />);
 
         await userEvent.click(await screen.findByRole('button', { name: 'Actions' }));
-        await userEvent.click(screen.getByRole('button', { name: 'Ignore' }));
+        await userEvent.click(screen.getByRole('menuitem', { name: 'Ignore' }));
 
         expect(window.confirm).toHaveBeenCalledWith('Ignore this for good?');
         expect(fetch).not.toHaveBeenCalled();
@@ -58,7 +75,7 @@ describe('row actions', () => {
         await renderAt(<CellView cell={{ v: 'Open', actions: [{ label: 'Resolve', endpoint: 'insights/issues/a' }] }} />);
 
         await userEvent.click(await screen.findByRole('button', { name: 'Actions' }));
-        await userEvent.click(screen.getByRole('button', { name: 'Resolve' }));
+        await userEvent.click(screen.getByRole('menuitem', { name: 'Resolve' }));
 
         expect(await screen.findByText(/not authorized/i)).toBeInTheDocument();
     });

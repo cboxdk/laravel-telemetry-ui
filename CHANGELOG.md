@@ -5,6 +5,17 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.1] - 2026-09-26
+
+### Fixed
+
+- **A row action's menu was invisible.** 2.6.0 rendered it inside the cell,
+  and a table cell clips its content to truncate long values — so the menu
+  was in the DOM, sized, and clipped away to nothing. It is now portalled
+  to the body and positioned against the trigger, flipping above when there
+  is no room below and closing on scroll. Only a browser shows this: jsdom
+  has no layout, so the unit tests passed throughout.
+
 ## [2.6.0] - 2026-09-26
 
 ### Added
