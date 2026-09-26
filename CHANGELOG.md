@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (it is `haproxy_backend_status`), PostgreSQL replication lag is
   `pg_replication_lag_seconds`, and a standalone MongoDB exposes only
   `mongodb_up`.
+- **A trace now shows what the infrastructure it touched was doing.** The
+  correlation panel adds whatever the discovered exporters know about the
+  host the request ran on *and* every downstream it called — so a slow
+  checkout can say the cache was evicting and PHP-FPM had no free workers,
+  not only that the app was slow. Only signals discovery already saw
+  return data are asked for, so a trace view never pays for a metric this
+  deployment does not have.
 - `telemetry-ui:check --signals` reports which configured context signals
   actually return data. A signal whose metric is absent is skipped
   silently, which is right for an optional exporter and hides a typo.

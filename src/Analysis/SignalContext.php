@@ -6,6 +6,9 @@ namespace Cbox\TelemetryUi\Analysis;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Discovery\Catalogue;
+use Cbox\TelemetryUi\Discovery\DiscoveredTarget;
+use Cbox\TelemetryUi\Discovery\Discoverer;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Queries\Results\Trace;
@@ -32,6 +35,7 @@ final readonly class SignalContext
         private ConnectionManager $connections,
         private Config $config,
         private CacheFactory $cache,
+        private ?Discoverer $discoverer = null,
     ) {}
 
     /**
@@ -61,11 +65,119 @@ final readonly class SignalContext
 
         [$start, $end] = $this->paddedWindow($trace);
 
-        return $this->for($scope, $start, $end, [
+        $own = $this->for($scope, $start, $end, [
             'service' => $root->serviceName,
             'host' => $host,
             'environment' => is_string($environment) ? $environment : '',
         ]);
+
+        // Everything above comes from what the app emits about itself. The
+        // exporters on the box and on the things it called know more, and
+        // discovery already worked out which of them describe this trace.
+        return [...$own, ...$this->discovered(self::namesIn($trace, $host), $start, $end)];
+    }
+
+    /**
+     * The host a trace ran on, plus every downstream it called — the names
+     * discovery matches exporters to.
+     *
+     * @return list<string>
+     */
+    private static function namesIn(Trace $trace, string $host): array
+    {
+        $names = $host === '' ? [] : [$host];
+
+        foreach ($trace->spans as $span) {
+            $address = $span->attributes['server.address'] ?? null;
+
+            if (! is_string($address) || trim($address) === '') {
+                continue;
+            }
+
+            $port = $span->attributes['server.port'] ?? null;
+            $names[] = is_scalar($port) && (string) $port !== '' ? $address.':'.$port : $address;
+        }
+
+        return array_values(array_unique($names));
+    }
+
+    /**
+     * What the discovered exporters say about these hosts and dependencies
+     * over the same window.
+     *
+     * Only signals discovery already saw return data are asked for, so a
+     * trace view never pays for a metric this deployment does not have.
+     *
+     * @param  list<string>  $names
+     * @return list<MetricSummary>
+     */
+    public function discovered(array $names, DateTimeInterface $start, DateTimeInterface $end): array
+    {
+        if ($this->discoverer === null || $names === [] || ! (bool) $this->config->get('telemetry-ui.context.enabled', true)) {
+            return [];
+        }
+
+        try {
+            $map = $this->discoverer->map();
+        } catch (SourceException) {
+            return [];
+        }
+
+        $lookback = max(300, (int) $this->config->get('telemetry-ui.context.baseline_window', 21_600));
+        $baselineStart = (new DateTimeImmutable('@'.$start->getTimestamp()))->modify('-'.$lookback.' seconds');
+
+        $out = [];
+        $seen = [];
+
+        foreach ($names as $name) {
+            foreach ($map->for($name) as $target) {
+                $key = $target->exporter.'|'.$target->instance;
+
+                if (isset($seen[$key])) {
+                    continue;
+                }
+
+                $seen[$key] = true;
+                $out = [...$out, ...$this->targetSignals($target, $start, $end, $baselineStart)];
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return list<MetricSummary>
+     */
+    private function targetSignals(DiscoveredTarget $target, DateTimeInterface $start, DateTimeInterface $end, DateTimeInterface $baselineStart): array
+    {
+        $exporter = Catalogue::find($target->exporter);
+
+        if ($exporter === null) {
+            return [];
+        }
+
+        $group = $exporter->describes;
+        $out = [];
+
+        foreach ($exporter->signals as $signal) {
+            if (! in_array($signal->key, $target->signals, true)) {
+                continue;
+            }
+
+            $summary = $this->resolve(
+                ['label' => $signal->label, 'group' => $group, 'unit' => $signal->unit],
+                $signal->promql($target->selector),
+                $start,
+                $end,
+                $baselineStart,
+            );
+
+            if ($summary !== null) {
+                $out[] = $summary;
+            }
+        }
+
+        return $out;
     }
 
     /**

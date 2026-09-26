@@ -98,6 +98,26 @@ Some signals are marked conditional: a replica's lag, a cgroup's OOM kills,
 a PSI-enabled kernel's pressure. They are absent in most deployments and
 their absence is not reported as a problem.
 
+## What it changes on a trace
+
+Once an exporter is discovered, opening a trace shows what the machine and
+the downstreams were doing at that moment, beside what the app said about
+itself:
+
+```
+Host          Load (1m) 14.2   typical 3.1
+              CPU busy  97%    typical 34%
+Runtime       Active workers 48   typical 6
+              Max children reached 0.4/s
+Cache         Memory used 3.9 GB of 4.0 GB
+              Evictions 4.2k/s   typical 0
+```
+
+Each is held against its own recent baseline, so "97%" comes with "typical
+34%" and you can tell a busy machine from a broken one. Only the signals
+discovery saw return data are queried, so the panel costs nothing for
+metrics your deployment does not have.
+
 ## When a signal returns nothing
 
 Discovery probes every signal for every matched instance and records which

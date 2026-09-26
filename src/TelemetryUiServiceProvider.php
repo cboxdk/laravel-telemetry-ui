@@ -61,6 +61,7 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             $app->make(ConnectionManager::class),
             $app->make('config'),
             $app->make('cache'),
+            $app->make(Discovery\Discoverer::class),
         ));
 
         // Memoizes per request, so the issue page's cards share one set of
