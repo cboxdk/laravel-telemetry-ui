@@ -46,6 +46,21 @@ Run it on a schedule. Infrastructure changes at deploy speed, not request
 speed, so the map is cached — 15 minutes by default
 (`telemetry-ui.discovery.ttl`).
 
+## What your traces must carry
+
+The host side needs `host.name` on the resource of your spans. Without it
+there is no way to know *which* machine served a given request, and
+attributing one node's memory to it would be a guess — so the host tiles
+simply do not appear.
+
+`cboxdk/laravel-telemetry` sets it through `resource_detection`, which
+picks up container, Kubernetes and cloud identity. On a plain host that
+detection may find nothing, in which case set it yourself. The dependency
+side needs nothing extra: `server.address` is already on every outbound
+span.
+
+`telemetry-ui:discover` shows which of the two it had to work with.
+
 ## How a match is made
 
 The names come from your own telemetry: `host.name` on the resource of

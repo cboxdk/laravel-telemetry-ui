@@ -53,6 +53,12 @@ final class DiscoverCommand extends Command
             );
         }
 
+        if ($map->targets === [] && $map->unmatchedHosts === []) {
+            $this->newLine();
+            $this->warn('No host or dependency names could be read from your traces.');
+            $this->line('  <fg=gray>Exporters were found, but there is nothing to tie them to. Check that the traces backend can enumerate tag values over the discovery lookback.</>');
+        }
+
         $this->reportGaps($map->unmatchedInstances, $map->unmatchedHosts);
         $this->reportAbsentSignals($map->targets);
 

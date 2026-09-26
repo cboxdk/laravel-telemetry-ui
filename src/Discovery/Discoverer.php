@@ -8,6 +8,8 @@ use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Support\SchemaDetector;
+use Cbox\TelemetryUi\Support\ScopeLabels;
+use DateTimeImmutable;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Config\Repository as Config;
 
@@ -148,13 +150,30 @@ final readonly class Discoverer
      */
     private function knownNames(): array
     {
+        // An explicit window, never null: some backends answer a tag-values
+        // lookup with an empty list rather than an error when no range is
+        // given, and discovery would then match nothing and say nothing.
+        $lookback = $this->int('telemetry-ui.discovery.lookback', 86_400);
+        $end = new DateTimeImmutable('@'.time());
+        $start = new DateTimeImmutable('@'.(time() - $lookback));
+
         $names = [];
 
         foreach (['resource.host.name', 'span.server.address'] as $tag) {
             try {
-                $names = [...$names, ...$this->connections->traces()->tagValues($tag, null, null, null, 200)];
+                $names = [...$names, ...$this->connections->traces()->tagValues($tag, null, $start, $end, 200)];
             } catch (SourceException) {
                 // One source of names failing should not blank the map.
+            }
+        }
+
+        // The metrics store knows the hosts too, from the app's own labels.
+        // Worth asking when the traces backend cannot enumerate tags.
+        if ($names === []) {
+            try {
+                $names = $this->connections->metrics()->labelValues(ScopeLabels::metrics('host'));
+            } catch (SourceException) {
+                $names = [];
             }
         }
 
@@ -164,15 +183,22 @@ final readonly class Discoverer
     /**
      * Every value of this exporter's identifying labels, keyed by label.
      *
+     * Scoped to this exporter's own metrics. `instance` is shared by every
+     * scrape job in a Prometheus, so enumerating it unscoped hands each
+     * exporter the whole fleet's instances — which is how a Redis exporter
+     * ends up claiming the node exporter's host and reporting none of its
+     * signals.
+     *
      * @return array<string, list<string>>
      */
     private function instances(Exporter $exporter): array
     {
         $found = [];
+        $match = '{__name__=~"'.str_replace('"', '', $exporter->detect).'"}';
 
         foreach ($exporter->identityLabels as $label) {
             try {
-                $values = $this->connections->metrics()->labelValues($label);
+                $values = $this->connections->metrics()->labelValues($label, $match);
             } catch (SourceException) {
                 continue;
             }
@@ -256,8 +282,13 @@ final readonly class Discoverer
 
     private function ttl(): int
     {
-        $value = $this->config->get('telemetry-ui.discovery.ttl', 900);
+        return $this->int('telemetry-ui.discovery.ttl', 900);
+    }
 
-        return is_numeric($value) ? max(60, (int) $value) : 900;
+    private function int(string $key, int $default): int
+    {
+        $value = $this->config->get($key, $default);
+
+        return is_numeric($value) ? max(60, (int) $value) : $default;
     }
 }

@@ -158,3 +158,82 @@ it('names the exporters we verified against their own output', function (): void
         'nginx', 'phpfpm', 'elasticsearch', 'mongodb', 'health',
     ]);
 });
+
+it('asks for names over an explicit window, because some backends answer nothing without one', function (): void {
+    fakeInfra(['node_load1'], ['web-3:9100'], ['web-3']);
+
+    app(Discoverer::class)->discover();
+
+    $ranged = 0;
+
+    Http::assertSent(function ($request) use (&$ranged): bool {
+        $url = (string) $request->url();
+
+        if (str_contains($url, '/search/tag/') && str_contains($url, 'start=') && str_contains($url, 'end=')) {
+            $ranged++;
+        }
+
+        return true;
+    });
+
+    // Both tag lookups carry a range. A null range reads as "no names" on
+    // some backends, and discovery would then match nothing, silently.
+    expect($ranged)->toBe(2);
+});
+
+it('falls back to the metrics store for host names when traces cannot enumerate them', function (): void {
+    Http::fake([
+        'prometheus.test:9090/api/v1/label/__name__/values*' => Http::response(['status' => 'success', 'data' => ['node_load1']]),
+        // The host label answers even though the traces backend did not.
+        'prometheus.test:9090/api/v1/label/host_name/values*' => Http::response(['status' => 'success', 'data' => ['web-3']]),
+        'prometheus.test:9090/api/v1/label/*/values*' => Http::response(['status' => 'success', 'data' => ['web-3:9100']]),
+        'prometheus.test:9090/api/v1/query*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => [['metric' => [], 'value' => [1735689600, '1']]]]]),
+        'tempo.test:3200/*' => Http::response(['tagValues' => []]),
+    ]);
+
+    $map = app(Discoverer::class)->discover();
+
+    expect($map->targets)->toHaveCount(1)
+        ->and($map->targets[0]->name)->toBe('web-3');
+});
+
+it('scopes the instance lookup to each exporter, so they do not claim each other', function (): void {
+    // `instance` is shared by every scrape job in a Prometheus. Unscoped,
+    // the redis exporter is handed the node exporter's host, claims it,
+    // and reports none of its signals — which looks like a broken cache.
+    Http::fake([
+        'prometheus.test:9090/api/v1/label/__name__/values*' => Http::response(['status' => 'success', 'data' => ['node_load1', 'redis_up']]),
+        'prometheus.test:9090/api/v1/label/*/values*' => function ($request) {
+            $match = (string) ($request->data()['match[]'] ?? '');
+
+            return Http::response(['status' => 'success', 'data' => str_contains($match, 'redis')
+                ? ['redis://cache-1:6379']
+                : ['web-3:9100']]);
+        },
+        'prometheus.test:9090/api/v1/query*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => [['metric' => [], 'value' => [1735689600, '1']]]]]),
+        'tempo.test:3200/api/v2/search/tag/*' => Http::response(['tagValues' => [
+            ['type' => 'string', 'value' => 'web-3'],
+            ['type' => 'string', 'value' => 'cache-1:6379'],
+        ]]),
+        'tempo.test:3200/*' => Http::response(['tagValues' => []]),
+    ]);
+
+    $map = app(Discoverer::class)->discover();
+    $byExporter = [];
+
+    foreach ($map->targets as $target) {
+        $byExporter[$target->exporter] = $target->name;
+    }
+
+    expect($byExporter)->toBe(['node' => 'web-3', 'redis' => 'cache-1:6379'])
+        ->and($map->unmatchedInstances)->toBe([]);
+
+    // Every label lookup carried a selector naming its own exporter.
+    Http::assertSent(function ($request): bool {
+        $url = (string) $request->url();
+
+        return ! str_contains($url, '/label/instance/values')
+            && ! str_contains($url, '/label/addr/values')
+            || str_contains($url, 'match');
+    });
+});

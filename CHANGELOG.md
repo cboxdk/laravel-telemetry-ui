@@ -5,6 +5,27 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **Discovery matched nothing on some backends, silently.** Host and
+  dependency names were looked up with no time range, and a backend that
+  answers an open-ended tag-values request with an empty list (telemetryd
+  does) left the map empty with no error. The lookup now always carries an
+  explicit window (`telemetry-ui.discovery.lookback`), falls back to the
+  metrics store's host label when traces cannot enumerate tags, and
+  `telemetry-ui:discover` says so when it found exporters but no names to
+  tie them to.
+- **Exporters claimed each other's instances.** `instance` is shared by
+  every scrape job in a Prometheus, so enumerating it unscoped handed each
+  exporter the whole fleet — a Redis exporter would claim the node
+  exporter's host and then report none of its own signals, which reads as
+  a broken cache. The lookup is now scoped to each exporter's own metrics.
+
+Both were found by running real exporters behind a real Prometheus rather
+than by reading the code.
+
 ## [2.7.0] - 2026-09-26
 
 ### Added

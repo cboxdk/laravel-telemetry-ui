@@ -543,6 +543,10 @@ return [
 
     'discovery' => [
         'ttl' => (int) env('TELEMETRY_UI_DISCOVERY_TTL', 900),
+        // How far back to look for the host and dependency names to match
+        // exporters against. Some backends return nothing for a tag-values
+        // lookup with no explicit range, so this is never left open.
+        'lookback' => (int) env('TELEMETRY_UI_DISCOVERY_LOOKBACK', 86_400),
     ],
 
     'context' => [
