@@ -27,9 +27,7 @@ namespace Cbox\TelemetryUi\Testing;
 final class ScreenshotManifest
 {
     /**
-     * key => [url, caption, width, height, fullPage]
-     *
-     * @return array<string, array{url: string, caption: string, width: int, height: int, full: bool}>
+     * @return array<string, array{url: string, caption: string, width: int, height: int, full: bool, charts: bool}>
      */
     public static function all(): array
     {
@@ -69,6 +67,9 @@ final class ScreenshotManifest
             'hosts' => self::shot(
                 '/telemetry-ui/p/hosts',
                 'Hosts, from the exporters running beside the application rather than from the application itself.',
+                // One table and no chart, so this is the screen that caught
+                // the capture waiting on a canvas for every page.
+                charts: false,
             ),
             'analytics' => self::shot(
                 '/telemetry-ui/p/analytics',
@@ -82,7 +83,14 @@ final class ScreenshotManifest
     }
 
     /**
-     * @return array{url: string, caption: string, width: int, height: int, full: bool}
+     * @param  bool  $charts  whether the screen draws at least one chart. The
+     *                        capture waits for a canvas before shooting,
+     *                        because ECharts arrives as a lazy chunk and a
+     *                        shot taken when the page settles catches panels
+     *                        with their numbers in place and their chart areas
+     *                        blank. A table-only screen has no canvas to wait
+     *                        for and must say so.
+     * @return array{url: string, caption: string, width: int, height: int, full: bool, charts: bool}
      */
     private static function shot(
         string $url,
@@ -90,7 +98,8 @@ final class ScreenshotManifest
         int $width = 1600,
         int $height = 1000,
         bool $full = false,
+        bool $charts = true,
     ): array {
-        return compact('url', 'caption', 'width', 'height', 'full');
+        return compact('url', 'caption', 'width', 'height', 'full', 'charts');
     }
 }

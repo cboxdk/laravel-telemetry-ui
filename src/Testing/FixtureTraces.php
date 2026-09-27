@@ -59,7 +59,11 @@ final class FixtureTraces implements AggregatesSpans, ProbesConnection, TracesSo
                     name: $route,
                     startNano: $startedAt * 1_000_000_000,
                     durationMs: $durationMs,
-                    attributes: ['http.route' => $route, 'service.name' => $service],
+                    attributes: [
+                        'http.route' => $route,
+                        'service.name' => $service,
+                        ...$this->selected($query, $traceId),
+                    ],
                 )],
             );
         }
@@ -150,9 +154,20 @@ final class FixtureTraces implements AggregatesSpans, ProbesConnection, TracesSo
     {
         $buckets = [];
 
-        foreach (array_slice($this->data->labelValues($aggregation->groupBy), 0, $aggregation->limit) as $key) {
-            $seed = $aggregation->groupBy.':'.$key;
-            $count = 40 + (int) $this->data->band("n:{$seed}", 0.0, 4_000.0);
+        // `span.db.query.text` names the same attribute as `db.query.text`;
+        // asking for values of the scoped spelling matched nothing and the
+        // table grouped real query spans under alpha, beta and gamma.
+        $groupBy = (string) preg_replace('/^(span|resource|event|instrumentation)\./', '', $aggregation->groupBy);
+
+        foreach (array_slice($this->data->labelValues($groupBy), 0, $aggregation->limit) as $key) {
+            $seed = $groupBy.':'.$key;
+            // Weighted by what the key MEANS, the same way the metrics fixture
+            // shapes a series: an unweighted band gave the status-code facet
+            // 3.4k server errors beside 3.4k successes.
+            // A narrow band, so the WEIGHT is what orders the facet. A wide
+            // one swamped it: GET, the most common method there is, came
+            // fourth behind DELETE.
+            $count = (int) round((800 + $this->data->band("n:{$seed}", 0.0, 2_400.0)) * $this->data->weight('', [$groupBy => $key]));
             $avgMs = $this->data->band("avg:{$seed}", 2.0, 260.0);
 
             $buckets[] = new SpanBucket(
@@ -162,7 +177,7 @@ final class FixtureTraces implements AggregatesSpans, ProbesConnection, TracesSo
                 p95Ms: $avgMs * $this->data->band("p95:{$seed}", 1.6, 4.0),
                 maxMs: $avgMs * $this->data->band("max:{$seed}", 4.0, 12.0),
                 totalMs: $avgMs * $count,
-                attributes: [$aggregation->groupBy => $key],
+                attributes: [$groupBy => $key],
             );
         }
 
@@ -172,6 +187,37 @@ final class FixtureTraces implements AggregatesSpans, ProbesConnection, TracesSo
     public function probe(): ProbeResult
     {
         return ProbeResult::pass('fixture');
+    }
+
+    /**
+     * The attributes the query asked for, which is the whole point of a
+     * select: a card that reads `span.db.query.text` off the matched span
+     * asked for it, and a backend returns what was selected.
+     *
+     * Ignoring it returned matched spans carrying only the route, so the slow
+     * queries and browser-exception cards found nothing on every span they
+     * were handed and rendered their empty states — against a fixture that had
+     * answered the search with twenty-five matches.
+     *
+     * @return array<string, string>
+     */
+    private function selected(TraceQuery $query, string $traceId): array
+    {
+        $attributes = [];
+
+        foreach ($query->select as $field) {
+            // `span.db.query.text` and `resource.host.name` name the same
+            // attribute a span carries, with the scope the dialect needs.
+            $key = (string) preg_replace('/^(span|resource|event|instrumentation)\./', '', $field);
+
+            if ($key === '') {
+                continue;
+            }
+
+            $attributes[$key] = $this->data->attribute($key, $traceId);
+        }
+
+        return $attributes;
     }
 
     private function fingerprint(TraceQuery $query): string
