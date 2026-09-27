@@ -82,6 +82,8 @@ Point Telemetry UI at the same backend and three surfaces light up.
 - **Sources & audience** — referrers, and (with geo / UA parsing on) countries
   and devices.
 
+![Analytics from the same span stream: page views, referrers and campaigns, with no second SDK and no cookie.](../screenshots/analytics.png)
+
 ### Web Vitals (Frontend → Web Vitals)
 
 - **Page performance** — real-user navigation timings (loads, avg load, TTFB,

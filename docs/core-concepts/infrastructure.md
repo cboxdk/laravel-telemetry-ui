@@ -113,6 +113,17 @@ Some signals are marked conditional: a replica's lag, a cgroup's OOM kills,
 a PSI-enabled kernel's pressure. They are absent in most deployments and
 their absence is not reported as a problem.
 
+Two pages read the result directly. **Hosts** lists every machine reporting
+telemetry, joining the application's own request counts to the CPU and memory
+the exporter beside it reports:
+
+![Hosts, from the exporters running beside the application rather than from the application itself.](../screenshots/hosts.png)
+
+**System** charts the machine-level signals themselves, carrying the semantic
+convention attribute keys and units they were emitted with:
+
+![System metrics — CPU, memory, filesystem — carrying the semantic-convention attribute keys and units.](../screenshots/system.png)
+
 ## What it changes on a trace
 
 Once an exporter is discovered, opening a trace shows what the machine and

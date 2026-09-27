@@ -107,6 +107,16 @@ incident RCA.
 
 ![Log explorer with live tail. The query is the same IR the other explorers use, compiled to LogQL.](screenshots/logs.png)
 
+![Exceptions grouped by their fingerprint, with first and last seen — the grouping is the package's, not a backend's.](screenshots/exceptions.png)
+
+![Queue health: depth, wait time and throughput per queue, with the labels bounded by the classifier so a per-tenant queue name cannot explode the series count.](screenshots/queues.png)
+
+![Outgoing HTTP by host: connection time, TLS handshake and request duration, which is where a host provisioned in the wrong zone becomes visible.](screenshots/outgoing.png)
+
+The infrastructure pages are shown in
+[infrastructure discovery](core-concepts/infrastructure.md), and the analytics
+page in the [web analytics cookbook](cookbook/analytics.md).
+
 Every screenshot here is captured from the package's own browser tests
 against the fixture backends, so what is pictured is what the code renders —
 not a mock-up, and not a staging environment that has since changed. See
