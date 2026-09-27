@@ -1,7 +1,7 @@
 ---
 title: Infrastructure discovery
 description: Finding the exporters behind your app, and tying each one to the host or dependency it describes
-weight: 26
+weight: 28
 ---
 
 # Infrastructure discovery

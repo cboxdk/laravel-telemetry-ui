@@ -1,7 +1,7 @@
 ---
 title: Connect through a Grafana datasource proxy
 description: Query Tempo/Loki/Prometheus behind Grafana when only the Grafana host is reachable
-weight: 3
+weight: 33
 ---
 
 # Connect through a Grafana datasource proxy

@@ -58,7 +58,7 @@ of another attribute when a routing layer encodes it there
 with `routeFamily()`, or declare a chart over any metric — including one from a
 sidecar in another language — with `metricPanel()`, no panel class needed. See
 [dimensions & Explore](core-concepts/dimensions-and-explore.md) and
-[developer integrations](extension-points/index.md).
+[developer integrations](extension-points/_index.md).
 
 ## Why not just Grafana?
 
@@ -87,7 +87,7 @@ incident RCA.
   [emitting annotations](cookbook/annotations.md) ·
   [MCP server](cookbook/mcp.md) ·
   [embedding the dashboard in your own app](cookbook/embed-widgets.md)
-- Extension points — **[Developer integrations guide](extension-points/index.md)** (start here) ·
+- Extension points — **[Developer integrations guide](extension-points/_index.md)** (start here) ·
   [custom panels](extension-points/custom-panels.md) ·
   [custom detail pages](extension-points/detail-pages.md) ·
   [custom drivers](extension-points/custom-drivers.md) ·

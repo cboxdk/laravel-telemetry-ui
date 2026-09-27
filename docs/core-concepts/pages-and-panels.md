@@ -1,7 +1,7 @@
 ---
 title: Pages & panels
 description: The panel model behind every screen, and the typed payload contract the SPA renders
-weight: 2
+weight: 22
 ---
 
 # Pages & panels

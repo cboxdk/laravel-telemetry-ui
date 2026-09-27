@@ -1,7 +1,7 @@
 ---
 title: Emitting annotations
 description: Mark deploys, incidents, scaling and more as vertical lines on every chart
-weight: 2
+weight: 32
 ---
 
 # Emitting annotations

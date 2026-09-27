@@ -1,7 +1,7 @@
 ---
 title: JSON API
 description: Endpoint reference for the v2 JSON API — scope params, filters, gates and the error format
-weight: 4
+weight: 24
 ---
 
 # JSON API

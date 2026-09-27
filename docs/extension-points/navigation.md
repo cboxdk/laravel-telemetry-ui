@@ -1,7 +1,7 @@
 ---
 title: Links back to your app
 description: Add links out of the dashboard for hosts that mount it as the whole UI, where its own chrome is the only navigation there is
-weight: 5
+weight: 45
 ---
 
 # Links back to your app

@@ -1,7 +1,7 @@
 ---
 title: View state
 description: The reader's time window, auto-refresh interval and scope — remembered across navigation, readable and settable from the host
-weight: 6
+weight: 46
 ---
 
 # View state

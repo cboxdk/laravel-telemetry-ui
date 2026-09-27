@@ -1,7 +1,7 @@
 ---
 title: Dimensions & Explore
 description: Declared dimensions, the filter syntax, facets, group-by and entity pages
-weight: 3
+weight: 23
 ---
 
 # Dimensions & Explore
@@ -85,7 +85,7 @@ derived dimension come from the sample** and the response reports
 
 For the common case — a layer that names requests and deserves its own page —
 `TelemetryUi::routeFamily()` does this plus the page in one call. See
-[developer integrations](../extension-points/index.md#a-routing-layer-as-its-own-area).
+[developer integrations](../extension-points/_index.md#a-routing-layer-as-its-own-area).
 
 ### Names instead of ids
 

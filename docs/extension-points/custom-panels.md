@@ -1,7 +1,7 @@
 ---
 title: Custom panels
 description: Ship dashboard pages and panels from your own packages
-weight: 1
+weight: 41
 ---
 
 # Custom panels

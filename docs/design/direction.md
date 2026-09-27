@@ -1,7 +1,7 @@
 ---
 title: Design direction
 description: Nightwatch-inspired information architecture, mapped to our own telemetry schema
-weight: 1
+weight: 81
 ---
 
 # Design direction

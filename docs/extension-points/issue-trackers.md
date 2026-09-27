@@ -1,7 +1,7 @@
 ---
 title: Issue trackers (GitHub / Sentry / Linear)
 description: Surface open issues next to your telemetry via an IssuesSource connection
-weight: 3
+weight: 43
 ---
 
 # Issue trackers

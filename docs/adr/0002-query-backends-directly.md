@@ -1,7 +1,7 @@
 ---
 title: "ADR 0002: Query Tempo/Loki/Mimir directly, no own storage"
 description: The dashboard is a stateless query layer over the recommended telemetry stack
-weight: 2
+weight: 92
 ---
 
 # ADR 0002: Query Tempo/Loki/Mimir directly, no own storage

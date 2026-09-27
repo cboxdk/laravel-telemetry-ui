@@ -1,7 +1,7 @@
 ---
 title: Authorization
 description: The view gate, per-page restriction, the write ability, and the PII surface
-weight: 7
+weight: 27
 ---
 
 # Authorization

@@ -1,7 +1,7 @@
 ---
 title: Custom detail pages
 description: Scope panels to one entity and show them on its entity page
-weight: 4
+weight: 44
 ---
 
 # Custom detail pages

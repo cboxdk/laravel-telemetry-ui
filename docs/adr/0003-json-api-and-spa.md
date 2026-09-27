@@ -1,7 +1,7 @@
 ---
 title: "ADR 0003: Versioned JSON API + prebuilt React SPA"
 description: Remove Livewire; the package serves a JSON API and a compiled single-page app, and extenders write PHP panels that return typed payloads
-weight: 3
+weight: 93
 ---
 
 # ADR 0003: Versioned JSON API + prebuilt React SPA

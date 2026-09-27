@@ -122,12 +122,12 @@ Full documentation lives in [`docs/`](docs/index.md):
 - Cookbook: [Grafana proxy](docs/cookbook/connect-via-grafana-proxy.md) ·
   [annotations](docs/cookbook/annotations.md) · [MCP](docs/cookbook/mcp.md) ·
   [embed in your own app](docs/cookbook/embed-widgets.md)
-- Extending: [developer integrations](docs/extension-points/index.md) (start here) ·
+- Extending: [developer integrations](docs/extension-points/_index.md) (start here) ·
   [custom panels](docs/extension-points/custom-panels.md) ·
   [custom detail pages](docs/extension-points/detail-pages.md) ·
   [custom drivers](docs/extension-points/custom-drivers.md) ·
   [issue trackers](docs/extension-points/issue-trackers.md)
-- [Design direction](docs/design/direction.md) · [ADRs](docs/adr/index.md) ·
+- [Design direction](docs/design/direction.md) · [ADRs](docs/adr/_index.md) ·
   [Roadmap](docs/roadmap.md)
 
 ## Development

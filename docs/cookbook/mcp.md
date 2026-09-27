@@ -1,7 +1,7 @@
 ---
 title: MCP server (query your telemetry from an agent)
 description: Expose metrics, traces, logs and the analysis tools over the Model Context Protocol
-weight: 3
+weight: 34
 ---
 
 # MCP server

@@ -1,7 +1,7 @@
 ---
 title: Embed the dashboard in your own app
 description: Mount panels, Explore and entity pages as React components inside a host app — installed from vendor/, no npm registry
-weight: 4
+weight: 35
 ---
 
 # Embed the dashboard in your own app

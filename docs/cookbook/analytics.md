@@ -1,7 +1,7 @@
 ---
 title: Web analytics & RUM
 description: Turn on visit analytics and real-user monitoring, and what each dashboard page shows
-weight: 1
+weight: 31
 ---
 
 # Web analytics & real-user monitoring

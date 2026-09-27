@@ -1,7 +1,7 @@
 ---
 title: Storage backends & the query abstraction
 description: A pluggable query IR that lets cards run against Prometheus/Tempo/Loki today and native ClickHouse (cboxdk/laravel-telemetry-store) next
-weight: 2
+weight: 82
 ---
 
 # Storage backends & the query abstraction

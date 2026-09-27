@@ -1,7 +1,7 @@
 ---
 title: "ADR 0001: Livewire over Inertia or a prebuilt SPA"
 description: Server-driven cards so third-party packages can extend the dashboard without a JS build
-weight: 1
+weight: 91
 ---
 
 # ADR 0001: Livewire over Inertia or a prebuilt SPA

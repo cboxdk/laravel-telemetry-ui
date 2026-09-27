@@ -1,7 +1,7 @@
 ---
 title: v2 architecture — decoupled JSON API + React SPA
 description: Remove Livewire; the package becomes a versioned JSON API plus a built React single-page app served as static assets. The framework-agnostic query/analysis core is kept.
-weight: 3
+weight: 83
 ---
 
 # v2 architecture — decoupled JSON API + React SPA

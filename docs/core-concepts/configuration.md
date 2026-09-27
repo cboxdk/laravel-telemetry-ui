@@ -1,7 +1,7 @@
 ---
 title: Configuration reference
 description: Every config key and environment variable in config/telemetry-ui.php
-weight: 5
+weight: 25
 ---
 
 # Configuration reference

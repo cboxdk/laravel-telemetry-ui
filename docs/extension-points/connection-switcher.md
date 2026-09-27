@@ -1,7 +1,7 @@
 ---
 title: Connection switcher
 description: Offer the host's backend profiles as a select in the dashboard header, so switching doesn't mean leaving
-weight: 7
+weight: 47
 ---
 
 # Connection switcher

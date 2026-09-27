@@ -5,6 +5,28 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [3.0.1] - 2026-09-27
+
+Documentation only; no code changed.
+
+### Fixed
+
+- **The documentation site graded this package `partial` and would have
+  scrambled its navigation.** Every `docs/` subfolder carried an `index.md`,
+  which the importer does not count as a section landing — it looks for
+  `_index.md`. Six of them are renamed, and the five links that pointed at
+  the old names are repaired.
+- **Section weights put each landing last in its own folder.** The importer
+  sorts one flat list by weight, so a section takes its position from the
+  lowest weight inside it; with every folder bottoming out at `1` on a
+  content file, all six sections tied and fell back to sorting by that
+  file's title — which would have rendered the nav as ADRs, core concepts,
+  extension points, design, getting started, cookbook. Each landing is now
+  the lowest weight in its folder, and the files above it keep their
+  original order.
+
 ## [3.0.0] - 2026-09-27
 
 A major because the data this dashboard reads changed shape underneath it.

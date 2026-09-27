@@ -1,7 +1,7 @@
 ---
 title: Installation
 description: Install the dashboard and point it at Tempo, Loki and Prometheus/Mimir
-weight: 1
+weight: 11
 ---
 
 # Installation

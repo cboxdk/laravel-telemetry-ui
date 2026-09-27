@@ -1,7 +1,7 @@
 ---
 title: v2 implementation plan
 description: Phased build plan for the v2 JSON API + React SPA — API shapes, routes, components.
-weight: 4
+weight: 84
 ---
 
 # v2 implementation plan
