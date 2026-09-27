@@ -5,7 +5,16 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.7.0] - 2026-09-27
+## [3.0.0] - 2026-09-27
+
+A major because the data this dashboard reads changed shape underneath it.
+`cboxdk/laravel-telemetry` 3.0 moved every duration to seconds and renamed
+the system-metric attribute keys to the semantic conventions; the panels
+follow, and an install still emitting 2.x telemetry will not resolve this
+version. Upgrade the emitter first — its `UPGRADE.md` is the one to read.
+
+Nothing in this package's own surface changed: the JSON API is still `/v2`,
+and panels, dimensions and drivers keep their contracts.
 
 ### Added
 
