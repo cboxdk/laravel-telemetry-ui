@@ -5,7 +5,21 @@ All notable changes to `cboxdk/laravel-telemetry-ui` will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.7.0] - 2026-09-27
+
+### Added
+
+- **Fixture backends, and the browser tests that use them.** `src/Testing/`
+  ships `FixtureMetrics`, `FixtureTraces` and `FixtureLogs` — deterministic
+  implementations of the three source contracts that answer from arithmetic,
+  shaped by the query rather than by the metric's name, so a rate is not an
+  increase, a selector filtered to `5..` returns few, and a `select()` comes
+  back with what it selected. Bind them in a host app's own tests to render
+  the dashboard without a Tempo, a Loki or a Prometheus.
+- **Documentation screenshots captured from those tests.** Every screen in
+  `docs/` is a picture of what this code renders against the fixtures, not a
+  mock-up — captured by `tests/Browser/CaptureDocsScreenshotsTest.php`, which
+  refuses to write a screenshot of an empty panel or a backend error.
 
 ### Changed
 
