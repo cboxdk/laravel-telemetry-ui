@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Cbox\Telemetry\Support\ExportReport;
 use Cbox\TelemetryUi\Support\AnnotationWriter;
+use Cbox\TelemetryUi\Tests\BrowserTestCase;
 use Cbox\TelemetryUi\Tests\DisabledTestCase;
 use Cbox\TelemetryUi\Tests\TestCase;
 use Illuminate\Http\Client\Request;
@@ -12,6 +13,7 @@ use Mockery\MockInterface;
 
 pest()->extend(TestCase::class)->in('Feature');
 pest()->extend(DisabledTestCase::class)->in('Disabled');
+pest()->extend(BrowserTestCase::class)->in('Browser');
 
 /**
  * Expect one flush() on a mocked emitter, stubbed to match whichever signature

@@ -20,6 +20,8 @@ Exceptions, Users…) instead of Grafana's generic panels — and link them:
 click a slow route, see its traces; open a trace, see the queries and the
 trace-correlated logs.
 
+![The dashboard: golden signals for the whole service, with the time range and scope applying to every panel on the page.](screenshots/dashboard.png)
+
 v2 is a versioned JSON API plus a prebuilt React app the package serves itself,
 so hosts need no Node toolchain. Everything on a page is a **panel**, a plain
 PHP class your packages can add to:
@@ -94,3 +96,18 @@ incident RCA.
 - [Design direction](design/direction.md)
 - [Architecture decision records](adr/)
 - [Roadmap](roadmap.md)
+
+## The screens
+
+![Request explorer. Facets on the left are exact when the traces backend can aggregate server-side, and a labelled sample when it cannot.](screenshots/requests.png)
+
+![Trace search. Every row opens a waterfall; the filter bar compiles to TraceQL, LogQL or the store's own dialect depending on the connection.](screenshots/traces.png)
+
+![Database queries grouped by fingerprint, so an N+1 shows up as one row with a high count rather than a thousand rows.](screenshots/queries.png)
+
+![Log explorer with live tail. The query is the same IR the other explorers use, compiled to LogQL.](screenshots/logs.png)
+
+Every screenshot here is captured from the package's own browser tests
+against the fixture backends, so what is pictured is what the code renders —
+not a mock-up, and not a staging environment that has since changed. See
+`src/Testing/ScreenshotManifest.php`.
