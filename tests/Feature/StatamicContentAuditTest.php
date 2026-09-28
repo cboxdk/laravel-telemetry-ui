@@ -31,7 +31,7 @@ function fakeContentChanges(): void
         ['1735689660000000000', 'statamic.content.change', [
             'statamic_content_type' => 'entry', 'statamic_content_action' => 'published',
             'statamic_content_id' => 'e2', 'statamic_content_title' => 'Spring launch', 'statamic_collection' => 'blog',
-            'statamic_content_origin' => 'cp', 'user_id' => '8',
+            'statamic_site' => 'da', 'statamic_content_origin' => 'cp', 'user_id' => '8',
         ]],
         ['1735689720000000000', 'statamic.content.change', [
             'statamic_content_type' => 'asset', 'statamic_content_action' => 'deleted',
@@ -87,9 +87,24 @@ it('filters by type, action and free text, and offers what it saw as options', f
         ->assertJsonCount(1, 'rows')
         ->assertJsonPath('rows.0.item.v', 'Spring launch');
 
+    $this->getJson(panelUrl('content-audit-log', ['period' => '1h', 'audit_site' => 'da']))
+        ->assertJsonCount(1, 'rows')
+        ->assertJsonPath('rows.0.item.v', 'Spring launch')
+        ->assertJsonPath('controls.2.param', 'audit_site')
+        ->assertJsonPath('controls.2.options.*.value', ['', 'da', 'default']);
+
     $this->getJson(panelUrl('content-audit-log', ['period' => '1h', 'audit_q' => 'price_table']))
         ->assertJsonCount(1, 'rows')
         ->assertJsonPath('rows.0.item.v', 'Pricing');
+});
+
+it('offers no site filter on a single-site install', function (): void {
+    Http::fake(['loki.test:3100/loki/api/v1/query_range*' => Http::response(contentAuditStream([
+        ['1735689600000000000', 'statamic.content.change', ['statamic_content_type' => 'entry', 'statamic_content_action' => 'updated', 'statamic_site' => 'default']],
+    ]))]);
+
+    expect(array_column($this->getJson(panelUrl('content-audit-log', ['period' => '1h']))->json('controls'), 'param'))
+        ->toBe(['audit_type', 'audit_action', 'audit_q']);
 });
 
 it('says what it needs when there are no records', function (): void {

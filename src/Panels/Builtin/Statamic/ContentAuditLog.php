@@ -36,6 +36,9 @@ final class ContentAuditLog extends Panel
     #[Param('audit_action')]
     public string $action = '';
 
+    #[Param('audit_site')]
+    public string $site = '';
+
     #[Param('audit_q')]
     public string $query = '';
 
@@ -74,7 +77,7 @@ final class ContentAuditLog extends Panel
                 limit: self::LIMIT,
             );
         } catch (SourceException $exception) {
-            return $this->table([], [], [], $exception->getMessage());
+            return $this->table([], [], [], [], $exception->getMessage());
         }
 
         $all = [];
@@ -89,24 +92,28 @@ final class ContentAuditLog extends Panel
 
         $types = array_values(array_unique(array_column($all, 'type')));
         $actions = array_values(array_unique(array_column($all, 'action')));
+        $sites = array_values(array_unique(array_filter(array_column($all, 'site'), static fn (?string $site): bool => $site !== null)));
         sort($types);
         sort($actions);
+        sort($sites);
 
         $needle = mb_strtolower(trim($this->query));
         $shown = array_values(array_filter($all, fn (array $row): bool => ($this->type === '' || $row['type'] === $this->type)
             && ($this->action === '' || $row['action'] === $this->action)
+            && ($this->site === '' || $row['site'] === $this->site)
             && ($needle === '' || str_contains(mb_strtolower($row['haystack']), $needle))));
 
-        return $this->table($shown, $types, $actions, null, count($all) >= self::LIMIT);
+        return $this->table($shown, $types, $actions, $sites, null, count($all) >= self::LIMIT);
     }
 
     /**
      * @param  list<array<string, mixed>>  $rows
      * @param  list<string>  $types
      * @param  list<string>  $actions
+     * @param  list<string>  $sites
      * @return array<string, mixed>
      */
-    private function table(array $rows, array $types, array $actions, ?string $error, bool $capped = false): array
+    private function table(array $rows, array $types, array $actions, array $sites, ?string $error, bool $capped = false): array
     {
         $table = array_map(fn (array $row): array => $this->cells($row), $rows);
 
@@ -126,10 +133,12 @@ final class ContentAuditLog extends Panel
             'controls' => [
                 Ui::select('audit_type', 'Type', $this->type, Ui::options(array_values(array_unique([...$types, ...($this->type !== '' ? [$this->type] : [])])))),
                 Ui::select('audit_action', 'Action', $this->action, Ui::options(array_values(array_unique([...$actions, ...($this->action !== '' ? [$this->action] : [])])))),
+                // One site is no choice at all: only multisite gets the filter.
+                ...(count($sites) > 1 || $this->site !== '' ? [Ui::select('audit_site', 'Site', $this->site, Ui::options(array_values(array_unique([...$sites, ...($this->site !== '' ? [$this->site] : [])]))))] : []),
                 Ui::search('audit_q', 'Search', $this->query, 'Title, id, editor, field…'),
             ],
             'note' => $capped ? 'The newest '.self::LIMIT.' changes in this window — narrow the window to see further back.' : null,
-            'empty' => $this->type !== '' || $this->action !== '' || $this->query !== ''
+            'empty' => $this->type !== '' || $this->action !== '' || $this->site !== '' || $this->query !== ''
                 ? 'No changes match these filters in this period.'
                 : 'No content changes in this period. The audit log needs cboxdk/statamic-telemetry 3.1+ writing `statamic.content.change` events to the logs backend.',
         ], static fn (mixed $v): bool => $v !== null));

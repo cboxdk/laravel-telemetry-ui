@@ -23,9 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   entries, terms, assets, collections, blueprints, fieldsets, navigations,
   globals, users, forms, revisions — with the transition (created, updated,
   published, unpublished, deleted, uploaded, …), the fields an update
-  touched, the editor and a link into the CP, filterable by type, action and
-  text. Reads the `statamic.content.change` records `cboxdk/statamic-telemetry`
-  3.1 writes.
+  touched, the editor and a link into the CP, filterable by type, action,
+  site (on a multisite install) and text. Reads the `statamic.content.change`
+  records `cboxdk/statamic-telemetry` 3.1 writes.
 - **Loading states you can see.** A progress line under the topbar while
   anything the page waits on is in flight; a sweep along each refreshing
   panel's top edge, with its old answer dimmed while it no longer matches
