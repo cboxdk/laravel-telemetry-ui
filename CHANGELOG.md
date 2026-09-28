@@ -41,6 +41,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A refused query says why.** A Prometheus-style error body's reason is
+  shown with the status ("refused the query (status 422): query processing
+  would load too many samples into memory"); other bodies stay hidden.
+- **An answer cut off part-way is not a certificate problem.** A proxy in
+  front of the backend that drops a large response mid-stream (cURL 56
+  "SSL_read: unexpected eof", HTTP/2 stream resets) was reported as *the TLS
+  certificate could not be verified*; it now says the answer was cut off,
+  and where to look (a new `dropped` backend status).
+- **A slow backend is no longer "unreachable", and no longer takes the whole
+  panel down.** A query that ran out of time (cURL error 28) was reported as
+  *Could not reach the telemetry backend*, sending people to check a
+  hostname that was fine; it now says the backend *did not answer within
+  10s* and what to do about it (a new `timeout` backend status). The
+  Duration and routes panels read their expensive extras — the window-wide
+  p95, per route — on their own, most-wanted first: when one times out the
+  chart, counts and averages still show, the p95 is a dash, a note says
+  what is missing, and no further reads are sent to wait out the timeout
+  again. A 24-hour dashboard over a busy Mimir/Prometheus showed two error
+  cards instead.
 - **Component styles lost to the embed scoping.** Since the element resets
   were scoped to `.t-app` (2.x embed support) they outranked every component
   class: comboboxes, buttons, the subnav search and facet rows lost their

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels;
 
+use Cbox\TelemetryUi\Connectors\BackendStatus;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
+use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
@@ -302,6 +304,41 @@ abstract class Panel
         }
 
         return $total;
+    }
+
+    /**
+     * A read the panel can do without: its result, or null when the backend
+     * failed it, with the first such failure kept in `$failure`. For the
+     * expensive extras — a day-wide p95 across every route is the first
+     * thing a busy backend times out on — so the rest of the panel still
+     * answers and says what is missing, instead of the whole card failing.
+     * Order the reads most-wanted first: once one times out, the rest are
+     * skipped.
+     *
+     * @template T
+     *
+     * @param  callable(): T  $read
+     *
+     * @param-out SourceException|null  $failure
+     *
+     * @return T|null
+     */
+    protected function attempt(callable $read, ?SourceException &$failure = null): mixed
+    {
+        // After a timeout the backend is struggling with this window: more
+        // queries would each wait out the timeout too, and the request would
+        // die of max_execution_time with nothing to show.
+        if ($failure?->status === BackendStatus::Timeout) {
+            return null;
+        }
+
+        try {
+            return $read();
+        } catch (SourceException $exception) {
+            $failure ??= $exception;
+
+            return null;
+        }
     }
 
     protected function total(MetricQuery $query): float

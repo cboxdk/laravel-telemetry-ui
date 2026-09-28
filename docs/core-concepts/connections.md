@@ -32,6 +32,33 @@ narrow contracts, resolved through named connections in `config/telemetry-ui.php
 ],
 ```
 
+## When a backend refuses a query
+
+A backend that refuses a query — Prometheus over `--query.max-samples`, a
+Mimir per-query limit — answers with a status and a reason, and the panel
+shows both ("refused the query (status 422): query processing would load too
+many samples into memory"), so the fix is visible: raise the limit, or give
+the backend recording rules for the long windows you use. Any other error
+body (an HTML page from a proxy) stays out of the dashboard.
+
+## Timeouts on busy backends
+
+`timeout` is seconds per backend request (`TELEMETRY_UI_METRICS_TIMEOUT`,
+`…_TEMPO_TIMEOUT`, `…_LOKI_TIMEOUT`; 10 by default). A long window over a
+busy backend — a 24-hour p95 across every route of a service taking millions
+of requests a day — can take longer than that, and a panel then says the
+backend *did not answer within 10s*, which is different from *could not
+reach* it.
+
+A panel keeps what did answer: the chart and counts stay, the one read that
+ran out of time shows a dash, and a note under the panel says what is
+missing. Once one read has timed out the panel stops asking, so a struggling
+backend is not made to wait out the timeout several times over. If that
+happens on the windows you use, raise the timeout — keeping it under PHP's
+`max_execution_time` — or give the backend what it needs for the window
+(Mimir's query-frontend splitting and results cache, recording rules for
+the per-route histograms).
+
 ## Authentication
 
 Backends behind an authenticated gateway take a Bearer token or basic auth:

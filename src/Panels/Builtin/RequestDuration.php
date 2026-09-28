@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Support\Format;
@@ -27,25 +26,28 @@ class RequestDuration extends Panel
         $count = $this->metric('http_server_request_duration_seconds_count');
         $bucket = $this->metric('http_server_request_duration_seconds_bucket');
 
-        try {
-            $totalTime = $this->total($sum->increase($p)->sumBy());
-            $totalCount = $this->total($count->increase($p)->sumBy());
-            $p95Now = $this->total($bucket->quantile(0.95, $p));
+        // The chart is the panel; the period stats and the p95 line are each
+        // read on their own, most-wanted first, so the one a busy backend
+        // cannot finish in time (a day-wide p95 over every request, last)
+        // leaves a dash, not an error.
+        $failure = null;
+        // Sum and count as two queries, divided here: one binary PromQL
+        // expression holds both sides at once, and a day of per-route
+        // series is over what some backends (telemetryd) allow per query.
+        $sumRange = $this->attempt(fn (): array => $this->metrics()->queryRange($sum->rate($w)->sumBy(), $start, $end), $failure);
+        $countRange = $this->attempt(fn (): array => $this->metrics()->queryRange($count->rate($w)->sumBy(), $start, $end), $failure);
+        $avgData = self::ratioSeries($sumRange[0] ?? null, $countRange[0] ?? null, 1000.0);
+        $totalTime = $this->attempt(fn (): float => $this->total($sum->increase($p)->sumBy()), $failure);
+        $totalCount = $this->attempt(fn (): float => $this->total($count->increase($p)->sumBy()), $failure);
+        $p95Range = $this->attempt(fn (): array => $this->metrics()->queryRange(
+            $bucket->quantile(0.95, $w)->times(1000),
+            $start,
+            $end,
+        ), $failure);
+        $p95Now = $this->attempt(fn (): float => $this->total($bucket->quantile(0.95, $p)), $failure);
 
-            // Sum and count as two queries, divided here: one binary PromQL
-            // expression holds both sides at once, and a day of per-route
-            // series is over what some backends (telemetryd) allow per query.
-            $sumRange = $this->metrics()->queryRange($sum->rate($w)->sumBy(), $start, $end);
-            $countRange = $this->metrics()->queryRange($count->rate($w)->sumBy(), $start, $end);
-            $avgData = self::ratioSeries($sumRange[0] ?? null, $countRange[0] ?? null, 1000.0);
-
-            $p95Range = $this->metrics()->queryRange(
-                $bucket->quantile(0.95, $w)->times(1000),
-                $start,
-                $end,
-            );
-        } catch (SourceException $exception) {
-            return $this->chartCard('Duration', error: $exception->getMessage());
+        if ($failure !== null && $avgData === [] && ($p95Range ?? []) === [] && $totalCount === null) {
+            return $this->chartCard('Duration', error: $failure->getMessage());
         }
 
         $series = [];
@@ -63,10 +65,11 @@ class RequestDuration extends Panel
             subtitle: 'Server-side request latency — average and 95th percentile',
             series: $series,
             stats: [
-                $this->stat('AVG', $totalCount > 0 ? Format::ms($totalTime / $totalCount * 1000) : '—', 'dim'),
-                $this->stat('P95', $totalCount > 0 && ! is_nan($p95Now) ? Format::ms($p95Now * 1000) : '—', 'warn'),
+                $this->stat('AVG', $totalCount > 0 && $totalTime !== null ? Format::ms($totalTime / $totalCount * 1000) : '—', 'dim'),
+                $this->stat('P95', $totalCount > 0 && $p95Now !== null && ! is_nan($p95Now) ? Format::ms($p95Now * 1000) : '—', 'warn'),
             ],
             unit: 'ms',
+            note: $failure !== null ? 'Part of this panel is missing: '.lcfirst($failure->getMessage()) : null,
         );
     }
 
