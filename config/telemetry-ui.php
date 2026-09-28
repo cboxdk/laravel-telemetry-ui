@@ -351,6 +351,15 @@ return [
             'verify' => env('TELEMETRY_UI_METRICS_CA_BUNDLE', true),
             'headers' => [],
             'timeout' => (float) env('TELEMETRY_UI_METRICS_TIMEOUT', 10.0),
+            // Window-wide reads (a day's p95 across every route) longer than
+            // this many seconds run as a range query of slices. Mimir needs
+            // it — its frontend splits range queries by day, while an instant
+            // query over the window is what hits max_fetched_chunks_per_query
+            // — and it is on for the `mimir` driver (6h) unless set here;
+            // Prometheus does better without, so it is off there (0). Set it
+            // if a `prometheus`-driver URL points at Mimir.
+            'split_after' => env('TELEMETRY_UI_METRICS_SPLIT_AFTER'),
+            'split_slice' => (int) env('TELEMETRY_UI_METRICS_SPLIT_SLICE', 3600),
         ],
 
         'traces' => [

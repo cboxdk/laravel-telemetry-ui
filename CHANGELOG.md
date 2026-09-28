@@ -41,6 +41,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **24-hour and longer dashboards on Mimir.** The window-wide p95 across
+  every route — Duration, the routes tables, jobs, outgoing HTTP — was an
+  instant query, which Mimir's query-frontend neither splits nor caches:
+  it fetched every chunk of the whole window at once and was the first
+  thing over `max_fetched_chunks_per_query` (a 422), while the panel's own
+  chart of the same data drew fine. The `mimir` driver now reads a window
+  longer than six hours as a range query of slices — an hour, up to a day
+  for long windows — and adds them up, quantiles by summing bucket
+  increases and interpolating as `histogram_quantile` does, so every part
+  the frontend runs is at most a day and 30 days or a year are answerable.
+  Reproduced and verified on Mimir 3.2.1. Plain Prometheus keeps the
+  instant query: measured on Prometheus 3.15, slicing costs it more of
+  `--query.max-samples`. `split_after` / `split_slice` tune it per
+  connection; set `split_after` if a `prometheus`-driver URL is Mimir.
 - **A refused query says why.** A Prometheus-style error body's reason is
   shown with the status ("refused the query (status 422): query processing
   would load too many samples into memory"); other bodies stay hidden.

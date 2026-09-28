@@ -32,6 +32,45 @@ narrow contracts, resolved through named connections in `config/telemetry-ui.php
 ],
 ```
 
+## Long windows on Mimir
+
+A panel's period figures — the requests in the window, the p95 across it,
+per route — are window-wide reads: `increase(x[24h])`,
+`histogram_quantile(0.95, …rate(bucket[24h]))`. Mimir's query-frontend
+splits a *range* query by day (and caches each day), but an *instant* query
+fetches every chunk of the whole window at once, so on a busy service the
+24-hour p95 across every route is the first thing over
+`max_fetched_chunks_per_query` — a 422 *the query exceeded the maximum number
+of chunks* — while the same data draws fine as the panel's chart. A longer
+window grows the instant query with it.
+
+So the `mimir` driver reads a window longer than six hours as a range query
+of slices (an hour each, up to a day each for long windows — a year is 365
+of them) and adds them up: counters summed, a rate as the summed increase
+over the window, a quantile by summing each bucket's increase and
+interpolating the way `histogram_quantile` does. Each part the frontend runs
+is at most a day, whatever the window, which is what makes 30 days or a year
+answerable at all. The figures agree with the instant query to within
+`increase()`'s edge extrapolation.
+
+```php
+'metrics' => [
+    'driver' => 'mimir',
+    // ...
+    'split_after' => null,  // seconds; null = the driver's default (6h for
+                            // mimir, off for prometheus); 0 = never
+    'split_slice' => 3600,  // the preferred slice, in seconds
+],
+```
+
+Plain Prometheus is left alone: it evaluates an instant `rate()` one series
+at a time, and a range query of slices costs it more of
+`--query.max-samples`, not less. If a `prometheus`-driver URL points at
+Mimir, set the driver to `mimir` — or `TELEMETRY_UI_METRICS_SPLIT_AFTER=21600`.
+
+Retention still bounds what a window shows: a 90-day dashboard over a
+backend that keeps 15 days is a 15-day dashboard.
+
 ## When a backend refuses a query
 
 A backend that refuses a query — Prometheus over `--query.max-samples`, a
@@ -56,8 +95,7 @@ missing. Once one read has timed out the panel stops asking, so a struggling
 backend is not made to wait out the timeout several times over. If that
 happens on the windows you use, raise the timeout — keeping it under PHP's
 `max_execution_time` — or give the backend what it needs for the window
-(Mimir's query-frontend splitting and results cache, recording rules for
-the per-route histograms).
+(recording rules for the per-route histograms).
 
 ## Authentication
 
