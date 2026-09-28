@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Overview → Events.** Every annotation marker in the window — deploys,
+  versions, migrations, incidents, scaling, cache purges, feature flags —
+  in one list, filterable by kind, each linking to its trace and the errors
+  after it. The markers used to be listed only by the dashboard's deploy
+  panel, and only for the dashboard's window; that panel is now *Deploys &
+  events* and drills into the new page.
+- **Chart annotations say what they are.** A flag sits on each dashed line;
+  hovering or focusing it opens a card with the marker, kind, time, notes and
+  hosts, and links to its trace and the errors after it. The line's own
+  tooltip never showed: the chart's axis tooltip owns hover inside the plot.
+- **A content audit log on Statamic → Content.** Who changed what and when —
+  entries, terms, assets, collections, blueprints, fieldsets, navigations,
+  globals, users, forms, revisions — with the transition (created, updated,
+  published, unpublished, deleted, uploaded, …), the fields an update
+  touched, the editor and a link into the CP, filterable by type, action and
+  text. Reads the `statamic.content.change` records `cboxdk/statamic-telemetry`
+  3.1 writes.
+- **Loading states you can see.** A progress line under the topbar while
+  anything the page waits on is in flight; a sweep along each refreshing
+  panel's top edge, with its old answer dimmed while it no longer matches
+  the filters; Explore and the entity pages say what they are reading and
+  for how long ("Searching requests… · 4s"). Hover prefetches, live tails
+  and name lookups stay quiet.
+
+### Changed
+
+- **Statamic → Content charts the changes over time** (stacked by type, with
+  totals and deletions) instead of repeating the type × action table beside
+  it.
+
+### Fixed
+
+- **Component styles lost to the embed scoping.** Since the element resets
+  were scoped to `.t-app` (2.x embed support) they outranked every component
+  class: comboboxes, buttons, the subnav search and facet rows lost their
+  padding and borders, the rail logo's letter was painted primary on primary
+  (an empty blue square), subnav links turned link-blue, and a dimension
+  value's first character was clipped by its cell (`cbox-web` → `:box-web`).
+  The resets are wrapped in `:where()` and keep element specificity.
+
 ## [3.0.1] - 2026-09-27
 
 Documentation only; no code changed.

@@ -459,6 +459,30 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
 .t-callout-ok { background: var(--success-soft); border-color: transparent; }
 .t-callout-info { background: var(--info-soft); border-color: transparent; }
 
+/* ── Chart annotations: a flag per dashed line, a card on hover ─────────── */
+.t-chart-wrap { position: relative; }
+.t-annots { position: absolute; inset: 0 0 auto 0; height: 0; z-index: 2; }
+.t-annot { position: absolute; top: 2px; transform: translateX(-50%); }
+.t-annot-flag {
+    display: grid; place-items: center; min-width: 11px; height: 11px; padding: 0 2px; border-radius: 3px;
+    background: var(--annot); color: var(--background); font: 700 8.5px/1 var(--font-mono);
+    box-shadow: 0 0 0 2px var(--card); cursor: pointer; opacity: 0.85; transition: transform var(--dur-hover) var(--ease), opacity var(--dur-hover) var(--ease);
+}
+.t-annot-flag:hover, .t-annot-flag.is-open, .t-annot-flag:focus-visible { opacity: 1; transform: scale(1.25); }
+.t-annot-card {
+    position: absolute; top: 16px; left: -8px; width: max-content; max-width: min(340px, 80vw); z-index: 30;
+    display: flex; flex-direction: column; gap: 10px; padding: 10px 12px;
+    background: var(--popover); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-popover);
+    animation: t-pop 120ms var(--ease);
+}
+.t-annot-card.is-left { left: auto; right: -8px; }
+.t-annot-item + .t-annot-item { border-top: 1px solid var(--border-subtle); padding-top: 10px; }
+.t-annot-title { display: flex; align-items: center; gap: 7px; font-size: 12.5px; }
+.t-annot-title i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.t-annot-meta { margin-top: 3px; color: var(--muted-foreground); font-size: 11px; overflow-wrap: anywhere; }
+.t-annot-notes { margin: 5px 0 0; font-size: 12px; overflow-wrap: anywhere; }
+.t-annot-links { display: flex; gap: 12px; margin-top: 7px; font-size: 11.5px; }
+
 /* ── States ───────────────────────────────────────────────────────────── */
 .t-spinner { display: inline-flex; align-items: center; gap: 10px; color: var(--muted-foreground); font-size: 12.5px; }
 .t-busy { display: inline-flex; align-items: center; gap: 7px; color: var(--muted-foreground); font-size: 12px; white-space: nowrap; animation: t-fade 200ms var(--ease); }

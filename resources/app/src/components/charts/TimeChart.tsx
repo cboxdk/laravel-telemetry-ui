@@ -1,9 +1,10 @@
 import type { ECharts } from 'echarts/core';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Annotation, ChartSeries } from '../../api/types';
 import { mapLegacyColor, tokenColor } from '../../lib/colors';
-import { bytes, count, dateTime, ms, percent } from '../../lib/format';
+import { bytes, count, ms, percent } from '../../lib/format';
 import { useSetSearch } from '../../lib/state';
+import { AnnotationMarks, groupMarks, type MarkGroup } from './AnnotationMarks';
 import { EChart } from './EChart';
 
 export function formatUnit(v: number | null | undefined, unit?: string | null): string {
@@ -35,12 +36,38 @@ export function TimeChart({ series, type = 'line', unit, height = 200, annotatio
     brush?: boolean;
 }) {
     const set = useSetSearch();
+    const chartRef = useRef<ECharts | null>(null);
+    const annotationsRef = useRef(annotations);
+    annotationsRef.current = annotations;
+    const [marks, setMarks] = useState<{ groups: MarkGroup[]; width: number }>({ groups: [], width: 0 });
+
+    // Where each annotation line sits, in pixels — recomputed after every
+    // render the chart does (a resize, a new option), and only stored when
+    // it moved, so the flags follow the lines without a render loop.
+    const place = useCallback(() => {
+        const chart = chartRef.current;
+        const list = annotationsRef.current;
+        if (!chart || chart.isDisposed()) return;
+        const width = chart.getWidth();
+        const points = list.length === 0 ? [] : list
+            .map((a) => ({ a, x: Number(chart.convertToPixel({ xAxisIndex: 0 }, a.xAxis)) }))
+            .filter((p) => Number.isFinite(p.x) && p.x >= 0 && p.x <= width);
+        const groups = groupMarks(points);
+        setMarks((prev) => (prev.width === width && prev.groups.length === groups.length && prev.groups.every((g, i) => Math.abs(g.x - groups[i]!.x) < 0.5 && g.items.length === groups[i]!.items.length)
+            ? prev
+            : { groups, width }));
+    }, []);
+
+    useEffect(() => { place(); }, [annotations, place]);
 
     const onOption = useCallback((chart: ECharts) => {
         if (brush) chart.dispatchAction({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'lineX', brushMode: 'single' } });
-    }, [brush]);
+        place();
+    }, [brush, place]);
 
     const onReady = useCallback((chart: ECharts) => {
+        chartRef.current = chart;
+        chart.on('finished', place);
         if (!brush) return;
         chart.on('brushEnd', (params: unknown) => {
             const area = (params as { areas?: { coordRange?: [number, number] }[] }).areas?.[0]?.coordRange;
@@ -50,7 +77,7 @@ export function TimeChart({ series, type = 'line', unit, height = 200, annotatio
             set({ from: String(Math.floor(a / 1000)), to: String(Math.ceil(b / 1000)) });
             chart.dispatchAction({ type: 'brush', areas: [] });
         });
-    }, [brush, set]);
+    }, [brush, set, place]);
 
     const build = () => {
         const muted = tokenColor('muted-foreground');
@@ -101,20 +128,21 @@ export function TimeChart({ series, type = 'line', unit, height = 200, annotatio
                 areaStyle: type === 'area' || stacked || series.length === 1 ? { opacity: stacked ? 0.35 : 0.08 } : undefined,
                 markLine: i === 0 && annotations.length > 0 ? {
                     symbol: 'none',
-                    silent: false,
+                    // The flags above the chart say what a line is; the axis
+                    // tooltip owns hover inside the plot.
+                    silent: true,
                     label: { show: false },
                     lineStyle: { color: tokenColor('violet'), type: 'dashed', width: 1 },
-                    tooltip: { formatter: (p: { data: { annotation: Annotation } }) => annotationTip(p.data.annotation) },
-                    data: annotations.map((a) => ({ xAxis: a.xAxis, annotation: a })),
+                    data: annotations.map((a) => ({ xAxis: a.xAxis, lineStyle: a.color ? { color: mapLegacyColor(a.color, 0) } : undefined })),
                 } : undefined,
             })),
         };
     };
 
-    return <EChart build={build} height={height} onReady={onReady} onOption={onOption} deps={[series, type, unit, annotations, min, max]} />;
-}
-
-function annotationTip(a: Annotation): string {
-    const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-    return `<strong>${esc(a.label)}</strong><br/><span style="opacity:.7">${esc(a.kind)} · ${esc(a.time || dateTime(a.xAxis))}</span>${a.notes ? '<br/>' + esc(a.notes) : ''}`;
+    return (
+        <div className="t-chart-wrap">
+            <EChart build={build} height={height} onReady={onReady} onOption={onOption} deps={[series, type, unit, annotations, min, max]} />
+            <AnnotationMarks groups={marks.groups} width={marks.width} />
+        </div>
+    );
 }

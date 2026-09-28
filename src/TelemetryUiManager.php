@@ -43,6 +43,7 @@ final class TelemetryUiManager
     private array $pages = [
         'dashboard' => ['label' => 'Dashboard', 'group' => null, 'icon' => null, 'detect' => null],
         'traces' => ['label' => 'Traces', 'group' => null, 'icon' => null, 'detect' => null],
+        'events' => ['label' => 'Events', 'group' => null, 'icon' => null, 'detect' => null],
         'requests' => ['label' => 'Requests', 'group' => 'Activity', 'icon' => null, 'detect' => null],
         // Purpose-built detail pages: routable + rendered, but not in the
         // sidebar nav (reached by drilling into a row).
@@ -96,6 +97,7 @@ final class TelemetryUiManager
      */
     private array $panels = [
         'traces' => [Builtin\TraceSearch::class, Builtin\ServiceGraph::class],
+        'events' => [Builtin\EventsLog::class],
         'requests' => [Builtin\RequestsActivity::class, Builtin\RequestDuration::class, Builtin\RequestLatencyHeatmap::class, Builtin\RateLimits::class, Builtin\RoutesTable::class, Builtin\RequestLog::class],
         'request-detail' => [Builtin\Detail\RequestDetailHeader::class, Builtin\Detail\RequestDetailActivity::class, Builtin\Detail\RequestDetailDuration::class, Builtin\Detail\RequestDetailStatus::class, Builtin\Detail\RequestDetailPaths::class, Builtin\Detail\RequestDetailTraces::class],
         'jobs' => [Builtin\JobsOverview::class, Builtin\QueueLag::class, Builtin\JobsTable::class],
@@ -123,7 +125,7 @@ final class TelemetryUiManager
         'statamic-stache' => [Builtin\Statamic\StacheActivity::class, Builtin\Statamic\StacheWarmLatency::class],
         'statamic-glide' => [Builtin\Statamic\GlideGenerations::class, Builtin\Statamic\GlideByPreset::class],
         'statamic-forms' => [Builtin\Statamic\FormsSubmissions::class, Builtin\Statamic\FormsByForm::class],
-        'statamic-content' => [Builtin\Statamic\ContentChanges::class, Builtin\Statamic\ContentByType::class],
+        'statamic-content' => [Builtin\Statamic\ContentChanges::class, Builtin\Statamic\ContentByType::class, Builtin\Statamic\ContentAuditLog::class],
         'statamic-inventory' => [Builtin\Statamic\Inventory::class],
         'analytics' => [Builtin\AnalyticsOverview::class, Builtin\AnalyticsPages::class, Builtin\AnalyticsBreakdown::class, Builtin\AnalyticsCampaigns::class],
         'page-detail' => [Builtin\Detail\PageDetailHeader::class, Builtin\Detail\PageDetailTraffic::class, Builtin\Detail\PageDetailPerformance::class, Builtin\Detail\PageDetailTraces::class, Builtin\Detail\PageDetailErrors::class],
