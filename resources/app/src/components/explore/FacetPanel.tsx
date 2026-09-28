@@ -12,9 +12,11 @@ import { Skeleton } from '../States';
  * breaks the view down by that dimension. Host-declared dimensions lead, in
  * their own groups.
  */
-export function FacetPanel({ data, loading, where, onWhere, onGroupBy, groupBy, extraKeys, onAddKey, onRemoveKey }: {
+export function FacetPanel({ data, loading, updating = false, where, onWhere, onGroupBy, groupBy, extraKeys, onAddKey, onRemoveKey }: {
     data?: FacetsResult;
     loading: boolean;
+    /** A new count is on its way; the shown one is for the previous filters. */
+    updating?: boolean;
     where: string[];
     onWhere: (where: string[]) => void;
     onGroupBy: (key: string) => void;
@@ -48,7 +50,7 @@ export function FacetPanel({ data, loading, where, onWhere, onGroupBy, groupBy, 
     const active = new Set(where);
 
     return (
-        <aside className={`t-facets ${folded ? 'is-folded' : ''}`} aria-label="Facets">
+        <aside className={`t-facets ${folded ? 'is-folded' : ''} ${updating ? 'is-stale' : ''}`} aria-label="Facets" aria-busy={updating}>
             <div className="t-facets-meta">
                 <button type="button" className="t-facets-fold" onClick={() => setFolded((f) => !f)} aria-expanded={!folded}>
                     <Icon name={folded ? 'chevronRight' : 'chevronDown'} size={13} />Facets{where.length > 0 ? ` · ${where.length} active` : ''}

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useEntityIndex, useEntityStory } from '../api/hooks';
 import type { EntityStory, Link as LinkData, SpanRow } from '../api/types';
 import { useBoot, useDimension, DimensionValue, useDrill, useValueLabel, ValueText } from '../components/DimensionValue';
-import { Empty, ErrorState, Loading, Spinner } from '../components/States';
+import { Busy, Empty, ErrorState, Loading } from '../components/States';
 import { PanelView } from '../components/panels/PanelView';
 import { fillRows } from './PanelPage';
 import { HeatmapChart } from '../components/charts/HeatmapChart';
@@ -29,7 +29,7 @@ export function EntityIndexView({ type }: { type: string }) {
     const boot = useBoot();
     const search = useSearchState();
     const [filter, setFilter] = useState('');
-    const { data, error, isLoading } = useEntityIndex(type);
+    const { data, error, isLoading, isFetching, isPlaceholderData } = useEntityIndex(type);
     const def = boot.entities.find((e) => e.type === type);
     useTitle(def?.plural ?? type);
 
@@ -45,6 +45,7 @@ export function EntityIndexView({ type }: { type: string }) {
                     <p className="t-page-sub mono">{data?.entity.key ?? def?.key}</p>
                 </div>
                 <div className="t-row-gap">
+                    <Busy active={isFetching && data !== undefined} label="Updating…" />
                     <input className="t-input t-input-sm" placeholder={`Filter ${(def?.plural ?? type).toLowerCase()}…`} value={filter} onChange={(e) => setFilter(e.target.value)} />
                     <NavLink
                         to={`/explore/${data?.signal ?? 'requests'}`}
@@ -56,7 +57,7 @@ export function EntityIndexView({ type }: { type: string }) {
                 </div>
             </header>
 
-            <section className="t-panel span-3">
+            <section className={`t-panel span-3 ${isFetching && isPlaceholderData ? 'is-refreshing is-stale' : ''}`} aria-busy={isFetching}>
                 {isLoading && !data ? <Loading label={`Reading every ${(def?.label ?? type).toLowerCase()} seen in this window…`} height={300} /> : error ? <ErrorState error={error} /> : values.length === 0 ? (
                     <Empty>No {(def?.plural ?? type).toLowerCase()} seen in this window.</Empty>
                 ) : (
@@ -121,7 +122,7 @@ export function EntityView({ type }: { type: string }) {
                         : <h1 className="t-page-title mono t-entity-value">{value}</h1>}
                 </div>
                 <div className="t-row-gap">
-                    {isFetching && data && <Spinner label="Updating…" />}
+                    <Busy active={isFetching && data !== undefined} label="Updating…" />
                     {data?.entity.linkOut && <a className="t-btn t-btn-sm t-btn-primary" href={data.entity.linkOut} target="_blank" rel="noopener noreferrer">Open in app <Icon name="external" size={12} /></a>}
                     <Go link={{ to: 'explore', signal: data?.signal ?? 'requests', where: data?.where ?? [] }} className="t-btn t-btn-sm t-btn-secondary"><Icon name="compass" size={12} />Explore</Go>
                     <Go link={{ to: 'explore', signal: 'logs', where: [`${(data?.entity.key ?? type).replace(/[.-]/g, '_')}=${value}`] }} className="t-btn t-btn-sm t-btn-ghost">Logs</Go>

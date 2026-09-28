@@ -5,6 +5,7 @@ import { clock, dateTime } from '../../lib/format';
 import { Combobox } from '../Combobox';
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
+import { FetchBar } from '../States';
 
 /**
  * Topbar = context: the global scope (service, environment, window, refresh),
@@ -104,6 +105,7 @@ export function TopBar({ boot, onPalette, embedded = false }: {
                     <Icon name={copied ? 'sparkle' : 'link'} size={15} />
                 </button>
             )}
+            {!embedded && <FetchBar />}
         </header>
     );
 }

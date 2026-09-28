@@ -12,6 +12,13 @@ import { rememberTraceTime, traceTime } from '../lib/traceTimes';
 // exactly what depends on it — and nothing round-trips for client-only state.
 
 /**
+ * Reads nobody asked for — a hover's prefetch, a live tail's poll, a name
+ * lookup — carry this meta, so the fetch bar only moves for reads the viewer
+ * is waiting on.
+ */
+export const QUIET = { quiet: true } as const;
+
+/**
  * How long the pointer has to rest on a trace link before its trace is warmed.
  * A trace is the one expensive read (the trace store can take seconds to find
  * one), so sweeping the pointer down a list of thirty traces must not queue
@@ -35,7 +42,7 @@ export function usePrefetch() {
 
     return useCallback((link: { to: string } & Record<string, unknown>) => {
         const fetch = <T,>(queryKey: unknown[], path: string, params: Params = {}) =>
-            void client.prefetchQuery({ queryKey, queryFn: ({ signal }) => api.get<T>(path, params, signal), staleTime: 30_000 });
+            void client.prefetchQuery({ queryKey, queryFn: ({ signal }) => api.get<T>(path, params, signal), staleTime: 30_000, meta: QUIET });
 
         if (link.to === 'trace' && typeof link.id === 'string') {
             const id = link.id;
@@ -74,7 +81,7 @@ export function usePrefetchPage() {
     const client = useQueryClient();
 
     return useCallback((page: string) => {
-        void client.prefetchQuery({ queryKey: ['page', page], queryFn: ({ signal }) => api.get<PageDef>(`pages/${page}`, {}, signal), staleTime: 5 * 60_000 });
+        void client.prefetchQuery({ queryKey: ['page', page], queryFn: ({ signal }) => api.get<PageDef>(`pages/${page}`, {}, signal), staleTime: 5 * 60_000, meta: QUIET });
     }, [client]);
 }
 
@@ -105,6 +112,7 @@ export function usePanel(id: string, params: Record<string, string> = {}, live =
         queryFn: ({ signal }) => api.get<PanelPayload & { id: string; span: number }>(`panels/${id}`, all, signal),
         placeholderData: keepPreviousData,
         refetchInterval: live ? 3000 : refresh > 0 ? refresh * 1000 : false,
+        meta: live ? QUIET : undefined,
     });
 }
 

@@ -7,7 +7,7 @@ import { CopyButton } from '../components/CopyButton';
 import { Popover } from '../components/Popover';
 import { SavedViewsButton } from '../components/SavedViews';
 import { useBoot } from '../components/DimensionValue';
-import { Empty, ErrorState, Loading } from '../components/States';
+import { Busy, Empty, ErrorState, Loading } from '../components/States';
 import { FacetPanel } from '../components/explore/FacetPanel';
 import { FilterBar } from '../components/explore/FilterBar';
 import { LogList } from '../components/explore/LogList';
@@ -81,6 +81,8 @@ export function ExploreView({ signal }: { signal: Signal }) {
                             </NavLink>
                         ))}
                     </div>
+                    {/* Old rows stay while a filter's answer is on its way: say it is coming. */}
+                    <Busy active={(explore.isFetching && data !== undefined) || (facets.isFetching && facets.data !== undefined)} label={explore.isFetching ? `Searching ${signal}…` : 'Counting facets…'} />
                     <div className="t-topbar-spacer" />
                     <SavedViewsButton />
                     {streamable && (
@@ -106,6 +108,7 @@ export function ExploreView({ signal }: { signal: Signal }) {
                 <FacetPanel
                     data={facets.data}
                     loading={facets.isLoading}
+                    updating={facets.isFetching && facets.isPlaceholderData}
                     where={where}
                     onWhere={(w) => set({ where: w })}
                     groupBy={groupBy}
@@ -115,7 +118,7 @@ export function ExploreView({ signal }: { signal: Signal }) {
                     onRemoveKey={(k) => set({ facets: facetKeys.filter((f) => f !== k) })}
                 />
 
-                <section className="t-results">
+                <section className={`t-results ${explore.isFetching && explore.isPlaceholderData ? 'is-stale' : ''}`} aria-busy={explore.isFetching}>
                     {explore.error && !data ? <div className="t-pad"><ErrorState error={explore.error} /></div> : !data ? <div className="t-pad"><Loading label={`Searching ${signal}…`} height={380} /></div> : (
                         <>
                             <div className="t-rtop">
