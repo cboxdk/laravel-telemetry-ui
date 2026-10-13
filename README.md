@@ -60,6 +60,8 @@ MCP).
 - **MCP server** — metrics, traces, logs and the correlation tools over the
   Model Context Protocol (`php artisan mcp:start telemetry-ui`, or HTTP with
   OAuth + Dynamic Client Registration) for agent-driven incident RCA.
+  Ships a [Laravel Boost](https://github.com/laravel/boost) skill
+  (`telemetry-ui-mcp`) that teaches the agent which tool to use when.
 - **Fleet-aware & autodetecting** — a service/environment switcher scopes every
   screen; optional schema families (e.g. `cboxdk/statamic-telemetry`) light up
   their own pages when their metrics exist.
