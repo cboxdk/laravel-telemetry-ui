@@ -20,6 +20,7 @@ use DateTimeImmutable;
  * by fingerprint, each linking to its error group.
  *
  * @phpstan-type TraceException array{group: string, type: string, message: string, file: string, line: int, source: string, match: string}
+ * @phpstan-type DetailedTraceException array{group: string, type: string, message: string, file: string, line: int, source: string, match: string, stacktrace: string, code: string}
  */
 final readonly class TraceExceptions
 {
@@ -29,6 +30,24 @@ final readonly class TraceExceptions
      * @return list<TraceException>
      */
     public function forTrace(Trace $trace): array
+    {
+        return array_map(static function (array $exception): array {
+            unset($exception['stacktrace'], $exception['code']);
+
+            return $exception;
+        }, $this->detailed($trace));
+    }
+
+    /**
+     * {@see forTrace()} plus what the record carries beyond its labels'
+     * headline: the stacktrace and the source excerpt around the throw
+     * (`exception_source`), each exactly as stored — empty when the emitter
+     * sent none. For the Markdown snapshot; the trace drawer doesn't need the
+     * extra weight.
+     *
+     * @return list<DetailedTraceException>
+     */
+    public function detailed(Trace $trace): array
     {
         $root = $trace->root();
         $out = [];
@@ -46,6 +65,8 @@ final readonly class TraceExceptions
                     'line' => (int) ($span->attributes['exception.line'] ?? 0),
                     'source' => 'frontend',
                     'match' => 'span',
+                    'stacktrace' => is_scalar($stack = $span->attributes['exception.stacktrace'] ?? null) ? (string) $stack : '',
+                    'code' => '',
                 ];
             }
         }
@@ -117,6 +138,8 @@ final readonly class TraceExceptions
                 'line' => (int) ($entry->labels['exception_line'] ?? 0),
                 'source' => 'backend',
                 'match' => $matched,
+                'stacktrace' => $entry->labels['exception_stacktrace'] ?? '',
+                'code' => $entry->labels['exception_source'] ?? '',
             ];
         }
 

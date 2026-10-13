@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Analysis;
 
+use Cbox\TelemetryUi\Analysis\Snapshot\MarkdownSnapshot;
+use Cbox\TelemetryUi\Analysis\Snapshot\TraceSnapshot;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Explore\TraceExceptions;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
+use Cbox\TelemetryUi\Queries\Results\Trace;
 use DateTimeImmutable;
 
 /**
@@ -35,6 +38,27 @@ final readonly class TraceDiagnostics
         $trace = $this->connections->traces()->trace($traceId);
 
         return TraceDiagnosis::analyze($trace, $this->exceptions->forTrace($trace), $this->thresholds());
+    }
+
+    /**
+     * The trace as a bounded Markdown snapshot ({@see TraceSnapshot}). Takes
+     * the trace already read, so a caller that has to check it first (the
+     * API's scope lock) reads it once. Without `$exceptionDetail` the
+     * exceptions keep their headline (type, message, file:line, group) but
+     * not the stacktrace or source excerpt — for a viewer who may read traces
+     * but not the exceptions page.
+     */
+    public function snapshot(Trace $trace, bool $exceptionDetail = true): MarkdownSnapshot
+    {
+        $exceptions = array_map(static fn (array $e): array => $exceptionDetail ? $e : [...$e, 'stacktrace' => '', 'code' => ''], $this->exceptions->detailed($trace));
+
+        $diagnosis = TraceDiagnosis::analyze($trace, array_map(static function (array $e): array {
+            unset($e['stacktrace'], $e['code']);
+
+            return $e;
+        }, $exceptions), $this->thresholds());
+
+        return TraceSnapshot::build($trace, $diagnosis, $exceptions);
     }
 
     /**

@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import { useTraceContext, useTraceStory } from '../../api/hooks';
+import { traceParams, useTraceContext, useTraceStory } from '../../api/hooks';
 import type { Link as LinkData, ReportItem, ReportRepeat, SpanData, TraceCorrelation, TraceData } from '../../api/types';
 import { count, ms, shortId, statusTone } from '../../lib/format';
 import { Go } from '../../lib/links';
 import { useBoot, DimensionValue } from '../DimensionValue';
 import { Sparkline } from '../charts/Sparkline';
 import { CopyButton } from '../CopyButton';
+import { CopyMarkdownButton } from '../CopyMarkdownButton';
 import { Icon } from '../Icon';
 import { Empty, ErrorState, Skeleton, Spinner } from '../States';
 
@@ -65,6 +66,7 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
                 <div className="t-dhead-meta">
                     <span className="mono t-dim" title={data.traceId}>trace {shortId(data.traceId, 16)}</span>
                     <CopyButton text={data.traceId} label="ID" />
+                    <CopyMarkdownButton path={`traces/${data.traceId}/markdown`} params={traceParams(data.traceId)} />
                     {data.chain.length > 1 && (
                         <span className="t-chain">
                             {data.chain.map((hop, i) => (

@@ -46,6 +46,19 @@ describe('the trace drawer', () => {
         expect(urls[0]).toContain(`/traces/${story.traceId}?without=context`);
         expect(urls.some((u) => u.includes(`/traces/${story.traceId}/context`))).toBe(true);
     });
+    it('offers the trace as Markdown without fetching it until asked', async () => {
+        const urls: string[] = [];
+        vi.stubGlobal('fetch', vi.fn((input: string) => {
+            urls.push(String(input));
+            if (String(input).includes('/context')) return new Promise<Response>(() => {});
+            return Promise.resolve(new Response(JSON.stringify(story), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        }));
+
+        await renderAt(<TraceView traceId={story.traceId} />);
+
+        expect(await screen.findByRole('button', { name: /Copy as Markdown/ })).toBeInTheDocument();
+        expect(urls.some((u) => u.includes('/markdown'))).toBe(false);
+    });
     it('breaks an outgoing call into its transfer phases, sized against the phases and not the span', async () => {
         // Guzzle follows redirects itself: the phases describe the LAST hop
         // while the span covers them all. Normalising the widths against the
