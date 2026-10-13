@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-10-13
+
 ### Added
 
-- **N+1 outgoing HTTP calls.** cboxdk/laravel-telemetry 3.6 flags one
+- **N+1 outgoing HTTP calls.** cboxdk/laravel-telemetry 3.6.0 flags one
   endpoint called over and over with a different id, one call after
   another, in one trace. The UI now shows this in several places:
   - The Outgoing HTTP page has a new *N+1 outgoing calls* card. It reads
