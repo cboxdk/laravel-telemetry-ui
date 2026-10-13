@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-10-13
+
 ### Added
 
 - **Monitors.** Record one route, path, user, job or tenant in full for a
