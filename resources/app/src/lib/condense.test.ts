@@ -7,7 +7,7 @@ const sql = 'select * from `users` where `users`.`id` = ? limit 1';
 
 describe('condensing the waterfall', () => {
     it('folds an N+1 into one group with its count, total, worst, marker and origin', () => {
-        // laravel-telemetry 3.2: the shape on every query, the marker from the
+        // laravel-telemetry 3.5: the shape on every query, the marker from the
         // threshold-crossing occurrence onward, code.* on that one only.
         const rows = rowsOf({
             name: 'GET /orders',
@@ -88,6 +88,30 @@ describe('condensing the waterfall', () => {
         // The current emitter puts the view in the name; the label does not repeat it.
         const named = groupsOf(condense(rowsOf({ name: 'root', children: times(3, () => span('view orders.row', { 'view.name': 'orders.row' })) }), 3));
         expect(named[0]!.label).toBeNull();
+    });
+
+    it('never groups outgoing calls by method alone, and finds the host in url.full', () => {
+        const call = (attrs: Record<string, string>) => span('HTTP GET', { 'http.request.method': 'GET', ...attrs }, { kind: 'client' });
+        const rows = rowsOf({
+            name: 'root',
+            children: [
+                ...times(3, () => call({ 'url.full': 'https://api.stripe.com/v1/charges' })),
+                ...times(3, () => call({ 'url.full': 'https://api.github.com/repos' })),
+                // No host anywhere: the method says nothing, so it groups by name.
+                ...times(3, () => call({})),
+            ],
+        });
+
+        const groups = groupsOf(condense(rows, 3));
+        expect(groups.map((g) => g.rows.length)).toEqual([3, 3, 3]);
+        expect(groups.map((g) => g.label)).toEqual(['api.stripe.com', 'api.github.com', null]);
+        expect(groupKey(rows[1]!.span)).not.toBe(groupKey(rows[4]!.span));
+    });
+
+    it('never groups orphans that surface at the top level', () => {
+        // Tail sampling dropped their parent: unrelated entry points, not repeats.
+        const orphans = [0, 1, 2].flatMap(() => rowsOf({ name: 'GET /health' }));
+        expect(condense(orphans, 3).every((i) => i.kind === 'span')).toBe(true);
     });
 
     it('groups only consecutive siblings at or over the threshold', () => {

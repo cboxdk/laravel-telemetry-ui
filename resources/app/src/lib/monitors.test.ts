@@ -25,8 +25,14 @@ describe('what a value can be monitored as', () => {
     });
 
     it('collects a trace\'s user, route and declared dimensions', () => {
-        const targets = traceTargets({ 'http.route': 'orders.index', 'user.id': '7', 'billing.customer_id': '8655', 'client.address': '1.2.3.4' }, dims);
+        type Carrier = { service: string; attributes: Record<string, string> };
+        const root: Carrier = { service: 'edge', attributes: { 'user.id': '7', 'client.address': '1.2.3.4' } };
+        const spans: Carrier[] = [root, { service: 'shop', attributes: { 'http.route': 'orders.index' } }, { service: 'billing', attributes: { 'billing.customer_id': '8655' } }];
+        const targets = traceTargets(spans, root, dims);
         expect(targets.map((t) => t.label)).toEqual(['User 7', 'Route orders.index', 'Customer = 8655']);
+        // Each goes to the service of the span that carried it: the route to
+        // the app that served it, not the proxy at the root.
+        expect(targets.map((t) => t.service)).toEqual(['edge', 'shop', 'billing']);
     });
 
     it('is only offered to a viewer who may manage, when a service can be monitored', () => {

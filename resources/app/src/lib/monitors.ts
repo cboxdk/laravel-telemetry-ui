@@ -7,6 +7,8 @@ export interface MonitorTarget {
     value: string;
     /** "Route checkout.show", "User 42", "Tenant = 7". */
     label: string;
+    /** The service of the span the value was read off, when known: the one to monitor. */
+    service?: string;
 }
 
 /** The durations offered, in minutes: the core caps a directive at a day. */
@@ -58,12 +60,26 @@ export function canMonitor(boot: Bootstrap | null | undefined): boolean {
     return Boolean(boot?.abilities.manage && (boot.monitors?.services.length ?? 0) > 0);
 }
 
-/** The monitorable targets on a trace's root (and its spans): user, route, declared context dimensions. */
-export function traceTargets(attrs: Record<string, string>, dims: DimensionDef[]): MonitorTarget[] {
+/**
+ * The monitorable targets on a trace: its user, route and declared context
+ * dimensions, each read off the root when it has it, else the first span that
+ * does — with that span's service, which is the one a monitor must go to (a
+ * route belongs to the service that served it, not the proxy in front).
+ * One pass over the target keys, each stopping at its first hit: no merging
+ * of every span's attributes on a 5,000-span trace.
+ */
+export function traceTargets(spans: { attributes: Record<string, string>; service: string }[], root: { attributes: Record<string, string>; service: string } | null, dims: DimensionDef[]): MonitorTarget[] {
     const keys = ['user.id', 'http.route', ...dims.filter((d) => !d.builtin).map((d) => d.key)];
-    return keys
-        .map((k) => (attrs[k] ? monitorTarget(k, attrs[k]!, dims) : null))
-        .filter((t): t is MonitorTarget => t !== null);
+    const targets: MonitorTarget[] = [];
+
+    for (const key of keys) {
+        const carrier = root?.attributes[key] ? root : spans.find((s) => s.attributes[key]);
+        const value = carrier?.attributes[key];
+        const target = value ? monitorTarget(key, value, dims) : null;
+        if (target && carrier) targets.push({ ...target, service: carrier.service });
+    }
+
+    return targets;
 }
 
 /** "in 14 min", "in 3 h 05 min", "expired". */

@@ -34,6 +34,10 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
     const [tab, setTab] = useState<Tab>('story');
     const [monitoring, setMonitoring] = useState(false);
     const boot = useContext(BootContext);
+    const monitorTargets = useMemo(
+        () => (story && canMonitor(boot) ? traceTargets(story.waterfall.map((r) => r.span), story.root, boot?.dimensions ?? []) : []),
+        [story, boot],
+    );
     const correlationState = pending
         ? <div className="t-pad"><Spinner label="Reading the metrics and logs around this request…" /></div>
         : correlation.error
@@ -52,10 +56,6 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
 
     const root = data.root;
     const status = root?.attributes['http.response.status_code'];
-    // The root wins; declared dimensions can sit on any span.
-    const monitorTargets = canMonitor(boot)
-        ? traceTargets(Object.assign({}, ...[...data.waterfall].reverse().map((r) => r.span.attributes), root?.attributes ?? {}) as Record<string, string>, boot?.dimensions ?? [])
-        : [];
     const tabs: { key: Tab; label: string; n?: number }[] = [
         { key: 'story', label: 'Story' },
         { key: 'waterfall', label: 'Waterfall', n: data.spanCount },

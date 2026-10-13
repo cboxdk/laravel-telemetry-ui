@@ -65,4 +65,22 @@ describe('Monitor… from a value', () => {
         await userEvent.click(await screen.findByTitle(/= 500/));
         expect(screen.queryByRole('button', { name: 'Monitor…' })).not.toBeInTheDocument();
     });
+
+    it('closes on Escape without closing what is under it, and starts with focus inside', async () => {
+        stubPost();
+        await renderAt(<DimensionValue dimKey="user.id" value="42" />, '/explore/requests?period=1h', manager);
+        await userEvent.click(await screen.findByTitle(/User = 42/));
+        await userEvent.click(screen.getByRole('button', { name: 'Monitor…' }));
+
+        const dialog = screen.getByRole('dialog', { name: 'Monitor' });
+        expect(dialog.contains(document.activeElement)).toBe(true);
+
+        const outer = vi.fn();
+        window.addEventListener('keydown', outer);
+        await userEvent.keyboard('{Escape}');
+        window.removeEventListener('keydown', outer);
+
+        expect(screen.queryByRole('dialog', { name: 'Monitor' })).not.toBeInTheDocument();
+        expect(outer).not.toHaveBeenCalled();
+    });
 });

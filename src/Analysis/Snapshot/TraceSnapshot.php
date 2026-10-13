@@ -154,8 +154,8 @@ final class TraceSnapshot
             'queries' => 'Queries',
             'query_time_ms' => 'Query time',
             'query_shapes' => 'Distinct query shapes',
-            'n_plus_one_queries' => 'N+1 shapes (app-counted)',
-            'duplicate_queries' => 'Duplicate shapes (app-counted)',
+            'n_plus_one_shapes' => 'N+1 shapes (app-counted)',
+            'duplicate_queries_distinct' => 'Duplicate queries, distinct (app-counted)',
             'slow_queries' => 'Slow queries (app-counted)',
             'telemetry_overhead_ms' => 'Telemetry overhead',
         ];

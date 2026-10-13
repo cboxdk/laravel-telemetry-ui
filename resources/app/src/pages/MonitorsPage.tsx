@@ -61,7 +61,7 @@ export function MonitorsPage() {
 
             {data && data.services.length === 0 && (
                 <Empty>
-                    No service can be monitored from here. This app needs cboxdk/laravel-telemetry 3.3+ with directives on, or
+                    No service can be monitored from here. This app needs cboxdk/laravel-telemetry 3.5+ with directives on, or
                     a service listed under <code>telemetry-ui.monitors.services</code> with its directives secret.
                 </Empty>
             )}

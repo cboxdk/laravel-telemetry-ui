@@ -88,7 +88,8 @@ final readonly class MarkdownSnapshot
         }
 
         if ($cut === null && $omitted === []) {
-            if ($footer !== '' && strlen($out) + strlen($footer) + 2 <= $maxBytes) {
+            // "\n\n" before the footer and the closing "\n": three bytes.
+            if ($footer !== '' && strlen($out) + strlen($footer) + 3 <= $maxBytes) {
                 $out .= "\n\n".$footer;
             }
 
@@ -135,12 +136,15 @@ final readonly class MarkdownSnapshot
     }
 
     /**
-     * Free text on one Markdown line: whitespace collapsed, backticks escaped
-     * (a message quoting SQL would otherwise open code spans), capped.
+     * Free text on one Markdown line: whitespace collapsed, capped, and made
+     * inert. Exception messages, routes and user ids are untrusted: a
+     * backtick would open a code span, `[x](https://…)` would become a link
+     * and `<img …>` HTML in a renderer that allows it. Backslashes are escaped
+     * first, so text cannot escape the escaping.
      */
     public static function text(string $text, int $max = 300): string
     {
-        return str_replace('`', '\\`', self::oneLine($text, $max));
+        return addcslashes(self::oneLine($text, $max), '\\`[]<>');
     }
 
     /** Free text in a table cell: {@see text()} plus escaped pipes. */

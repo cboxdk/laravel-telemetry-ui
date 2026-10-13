@@ -189,7 +189,7 @@ final class Dimensions
             new Dimension('server.address', 'Outgoing host', 'Outgoing', entity: 'outgoing', builtin: true, signals: [], spanKind: 'client'),
             new Dimension('laravel.command', 'Command', 'Console', entity: 'command', builtin: true, signals: []),
             new Dimension('name', 'Span name', 'Span', scope: 'intrinsic', builtin: true, signals: ['traces']),
-            // cboxdk/laravel-telemetry 3.3: the directive (monitor) that made a
+            // cboxdk/laravel-telemetry 3.5: the directive (monitor) that made a
             // trace be kept. Not a default facet: most traces have none.
             new Dimension('telemetry.directive', 'Monitor', 'Telemetry', builtin: true, signals: []),
         ];

@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Mcp\Tools;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\JsonSchema as JsonSchemaFactory;
@@ -39,7 +40,7 @@ final class SearchTracesTool extends TelemetryTool
 
         try {
             $rows = [];
-            foreach ($this->connections->traces()->search(TraceQuery::raw((string) $request->get('query', '')), $start, $end, $limit) as $trace) {
+            foreach ($this->connections->traces()->search(TraceQuery::raw((new RequestScope)->enforce((string) $request->get('query', ''))), $start, $end, $limit) as $trace) {
                 $rows[] = [
                     'trace_id' => $trace->traceId,
                     'service' => $trace->rootServiceName,

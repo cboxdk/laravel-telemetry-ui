@@ -61,7 +61,7 @@ final class NPlusOneQueries extends Panel
         ], $table, array_filter([
             'subtitle' => 'One query shape run over and over with different bindings in one trace, grouped by shape, with the line that ran it',
             'error' => $error,
-            'empty' => 'No N+1 detections in this period. They need laravel-telemetry 3.2 or later; older versions reported them as duplicates.',
+            'empty' => 'No N+1 detections in this period. They need laravel-telemetry 3.5 or later; older versions reported them as duplicates.',
             'note' => 'Fired once per query shape per trace when it crosses the repeat threshold (default 3). Fix with eager loading (with(), load()) at the origin line.',
         ], static fn ($v): bool => $v !== null));
     }

@@ -104,9 +104,20 @@ enum BackendStatus: string
             }
         }
 
-        // cURL error 28 is "operation timed out": the backend was reached (or
-        // being reached) and did not finish in time — a slow query, not a
-        // missing host, and the fix is a shorter window or a longer timeout.
+        // Timing out while still CONNECTING is a host that never answered,
+        // not a slow query: cURL 7 ("Failed to connect … Connection timed
+        // out"), a connect timeout ("Connection timed out after N ms"), or a
+        // name lookup that never came back. Sending someone to shorten their
+        // window for a firewall that drops packets helps nobody.
+        foreach (['curl error 7:', 'curl error 7 ', 'failed to connect', 'connection timed out after', 'connect timed out', 'resolving timed out', 'curl error 6:', 'could not resolve'] as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return self::Unreachable;
+            }
+        }
+
+        // cURL error 28 is "operation timed out": the backend was reached and
+        // did not finish in time — a slow query, not a missing host, and the
+        // fix is a shorter window or a longer timeout.
         if (str_contains($haystack, 'curl error 28') || str_contains($haystack, 'timed out')) {
             return self::Timeout;
         }

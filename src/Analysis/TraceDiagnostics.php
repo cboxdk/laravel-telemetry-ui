@@ -9,10 +9,10 @@ use Cbox\TelemetryUi\Analysis\Snapshot\TraceSnapshot;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Explore\TraceExceptions;
+use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
-use Cbox\TelemetryUi\Queries\Ir\TraceOp;
-use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Queries\Results\Trace;
+use Cbox\TelemetryUi\Support\ScopeLock;
 use DateTimeImmutable;
 
 /**
@@ -35,9 +35,25 @@ final readonly class TraceDiagnostics
      */
     public function diagnose(string $traceId): TraceDiagnosis
     {
+        // A trace outside the viewer's scope lock diagnoses as one with no
+        // spans — "not found", exactly as the API answers it.
+        $trace = $this->visible($traceId) ?? new Trace($traceId, []);
+
+        return TraceDiagnosis::analyze($trace, $trace->spans === [] ? [] : $this->exceptions->forTrace($trace), $this->thresholds());
+    }
+
+    /**
+     * The trace, when it exists and the viewer's scope lock allows all of it
+     * ({@see ScopeLock::allowsTrace()}); null otherwise. Every read that
+     * takes a trace id from outside goes through here.
+     *
+     * @throws SourceException when the trace store cannot answer
+     */
+    public function visible(string $traceId): ?Trace
+    {
         $trace = $this->connections->traces()->trace($traceId);
 
-        return TraceDiagnosis::analyze($trace, $this->exceptions->forTrace($trace), $this->thresholds());
+        return $trace->spans !== [] && app(ScopeLock::class)->allowsTrace($trace) ? $trace : null;
     }
 
     /**
@@ -63,7 +79,7 @@ final readonly class TraceDiagnostics
 
     /**
      * The newest trace whose root carries the label, within the window. From
-     * laravel-telemetry 3.2 the label is on every span of the request and of
+     * laravel-telemetry 3.5 the label is on every span of the request and of
      * the jobs it dispatches; asking for roots keeps one hit per trace and
      * names the trace by its entry point.
      *
@@ -73,15 +89,17 @@ final readonly class TraceDiagnostics
     {
         $latest = null;
 
-        foreach ($this->connections->traces()->search(
-            new TraceQuery([
-                TraceCondition::token('nestedSetParent', TraceOp::Lt, '0'),
-                TraceCondition::eq('span.'.self::LABEL_ATTRIBUTE, $label),
-            ]),
+        // Inside the viewer's lock, like every other search: a label is not a
+        // way round it.
+        $summaries = RootSearch::search(
+            $this->connections->traces(),
+            [...(new RequestScope)->scopeTraceConditions(), TraceCondition::eq('span.'.self::LABEL_ATTRIBUTE, $label)],
             $start,
             $end,
             limit: 50,
-        ) as $summary) {
+        );
+
+        foreach ($summaries as $summary) {
             if ($latest === null || $summary->startedAt > $latest->startedAt) {
                 $latest = $summary;
             }

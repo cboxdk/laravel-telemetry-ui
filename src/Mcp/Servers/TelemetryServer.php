@@ -64,7 +64,8 @@ class TelemetryServer extends Server
           write tools (TELEMETRY_UI_MCP_WRITE). Say why in `reason`.
 
         Responses omit empty keys; lists are paged (pass next_offset back as
-        offset), and verbose=true adds full SQL and span ids.
+        offset; list_traces pages by next_cursor → cursor), and verbose=true
+        adds full SQL and span ids. Everything stays inside your scope lock.
 
         Everything is read-only except `monitor`, which is only offered when
         write tools are switched on.

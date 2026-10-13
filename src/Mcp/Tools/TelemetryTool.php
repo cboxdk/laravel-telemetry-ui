@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Mcp\Tools;
 
 use DateTimeImmutable;
+use Illuminate\Support\Facades\Gate;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Server\Tool;
 
@@ -48,6 +49,22 @@ abstract class TelemetryTool extends Tool
         $raw = $request->get('offset', 0);
 
         return max(0, is_numeric($raw) ? (int) $raw : 0);
+    }
+
+    /**
+     * Whether this call came over stdio, run by the operator who started the
+     * server — rather than over HTTP, where the agent acts as a dashboard
+     * user and gets that user's gates.
+     */
+    protected function local(): bool
+    {
+        return app()->runningInConsole();
+    }
+
+    /** The HTTP rule for exception detail (stacktraces, source), applied to MCP. */
+    protected function mayReadExceptions(): bool
+    {
+        return $this->local() || Gate::allows('viewTelemetryUi', ['exceptions']);
     }
 
     protected function flag(Request $request, string $key): bool

@@ -9,7 +9,7 @@ use Cbox\TelemetryUi\Monitors\MonitorException;
 use Cbox\TelemetryUi\Monitors\MonitorRequest;
 
 /**
- * One monitored service's directives (cboxdk/laravel-telemetry 3.3+): the
+ * One monitored service's directives (cboxdk/laravel-telemetry 3.5+): the
  * time-limited rules that force a slice of its traffic to be kept, with
  * detail and optionally a CPU profile. Two ship: in-process, when the core
  * runs in this same app, and its signed HTTP endpoint, for an app elsewhere.

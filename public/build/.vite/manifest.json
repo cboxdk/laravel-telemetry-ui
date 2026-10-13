@@ -173,8 +173,8 @@
     "file": "assets/rolldown-runtime-hePW80VL.js",
     "name": "rolldown-runtime"
   },
-  "_tanstack-DriE-b5c.js": {
-    "file": "assets/tanstack-DriE-b5c.js",
+  "_tanstack-C_beOfOL.js": {
+    "file": "assets/tanstack-C_beOfOL.js",
     "name": "tanstack",
     "imports": [
       "_rolldown-runtime-hePW80VL.js",
@@ -191,14 +191,14 @@
     ]
   },
   "src/main.tsx": {
-    "file": "assets/main-DKmJv0DE.js",
+    "file": "assets/main-DE__3AYF.js",
     "name": "main",
     "src": "src/main.tsx",
     "isEntry": true,
     "imports": [
       "_rolldown-runtime-hePW80VL.js",
       "_react-BNDapcX6.js",
-      "_tanstack-DriE-b5c.js"
+      "_tanstack-C_beOfOL.js"
     ],
     "dynamicImports": [
       "src/components/charts/echarts.ts"

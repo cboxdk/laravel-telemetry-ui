@@ -9,6 +9,7 @@ use Cbox\TelemetryUi\Mcp\Servers\TelemetryServer;
 use Cbox\TelemetryUi\Mcp\Tools\ListMonitorsTool;
 use Cbox\TelemetryUi\Mcp\Tools\MonitorTool;
 use Cbox\TelemetryUi\Monitors\SignedHttpDirectives;
+use Cbox\TelemetryUi\Support\ScopeLock;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Gate;
@@ -55,14 +56,14 @@ function localCore(string $service = 'billing'): DirectiveStore
     return $store;
 }
 
-/** Was this request signed the way the core verifies it? */
-function signedCorrectly(Request $request): bool
+/** Was this request signed the way the core verifies it: timestamp, method, directive id and body? */
+function signedCorrectly(Request $request, string $id = ''): bool
 {
     $timestamp = $request->header('X-Telemetry-Timestamp')[0] ?? '';
 
     return ctype_digit($timestamp)
         && abs(time() - (int) $timestamp) <= 300
-        && hash_equals(SignedHttpDirectives::sign($timestamp, $request->body(), SHOP_SECRET), $request->header('X-Telemetry-Signature')[0] ?? '');
+        && hash_equals(SignedHttpDirectives::sign(SHOP_SECRET, $timestamp, $request->method(), $id, $request->body()), $request->header('X-Telemetry-Signature')[0] ?? '');
 }
 
 function shopDirective(array $overrides = []): array
@@ -133,7 +134,7 @@ it('lists, counts down and removes monitors, signing the empty body of a GET and
     Http::assertSent(fn (Request $request): bool => $request->method() === 'DELETE'
         && $request->url() === 'https://shop.test/telemetry/directives/01JD0000000000000000000000'
         && $request->body() === ''
-        && signedCorrectly($request));
+        && signedCorrectly($request, '01JD0000000000000000000000'));
     Http::assertSent(fn (Request $request): bool => $request->method() === 'GET' && signedCorrectly($request));
 });
 
@@ -146,7 +147,7 @@ it('says which service could not be read, and still lists the others', function 
         ->assertJsonCount(1, 'monitors')
         ->assertJsonPath('monitors.0.service', 'billing')
         ->assertJsonPath('errors.shop', fn (string $m): bool => str_contains($m, 'refused the signature'));
-});
+})->skip(! class_exists(DirectiveStore::class), 'Needs cboxdk/laravel-telemetry 3.5+ (directives) installed.');
 
 it('uses the core in-process when the monitored service is this app', function (): void {
     $store = localCore('billing');
@@ -166,7 +167,7 @@ it('uses the core in-process when the monitored service is this app', function (
     expect($store->all())->toBe([]);
 
     Http::assertNothingSent();
-});
+})->skip(! class_exists(DirectiveStore::class), 'Needs cboxdk/laravel-telemetry 3.5+ (directives) installed.');
 
 it('needs the manage ability to place or remove a monitor, and the view ability to list them', function (): void {
     Gate::define('manageTelemetryUi', fn (?object $user = null): bool => false);
@@ -286,4 +287,86 @@ it('filters requests to those a monitor recorded', function (): void {
     $this->getJson(apiUrl('explore/requests', ['where' => ['telemetry.directive=~.+']]))->assertOk();
 
     Http::assertSent(fn (Request $request): bool => str_contains(urldecode($request->url()), 'telemetry.directive =~ ".+"'));
+});
+
+it('allows no monitor at all under a context lock on two dimensions', function (): void {
+    // A directive matches one dimension: tenant.id = 7 would also record
+    // team 4 of tenant 7, outside a viewer locked to team 3.
+    TelemetryUi::restrictScopeUsing(fn (?object $user): array => ['contexts' => ['tenant.id' => ['7'], 'team.id' => ['3']]]);
+    Http::fake(['shop.test/*' => Http::response(['directives' => [shopDirective(['id' => 'x', 'match' => 'context', 'key' => 'tenant.id', 'value' => '7'])]])]);
+
+    foreach ([['key' => 'tenant.id', 'value' => '7'], ['key' => 'team.id', 'value' => '3']] as $context) {
+        $this->postJson(apiUrl('monitors'), ['service' => 'shop', 'match' => 'context', ...$context, 'minutes' => 15])
+            ->assertForbidden()
+            ->assertJsonPath('error.message', fn (string $m): bool => str_contains($m, 'one dimension'));
+    }
+
+    $this->getJson(apiUrl('monitors'))->assertJsonCount(0, 'monitors');
+});
+
+it('fails closed on a malformed context lock', function (mixed $contexts): void {
+    TelemetryUi::restrictScopeUsing(fn (?object $user): array => ['contexts' => $contexts]);
+    Http::fake(['shop.test/*' => Http::response(['directives' => [shopDirective()]])]);
+
+    expect(app(ScopeLock::class)->contexts())->toBe([]);
+
+    $this->postJson(apiUrl('monitors'), ['service' => 'shop', 'match' => 'route', 'value' => 'checkout.*', 'minutes' => 15])->assertForbidden();
+    $this->getJson(apiUrl('monitors'))->assertJsonCount(0, 'monitors');
+})->with([
+    'a string' => ['tenant.id=7'],
+    'a number' => [7],
+    'true' => [true],
+]);
+
+it('asks an HTTP MCP agent for the manage ability before it places a monitor', function (): void {
+    config()->set('telemetry-ui.mcp.write', true);
+    Http::fake(['shop.test/*' => Http::response(['directive' => shopDirective()], 201)]);
+    // The HTTP transport: an agent acting as a dashboard user, not stdio.
+    (fn () => $this->isRunningInConsole = false)->call(app());
+
+    Gate::define('manageTelemetryUi', fn (?object $user = null): bool => false);
+    TelemetryServer::tool(MonitorTool::class, ['service' => 'shop', 'match' => 'route', 'value' => 'checkout.*'])
+        ->assertHasErrors(['manageTelemetryUi']);
+    Http::assertNothingSent();
+
+    Gate::define('manageTelemetryUi', fn (?object $user = null): bool => true);
+    TelemetryServer::tool(MonitorTool::class, ['service' => 'shop', 'match' => 'route', 'value' => 'checkout.*', 'minutes' => 15])->assertOk();
+});
+
+it('signs exactly as the core verifies, method and directive id included', function (): void {
+    $core = 'Cbox\\Telemetry\\Http\\Controllers\\DirectivesController';
+
+    foreach ([['GET', '', ''], ['POST', '', '{"match":"user","value":"42","minutes":15}'], ['DELETE', '01JD0000000000000000000000', '']] as [$method, $id, $body]) {
+        expect(SignedHttpDirectives::sign('s3cret', '1760000000', $method, $id, $body))
+            ->toBe($core::signature('s3cret', '1760000000', $method, $id, $body));
+    }
+
+    // A list call's signature is not a delete's, for any id.
+    expect(SignedHttpDirectives::sign('s3cret', '1760000000', 'GET', '', ''))
+        ->not->toBe(SignedHttpDirectives::sign('s3cret', '1760000000', 'DELETE', '', ''));
+})->skip(! method_exists('Cbox\\Telemetry\\Http\\Controllers\\DirectivesController', 'signature'), 'Needs cboxdk/laravel-telemetry 3.5+ (DirectivesController::signature).');
+
+it('never sends one signature twice, and re-signs a call the app has seen', function (): void {
+    $signatures = [];
+    $refused = false;
+
+    Http::fake(['shop.test/*' => function (Request $request) use (&$signatures, &$refused) {
+        $signatures[] = $request->header('X-Telemetry-Signature')[0];
+
+        // Another process signed the same call in the same second once.
+        if (! $refused) {
+            $refused = true;
+
+            return Http::response(['error' => 'Signature already used.'], 401);
+        }
+
+        return Http::response(['directives' => []]);
+    }]);
+
+    // Two list reads in the same second, the first one refused once.
+    $this->getJson(apiUrl('monitors'))->assertOk()->assertJsonPath('errors', []);
+    $this->getJson(apiUrl('monitors'))->assertOk()->assertJsonPath('errors', []);
+
+    expect($signatures)->toHaveCount(3)
+        ->and(array_unique($signatures))->toHaveCount(3);
 });

@@ -15,9 +15,10 @@ renders, made available for incident RCA in a chat:
 
 > "Why did checkout error at 14:05? Look at the traces and the host metrics."
 
-Everything goes through the same **read-only** drivers the dashboard uses.
-The exception is `monitor`. It places a monitor, so it is off until you set
-`TELEMETRY_UI_MCP_WRITE=true`.
+Everything goes through the same **read-only** drivers the dashboard uses,
+inside the viewer's scope lock. The exception is `monitor`. It places a
+monitor, so it is off until you set `TELEMETRY_UI_MCP_WRITE=true` (see
+[Security](#security)).
 
 ## Wiring it up
 
@@ -68,7 +69,7 @@ you would fix it:
   "name": "GET /orders", "service": "shop", "kind": "server", "status": "ok",
   "http_status": 200, "duration_ms": 412.3, "label": "before",
   "timing_ms": { "db": 61.2, "view": 40.1, "other": 311 },
-  "totals": { "queries": 54, "query_time_ms": 61.2, "n_plus_one_queries": 1, "duplicate_queries": 0, "telemetry_overhead_ms": 1.4, "query_shapes": 4 },
+  "totals": { "queries": 54, "query_time_ms": 61.2, "n_plus_one_shapes": 1, "duplicate_queries_distinct": 0, "telemetry_overhead_ms": 1.4, "query_shapes": 4 },
   "flag_counts": { "errors": 0, "warnings": 1 },
   "flags": [
     { "level": "warning", "section": "db", "message": "N+1: 50× select * from `users` where `users`.`id` = ? limit 1",
@@ -92,7 +93,7 @@ you would fix it:
   full SQL, span ids, per-shape timings and the function that ran it.
 
 The N+1 and duplicate flags, the origins, the overhead, the root's
-`db.query.slow.count` and labels need laravel-telemetry 3.2 or later. On older
+`db.query.slow.count` and labels need laravel-telemetry 3.5 or later. On older
 traces the summary groups queries by their text and reports a statement that
 ran `repeat_threshold` times as a *repeat*, without guessing which kind. If
 the root counts slow queries that no span shows at
@@ -117,7 +118,7 @@ agent to pick.
 ### Before and after a fix
 
 Send the same request twice with an `X-Telemetry-Label` header —
-laravel-telemetry 3.2 stamps it as `laravel.trace.label` on every span of the
+laravel-telemetry 3.5 stamps it as `laravel.trace.label` on every span of the
 request and of the jobs it dispatches — and compare by label:
 
 ```bash
@@ -137,12 +138,20 @@ in `only_a` and a new one in `only_b`. Either side can be a trace id instead.
 
 `list_traces` finds the traces to look at: `label` lists one label's runs,
 `has_flags: true` keeps only traces with a hint of trouble. Hints come from
-the root span's tallies (N+1, duplicate and, from 3.2, slow-query counts)
+the root span's tallies (N+1, duplicate and, from 3.5, slow-query counts)
 plus a bounded search for traces with an error span — and, for roots from
-before 3.2, one for traces with a slow query; `trace_summary` is the full
+before 3.5, one for traces with a slow query; `trace_summary` is the full
 diagnosis. Both tools ask the trace store for root spans (TraceQL
 `nestedSetParent < 0`), with or without a label: the label is on every span,
-the tallies only on the root.
+the tallies only on the root. A store whose TraceQL has no `nestedSetParent`
+(telemetryd) refuses that with a parse error. The tools then search again
+without it and read the tallies off the root span when the hit includes it.
+
+`list_traces` pages backwards in time: pass `next_cursor` back as `cursor`.
+A cursor is the second the page stopped in plus how many traces of that
+second it listed, so pages never overlap and a new trace does not shift
+them. `next_cursor` is there whenever more may exist, including when a
+`has_flags` page came back empty because the sample it read was full.
 
 ## Remote (HTTP) with OAuth + Dynamic Client Registration
 
@@ -189,8 +198,25 @@ built-in tools do, so a backend hiccup surfaces cleanly instead of as a 500.
 
 ## Security
 
-The local command is stdio-only and read-only; there is no network listener,
-and anyone who can run `php artisan` in your app can already read the same
-backends. The HTTP transport is off by default and, when on, sits behind
-Passport-issued tokens (`auth:api`) — plus the same read-only drivers, so a
-token grants querying, never writes.
+The local command is stdio-only. There is no network listener, and anyone who
+can run `php artisan` in your app can already read the same backends. The
+HTTP transport is off by default. When on, it sits behind Passport-issued
+tokens (`auth:api`).
+
+**Scope lock.** Every trace tool honours the viewer's scope lock, as the
+dashboard does:
+- `list_traces`, `search_traces` and a label lookup in `compare_traces`
+  search inside the locked services and environments, whatever `service`
+  or query is passed.
+- `trace_summary`, `trace_markdown`, `trace_context` and `compare_traces`
+  answer "not found" for a trace with a service outside the lock.
+- `trace_markdown` includes stacktraces and source only when the viewer may
+  open the exceptions page. Over HTTP that is the
+  `viewTelemetryUi('exceptions')` gate. Over stdio it is the operator.
+
+**Writes.** The tools are read-only unless you set
+`TELEMETRY_UI_MCP_WRITE=true`. That registers `monitor`, which can place
+and stop [monitors](../core-concepts/monitors.md), which record traffic in
+full and can capture CPU profiles. Over HTTP, `monitor` also needs
+`manageTelemetryUi` for the token's user, and the scope lock applies. Leave
+it off unless an agent should be able to turn recording up.

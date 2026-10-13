@@ -43,7 +43,7 @@ final class LocalDirectives implements ManagesDirectives
     public function add(MonitorRequest $request): Monitor
     {
         if (! class_exists(self::DIRECTIVE)) {
-            throw new MonitorException('This app\'s cboxdk/laravel-telemetry has no directives (3.3+).');
+            throw new MonitorException('This app\'s cboxdk/laravel-telemetry has no directives (3.5+).');
         }
 
         $payload = $request->payload();
@@ -75,7 +75,7 @@ final class LocalDirectives implements ManagesDirectives
             $store = ($this->store)();
 
             if (! method_exists($store, $method)) {
-                throw new MonitorException('This app\'s cboxdk/laravel-telemetry has no directives (3.3+).');
+                throw new MonitorException('This app\'s cboxdk/laravel-telemetry has no directives (3.5+).');
             }
 
             return $store->{$method}(...$args);

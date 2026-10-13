@@ -29,7 +29,7 @@ export interface SpanGroup {
     maxMs: number;
     /** Indices into `rows` of the occurrences that failed: grouping never hides an error. */
     errors: number[];
-    /** laravel-telemetry 3.2's marker, on the threshold-crossing occurrence onward. N+1 wins over duplicate. */
+    /** laravel-telemetry 3.5's marker, on the threshold-crossing occurrence onward. N+1 wins over duplicate. */
     repeat: RepeatKind | null;
     /** `file:line` from the first occurrence that carries `code.*` (the crossing one, or a slow one). */
     origin: string | null;
@@ -46,7 +46,7 @@ export type CondensedItem = { kind: 'span'; row: WaterfallRow } | { kind: 'group
 
 /**
  * What makes two sibling spans "the same": the query's shape (laravel-telemetry
- * 3.2 stamps a hash of the normalised SQL on every query span), else its exact
+ * 3.5 stamps a hash of the normalised SQL on every query span), else its exact
  * text; a cache operation's store, operation and key group; a view by its
  * `view.name`, an outgoing call by method and `server.address`, a Redis
  * command by `db.operation.name`; else the name.
@@ -67,8 +67,18 @@ export function groupKey(span: SpanData): string {
         return `${base}\u0000cache\u0000${a['cache.store'] ?? ''}\u0000${a['cache.operation'] ?? ''}\u0000${a['cache.key.group'] ?? ''}`;
     }
 
+    // An outgoing call is its method AND host: two calls with the same
+    // method to different hosts are never "the same". The host comes from
+    // server.address, else from url.full; with neither, the method alone
+    // says nothing, so it falls through to the name.
+    const method = a['http.request.method'];
+    if (method !== undefined) {
+        const host = a['server.address'] ?? hostOf(a['url.full']);
+        if (host) return `${base}\u0000http\u0000${method}\u0000${host}`;
+    }
+
     // Generic names that carry their identity in an attribute: a view render,
-    // an outgoing call, a Redis command. Newer emitters put it in the name
+    // a Redis command. Newer emitters put it in the name
     // too ("view orders.index", "GET api.stripe.com", "redis GET"); older
     // ones and other SDKs do not, and two views are never "the same".
     for (const keys of DISTINGUISHING) {
@@ -81,18 +91,26 @@ export function groupKey(span: SpanData): string {
 /** Attribute sets that tell apart spans sharing a generic name, checked in order. */
 const DISTINGUISHING: string[][] = [
     ['view.name'],
-    ['http.request.method', 'server.address'],
     ['db.operation.name', 'db.system.name'],
     ['messaging.destination.name'],
     ['laravel.job.class'],
 ];
+
+function hostOf(url: string | undefined): string | null {
+    if (!url) return null;
+    try {
+        return new URL(url).host || null;
+    } catch {
+        return null;
+    }
+}
 
 function labelOf(span: SpanData): string | null {
     const a = span.attributes;
     if (a['db.query.text']) return a['db.query.text'];
     if (a['cache.key.group']) return a['cache.key.group'];
     if (a['cache.operation'] && !span.name.endsWith(a['cache.operation'])) return a['cache.operation'];
-    const distinct = a['view.name'] ?? a['server.address'] ?? a['messaging.destination.name'] ?? a['laravel.job.class'];
+    const distinct = a['view.name'] ?? a['server.address'] ?? (a['http.request.method'] ? hostOf(a['url.full']) : null) ?? a['messaging.destination.name'] ?? a['laravel.job.class'];
     return distinct && !span.name.includes(distinct) ? distinct : null;
 }
 
@@ -158,7 +176,7 @@ function buildGroup(rows: WaterfallRow[], key: string, byId: Map<string, Waterfa
  * the same {@link groupKey} into one group; everything else passes through
  * in waterfall order.
  *
- * Only leaves are grouped: a span with children keeps its subtree visible,
+ * Only leaves below the root are grouped: a span with children keeps its subtree visible,
  * so nothing — an error least of all — ever nests out of sight inside a
  * group. Consecutive leaf siblings are adjacent in the depth-first order, so
  * one pass finds every run. A threshold under 2 turns grouping off.
@@ -172,7 +190,10 @@ export function condense(rows: WaterfallRow[], threshold: number = DEFAULT_GROUP
 
     while (i < rows.length) {
         const row = rows[i]!;
-        if (row.children > 0) {
+        // A span with children keeps its subtree visible; a depth-0 span is a
+        // root or an orphan whose parent was sampled away, and orphans are
+        // unrelated entry points, not repeats of one another.
+        if (row.children > 0 || row.depth === 0) {
             items.push({ kind: 'span', row });
             i++;
             continue;
@@ -183,7 +204,7 @@ export function condense(rows: WaterfallRow[], threshold: number = DEFAULT_GROUP
         let j = i + 1;
         while (j < rows.length) {
             const next = rows[j]!;
-            if (next.children > 0 || next.depth !== row.depth || parentOf(next) !== parent || groupKey(next.span) !== key) break;
+            if (next.children > 0 || next.depth === 0 || next.depth !== row.depth || parentOf(next) !== parent || groupKey(next.span) !== key) break;
             j++;
         }
 

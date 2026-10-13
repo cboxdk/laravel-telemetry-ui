@@ -67,8 +67,8 @@ it('groups an N+1 by shape, counts every run of it and names the line that ran i
     expect($d->totals)->toMatchArray([
         'queries' => 13,
         'query_time_ms' => 26.0,
-        'n_plus_one_queries' => 1,
-        'duplicate_queries' => 0,
+        'n_plus_one_shapes' => 1,
+        'duplicate_queries_distinct' => 0,
         'telemetry_overhead_ms' => 1.2,
         'query_shapes' => 2,
     ]);
@@ -217,7 +217,7 @@ it('compares two traces: totals, categories, shapes and the flags on one side on
     expect($diff['a']['label'])->toBe('before')
         ->and($diff['duration_ms'])->toMatchArray(['a' => 400.0, 'b' => 120.0, 'delta' => -280.0, 'change_pct' => -70.0])
         ->and($diff['totals']['queries'])->toBe(['a' => 13, 'b' => 2, 'delta' => -11])
-        ->and($diff['totals']['n_plus_one_queries'])->toBe(['a' => 1, 'b' => 0, 'delta' => -1])
+        ->and($diff['totals']['n_plus_one_shapes'])->toBe(['a' => 1, 'b' => 0, 'delta' => -1])
         ->and($diff['queries'])->toMatchArray(['appeared' => 1, 'disappeared' => 1, 'changed' => 0, 'unchanged' => 1])
         ->and($diff['queries']['disappeared_top'][0])->toMatchArray(['count' => 12, 'origin' => 'app/Http/Controllers/OrderController.php:42'])
         ->and(collect($diff['flags']['only_a'])->pluck('message')->all())->toBe(['N+1: 12× '.DIAG_USERS])

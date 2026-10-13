@@ -19,7 +19,6 @@ use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\Http\Api\Markdown;
 use Cbox\TelemetryUi\Http\Api\Serializer;
 use Cbox\TelemetryUi\Queries\Results\Trace;
-use Cbox\TelemetryUi\Support\ScopeLabels;
 use Cbox\TelemetryUi\Support\ScopeLock;
 use Cbox\TelemetryUi\Support\TraceView;
 use DateTimeImmutable;
@@ -165,7 +164,7 @@ final class TraceController
         // read one belonging to a service outside their lock. Search and
         // Explore are already constrained; this is the one route that takes an
         // id straight from the URL.
-        if ($trace->spans === [] || ! self::withinLock($trace, app(ScopeLock::class))) {
+        if ($trace->spans === [] || ! app(ScopeLock::class)->allowsTrace($trace)) {
             return ApiError::notFound("Trace {$traceId} was not found (it may have expired or been sampled away).");
         }
 
@@ -242,44 +241,5 @@ final class TraceController
         } catch (SourceException) {
             return [];
         }
-    }
-
-    /**
-     * Whether every service the trace touches is one this viewer may read, and
-     * ran in an environment they may read. A trace that crosses out of the lock
-     * is treated as absent, not forbidden: its existence is itself information.
-     *
-     * The environment comes from each service's resource attributes, under the
-     * configured trace attribute (see {@see ScopeLabels}). Locked to
-     * environments, a service that does not say which one it ran in is outside
-     * the lock: an unlabelled span could be from anywhere.
-     */
-    private static function withinLock(Trace $trace, ScopeLock $lock): bool
-    {
-        if ($lock->servicesLocked()) {
-            foreach (array_keys($trace->services) as $service) {
-                if (! in_array((string) $service, $lock->services(), true)) {
-                    return false;
-                }
-            }
-        }
-
-        if ($lock->environmentsLocked()) {
-            $key = ScopeLabels::traceResourceKey('environment');
-
-            if ($trace->services === []) {
-                return false;
-            }
-
-            foreach ($trace->services as $attributes) {
-                $environment = $attributes[$key] ?? null;
-
-                if (! is_string($environment) || ! in_array($environment, $lock->environments(), true)) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
     }
 }

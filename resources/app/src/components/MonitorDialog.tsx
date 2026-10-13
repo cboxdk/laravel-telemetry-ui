@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePlaceMonitor } from '../api/hooks';
 import { useScope } from '../lib/state';
@@ -22,9 +22,32 @@ export function MonitorDialog({ targets, service, onClose }: {
     const boot = useBoot();
     const scope = useScope();
     const services = boot.monitors?.services ?? [];
-    const preferred = [service, scope.service].find((s): s is string => Boolean(s) && services.includes(s as string));
-    const [target, setTarget] = useState(0);
-    const [chosenService, setService] = useState(preferred ?? services[0] ?? '');
+    // The service the value was seen on (the span that carries the route),
+    // else the one passed in, else the one in scope.
+    const preferredFor = (t: MonitorTarget | undefined) => [t?.service, service, scope.service].find((s): s is string => Boolean(s) && services.includes(s as string));
+    const [target, setTargetIndex] = useState(0);
+    const [chosenService, setService] = useState(preferredFor(targets[0]) ?? services[0] ?? '');
+    const setTarget = (i: number) => {
+        setTargetIndex(i);
+        const next = preferredFor(targets[i]);
+        if (next) setService(next);
+    };
+    const dialog = useRef<HTMLFormElement>(null);
+    const close = useRef(onClose);
+    close.current = onClose;
+
+    // Focus the first choice when the dialog opens; Escape closes it (and
+    // stops there, so the drawer underneath stays open).
+    useEffect(() => {
+        dialog.current?.querySelector<HTMLElement>('fieldset input:checked, select, .t-seg button.is-on')?.focus();
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            e.stopPropagation();
+            close.current();
+        };
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, []);
     const [minutes, setMinutes] = useState(60);
     const [profile, setProfile] = useState(false);
     const [reason, setReason] = useState('');
@@ -34,6 +57,7 @@ export function MonitorDialog({ targets, service, onClose }: {
     return createPortal(
         <div className="t-modal-backdrop" role="presentation" onMouseDown={(e) => e.target === e.currentTarget && onClose()} onClick={(e) => e.stopPropagation()}>
             <form
+                ref={dialog}
                 className="t-modal t-monitor-dialog"
                 role="dialog"
                 aria-label="Monitor"

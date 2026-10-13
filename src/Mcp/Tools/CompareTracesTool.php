@@ -54,18 +54,25 @@ final class CompareTracesTool extends TelemetryTool
                     return Response::error("{$side} is required: a trace id or a label.");
                 }
 
-                $traceId = preg_match('/^[0-9a-f]{16,32}$/i', $ref) === 1
-                    ? $ref
-                    : $this->diagnostics->latestWithLabel($ref, $start, $end);
+                $hex = preg_match('/^[0-9a-f]{16,32}$/i', $ref) === 1;
+                $diagnosis = $hex ? $this->diagnostics->diagnose($ref) : null;
 
-                if ($traceId === null) {
-                    return Response::error("No trace labelled \"{$ref}\" in the last {$this->minutes($request, 1440)} minutes.");
+                // A label can look like an id ("deadbeef00000000"): when no
+                // trace has that id, try it as a label before giving up.
+                if ($diagnosis === null || $diagnosis->identity['spans'] === 0) {
+                    $traceId = $this->diagnostics->latestWithLabel($ref, $start, $end);
+
+                    if ($traceId === null) {
+                        return Response::error($hex
+                            ? "No trace {$ref}, and no trace labelled \"{$ref}\" in the last {$this->minutes($request, 1440)} minutes."
+                            : "No trace labelled \"{$ref}\" in the last {$this->minutes($request, 1440)} minutes.");
+                    }
+
+                    $diagnosis = $this->diagnostics->diagnose($traceId);
                 }
 
-                $diagnosis = $this->diagnostics->diagnose($traceId);
-
                 if ($diagnosis->identity['spans'] === 0) {
-                    return Response::error("Trace {$traceId} ({$side}) has no spans (not found, or outside retention).");
+                    return Response::error("Trace {$ref} ({$side}) has no spans (not found, outside retention, or outside your scope).");
                 }
 
                 $sides[$side] = $diagnosis;

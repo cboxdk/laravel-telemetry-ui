@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Support;
 
+use Cbox\TelemetryUi\Queries\Results\Trace;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\Facades\Auth;
@@ -119,7 +120,7 @@ final class ScopeLock
             'environments' => $this->strings($raw['environments'] ?? []),
             'servicesLocked' => array_key_exists('services', $raw),
             'environmentsLocked' => array_key_exists('environments', $raw),
-            'contexts' => $this->contextLock($raw['contexts'] ?? null),
+            'contexts' => array_key_exists('contexts', $raw) ? $this->contextLock($raw['contexts']) : null,
         ];
     }
 
@@ -147,15 +148,16 @@ final class ScopeLock
     }
 
     /**
-     * `['tenant.id' => ['7'], 'team.id' => 3]` → `['tenant.id' => ['7'], 'team.id' => ['3']]`;
-     * anything that is not a keyed array is "no context lock".
+     * `['tenant.id' => ['7'], 'team.id' => 3]` → `['tenant.id' => ['7'], 'team.id' => ['3']]`.
+     * Present but malformed (not a keyed array) fails closed: locked to
+     * nothing, never "no lock".
      *
-     * @return array<string, list<string>>|null
+     * @return array<string, list<string>>
      */
-    private function contextLock(mixed $raw): ?array
+    private function contextLock(mixed $raw): array
     {
         if (! is_array($raw)) {
-            return null;
+            return [];
         }
 
         $lock = [];
@@ -172,6 +174,42 @@ final class ScopeLock
         }
 
         return $lock;
+    }
+
+    /**
+     * Whether a whole trace sits inside the lock — every service in it
+     * allowed, and with environments locked, every service saying which
+     * environment it ran in and that one allowed. A trace id is a deep link
+     * anyone can paste (or an agent can pass); this is the check for every
+     * read that takes one.
+     */
+    public function allowsTrace(Trace $trace): bool
+    {
+        if ($this->servicesLocked()) {
+            foreach (array_keys($trace->services) as $service) {
+                if (! in_array((string) $service, $this->services(), true)) {
+                    return false;
+                }
+            }
+        }
+
+        if ($this->environmentsLocked()) {
+            $key = ScopeLabels::traceResourceKey('environment');
+
+            if ($trace->services === []) {
+                return false;
+            }
+
+            foreach ($trace->services as $attributes) {
+                $environment = $attributes[$key] ?? null;
+
+                if (! is_string($environment) || ! in_array($environment, $this->environments(), true)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     /**

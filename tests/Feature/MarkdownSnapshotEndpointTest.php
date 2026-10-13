@@ -3,7 +3,12 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\Mcp\Servers\TelemetryServer;
+use Cbox\TelemetryUi\Mcp\Tools\CompareTracesTool;
+use Cbox\TelemetryUi\Mcp\Tools\ListTracesTool;
+use Cbox\TelemetryUi\Mcp\Tools\SearchTracesTool;
+use Cbox\TelemetryUi\Mcp\Tools\TraceContextTool;
 use Cbox\TelemetryUi\Mcp\Tools\TraceMarkdownTool;
+use Cbox\TelemetryUi\Mcp\Tools\TraceSummaryTool;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
@@ -157,4 +162,47 @@ it('says so over MCP when a trace has no spans', function (): void {
     Http::fake(['tempo.test:3200/*' => Http::response(['batches' => []]), 'loki.test:3100/*' => Http::response(lokiStreams([]))]);
 
     TelemetryServer::tool(TraceMarkdownTool::class, ['trace_id' => SNAP_TRACE_ID])->assertHasErrors();
+});
+
+/** Act as the HTTP MCP transport: an agent acting as a dashboard user, not the operator's stdio. */
+function overHttp(): void
+{
+    (fn () => $this->isRunningInConsole = false)->call(app());
+}
+
+it('keeps a trace outside the scope lock from every MCP trace tool', function (): void {
+    app(TelemetryUiManager::class)->restrictScopeUsing(fn ($user): array => ['services' => ['shop']]);
+    fakeSnapshotBackends('billing');
+
+    TelemetryServer::tool(TraceMarkdownTool::class, ['trace_id' => SNAP_TRACE_ID])->assertHasErrors();
+    TelemetryServer::tool(TraceSummaryTool::class, ['trace_id' => SNAP_TRACE_ID])->assertHasErrors();
+    TelemetryServer::tool(TraceContextTool::class, ['trace_id' => SNAP_TRACE_ID])->assertHasErrors();
+    TelemetryServer::tool(CompareTracesTool::class, ['a' => SNAP_TRACE_ID, 'b' => SNAP_TRACE_ID])->assertHasErrors();
+});
+
+it('scopes MCP trace searches to the lock, whatever service is asked for', function (): void {
+    app(TelemetryUiManager::class)->restrictScopeUsing(fn ($user): array => ['services' => ['shop']]);
+    Http::fake(['tempo.test:3200/*' => Http::response(['traces' => []])]);
+
+    TelemetryServer::tool(ListTracesTool::class, ['service' => 'billing'])->assertOk();
+    TelemetryServer::tool(CompareTracesTool::class, ['a' => 'before', 'b' => 'after'])->assertHasErrors();
+    TelemetryServer::tool(SearchTracesTool::class, ['query' => '{ status = error }'])->assertOk();
+
+    $queries = collect(Http::recorded())->map(fn (array $pair): string => rawurldecode(requestQuery($pair[0])['q'] ?? ''))->filter();
+
+    expect($queries)->not->toBeEmpty()
+        ->and($queries->reject(fn (string $q): bool => str_contains($q, 'resource.service.name = "shop"'))->all())->toBe([])
+        ->and($queries->filter(fn (string $q): bool => str_contains($q, 'billing'))->all())->toBe([]);
+});
+
+it('keeps the stacktrace out of an MCP snapshot over HTTP for a viewer who may not open exceptions', function (): void {
+    allowPages('traces');
+    fakeSnapshotBackends();
+    overHttp();
+
+    TelemetryServer::tool(TraceMarkdownTool::class, ['trace_id' => SNAP_TRACE_ID])
+        ->assertOk()
+        ->assertSee('Card declined by issuer')
+        ->assertDontSee('throw new PaymentDeclined();')
+        ->assertDontSee('charge()');
 });

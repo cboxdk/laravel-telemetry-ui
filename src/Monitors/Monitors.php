@@ -39,11 +39,6 @@ final class Monitors
         private readonly Container $container,
     ) {}
 
-    public function enabled(): bool
-    {
-        return (bool) $this->config->get('telemetry-ui.monitors.enabled', true) && $this->services() !== [];
-    }
-
     /**
      * The services this viewer may monitor, and how each is reached.
      *
@@ -157,6 +152,14 @@ final class Monitors
         }
 
         $scope = implode(', ', array_keys($contexts)) ?: 'nothing';
+
+        // A directive matches ONE context dimension. With two locked keys
+        // (tenant.id and team.id), a monitor on tenant.id = 7 would also
+        // record teams of tenant 7 outside the viewer's team: there is no
+        // directive that satisfies both, so none is allowed.
+        if (count($contexts) !== 1) {
+            return "Your view is limited by {$scope} together; a monitor matches one dimension, so none can be placed within that scope.";
+        }
 
         if ($match !== MonitorRequest::CONTEXT) {
             return "Your view is limited to {$scope}: a {$match} monitor would record every tenant's traffic, so only a monitor on your own {$scope} can be placed.";

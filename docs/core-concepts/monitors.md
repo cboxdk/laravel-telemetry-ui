@@ -12,7 +12,7 @@ and turns itself off again. For 15 minutes, an hour, 4 hours or a day, every
 matching trace is **kept whatever the sample rate said**, keeps its **detail
 spans**, and can get a **CPU profile**. It works like Telescope's monitored
 tags, built on cboxdk/laravel-telemetry's
-[directives](https://github.com/cboxdk/laravel-telemetry/blob/main/docs/core-concepts/traces.md) (3.3+).
+[directives](https://github.com/cboxdk/laravel-telemetry/blob/main/docs/core-concepts/traces.md) (3.5+).
 Every span recorded because of one carries `telemetry.directive = <id>`.
 
 | Match | From | The core matches |
@@ -70,9 +70,17 @@ A service is monitorable in one of two ways:
    ```
 
    Every request is signed: `X-Telemetry-Timestamp: <unix seconds>` and
-   `X-Telemetry-Signature: sha256=<hex HMAC-SHA256 of "<timestamp>.<raw body>">`.
-   GET and DELETE sign an empty body. The app allows five minutes of clock
-   skew, so keep both clocks in sync.
+   `X-Telemetry-Signature: sha256=<hex HMAC-SHA256 of "<timestamp>.<METHOD>.<id>.<raw body>">`.
+   `<id>` is the directive id on a DELETE and empty otherwise. GET and DELETE
+   sign an empty body. The method and id are signed so that a captured list
+   call cannot be replayed as a delete.
+
+   The app accepts each signature once and allows five minutes of clock
+   skew, so keep both clocks in sync. The dashboard never sends a signature
+   twice. A repeat of the same call in the same second is signed with the
+   next second. If the app answers "Signature already used", because another
+   PHP worker signed the identical call in that second, the dashboard
+   re-signs and sends again.
 
 No service is contacted at boot or to render the bootstrap. A service that
 cannot be read is reported on the Monitors page, and the other services are
@@ -104,7 +112,12 @@ listing and stopping alike:
    ]);
    ```
 
-   Such a viewer may only place **context** monitors on those exact values.
+   The lock must name **exactly one** dimension. A directive matches one, so
+   a lock on two (`tenant.id` and `team.id`) cannot be honoured and allows no
+   monitor at all. A `contexts` value that is not a keyed array is locked to
+   nothing.
+
+   With a valid single-dimension lock, the viewer may only place **context** monitors on those exact values.
    A route, path, job or user monitor is **refused**, because a directive
    matches across every tenant. "checkout.* for tenant 7" cannot be
    expressed, and "checkout.*" would record every other tenant's traffic. The
@@ -136,4 +149,4 @@ its own `directives.max` and `directives.max_minutes`.
 |---|---|---|
 | GET | `/api/v2/monitors` | `{services, monitors, errors, now, canManage}`. `now` is the server clock, for countdowns. |
 | POST | `/api/v2/monitors` | `{service, match, value, key?, minutes, profile, reason}` → 201 `{monitor}` |
-| DELETE | `/api/v2/monitors/{service}/{id}` | → `{removed}` |
+| DELETE | `/api/v2/monitors/{service}/{id}` | → `{removed}`. `id` is `[A-Za-z0-9._-]{1,64}`. |
