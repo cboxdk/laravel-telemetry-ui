@@ -47,7 +47,9 @@ export type CondensedItem = { kind: 'span'; row: WaterfallRow } | { kind: 'group
 /**
  * What makes two sibling spans "the same": the query's shape (laravel-telemetry
  * 3.2 stamps a hash of the normalised SQL on every query span), else its exact
- * text; a cache operation's store, operation and key group; else the name.
+ * text; a cache operation's store, operation and key group; a view by its
+ * `view.name`, an outgoing call by method and `server.address`, a Redis
+ * command by `db.operation.name`; else the name.
  * Service and kind are part of it, so a client span and the server span it
  * caused never merge.
  */
@@ -65,15 +67,33 @@ export function groupKey(span: SpanData): string {
         return `${base}\u0000cache\u0000${a['cache.store'] ?? ''}\u0000${a['cache.operation'] ?? ''}\u0000${a['cache.key.group'] ?? ''}`;
     }
 
+    // Generic names that carry their identity in an attribute: a view render,
+    // an outgoing call, a Redis command. Newer emitters put it in the name
+    // too ("view orders.index", "GET api.stripe.com", "redis GET"); older
+    // ones and other SDKs do not, and two views are never "the same".
+    for (const keys of DISTINGUISHING) {
+        if (keys.some((k) => a[k] !== undefined)) return `${base}\u0000${keys.map((k) => a[k] ?? '').join('\u0000')}`;
+    }
+
     return base;
 }
+
+/** Attribute sets that tell apart spans sharing a generic name, checked in order. */
+const DISTINGUISHING: string[][] = [
+    ['view.name'],
+    ['http.request.method', 'server.address'],
+    ['db.operation.name', 'db.system.name'],
+    ['messaging.destination.name'],
+    ['laravel.job.class'],
+];
 
 function labelOf(span: SpanData): string | null {
     const a = span.attributes;
     if (a['db.query.text']) return a['db.query.text'];
     if (a['cache.key.group']) return a['cache.key.group'];
     if (a['cache.operation'] && !span.name.endsWith(a['cache.operation'])) return a['cache.operation'];
-    return null;
+    const distinct = a['view.name'] ?? a['server.address'] ?? a['messaging.destination.name'] ?? a['laravel.job.class'];
+    return distinct && !span.name.includes(distinct) ? distinct : null;
 }
 
 function parentOf(row: WaterfallRow): string | null {

@@ -67,6 +67,29 @@ describe('condensing the waterfall', () => {
         expect(groupKey(rows[1]!.span)).not.toBe(groupKey(rows[501]!.span));
     });
 
+    it('tells apart views, outgoing calls and Redis commands that share a generic name', () => {
+        const rows = rowsOf({
+            name: 'root',
+            children: [
+                // Older emitters and other SDKs name every render the same.
+                ...times(3, () => span('view.render', { 'view.name': 'orders.row' })),
+                ...times(3, () => span('view.render', { 'view.name': 'orders.total' })),
+                ...times(3, () => span('HTTP GET', { 'http.request.method': 'GET', 'server.address': 'api.stripe.com' }, { kind: 'client' })),
+                ...times(3, () => span('HTTP GET', { 'http.request.method': 'GET', 'server.address': 'api.github.com' }, { kind: 'client' })),
+                ...times(3, () => span('HTTP GET', { 'http.request.method': 'POST', 'server.address': 'api.github.com' }, { kind: 'client' })),
+                ...times(3, () => span('redis', { 'db.system.name': 'redis', 'db.operation.name': 'GET' })),
+                ...times(3, () => span('redis', { 'db.system.name': 'redis', 'db.operation.name': 'SET' })),
+            ],
+        });
+
+        const groups = groupsOf(condense(rows, 3));
+        expect(groups).toHaveLength(7);
+        expect(groups.map((g) => g.label)).toEqual(['orders.row', 'orders.total', 'api.stripe.com', 'api.github.com', 'api.github.com', null, null]);
+        // The current emitter puts the view in the name; the label does not repeat it.
+        const named = groupsOf(condense(rowsOf({ name: 'root', children: times(3, () => span('view orders.row', { 'view.name': 'orders.row' })) }), 3));
+        expect(named[0]!.label).toBeNull();
+    });
+
     it('groups only consecutive siblings at or over the threshold', () => {
         const a = () => span('work.a');
         const rows = rowsOf({ name: 'root', children: [a(), a(), span('work.b'), a(), a(), a()] });
@@ -133,7 +156,8 @@ describe('condensing the waterfall', () => {
         expect(groups.find((g) => g.rows.length === 1200)?.repeat).toBe('n_plus_one');
         expect(groups.find((g) => g.rows.length === 1200)?.errors).toEqual([700]);
         expect(groups.find((g) => g.rows.length === 1500)?.label).toBe('user:*');
-        expect(items.length).toBeLessThan(1200);
+        expect(groups.find((g) => g.rows.length === 1057)?.name).toBe('view partials.order-row');
+        expect(items.length).toBeLessThan(100);
 
         // Measured ~1–3 ms on an M-series laptop; the bound is a regression
         // tripwire, not the target.
