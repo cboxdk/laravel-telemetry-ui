@@ -12,6 +12,7 @@ use Cbox\TelemetryUi\Mcp\Tools\QueryMetricsTool;
 use Cbox\TelemetryUi\Mcp\Tools\QueryRangeTool;
 use Cbox\TelemetryUi\Mcp\Tools\SearchTracesTool;
 use Cbox\TelemetryUi\Mcp\Tools\TraceContextTool;
+use Cbox\TelemetryUi\Mcp\Tools\TraceMarkdownTool;
 use Cbox\TelemetryUi\Mcp\Tools\TraceSummaryTool;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Composer\InstalledVersions;
@@ -45,6 +46,10 @@ class TelemetryServer extends Server
           flags (errors first, then N+1 shapes with the app file:line that ran
           them, identical repeats, slow queries, telemetry overhead). Start
           here when you have a trace id and want to know what is wrong.
+        - trace_markdown — the same trace as one ready-to-paste Markdown
+          snapshot (flags, timing, exceptions with app frames, what led up
+          to the failure, query groups with SQL and origin), capped at 12 KB:
+          for a PR description, an issue or a hand-off note.
         - compare_traces — two traces (ids, or labels) side by side: did the
           fix land? Totals, time per category, query shapes and flags diffed.
         - trace_context — a trace PLUS the host/runtime signals around it,
@@ -69,6 +74,7 @@ class TelemetryServer extends Server
         TraceContextTool::class,
         ListTracesTool::class,
         TraceSummaryTool::class,
+        TraceMarkdownTool::class,
         CompareTracesTool::class,
     ];
 

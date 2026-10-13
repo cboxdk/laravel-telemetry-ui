@@ -97,7 +97,7 @@ final class ErrorGroupSidebar extends Panel
             // write access required.
             'ticket' => $canCreate ? app(ErrorGroupReport::class)->draft($this->group, $report['stats'], $report['detail']) : null,
             'copy' => ($report['stats'] !== null || $report['detail'] !== null)
-                ? ['label' => 'Copy for LLM', 'text' => app(ErrorGroupReport::class)->llmMarkdown($this->group, $report)]
+                ? ['label' => 'Copy as Markdown', 'text' => app(ErrorGroupReport::class)->llmMarkdown($this->group, $report)]
                 : null,
         ]);
     }

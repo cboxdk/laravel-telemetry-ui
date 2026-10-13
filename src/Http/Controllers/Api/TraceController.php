@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Http\Controllers\Api;
 
 use Cbox\TelemetryUi\Analysis\RequestReport;
 use Cbox\TelemetryUi\Analysis\SignalContext;
+use Cbox\TelemetryUi\Analysis\TraceDiagnostics;
 use Cbox\TelemetryUi\Analysis\TraceLogs;
 use Cbox\TelemetryUi\Analysis\TraceProfile;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
@@ -15,6 +16,7 @@ use Cbox\TelemetryUi\Contracts\TracesSource;
 use Cbox\TelemetryUi\Explore\TraceExceptions;
 use Cbox\TelemetryUi\Http\Api\ApiError;
 use Cbox\TelemetryUi\Http\Api\Json;
+use Cbox\TelemetryUi\Http\Api\Markdown;
 use Cbox\TelemetryUi\Http\Api\Serializer;
 use Cbox\TelemetryUi\Queries\Results\Trace;
 use Cbox\TelemetryUi\Support\ScopeLabels;
@@ -23,6 +25,7 @@ use Cbox\TelemetryUi\Support\TraceView;
 use DateTimeImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -116,6 +119,29 @@ final class TraceController
             'services' => array_map(Serializer::attributes(...), $trace->services),
             ...self::correlation($trace, $context, $profile, $traceLogs, $exceptions),
         ]);
+    }
+
+    /**
+     * `GET /api/v2/traces/{id}/markdown` — the trace as a bounded Markdown
+     * snapshot to paste into an agent, a PR or a ticket ("Copy as Markdown").
+     * Located like the trace itself — same gate, same scope lock, same `?at=`
+     * hint — and with the exceptions' stacktraces and source excerpts only
+     * for a viewer who may also open the exceptions page. `?format=text`
+     * answers with the Markdown itself.
+     */
+    public function markdown(ConnectionManager $connections, TraceDiagnostics $diagnostics, Request $request, string $traceId): JsonResponse|Response
+    {
+        $trace = self::located($connections, $request, $traceId);
+
+        if ($trace instanceof JsonResponse) {
+            return $trace;
+        }
+
+        return Markdown::respond(
+            $request,
+            $diagnostics->snapshot($trace, Gate::allows('viewTelemetryUi', ['exceptions'])),
+            ['traceId' => $trace->traceId],
+        );
     }
 
     /**

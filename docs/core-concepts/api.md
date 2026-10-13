@@ -58,7 +58,9 @@ filters are applied per signal.
 | GET | `/entities/{type}/story?value=` | One value's story: `{entity, signal, where, red, series, heatmap, statusMix, insights, breakdowns, slowest, failing, recent, errors, deploys, raw, panels, sample, range}`. 422 without `value`. | `requests` |
 | GET | `/traces/{traceId}` | `{traceId, root, durationMs, error, spanCount, services, waterfall, chain, identities, context, profile, report, logs, logsMatch, exceptions, dimensionLinks}`. `exceptions` are the exception records for the trace and `logsMatch` says whether its logs were matched by trace id or by a time window. A trace whose services fall outside the viewer's scope lock (services, or environments) answers 404. Correlation parts are empty when their backend is down. `?at=` (epoch ms) is when the request started: the trace store is then searched around it only. `?without=context` leaves out `context`, `profile`, `logs`, `logsMatch` and `exceptions`, so only the trace store has to answer. | `traces` |
 | GET | `/traces/{traceId}/context` | `{traceId, services, context, profile, logs, logsMatch, exceptions}` — the part `?without=context` leaves out, read from the metrics and logs backends. Same lock and `?at=` as above. | `traces` |
-| GET | `/errors/{group}` | Error group: `{group, stats, occurrences, detail, request, suspect, releases, lookbackDays, canCreateIssue, tracker, draft, llm}`. | `exceptions` |
+| GET | `/traces/{traceId}/markdown` | The trace as a Markdown snapshot: `{traceId, markdown, bytes, truncated, omitted}`, or the Markdown itself (`text/markdown`) with `?format=text`. Same lock and `?at=` as the trace. Stacktraces and source excerpts only when the viewer may also open `exceptions`. See [Markdown snapshots](#markdown-snapshots). | `traces` |
+| GET | `/errors/{group}` | Error group: `{group, stats, occurrences, detail, request, suspect, releases, lookbackDays, canCreateIssue, tracker, draft, llm}`. `llm` is the group's Markdown snapshot (the same text `/errors/{group}/markdown` returns). | `exceptions` |
+| GET | `/errors/{group}/markdown` | The error group as a Markdown snapshot: `{group, markdown, bytes, truncated, omitted}`, or `text/markdown` with `?format=text`. Scoped like `/errors/{group}`. | `exceptions` |
 | GET | `/issues/{id}` | A tracker issue. 404 when no tracker is configured. | master |
 | POST | `/issues` | Create an issue from `{title, body, labels[]}`; 201 with the issue. | `manageTelemetryUi` |
 | GET | `/annotations` | `{annotations}` — deploy/change markers in range. | master |
@@ -81,6 +83,48 @@ page slug as its second argument. The page covering each Explore signal:
 `rows` and `stats` always come from the bounded sample. `groups` (and facet
 counts) are exact when the traces backend implements `AggregatesSpans`;
 `groupsExact` and the facets response's `exact` flag (its `sample` is a row count, not the object the explore payload carries) say which you got.
+
+### Markdown snapshots
+
+"Copy as Markdown" in the trace drawer and on an error group copies a
+snapshot built to paste into an AI agent, a pull request or a support ticket.
+The same text is on the API, for `curl … | pbcopy`:
+
+```bash
+curl -s -b cookies.txt 'https://app.test/telemetry-ui/api/v2/traces/4bf92f3577b34da6a3ce929d0e0e4736/markdown?format=text'
+```
+
+A **trace** snapshot holds, in this order:
+
+1. a title — root, service, status, duration, start, label, trace id and a
+   link to the trace;
+2. the flags from the trace diagnosis (the `trace_summary` MCP tool's),
+   errors first;
+3. time per category and the root's totals;
+4. the exceptions, each with its file:line, group, the app frames of its
+   stacktrace (framework frames left out) and the `exception.source` excerpt
+   when the record carries one;
+5. what led up to the first failing span: the last 10 spans that started
+   before it;
+6. the N+1, duplicate and slow query groups, each with its SQL, run count,
+   time and the `file:line` that ran it.
+
+An **error group** snapshot has its type, message, location, fingerprint,
+counts and first/last seen, the request that hit it, the suspect change, the
+app frames, the source excerpt, the releases it was seen in and the
+stacktrace, plus links to the newest occurrence's trace and that trace's
+snapshot.
+
+Each list has its own limit and says how much it left out. The whole snapshot
+is capped at 12 KB. When something has to give, the sections at the end go
+first, and a closing `> **Truncated**` line names them. The JSON form reports
+the same thing in `truncated` and `omitted`.
+
+A snapshot only uses data the backends already hold. SQL is the statement
+text as the app recorded it: laravel-telemetry records the parameterised
+statement, and the snapshot never reads or adds bindings. The endpoints use
+the same gate, scope and scope lock as the views they copy, so a trace
+outside the viewer's lock is a 404 here too.
 
 ### Live tail (SSE)
 

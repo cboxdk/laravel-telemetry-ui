@@ -164,7 +164,7 @@ export function useEntityStory(type: string, value: string, params: Params = {})
 }
 
 /** `?at=` for a trace whose start is known, so the store searches around it only. */
-function traceParams(traceId: string): Params {
+export function traceParams(traceId: string): Params {
     const at = traceTime(traceId);
     return at === undefined ? {} : { at };
 }

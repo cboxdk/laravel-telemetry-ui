@@ -12,7 +12,8 @@ import { CodeBody } from '../panels/PanelBody';
 /**
  * The Sentry-style issue in the drawer: what, how often, since when, the
  * suspect deploy, the release spread, the latest request, the stacktrace —
- * plus file-an-issue and copy-for-LLM.
+ * plus file-an-issue and copy-as-Markdown (the snapshot came with the group,
+ * so it copies without a second request).
  */
 export function ErrorGroupView({ group }: { group: string }) {
     const { data, error, isLoading } = useErrorGroup(group);
@@ -41,7 +42,7 @@ export function ErrorGroupView({ group }: { group: string }) {
                 <div className="t-dhead-meta">
                     <Go link={{ to: 'page', page: 'error-detail', params: { group } }} className="t-btn t-btn-sm t-btn-secondary">Full issue page <Icon name="chevronRight" size={12} /></Go>
                     {data.canCreateIssue && data.draft && <button type="button" className="t-btn t-btn-sm t-btn-secondary" onClick={() => setComposing(true)}><Icon name="plus" size={12} />Create issue{data.tracker ? ` in ${data.tracker}` : ''}</button>}
-                    <CopyButton text={data.llm} label="Copy for LLM" />
+                    <CopyButton text={data.llm} label="Copy as Markdown" />
                 </div>
             </div>
             <div className="t-dbody">

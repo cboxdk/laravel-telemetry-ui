@@ -5,7 +5,7 @@ declare(strict_types=1);
 use Cbox\TelemetryUi\Analysis\ErrorGroupReport;
 
 /**
- * The "Copy for LLM" Markdown brief on the issue page. `llmMarkdown` is a pure
+ * The "Copy as Markdown" brief on the issue page. `llmMarkdown` is a pure
  * function of the (already-fetched) report, so it needs no backend fakes.
  */
 function sampleReport(): array
@@ -73,7 +73,10 @@ it('builds a Markdown brief with every section the page knows', function (): voi
         ->toContain('shipped the redis refactor')
         ->toContain('## Releases seen')
         ->toContain('- `v1.2.3` — 50')
-        ->toContain("## Stacktrace\n```\n#0 app/Services/Cart.php(80)");
+        ->toContain("## Stacktrace\n\n```text\n#0 app/Services/Cart.php(80)")
+        // App frames and the trace of the request that hit it come along.
+        ->toContain('## App frames')
+        ->toContain('- **Trace:** `abc123`');
 });
 
 it('marks sampled counts with a + and omits empty sections', function (): void {

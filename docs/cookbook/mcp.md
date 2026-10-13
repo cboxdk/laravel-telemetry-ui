@@ -45,6 +45,7 @@ Point your MCP client at the artisan command. For Claude Desktop / Cursor:
 | `trace_context` | A trace **plus** the host/runtime signals around it and how they compare to normal — the "what happened / what was different" tool |
 | `list_traces` | Recent traces, by label and/or only those with flag hints (error, 5xx, N+1, duplicate, slow query, overhead) |
 | `trace_summary` | One trace diagnosed: identity, time per category, totals and flags — errors first, then N+1s with the app line that ran them |
+| `trace_markdown` | One trace as a ready-to-paste Markdown snapshot (≤12 KB): flags, timing, exceptions with app frames and source, what led up to the failure, query groups with SQL and origin |
 | `compare_traces` | Two traces (ids or labels) side by side: duration, totals, time per category, query shapes and flags diffed |
 
 `trace_context` is the one that makes RCA conversational: hand it a trace id
@@ -93,6 +94,21 @@ ran `repeat_threshold` times as a *repeat*, without guessing which kind. If
 the root counts slow queries that no span shows at
 `traces.diagnostics.slow_query_ms`, a flag says so — keep that threshold at
 the emitter's `traces.details.slow_span_ms`.
+
+### A trace as Markdown
+
+`trace_markdown` returns the same snapshot as the dashboard's **Copy as
+Markdown** button (see [Markdown snapshots](../core-concepts/api.md#markdown-snapshots)),
+as text. Use it when the agent has to hand the trace on, for example in a PR
+description, an issue or a hand-off note:
+
+> "Write up trace `4bf92f…` for the PR, with the N+1 you found."
+
+It is a separate tool, not a `format` option on `trace_summary`.
+`trace_summary` is paged, structured data that an agent reasons over, and its
+`limit`, `offset` and `verbose` have no meaning for a single finished
+document. A tool with its own name and description is also easier for an
+agent to pick.
 
 ### Before and after a fix
 

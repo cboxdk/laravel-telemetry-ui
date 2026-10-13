@@ -598,6 +598,14 @@ export interface ErrorGroupData {
     llm: string;
 }
 
+/** `traces/{id}/markdown`, `errors/{group}/markdown`: a bounded Markdown snapshot. */
+export interface MarkdownSnapshot {
+    markdown: string;
+    bytes: number;
+    truncated: boolean;
+    omitted: string[];
+}
+
 export interface IssueData {
     id: string;
     title: string;

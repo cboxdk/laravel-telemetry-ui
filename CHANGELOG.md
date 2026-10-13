@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Copy as Markdown.** The trace drawer has a *Copy as Markdown* button
+  that copies a snapshot of the trace for an AI agent, a pull request or a
+  support ticket. It holds the title (root, service, status, duration,
+  label, trace id), the diagnosis flags with errors first, time per category,
+  the root's totals, the exceptions with their app frames and source excerpt,
+  the last spans before the first failure, and the N+1, duplicate and slow
+  query groups with their SQL and the `file:line` that ran them. A snapshot
+  is capped at 12 KB and says what it cut. It only uses data the backends
+  already hold, so SQL appears as recorded and bindings are never added. The
+  error group's copy button (now also *Copy as Markdown*) gets the same
+  treatment: app frames, the source excerpt and a link to the newest
+  occurrence's trace snapshot. The snapshots are also served by
+  `GET /api/v2/traces/{id}/markdown` and `GET /api/v2/errors/{group}/markdown`
+  (`?format=text` for plain Markdown), under the same gates and scope lock as
+  their views, and by the `trace_markdown` MCP tool.
+
 - **Trace diagnosis over MCP.** `trace_summary` says what is wrong with one
   trace: identity (root, service, status, duration, label), time per
   category (db, cache, http, view, queue, other — a nested span is never
