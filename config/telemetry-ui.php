@@ -64,6 +64,10 @@ return [
             'environments' => filled(env('TELEMETRY_UI_LOCK_ENVIRONMENTS'))
                 ? array_values(array_filter(array_map('trim', explode(',', (string) env('TELEMETRY_UI_LOCK_ENVIRONMENTS')))))
                 : null,
+            // Context dimensions a viewer is confined to, e.g.
+            // ['tenant.id' => ['7']]. Governs monitors only (see "Monitors").
+            // Usually returned per user by TelemetryUi::restrictScopeUsing().
+            'contexts' => null,
         ],
 
         /*
@@ -494,6 +498,38 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Monitors
+    |--------------------------------------------------------------------------
+    |
+    | A monitor is a cboxdk/laravel-telemetry directive (3.3+): for a while,
+    | keep every trace of one route, path, user, job or context value, with its
+    | detail spans and optionally a CPU profile. Spans recorded because of one
+    | carry `telemetry.directive`.
+    |
+    | This app is monitorable in-process when it runs the core ("local").
+    | Another app is reached through its signed endpoint: set
+    | TELEMETRY_DIRECTIVES_SECRET there and give the same secret here, keyed
+    | by its service.name:
+    |
+    |   'services' => [
+    |       'shop' => ['url' => 'https://shop.example', 'secret' => env('SHOP_DIRECTIVES_SECRET'), 'environment' => 'production'],
+    |   ],
+    |
+    | "environment" lets an environment-locked viewer see the target. Placing
+    | or removing one needs the manageTelemetryUi ability; see
+    | docs/core-concepts/monitors.md for the scope rule.
+    |
+    */
+
+    'monitors' => [
+        'enabled' => (bool) env('TELEMETRY_UI_MONITORS', true),
+        'local' => (bool) env('TELEMETRY_UI_MONITORS_LOCAL', true),
+        'services' => [],
+        'timeout' => (float) env('TELEMETRY_UI_MONITORS_TIMEOUT', 5.0),
+    ],
+
     'hosts' => [
         'cpu' => env('TELEMETRY_UI_HOSTS_CPU'),
         'memory' => env('TELEMETRY_UI_HOSTS_MEMORY'),
@@ -525,6 +561,11 @@ return [
             'middleware' => ['auth:api', 'throttle:60,1'],
             'oauth' => (bool) env('TELEMETRY_UI_MCP_OAUTH', true),
         ],
+
+        // The write tools (`monitor`) are off unless switched on: an agent
+        // that can read your traces should not by default be able to turn
+        // recording up. Over HTTP they also need the manageTelemetryUi ability.
+        'write' => (bool) env('TELEMETRY_UI_MCP_WRITE', false),
     ],
 
     /*

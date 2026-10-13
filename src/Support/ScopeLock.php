@@ -27,7 +27,7 @@ use Illuminate\Support\Facades\Auth;
  */
 final class ScopeLock
 {
-    /** @var array{services: list<string>, environments: list<string>, servicesLocked: bool, environmentsLocked: bool}|null */
+    /** @var array{services: list<string>, environments: list<string>, servicesLocked: bool, environmentsLocked: bool, contexts: array<string, list<string>>|null}|null */
     private ?array $resolved = null;
 
     public function __construct(
@@ -71,6 +71,24 @@ final class ScopeLock
     }
 
     /**
+     * The context dimensions (`Telemetry::context()` keys such as
+     * `tenant.id`) this viewer is confined to, with their allowed values —
+     * or null when there is no such lock. A resolver returns it as
+     * `['contexts' => ['tenant.id' => ['7']]]`.
+     *
+     * Today it governs monitors (directives) only: queries are scoped by
+     * service and environment. A viewer with a context lock may only place
+     * monitors on those values, never one on a route, path, job or user,
+     * which would record every tenant's traffic.
+     *
+     * @return array<string, list<string>>|null
+     */
+    public function contexts(): ?array
+    {
+        return $this->resolve()['contexts'];
+    }
+
+    /**
      * Whether any dimension is locked — the signal to enforce the scope on a
      * raw, hand-supplied query (which never goes through the scoped builders).
      */
@@ -82,7 +100,7 @@ final class ScopeLock
     }
 
     /**
-     * @return array{services: list<string>, environments: list<string>, servicesLocked: bool, environmentsLocked: bool}
+     * @return array{services: list<string>, environments: list<string>, servicesLocked: bool, environmentsLocked: bool, contexts: array<string, list<string>>|null}
      */
     private function resolve(): array
     {
@@ -101,6 +119,7 @@ final class ScopeLock
             'environments' => $this->strings($raw['environments'] ?? []),
             'servicesLocked' => array_key_exists('services', $raw),
             'environmentsLocked' => array_key_exists('environments', $raw),
+            'contexts' => $this->contextLock($raw['contexts'] ?? null),
         ];
     }
 
@@ -109,7 +128,7 @@ final class ScopeLock
      * resolver's return: a dimension key is present only when it is locked
      * (a non-null value), so `null`/absent stays open and `[]` locks to nothing.
      *
-     * @return array{services?: mixed, environments?: mixed}
+     * @return array{services?: mixed, environments?: mixed, contexts?: mixed}
      */
     private function configLock(): array
     {
@@ -118,13 +137,41 @@ final class ScopeLock
 
         $raw = [];
 
-        foreach (['services', 'environments'] as $dimension) {
+        foreach (['services', 'environments', 'contexts'] as $dimension) {
             if (($lock[$dimension] ?? null) !== null) {
                 $raw[$dimension] = $lock[$dimension];
             }
         }
 
         return $raw;
+    }
+
+    /**
+     * `['tenant.id' => ['7'], 'team.id' => 3]` → `['tenant.id' => ['7'], 'team.id' => ['3']]`;
+     * anything that is not a keyed array is "no context lock".
+     *
+     * @return array<string, list<string>>|null
+     */
+    private function contextLock(mixed $raw): ?array
+    {
+        if (! is_array($raw)) {
+            return null;
+        }
+
+        $lock = [];
+
+        foreach ($raw as $key => $values) {
+            if (! is_string($key) || $key === '') {
+                continue;
+            }
+
+            $lock[$key] = array_values(array_map(
+                static fn (int|string $v): string => (string) $v,
+                array_filter(is_array($values) ? $values : [$values], static fn (mixed $v): bool => is_string($v) || is_int($v)),
+            ));
+        }
+
+        return $lock;
     }
 
     /**

@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { api, type Params } from './client';
 import type {
     Bootstrap, EntityIndex, EntityStory, ErrorGroupData, ExploreResult, FacetsResult,
-    IssueData, PageDef, PanelPayload, Signal, TraceCorrelation, TraceData, TraceStory, Annotation,
+    IssueData, MonitorData, MonitorMatch, MonitorsPayload, PageDef, PanelPayload, Signal, TraceCorrelation, TraceData, TraceStory, Annotation,
 } from './types';
 import { useScope, useRefreshInterval } from '../lib/state';
 import { rememberTraceTime, traceTime } from '../lib/traceTimes';
@@ -237,5 +237,42 @@ export function useCreateIssue() {
     return useMutation({
         mutationFn: (draft: { title: string; body: string; labels: string[] }) => api.post<IssueData>('issues', draft),
         onSuccess: () => client.invalidateQueries({ queryKey: ['panel'] }),
+    });
+}
+
+/** Active monitors on every service this viewer may monitor (`GET /monitors`). */
+export function useMonitors(enabled = true) {
+    return useQuery({
+        queryKey: ['monitors'],
+        queryFn: ({ signal }) => api.get<MonitorsPayload>('monitors', {}, signal),
+        enabled,
+        staleTime: 15_000,
+        refetchInterval: 60_000,
+    });
+}
+
+export interface MonitorDraft {
+    service: string;
+    match: MonitorMatch;
+    key: string | null;
+    value: string;
+    minutes: number;
+    profile: boolean;
+    reason: string;
+}
+
+export function usePlaceMonitor() {
+    const client = useQueryClient();
+    return useMutation({
+        mutationFn: (draft: MonitorDraft) => api.post<{ monitor: MonitorData }>('monitors', draft),
+        onSuccess: () => client.invalidateQueries({ queryKey: ['monitors'] }),
+    });
+}
+
+export function useRemoveMonitor() {
+    const client = useQueryClient();
+    return useMutation({
+        mutationFn: (m: { service: string; id: string }) => api.delete<{ removed: string }>(`monitors/${encodeURIComponent(m.service)}/${encodeURIComponent(m.id)}`),
+        onSuccess: () => client.invalidateQueries({ queryKey: ['monitors'] }),
     });
 }

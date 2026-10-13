@@ -9,11 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Monitors.** Record one route, path, user, job or tenant in full for a
+  while (15m, 1h, 4h or 24h), optionally with a CPU profile. This builds on
+  cboxdk/laravel-telemetry 3.3's directives. Every value menu and the trace
+  header have *Monitor…*. *Explore → Monitors* lists the active ones with a
+  countdown, the reason and who placed them, links to the traces each one
+  recorded, and has a *Stop* button. *Recorded by monitor* on Requests and
+  Traces filters to traces a monitor kept (`telemetry.directive`). This app
+  is monitored in-process through `Telemetry::directives()`. Other apps are
+  reached over the core's signed endpoint, configured in
+  `telemetry-ui.monitors.services` with a URL and secret per service.
+  Placing and stopping a monitor needs `manageTelemetryUi`. The scope lock
+  applies: only allowed services and environments, and a viewer locked to
+  context values (the new `contexts` key from `restrictScopeUsing`) may only
+  monitor those values and never a route, path, job or user. MCP gets
+  `list_monitors`, and `monitor`, which is registered only with
+  `TELEMETRY_UI_MCP_WRITE=true`. API: `GET|POST /api/v2/monitors` and
+  `DELETE /api/v2/monitors/{service}/{id}`. See
+  [Monitors](docs/core-concepts/monitors.md).
 - **Condensed trace waterfall.** The waterfall now folds runs of identical
   sibling spans into one row by default: an N+1 of 300 queries, or 500 cache
   reads, becomes one row. Queries match by laravel-telemetry 3.2's query
-  shape (older traces by exact SQL), cache operations by store, operation
-  and key group, and other spans by name. A group row shows the count, the
+  shape (older traces by exact SQL). Cache operations match by store,
+  operation and key group. Views match by `view.name`, outgoing calls by
+  method and host, Redis commands by command, and other spans by name. A group row shows the count, the
   total and worst duration, a mini-timeline of where the occurrences fell in
   their parent, the N+1 / duplicate marker, and the `file:line` that ran them.
   Failed occurrences are counted on the row and are one click away; a group

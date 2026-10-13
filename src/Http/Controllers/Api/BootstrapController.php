@@ -12,6 +12,7 @@ use Cbox\TelemetryUi\Dimensions\Dimension;
 use Cbox\TelemetryUi\Http\Api\Brand;
 use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
+use Cbox\TelemetryUi\Monitors\Monitors;
 use Cbox\TelemetryUi\Support\ConnectionOption;
 use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\MetricScope;
@@ -44,6 +45,7 @@ final class BootstrapController
         ScopeLock $lock,
         ViewState $state,
         ConnectionManager $connections,
+        Monitors $monitors,
     ): JsonResponse {
         $scope = RequestScope::fromRequest($request);
 
@@ -129,6 +131,12 @@ final class BootstrapController
             'capabilities' => [
                 'issues' => $connections->hasIssues(),
                 'exactAggregation' => self::aggregates($connections),
+            ],
+            // Where "Monitor…" is offered and what it can target: config and the
+            // viewer's lock only — no backend is asked at bootstrap.
+            'monitors' => [
+                'services' => array_column($monitors->services(), 'service'),
+                'page' => Gate::allows('viewTelemetryUi', ['monitors']),
             ],
             'traces' => [
                 'groupThreshold' => max(0, (int) config('telemetry-ui.traces.waterfall.group_threshold', 3)),

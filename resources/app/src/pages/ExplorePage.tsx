@@ -21,6 +21,7 @@ import { useGo } from '../lib/links';
 import { NavLink } from '../lib/navigation';
 import { useLiveTail } from '../lib/liveTail';
 import { useTitle } from '../lib/title';
+import { RECORDED_BY_MONITOR } from '../lib/monitors';
 import { formatFilter, list, parseDrawer, parseFilter, scopeOf, str, toggleFilter, withFilter } from '../lib/search';
 import { useScope, useSearchState, useSetSearch } from '../lib/state';
 
@@ -48,6 +49,7 @@ export function ExploreView({ signal }: { signal: Signal }) {
     useTitle(TITLES[signal], 'Explore');
 
     const where = list(search, 'where');
+    const monitored = where.includes(formatFilter(RECORDED_BY_MONITOR));
     const q = str(search, 'q');
     const groupBy = str(search, 'groupBy');
     const limit = str(search, 'limit');
@@ -84,6 +86,17 @@ export function ExploreView({ signal }: { signal: Signal }) {
                     {/* Old rows stay while a filter's answer is on its way: say it is coming. */}
                     <Busy active={(explore.isFetching && data !== undefined) || (facets.isFetching && facets.data !== undefined)} label={explore.isFetching ? `Searching ${signal}…` : 'Counting facets…'} />
                     <div className="t-topbar-spacer" />
+                    {(signal === 'requests' || signal === 'traces') && (boot.monitors?.services.length ?? 0) > 0 && (
+                        <button
+                            type="button"
+                            className={`t-btn t-btn-sm ${monitored ? 't-btn-primary' : 't-btn-secondary'}`}
+                            aria-pressed={monitored}
+                            onClick={() => set({ where: toggleFilter(where, RECORDED_BY_MONITOR) })}
+                            title="Only traces a monitor kept (telemetry.directive is set)"
+                        >
+                            <Icon name="activity" size={12} />Recorded by monitor
+                        </button>
+                    )}
                     <SavedViewsButton />
                     {streamable && (
                         <button type="button" className={`t-btn t-btn-sm ${live ? 't-btn-live' : 't-btn-secondary'}`} onClick={() => setLive((l) => !l)} title="Live tail over SSE">

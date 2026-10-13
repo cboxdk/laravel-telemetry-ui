@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TraceStory } from '../../api/types';
-import { renderAt } from '../../test/render';
+import { bootFixture, renderAt } from '../../test/render';
 import { TraceView } from './TraceView';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -189,5 +189,19 @@ describe('the trace drawer', () => {
 
         expect(screen.getByText(/from app\/Models\/Order\.php:19/)).toBeInTheDocument();
         expect(screen.getByText(/Part of an N\+1/)).toBeInTheDocument();
+    });
+
+    it('offers to monitor the trace\'s user, route and declared dimensions, and says when a monitor kept it', async () => {
+        const root = { ...span, attributes: { 'http.route': 'orders.index', 'user.id': '42', 'billing.customer_id': '8655', 'telemetry.directive': '01JDA' } };
+        const monitored = { ...story, root, waterfall: [{ span: root, depth: 0, offsetPct: 0, widthPct: 100, ancestors: [], children: 0 }] } as unknown as TraceStory;
+        vi.stubGlobal('fetch', vi.fn((input: string) => String(input).includes('/context')
+            ? new Promise<Response>(() => {})
+            : Promise.resolve(new Response(JSON.stringify(monitored), { status: 200, headers: { 'Content-Type': 'application/json' } }))));
+
+        await renderAt(<TraceView traceId={story.traceId} />, '/explore/requests?period=1h', { ...bootFixture, abilities: { manage: true, createIssues: false }, monitors: { services: ['shop'], page: true } });
+
+        expect((await screen.findByRole('link', { name: 'recorded by monitor' })).getAttribute('href')).toContain(encodeURIComponent('telemetry.directive=01JDA'));
+        await userEvent.click(screen.getByRole('button', { name: /Monitor…/ }));
+        expect(screen.getAllByRole('radio').map((r) => r.parentElement?.textContent)).toEqual(['User 42', 'Route orders.index', 'Customer = 8655']);
     });
 });

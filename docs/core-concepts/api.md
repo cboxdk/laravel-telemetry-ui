@@ -47,7 +47,7 @@ filters are applied per signal.
 
 | Method | Path | Returns | Gate |
 | --- | --- | --- | --- |
-| GET | `/bootstrap` | App config: brand, nav (detection- and gate-filtered), pages, Explore signals, entity types, dimensions, navLinks, connections, scope options + locks, remembered state, periods, refresh intervals, abilities, capabilities, `traces.groupThreshold` (the condensed waterfall's run length), user. | master |
+| GET | `/bootstrap` | App config: brand, nav (detection- and gate-filtered), pages, Explore signals, entity types, dimensions, navLinks, connections, scope options + locks, remembered state, periods, refresh intervals, abilities, capabilities, `traces.groupThreshold` (the condensed waterfall's run length), `monitors` (`services` the viewer may monitor, `page`), user. | master |
 | POST | `/view-state` | Reports the reader's window/scope (`period`, `from`, `to`, `service`, `env`, `refresh`); returns `{state}`. Sets the cookie and fires `ViewStateChanged` only when it changed. | master |
 | GET | `/pages/{page}` | `{page, label, group, panels: [{id, span}]}`. 404 for an unknown page, or a detected page with no data in scope. | page |
 | GET | `/panels/{panel}` | `{id, span, kind, …}` — the panel payload. Extra params scope detail panels. | any page the panel is on |
@@ -63,6 +63,9 @@ filters are applied per signal.
 | GET | `/errors/{group}/markdown` | The error group as a Markdown snapshot: `{group, markdown, bytes, truncated, omitted}`, or `text/markdown` with `?format=text`. Scoped like `/errors/{group}`. | `exceptions` |
 | GET | `/issues/{id}` | A tracker issue. 404 when no tracker is configured. | master |
 | POST | `/issues` | Create an issue from `{title, body, labels[]}`; 201 with the issue. | `manageTelemetryUi` |
+| GET | `/monitors` | `{services, monitors, errors, now, canManage}` — active laravel-telemetry directives on every service the viewer may monitor. See [Monitors](monitors.md). | `viewTelemetryUi` (`monitors`) |
+| POST | `/monitors` | Place one from `{service, match, value, key?, minutes, profile, reason}`; 201 with `{monitor}`. Within the scope rule. | `manageTelemetryUi` |
+| DELETE | `/monitors/{service}/{id}` | Stop one early. | `manageTelemetryUi` |
 | GET | `/annotations` | `{annotations}` — deploy/change markers in range. | master |
 | GET | `/dimensions/labels?key=&values[]=` | `{labels: {value: name}}`: display names from a dimension's resolver (max 200 values, cached per value, fail-open). See [Names instead of ids](dimensions-and-explore.md#names-instead-of-ids). | master |
 | GET | `/stream/{signal}` | SSE live tail, `signal` ∈ `logs`, `requests`. | `logs` / `requests` |

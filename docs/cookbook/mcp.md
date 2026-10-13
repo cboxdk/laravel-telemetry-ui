@@ -16,6 +16,8 @@ renders, made available for incident RCA in a chat:
 > "Why did checkout error at 14:05? Look at the traces and the host metrics."
 
 Everything goes through the same **read-only** drivers the dashboard uses.
+The exception is `monitor`. It places a monitor, so it is off until you set
+`TELEMETRY_UI_MCP_WRITE=true`.
 
 ## Wiring it up
 
@@ -47,6 +49,8 @@ Point your MCP client at the artisan command. For Claude Desktop / Cursor:
 | `trace_summary` | One trace diagnosed: identity, time per category, totals and flags — errors first, then N+1s with the app line that ran them |
 | `trace_markdown` | One trace as a ready-to-paste Markdown snapshot (≤12 KB): flags, timing, exceptions with app frames and source, what led up to the failure, query groups with SQL and origin |
 | `compare_traces` | Two traces (ids or labels) side by side: duration, totals, time per category, query shapes and flags diffed |
+| `list_monitors` | Active monitors (laravel-telemetry directives): what each matches, minutes left, profile, reason, who placed it |
+| `monitor` | **Write, off by default** (`TELEMETRY_UI_MCP_WRITE=true`): place a monitor on a route, path, user, job or context value for a while, optionally with a CPU profile, or stop one. See [Monitors](../core-concepts/monitors.md) |
 
 `trace_context` is the one that makes RCA conversational: hand it a trace id
 and the agent gets the request *and* the state of the box it ran on (CPU,

@@ -41,6 +41,9 @@ Route::prefix('api/v2')->name('telemetry-ui.api.')->group(static function (): vo
     Route::get('/issues/{id}', [Api\IssueController::class, 'show'])->where('id', '.+')->name('issue');
     Route::post('/issues', [Api\IssueController::class, 'store'])->name('issues.store');
     Route::get('/annotations', Api\AnnotationsController::class)->name('annotations');
+    Route::get('/monitors', [Api\MonitorsController::class, 'index'])->name('monitors');
+    Route::post('/monitors', [Api\MonitorsController::class, 'store'])->name('monitors.store');
+    Route::delete('/monitors/{service}/{id}', [Api\MonitorsController::class, 'destroy'])->where(['service' => '[^/]+', 'id' => '[A-Za-z0-9]{1,64}'])->name('monitors.destroy');
     Route::get('/dimensions/labels', Api\DimensionLabelsController::class)->name('dimension-labels');
     Route::get('/stream/{signal}', Api\StreamController::class)->where('signal', 'logs|requests')->name('stream');
 });

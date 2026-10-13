@@ -67,7 +67,8 @@ Creating a tracker issue from the UI (the compose-a-ticket flow) is a write to
 an external system, so it needs a separate ability: **`manageTelemetryUi`**. It
 is checked server-side on `POST /api/v2/issues`, and the compose UI is hidden
 without it (the bootstrap endpoint reports `abilities.createIssues`) — so a
-read-only viewer can look but not file tickets.
+read-only viewer can look but not file tickets. Placing and stopping
+[monitors](monitors.md) needs the same ability.
 
 By default it **falls back to the view gate** (anyone who can view can write),
 which preserves existing behaviour. Define it to split read from write:
@@ -170,6 +171,11 @@ bypassed from the URL. That includes a trace opened by id (`/traces/{id}`): a
 trace with a service outside the lock, or — with environments locked — a
 service that ran in another environment or does not say which, is answered as
 not found.
+
+A resolver may also return `contexts` (e.g. `['tenant.id' => ['7']]`). It
+does not scope queries. It confines [monitors](monitors.md) to those
+context values and refuses route, path, job and user monitors, which would
+record every tenant's traffic.
 
 #### The label names the lock filters by
 
