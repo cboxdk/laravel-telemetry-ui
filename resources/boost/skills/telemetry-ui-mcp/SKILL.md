@@ -47,6 +47,8 @@ Responses leave out empty keys. Lists page: pass `next_offset` back as
    N+1 flag names the repeated SQL and its `origin` (`app/...php:42`): open
    that file and line, it is the loop or Blade view to fix with eager loading.
    A duplicate flag (same SQL, same values) wants memoizing, not eager loading.
+   An `http` N+1 flag (laravel-telemetry 3.6+) is one API endpoint called once
+   per id: use the API's batch endpoint or `Http::pool()`.
 3. Need the SQL, span ids or per-shape timings? Repeat with `verbose: true`.
 4. Was the box itself unhealthy? `trace_context` shows CPU, memory and load
    around the trace and flags what was out of its normal range.
