@@ -128,6 +128,19 @@ final class FixtureLogs implements LogsSource, ProbesConnection
     ];
 
     /**
+     * The app line each of {@see DUPLICATED_QUERIES} runs from, in order.
+     *
+     * @var list<array{string, int, string}>
+     */
+    private const QUERY_ORIGINS = [
+        ['app/Http/Controllers/OrderController.php', 42, 'App\\Http\\Controllers\\OrderController::show'],
+        ['resources/views/orders/index.blade.php', 18, ''],
+        ['app/Http/Resources/CartResource.php', 27, 'App\\Http\\Resources\\CartResource::toArray'],
+        ['app/Services/Stock.php', 61, 'App\\Services\\Stock::available'],
+        ['app/Models/Product.php', 88, 'App\\Models\\Product::getThumbnailAttribute'],
+    ];
+
+    /**
      * Weighted toward the home market, as a Danish shop's traffic is.
      *
      * @var list<string>
@@ -196,6 +209,14 @@ final class FixtureLogs implements LogsSource, ProbesConnection
             return $this->deployments($start, $end);
         }
 
+        if (in_array('db.query.n_plus_one_detected', $events, true)) {
+            return $this->repeatedQueries('db.query.n_plus_one_detected', $start, $end, $limit);
+        }
+
+        if (in_array('statamic.content.change', $events, true)) {
+            return $this->contentChanges($start, $end, $limit);
+        }
+
         // Not every record family is selected by name. A card reading the
         // exception records asks for the records that HAVE a fingerprint
         // (`| exception_group != ""`), and the duplicate-query card asks for
@@ -207,7 +228,7 @@ final class FixtureLogs implements LogsSource, ProbesConnection
         }
 
         if (in_array('db_query_text', $required, true)) {
-            return $this->duplicateQueries($start, $end, $limit);
+            return $this->repeatedQueries('db.query.duplicate_detected', $start, $end, $limit);
         }
 
         // An event query this fixture has no records for gets none, rather
@@ -345,12 +366,14 @@ final class FixtureLogs implements LogsSource, ProbesConnection
     }
 
     /**
-     * Duplicate-query (N+1) records: one per detected repeat, carrying the
-     * statement and how many times it ran inside the one request.
+     * Repeated-query records — N+1 (`db.query.n_plus_one_detected`) or
+     * identical (`db.query.duplicate_detected`): one per detected repeat,
+     * carrying the statement, its shape, the app line that ran it and how
+     * many times it ran inside the one request.
      *
      * @return list<LogEntry>
      */
-    private function duplicateQueries(DateTimeInterface $start, DateTimeInterface $end, int $limit): array
+    private function repeatedQueries(string $event, DateTimeInterface $start, DateTimeInterface $end, int $limit): array
     {
         $from = $start->getTimestamp();
         $span = max(1, $end->getTimestamp() - $from);
@@ -358,15 +381,20 @@ final class FixtureLogs implements LogsSource, ProbesConnection
         $budget = min($limit, 240);
 
         for ($i = 0; $i < $budget; $i++) {
-            $key = "dup:{$from}:{$i}";
+            $key = "{$event}:{$from}:{$i}";
             $statement = $this->data->one("q:{$key}", self::DUPLICATED_QUERIES);
+            $origin = self::QUERY_ORIGINS[(int) array_search($statement, self::DUPLICATED_QUERIES, true)];
 
             $entries[] = new LogEntry(
                 timestampNano: $this->recent($key, $from, $span),
-                line: 'db.query.duplicate_detected',
+                line: $event,
                 labels: [
                     'db_query_text' => $statement,
-                    'db_namespace' => $this->data->one("db:{$key}", ['mysql', 'mysql', 'pgsql']),
+                    'laravel_db_query_shape' => substr(hash('xxh128', $statement), 0, 16),
+                    'laravel_db_connection' => $this->data->one("db:{$key}", ['mysql', 'mysql', 'pgsql']),
+                    'code_file_path' => $origin[0],
+                    'code_line_number' => (string) $origin[1],
+                    'code_function_name' => $origin[2],
                     // The point of the card: how bad the N+1 got.
                     'db_query_repeat_count' => (string) (int) $this->data->band("n:{$key}", 4.0, 180.0),
                     'trace_id' => $this->data->id("trace:{$key}"),
@@ -531,6 +559,103 @@ final class FixtureLogs implements LogsSource, ProbesConnection
         $u = $this->data->band("t:{$key}", 0.0, 1.0);
 
         return (int) ($from + $span - (int) round($u ** 3 * $span)) * 1_000_000_000;
+    }
+
+    /**
+     * The Statamic audit trail: one `statamic.content.change` record per edit
+     * — the item, what the save did, the fields it touched and who made it.
+     * A small editorial team working through a handful of pages, so the same
+     * titles recur the way a real log's do.
+     *
+     * @return list<LogEntry>
+     */
+    private function contentChanges(DateTimeInterface $start, DateTimeInterface $end, int $limit): array
+    {
+        $from = $start->getTimestamp();
+        $span = max(1, $end->getTimestamp() - $from);
+        $entries = [];
+
+        /** @var list<array{0: string, 1: string, 2: string|null, 3: list<string>}> $items type, title, collection/container, actions */
+        $items = [
+            ['entry', 'Pricing', 'pages', ['updated', 'updated', 'published', 'saved']],
+            ['entry', 'Spring launch: what is new', 'blog', ['created', 'updated', 'published', 'unpublished']],
+            ['entry', 'About us', 'pages', ['updated', 'saved']],
+            ['entry', 'Careers', 'pages', ['updated', 'deleted']],
+            ['asset', 'hero-spring.jpg', 'assets', ['created', 'replaced', 'updated']],
+            ['asset', 'team-2026.png', 'assets', ['created', 'deleted']],
+            ['term', 'Product news', 'topics', ['created', 'updated']],
+            ['nav_tree', 'Main navigation', null, ['updated']],
+            ['global_variables', 'Site settings', null, ['updated']],
+            ['blueprint', 'Article', 'collections.blog', ['updated']],
+            ['revision', 'Pricing', null, ['working', 'publish']],
+        ];
+        $editors = [['1', 'Maja Holm'], ['2', 'Jonas Friis'], ['3', 'Sara Lund']];
+        $fields = ['title', 'content', 'hero_image', 'seo_description', 'price_table', 'slug', 'tags', 'author'];
+
+        for ($i = 0, $budget = min($limit, 90); $i < $budget; $i++) {
+            $key = "content:{$from}:{$i}";
+            [$type, $title, $scope, $actions] = $items[$this->data->int("item:{$key}") % count($items)];
+            $action = $this->data->one("action:{$key}", $actions);
+            [$userId, $name] = $this->data->one("editor:{$key}", $editors);
+            $id = $this->data->id("id:{$type}:{$title}", 8).'-'.$this->data->id("id2:{$title}", 4);
+            $cpPath = match ($type) {
+                'entry', 'revision' => "collections/{$scope}/entries/{$id}",
+                'asset' => 'assets/browse/assets/'.$title.'/edit',
+                'term' => "taxonomies/{$scope}/terms/{$id}",
+                default => null,
+            };
+
+            $labels = [
+                'statamic_content_type' => $type,
+                'statamic_content_action' => $action,
+                'statamic_content_id' => $id,
+                'statamic_content_title' => $title,
+                'statamic_site' => 'default',
+                'statamic_content_origin' => 'cp',
+                'user_id' => $userId,
+                'user_name' => $name,
+                'trace_id' => $this->data->id("trace:{$key}", 32),
+                'service_name' => $this->data->one("svc:{$key}", FixtureData::SERVICES),
+                'deployment_environment' => 'production',
+            ];
+
+            if ($scope !== null) {
+                $labels[match ($type) {
+                    'asset' => 'statamic_asset_container',
+                    'term' => 'statamic_taxonomy',
+                    'blueprint' => 'statamic_blueprint',
+                    default => 'statamic_collection',
+                }] = $scope;
+            }
+
+            if ($cpPath !== null && $action !== 'deleted') {
+                $labels['statamic_content_edit_url'] = 'https://example.test/cp/'.$cpPath;
+            }
+
+            if ($action === 'updated') {
+                $first = $this->data->int("f1:{$key}") % count($fields);
+                $changed = [$fields[$first]];
+                if ($this->data->int("fn:{$key}") % 2 === 1) {
+                    // A second field, never the first one again.
+                    $changed[] = $fields[($first + 1 + $this->data->int("f2:{$key}") % (count($fields) - 1)) % count($fields)];
+                }
+                $labels['statamic_content_changed'] = implode(', ', $changed);
+            }
+
+            if ($type === 'revision' && $action === 'publish') {
+                $labels['statamic_revision_message'] = $this->data->one("msg:{$key}", ['New prices for Q4', 'Typo in the table', 'Legal review']);
+            }
+
+            $entries[] = new LogEntry(
+                // A working day's edits, not a burst: spread across the
+                // window, a little denser towards now.
+                timestampNano: (int) ($from + $span - (int) round($this->data->band("t:{$key}", 0.0, 1.0) ** 1.4 * $span)) * 1_000_000_000,
+                line: 'statamic.content.change',
+                labels: $labels,
+            );
+        }
+
+        return $entries;
     }
 
     /**

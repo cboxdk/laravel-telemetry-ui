@@ -15,6 +15,8 @@ use DateTimeImmutable;
  */
 final class DeploysTimeline extends Panel
 {
+    protected ?string $drillPage = 'events';
+
     public static function span(): int
     {
         return 2;
@@ -51,7 +53,7 @@ final class DeploysTimeline extends Panel
             return $row;
         }, $this->annotations());
 
-        return Ui::table('Deploys', [
+        return Ui::table('Deploys & events', [
             Ui::col('when', 'When'),
             Ui::col('marker', 'Marker'),
             Ui::col('notes', 'Notes'),
@@ -59,7 +61,8 @@ final class DeploysTimeline extends Panel
             Ui::col('after', ''),
         ], $rows, [
             'span' => 2,
-            'empty' => 'No deploys in this period. Emit markers from your pipeline with `php artisan telemetry:deploy --notes="…"`.',
+            'drill' => $this->drillLink(),
+            'empty' => 'No deploys or other events in this period. Emit markers from your pipeline with `php artisan telemetry:deploy --notes="…"`.',
         ]);
     }
 }

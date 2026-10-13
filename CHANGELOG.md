@@ -7,6 +7,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Trace diagnosis over MCP.** `trace_summary` says what is wrong with one
+  trace: identity (root, service, status, duration, label), time per
+  category (db, cache, http, view, queue, other — a nested span is never
+  counted twice), the root's totals, and flags — errors first (exception
+  records, a 5xx, failed jobs, failed spans), then N+1 query shapes with the
+  app line that ran them, identical repeats, slow query shapes and high
+  telemetry overhead. `compare_traces` puts two traces side by side — by id,
+  or by the label sent in an `X-Telemetry-Label` header, so "before" and
+  "after" a fix compare by name — diffing duration, totals, time per
+  category, query shapes and flags. `list_traces` lists recent traces by
+  label and/or only those with flag hints. Responses leave out empty keys
+  and page their lists; `verbose` adds full SQL and span ids. Thresholds are
+  `traces.diagnostics.*`. The N+1, duplicate, origin, overhead, slow-query
+  count and label signals need laravel-telemetry 3.2; older traces are
+  diagnosed from their query text.
+- **Queries → N+1 queries.** laravel-telemetry 3.2's
+  `db.query.n_plus_one_detected` records grouped by query shape, with the
+  `file:line` (and function) that ran them, the traces affected, the worst
+  repeat and the latest trace. *Database throughput* counts N+1s and
+  duplicates as separate tiles, as does the app-side database box on a
+  host's services.
+- **Where a query came from, in the trace.** The trace story lists the
+  emitter's N+1 and identical-repeat markers per shape with their origin,
+  each database row shows the `file:line` that ran it when attributed, and
+  a selected span says where it ran from and whether it is part of an N+1.
+  The trace's label and the N+1 / duplicate / telemetry overhead tallies join
+  the request facts and totals.
+
+- **Overview → Events.** Every annotation marker in the window — deploys,
+  versions, migrations, incidents, scaling, cache purges, feature flags —
+  in one list, filterable by kind, each linking to its trace and the errors
+  after it. The markers used to be listed only by the dashboard's deploy
+  panel, and only for the dashboard's window; that panel is now *Deploys &
+  events* and drills into the new page.
+- **Chart annotations say what they are.** A flag sits on each dashed line;
+  hovering or focusing it opens a card with the marker, kind, time, notes and
+  hosts, and links to its trace and the errors after it. The line's own
+  tooltip never showed: the chart's axis tooltip owns hover inside the plot.
+- **A content audit log on Statamic → Content.** Who changed what and when —
+  entries, terms, assets, collections, blueprints, fieldsets, navigations,
+  globals, users, forms, revisions — with the transition (created, updated,
+  published, unpublished, deleted, uploaded, …), the fields an update
+  touched, the editor and a link into the CP, filterable by type, action,
+  site (on a multisite install) and text. Reads the `statamic.content.change`
+  records `cboxdk/statamic-telemetry` 3.1 writes.
+- **Loading states you can see.** A progress line under the topbar while
+  anything the page waits on is in flight; a sweep along each refreshing
+  panel's top edge, with its old answer dimmed while it no longer matches
+  the filters; Explore and the entity pages say what they are reading and
+  for how long ("Searching requests… · 4s"). Hover prefetches, live tails
+  and name lookups stay quiet.
+
+### Changed
+
+- **Duplicate queries now means identical queries.** From laravel-telemetry
+  3.2, `db.query.duplicate_detected` fires only when the same SQL runs again with
+  the same bindings; N+1s are their own event and panel. The card is
+  renamed *Duplicate queries*, groups by `laravel.db.query.shape` (statement
+  text on older records, which still include N+1s) and shows the origin
+  line when the record has one.
+- **Query performance groups by query shape** on the sampled path when spans
+  carry `laravel.db.query.shape`, so `in (?, ?)` and `in (?, ?, ?)` are one
+  row. Older spans still group by text.
+- **Statamic → Content charts the changes over time** (stacked by type, with
+  totals and deletions) instead of repeating the type × action table beside
+  it.
+
+### Fixed
+
+- **24-hour and longer dashboards on Mimir.** The window-wide p95 across
+  every route — Duration, the routes tables, jobs, outgoing HTTP — was an
+  instant query, which Mimir's query-frontend neither splits nor caches:
+  it fetched every chunk of the whole window at once and was the first
+  thing over `max_fetched_chunks_per_query` (a 422), while the panel's own
+  chart of the same data drew fine. The `mimir` driver now reads a window
+  longer than six hours as a range query of slices — an hour, up to a day
+  for long windows — and adds them up, quantiles by summing bucket
+  increases and interpolating as `histogram_quantile` does, so every part
+  the frontend runs is at most a day and 30 days or a year are answerable.
+  Reproduced and verified on Mimir 3.2.1. Plain Prometheus keeps the
+  instant query: measured on Prometheus 3.15, slicing costs it more of
+  `--query.max-samples`. `split_after` / `split_slice` tune it per
+  connection; set `split_after` if a `prometheus`-driver URL is Mimir.
+- **A refused query says why.** A Prometheus-style error body's reason is
+  shown with the status ("refused the query (status 422): query processing
+  would load too many samples into memory"); other bodies stay hidden.
+- **An answer cut off part-way is not a certificate problem.** A proxy in
+  front of the backend that drops a large response mid-stream (cURL 56
+  "SSL_read: unexpected eof", HTTP/2 stream resets) was reported as *the TLS
+  certificate could not be verified*; it now says the answer was cut off,
+  and where to look (a new `dropped` backend status).
+- **A slow backend is no longer "unreachable", and no longer takes the whole
+  panel down.** A query that ran out of time (cURL error 28) was reported as
+  *Could not reach the telemetry backend*, sending people to check a
+  hostname that was fine; it now says the backend *did not answer within
+  10s* and what to do about it (a new `timeout` backend status). The
+  Duration and routes panels read their expensive extras — the window-wide
+  p95, per route — on their own, most-wanted first: when one times out the
+  chart, counts and averages still show, the p95 is a dash, a note says
+  what is missing, and no further reads are sent to wait out the timeout
+  again. A 24-hour dashboard over a busy Mimir/Prometheus showed two error
+  cards instead.
+- **Component styles lost to the embed scoping.** Since the element resets
+  were scoped to `.t-app` (2.x embed support) they outranked every component
+  class: comboboxes, buttons, the subnav search and facet rows lost their
+  padding and borders, the rail logo's letter was painted primary on primary
+  (an empty blue square), subnav links turned link-blue, and a dimension
+  value's first character was clipped by its cell (`cbox-web` → `:box-web`).
+  The resets are wrapped in `:where()` and keep element specificity.
+
 ## [3.0.1] - 2026-09-27
 
 Documentation only; no code changed.

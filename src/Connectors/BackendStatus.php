@@ -17,8 +17,14 @@ enum BackendStatus: string
     /** Reachable, authenticated, and answering the API we expect. Probes only. */
     case Ok = 'ok';
 
-    /** DNS, refused connection, timeout — nothing answered. */
+    /** DNS, refused connection — nothing answered. */
     case Unreachable = 'unreachable';
+
+    /** Connected, asked, and the answer took longer than the connection's timeout. */
+    case Timeout = 'timeout';
+
+    /** The answer started and was cut off — a proxy's buffer or size limit, a backend giving up. */
+    case Dropped = 'dropped';
 
     /** Connected, but the TLS handshake failed: untrusted CA, expired or wrong-host certificate. */
     case Tls = 'tls';
@@ -50,6 +56,8 @@ enum BackendStatus: string
         return match ($this) {
             self::Ok => 'Connected',
             self::Unreachable => 'Unreachable',
+            self::Timeout => 'Timed out',
+            self::Dropped => 'Connection dropped',
             self::Tls => 'TLS failed',
             self::Unauthorized => 'Not authorized',
             self::NotFound => 'Not found',
@@ -78,10 +86,29 @@ enum BackendStatus: string
 
         $haystack = mb_strtolower($reason);
 
+        // Before the TLS markers: a response cut off mid-stream over HTTPS
+        // reads "OpenSSL SSL_read: unexpected eof" (cURL 56), and calling that
+        // a certificate problem sent people to a certificate that was fine.
+        // 18 partial body, 52 empty reply, 56 receive failure, 92 HTTP/2
+        // stream reset: the backend (or the proxy before it) started to
+        // answer and stopped.
+        foreach (['curl error 18', 'curl error 52', 'curl error 56', 'curl error 92', 'unexpected eof', 'empty reply from server'] as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return self::Dropped;
+            }
+        }
+
         foreach ($needles as $needle) {
             if (str_contains($haystack, $needle)) {
                 return self::Tls;
             }
+        }
+
+        // cURL error 28 is "operation timed out": the backend was reached (or
+        // being reached) and did not finish in time — a slow query, not a
+        // missing host, and the fix is a shorter window or a longer timeout.
+        if (str_contains($haystack, 'curl error 28') || str_contains($haystack, 'timed out')) {
+            return self::Timeout;
         }
 
         return self::Unreachable;

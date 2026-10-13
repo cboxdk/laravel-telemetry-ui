@@ -52,6 +52,17 @@ writable by its key:
 deployed version changes; the two purge markers explain a latency cliff that
 is a cold cache rather than a deploy.
 
+## Reading them
+
+Each dashed line carries a small flag along the chart's top edge. Hover (or
+tab to) the flag and a card says what the line is — the marker, its kind and
+time, the notes, the hosts that reported it — with links to its trace and to
+the errors in the hour after it; click to pin the card. Markers too close to
+tell apart share one flag, numbered.
+
+**Overview → Events** lists every marker in the window, filterable by kind;
+the dashboard's *Deploys & events* panel is the short version of it.
+
 ## Adding your own
 
 Add an entry under `telemetry-ui.annotations.markers`:

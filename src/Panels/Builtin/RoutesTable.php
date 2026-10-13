@@ -38,30 +38,36 @@ class RoutesTable extends Panel
         $bucket = $this->metric('http_server_request_duration_seconds_bucket');
 
         $rows = [];
-        $error = null;
-        $trends = [];
+        $note = null;
 
+        // The counts are the table; the rest is read on its own, cheapest
+        // first. The per-route p95 over the whole window is what a busy
+        // backend times out on — without it the rows still stand, with a
+        // dash and a note, instead of the whole table failing.
         try {
             $counts = $this->metrics()->query(
                 $count->increase($p)->sumBy('http_route', 'http_request_method', 'http_response_status_code'),
             );
-
-            $times = $this->metrics()->query(
-                $sum->increase($p)->sumBy('http_route', 'http_request_method'),
-            );
-
-            $p95s = $this->metrics()->query(
-                $bucket->quantile(0.95, $p, 'http_route', 'http_request_method'),
-            );
-
-            $trends = $this->trendByKey(
-                $count->rate($this->rateWindow())->sumBy('http_route', 'http_request_method')->times(60),
-                $start,
-                $end,
-                fn (array $labels): string => ($labels['http_request_method'] ?? '?').' '.($labels['http_route'] ?? '?'),
-            );
         } catch (SourceException $exception) {
             return $this->payload([], $exception->getMessage());
+        }
+
+        $failure = null;
+        $times = $this->attempt(fn (): array => $this->metrics()->query(
+            $sum->increase($p)->sumBy('http_route', 'http_request_method'),
+        ), $failure) ?? [];
+        $trends = $this->attempt(fn (): array => $this->trendByKey(
+            $count->rate($this->rateWindow())->sumBy('http_route', 'http_request_method')->times(60),
+            $start,
+            $end,
+            fn (array $labels): string => ($labels['http_request_method'] ?? '?').' '.($labels['http_route'] ?? '?'),
+        ), $failure) ?? [];
+        $p95s = $this->attempt(fn (): array => $this->metrics()->query(
+            $bucket->quantile(0.95, $p, 'http_route', 'http_request_method'),
+        ), $failure) ?? [];
+
+        if ($failure !== null) {
+            $note = 'Part of this table is missing: '.lcfirst($failure->getMessage());
         }
 
         foreach ($counts as $sample) {
@@ -110,14 +116,14 @@ class RoutesTable extends Panel
             $rows = array_filter($rows, fn (array $row): bool => stripos($row['method'].' '.$row['route'], $this->search) !== false);
         }
 
-        return $this->payload(array_values(array_slice($this->rank(array_values($rows)), 0, $this->limit())), $error);
+        return $this->payload(array_values(array_slice($this->rank(array_values($rows)), 0, $this->limit())), null, $note);
     }
 
     /**
      * @param  list<array{method: string, route: string, ok: float, '4xx': float, '5xx': float, total: float, time: float, p95: float|null, spark: list<float>}>  $rows
      * @return array<string, mixed>
      */
-    private function payload(array $rows, ?string $error): array
+    private function payload(array $rows, ?string $error, ?string $note = null): array
     {
         $table = [];
 
@@ -153,6 +159,7 @@ class RoutesTable extends Panel
         ], $table, array_filter([
             'subtitle' => $this->tableSubtitle(),
             'error' => $error,
+            'note' => $note,
             'empty' => 'No requests in this period.',
             'controls' => $this->searchable() ? [Ui::search('route_search', 'Search', $this->search, 'Search '.strtolower($this->routeColumnLabel()).'s…')] : null,
             'drill' => $this->drillLink(),

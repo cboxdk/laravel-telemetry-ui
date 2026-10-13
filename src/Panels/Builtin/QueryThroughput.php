@@ -12,7 +12,8 @@ use Cbox\TelemetryUi\Support\Format;
 /**
  * Database activity over time — the New-Relic-"Databases"-overview chart:
  * queries per minute across the period, with headline tiles for total queries,
- * rolled-back transactions and N+1 (duplicate) queries detected. Straight from
+ * rolled-back transactions, N+1 query shapes and identical (duplicate) queries
+ * detected. Straight from
  * the emitter's `db_*` counters, so it's exact and cheap; the per-statement
  * breakdown lives in {@see QueryPerformance} below it.
  */
@@ -37,6 +38,7 @@ final class QueryThroughput extends Panel
 
             $total = $this->total($this->metric('db_queries_total')->increase($period)->sumBy());
             $rolledBack = $this->total($this->metric('db_transactions_rolled_back_total')->increase($period)->sumBy());
+            $nPlusOne = $this->total($this->metric('db_queries_n_plus_one_total')->increase($period)->sumBy());
             $duplicates = $this->total($this->metric('db_queries_duplicated_total')->increase($period)->sumBy());
             $minutes = max(1.0, $this->rangeSeconds() / 60.0);
         } catch (SourceException $exception) {
@@ -51,7 +53,8 @@ final class QueryThroughput extends Panel
                 $this->stat('Queries', Format::count($total), null, Ui::entityIndex('query')),
                 $this->stat('Per minute', Format::count($total / $minutes)),
                 $this->stat('Rolled back', Format::count($rolledBack), $rolledBack > 0 ? 'danger' : 'dim'),
-                $this->stat('N+1 detected', Format::count($duplicates), $duplicates > 0 ? 'warn' : 'dim'),
+                $this->stat('N+1 detected', Format::count($nPlusOne), $nPlusOne > 0 ? 'warn' : 'dim'),
+                $this->stat('Duplicates', Format::count($duplicates), $duplicates > 0 ? 'warn' : 'dim'),
             ],
             type: 'bar',
             unit: 'q/min',
@@ -63,7 +66,8 @@ final class QueryThroughput extends Panel
     {
         return [
             'Per minute' => Ui::entityIndex('query'),
-            'N+1 detected' => Ui::explore('requests', ['db.query.duplicate.count>0']),
+            'N+1 detected' => Ui::explore('requests', ['db.query.n_plus_one.count>0']),
+            'Duplicates' => Ui::explore('requests', ['db.query.duplicate.count>0']),
         ];
     }
 }

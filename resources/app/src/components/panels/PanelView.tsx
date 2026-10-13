@@ -41,7 +41,7 @@ export function PanelView({ id, span = 1, params = {} }: { id: string; span?: nu
         return out;
     }, [search, controlKeys]);
 
-    const { data, error, isLoading, isFetching } = usePanel(id, { ...controlParams, ...params }, live);
+    const { data, error, isLoading, isFetching, isPlaceholderData } = usePanel(id, { ...controlParams, ...params }, live);
 
     useEffect(() => {
         if (!data) return;
@@ -63,9 +63,11 @@ export function PanelView({ id, span = 1, params = {} }: { id: string; span?: nu
     const setParam = (patch: Record<string, string>) => set(Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, v === '' ? undefined : v])));
 
     const isHeader = data?.kind === 'header';
+    // A live tail refetches every 3s: its rows arriving are the indicator.
+    const refreshing = isFetching && !isLoading && !live;
 
     return (
-        <section className={`t-panel span-${effectiveSpan} ${isHeader ? 'is-header' : ''} ${isFetching && !isLoading ? 'is-refreshing' : ''}`} aria-busy={isFetching}>
+        <section className={`t-panel span-${effectiveSpan} ${isHeader ? 'is-header' : ''} ${refreshing ? 'is-refreshing' : ''} ${refreshing && isPlaceholderData ? 'is-stale' : ''}`} aria-busy={isFetching}>
             {(data?.title || !data) && (
                 <header className="t-panel-head">
                     <div className="t-panel-titles">

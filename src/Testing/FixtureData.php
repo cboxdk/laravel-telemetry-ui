@@ -161,6 +161,19 @@ final class FixtureData
             };
         }
 
+        // The Statamic content counter's own vocabulary: its `type` and
+        // `action` are Statamic's, and a Content page of "alpha saved beta"
+        // documents nothing.
+        if (str_contains($metric, 'statamic_content')) {
+            if ($label === 'type') {
+                return ['entry', 'asset', 'term', 'nav_tree', 'global_variables'];
+            }
+
+            if ($label === 'action') {
+                return ['published', 'draft', 'deleted', 'uploaded'];
+            }
+        }
+
         return match (true) {
             // Order matters, and this is where it bit: `geo.country_code`
             // contains `code`, so a facet labelled COUNTRY came back full

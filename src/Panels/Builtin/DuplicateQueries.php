@@ -5,74 +5,39 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\Concerns\ReadsQueryRepeats;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
-use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
- * N+1 smells: queries that ran identically more than the configured threshold
- * within one trace. laravel-telemetry emits a `db.query.duplicate_detected`
- * log event (once per distinct query, at the threshold crossing) carrying the
- * parameterized SQL — this reads those back and groups by query text.
+ * Identical queries: the same statement with the same bindings run again
+ * within one trace — work a memo or the query cache would have saved.
+ * laravel-telemetry emits `db.query.duplicate_detected` once per shape per
+ * trace when it crosses the repeat threshold; this groups those records by
+ * query shape.
+ *
+ * Before laravel-telemetry 3.2 split out `db.query.n_plus_one_detected`, this
+ * event ignored bindings and so fired for N+1s too; records from those
+ * versions still land here, grouped by their statement text. N+1s from newer
+ * versions are on {@see NPlusOneQueries}.
  */
 final class DuplicateQueries extends Panel
 {
-    private const SEARCH_LIMIT = 500;
+    use ReadsQueryRepeats;
 
     public static function span(): int
     {
-        return 2;
+        return 1;
     }
 
     public function data(): array
     {
-        [$start, $end] = $this->range();
-
         $rows = [];
         $error = null;
 
         try {
-            $entries = $this->logs()->query(
-                $this->logSelector()->whereLabel('db_query_text', MatchOp::Neq, ''),
-                $start,
-                $end,
-                limit: self::SEARCH_LIMIT,
-            );
-
-            /** @var array<string, array{query: string, connection: string, traces: int, worstRepeat: int, lastNano: int, traceId: string}> $groups */
-            $groups = [];
-
-            foreach ($entries as $entry) {
-                if (trim($entry->line) !== 'db.query.duplicate_detected') {
-                    continue;
-                }
-
-                $query = $entry->labels['db_query_text'] ?? '';
-
-                if ($query === '') {
-                    continue;
-                }
-
-                $row = $groups[$query] ?? [
-                    'query' => $query,
-                    'connection' => $entry->labels['db_namespace'] ?? '',
-                    'traces' => 0, 'worstRepeat' => 0, 'lastNano' => 0, 'traceId' => '',
-                ];
-
-                $row['traces']++;
-                $row['worstRepeat'] = max($row['worstRepeat'], (int) ($entry->labels['db_query_repeat_count'] ?? 0));
-
-                if ($entry->timestampNano >= $row['lastNano']) {
-                    $row['lastNano'] = $entry->timestampNano;
-                    $row['traceId'] = $entry->labels['trace_id'] ?? '';
-                }
-
-                $groups[$query] = $row;
-            }
-
-            $rows = array_values($groups);
-            usort($rows, static fn (array $a, array $b): int => $b['traces'] <=> $a['traces'] ?: $b['worstRepeat'] <=> $a['worstRepeat']);
+            $rows = $this->repeatGroups('db.query.duplicate_detected');
         } catch (SourceException $exception) {
             $error = $exception->getMessage();
         }
@@ -81,10 +46,9 @@ final class DuplicateQueries extends Panel
             $trace = $row['traceId'] !== '' ? Ui::trace($row['traceId']) : null;
 
             return [
-                'query' => Ui::cell($row['query'], ['mono' => true]),
-                'connection' => Ui::cell($row['connection'] !== '' ? $row['connection'] : '—'),
+                'query' => Ui::cell($row['query'], $row['origin'] !== '' ? ['mono' => true, 'sub' => $row['origin']] : ['mono' => true]),
                 'traces' => Ui::cell(Format::count($row['traces']), ['raw' => $row['traces'], 'tone' => 'warn']),
-                'repeat' => Ui::cell('×'.$row['worstRepeat'], ['raw' => $row['worstRepeat'], 'tone' => 'danger']),
+                'repeat' => Ui::cell('×'.$row['worstRepeat'], ['raw' => $row['worstRepeat'], 'tone' => 'warn']),
                 'trace' => $trace !== null
                     ? Ui::cell(substr($row['traceId'], 0, 8).'…', ['mono' => true, 'link' => $trace])
                     : Ui::cell('—'),
@@ -92,17 +56,16 @@ final class DuplicateQueries extends Panel
             ];
         }, array_slice($rows, 0, 50));
 
-        return Ui::table('Duplicate queries (N+1)', [
+        return Ui::table('Duplicate queries', [
             Ui::col('query', 'Query'),
-            Ui::col('connection', 'Connection'),
-            Ui::num('traces', 'Traces affected'),
-            Ui::num('repeat', 'Worst repeat'),
+            Ui::num('traces', 'Traces'),
+            Ui::num('repeat', 'Worst'),
             Ui::num('trace', 'Trace'),
         ], $table, array_filter([
-            'subtitle' => 'Queries that repeated identically within one trace — the classic N+1 smell, named',
+            'subtitle' => 'The same SQL with the same bindings, run again within one trace',
             'error' => $error,
-            'empty' => 'No duplicate-query detections in this period.',
-            'note' => 'Fired once per distinct query when it crosses the repeat threshold (default 3). Fix with eager loading or caching.',
+            'empty' => 'No identical repeated queries in this period.',
+            'note' => 'Fired once per query shape per trace when it crosses the repeat threshold (default 3). Fix by keeping the first result (a variable, once(), a memo). Before laravel-telemetry 3.2 this record ignored bindings, so older records include N+1s.',
         ], static fn ($v): bool => $v !== null));
     }
 }

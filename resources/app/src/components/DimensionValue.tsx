@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { QUIET } from '../api/hooks';
 import type { Bootstrap, DimensionDef, Link as LinkData, Signal } from '../api/types';
 import { loadLabel } from '../lib/dimensionLabels';
 import { useNavigation } from '../lib/navigation';
@@ -36,6 +37,7 @@ export function useValueLabel(key: string, value: string): string | null {
         staleTime: 5 * 60_000,
         gcTime: 30 * 60_000,
         retry: false,
+        meta: QUIET,
     });
     return enabled ? data ?? null : null;
 }

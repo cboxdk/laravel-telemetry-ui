@@ -517,6 +517,17 @@ export interface ReportItem {
     detail: string;
     durationMs: number;
     spanId: string;
+    /** App-code `file:line` that ran it, when the emitter attributed one. */
+    origin?: string;
+}
+
+/** A query shape laravel-telemetry marked as an N+1 or an identical repeat. */
+export interface ReportRepeat {
+    kind: 'n_plus_one' | 'duplicate';
+    query: string;
+    /** Every run of the shape in the trace. */
+    count: number;
+    origin: string;
 }
 
 export interface TraceData {
@@ -536,7 +547,7 @@ export interface TraceData {
         requestHeaders: Record<string, string>;
         responseHeaders: Record<string, string>;
         totals: { label: string; value: string }[];
-        db: { items: ReportItem[]; duplicates: Record<string, number> };
+        db: { items: ReportItem[]; duplicates: Record<string, number>; repeats?: ReportRepeat[] };
         cache: { items: ReportItem[]; summary: Record<string, number> };
         redis: ReportItem[];
         outgoing: ReportItem[];

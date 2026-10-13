@@ -81,7 +81,7 @@ it('serves every built-in page and every panel on it as typed json', function (s
         expect($data['kind'] ?? null)->toBeString("panel {$panel['id']} on {$page} has no kind");
     }
 })->with([
-    'dashboard', 'traces', 'requests', 'jobs', 'queues', 'autoscale', 'commands', 'schedule',
+    'dashboard', 'traces', 'events', 'requests', 'jobs', 'queues', 'autoscale', 'commands', 'schedule',
     'exceptions', 'queries', 'cache', 'storage', 'livewire', 'features',
     'horizon', 'reverb', 'outgoing', 'mail',
     'statamic-cache', 'statamic-stache', 'statamic-glide', 'statamic-forms',
@@ -111,7 +111,7 @@ it('serves every hidden detail page with its entity param', function (string $pa
 it('covers every registered page in the smoke list', function (): void {
     // A new built-in page must be added to one of the datasets above.
     expect(builtinPages())->toEqualCanonicalizing([
-        'dashboard', 'traces', 'requests', 'request-detail', 'jobs', 'job-detail', 'queues', 'queue-detail',
+        'dashboard', 'traces', 'events', 'requests', 'request-detail', 'jobs', 'job-detail', 'queues', 'queue-detail',
         'autoscale', 'horizon', 'commands', 'schedule', 'exceptions', 'exception-detail', 'error-detail',
         'queries', 'query-detail', 'cache', 'storage', 'livewire', 'features', 'reverb', 'outgoing',
         'outgoing-detail', 'mail', 'analytics', 'page-detail', 'frontend', 'hosts', 'host-detail', 'users',

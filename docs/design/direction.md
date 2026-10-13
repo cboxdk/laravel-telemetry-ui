@@ -127,7 +127,7 @@ All names below are the stable schema emitted by `cboxdk/laravel-telemetry`.
 | Commands | `command_duration_milliseconds`, `commands_{completed,failed}_total` |
 | Scheduled Tasks | `schedule_task_duration_milliseconds`, `schedule_tasks_{processed,failed,skipped}_total` |
 | Exceptions / Issues | `exceptions_reported_total` by `exception` label; trace samples via TraceQL `{ status = error }`; correlated logs via Loki `level=error` |
-| Queries | `db_query_time_ms`/`db_query_count` span tallies; slow queries via TraceQL `{ span.db.query.text != "" && duration > N }` |
+| Queries | `db_query_time_ms`/`db_query_count` span tallies; slow queries via TraceQL `{ span.db.query.text != "" && duration > N }`; performance grouped by `span.laravel.db.query.shape` (text on older spans); `db_queries_n_plus_one_total` / `db_queries_duplicated_total`; N+1 and identical repeats from Loki `db.query.n_plus_one_detected` / `db.query.duplicate_detected` records grouped by `laravel_db_query_shape`, with `code_file_path`/`code_line_number` as the origin |
 | Cache | `cache_operations_total` by operation/store (hit ratio) |
 | Outgoing | `http_client_request_duration_milliseconds` by `server_address`, `http_client_connection_failures_total` |
 | Mail / Notifications | `mail_sent_total`, `notifications_sent_total` by channel |

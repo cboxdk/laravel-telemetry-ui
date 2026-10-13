@@ -42,6 +42,7 @@ class PrometheusSource implements EnumeratesMetricNames, MetricsSource, ProbesCo
     public function __construct(
         protected readonly ApiClient $client,
         protected readonly string $prefix = '',
+        protected readonly WindowSplitter $splitter = new WindowSplitter,
     ) {}
 
     public function probe(): ProbeResult
@@ -94,6 +95,23 @@ class PrometheusSource implements EnumeratesMetricNames, MetricsSource, ProbesCo
 
     public function query(MetricQuery $query, ?DateTimeInterface $at = null): array
     {
+        // A window-wide read over a long window, where the backend does
+        // better with it as a range query of slices (Mimir) — see
+        // WindowSplitter. Off unless the connection turns it on.
+        $plan = $this->splitter->plan($query);
+
+        if ($plan !== null) {
+            $end = DateTimeImmutable::createFromInterface($at ?? new DateTimeImmutable);
+            $start = $end->modify('-'.(($plan['slices'] - 1) * $plan['slice']).' seconds');
+
+            return $this->splitter->combine(
+                $query,
+                $plan,
+                $this->queryRange($plan['inner'], $start, $end, $plan['slice']),
+                (float) $end->getTimestamp(),
+            );
+        }
+
         $params = ['query' => (new PromqlCompiler)->compile($query)];
 
         if ($at !== null) {

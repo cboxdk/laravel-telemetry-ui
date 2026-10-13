@@ -9,6 +9,7 @@ use Cbox\TelemetryUi\Connectors\Linear\LinearSource;
 use Cbox\TelemetryUi\Connectors\Loki\LokiSource;
 use Cbox\TelemetryUi\Connectors\Prometheus\MimirSource;
 use Cbox\TelemetryUi\Connectors\Prometheus\PrometheusSource;
+use Cbox\TelemetryUi\Connectors\Prometheus\WindowSplitter;
 use Cbox\TelemetryUi\Connectors\Sentry\SentrySource;
 use Cbox\TelemetryUi\Connectors\Tempo\TempoSource;
 use Cbox\TelemetryUi\Contracts\CreatesIssues;
@@ -332,8 +333,8 @@ class ConnectionManager
         }
 
         return match ($driver) {
-            'prometheus' => new PrometheusSource($this->client($config), $this->prefix($config)),
-            'mimir' => new MimirSource($this->client($config), $this->prefix($config, 'prometheus')),
+            'prometheus' => new PrometheusSource($this->client($config), $this->prefix($config), $this->splitter($config, 0)),
+            'mimir' => new MimirSource($this->client($config), $this->prefix($config, 'prometheus'), $this->splitter($config, MimirSource::SPLIT_AFTER)),
             'tempo' => new TempoSource($this->client($config)),
             'loki' => new LokiSource($this->client($config)),
             'github' => $this->github($config),
@@ -341,6 +342,27 @@ class ConnectionManager
             'linear' => $this->linear($config),
             default => throw new InvalidArgumentException("Telemetry UI driver [{$driver}] is not supported."),
         };
+    }
+
+    /**
+     * When a window-wide read runs as a sliced range query: after
+     * `split_after` seconds (the driver's default when unset — on for Mimir,
+     * off for Prometheus), in `split_slice`-second slices, at most
+     * `split_max_slices` of them before they grow (up to a day).
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function splitter(array $config, int $defaultAfter): WindowSplitter
+    {
+        $after = $config['split_after'] ?? null;
+        $slice = $config['split_slice'] ?? null;
+        $slices = $config['split_max_slices'] ?? null;
+
+        return new WindowSplitter(
+            is_numeric($after) ? (int) $after : $defaultAfter,
+            is_numeric($slice) && (int) $slice > 0 ? (int) $slice : 3_600,
+            is_numeric($slices) && (int) $slices > 0 ? (int) $slices : 168,
+        );
     }
 
     /**

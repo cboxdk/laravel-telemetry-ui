@@ -82,7 +82,7 @@ readonly class ApiClient
                 ->post($url, $body);
         } catch (ConnectionException $exception) {
             $this->meter($url, 'POST', $started, false);
-            $this->fail(SourceException::connectionFailed($url, $exception->getMessage()));
+            $this->fail(SourceException::connectionFailed($url, $exception->getMessage(), $this->timeout));
         }
 
         $this->meter($url, 'POST', $started, ! $response->failed());
@@ -106,7 +106,7 @@ readonly class ApiClient
             $response = $this->pending()->get($url, $query);
         } catch (ConnectionException $exception) {
             $this->meter($url, 'GET', $started, false);
-            $this->fail(SourceException::connectionFailed($url, $exception->getMessage()));
+            $this->fail(SourceException::connectionFailed($url, $exception->getMessage(), $this->timeout));
         }
 
         $this->meter($url, 'GET', $started, ! $response->failed());
