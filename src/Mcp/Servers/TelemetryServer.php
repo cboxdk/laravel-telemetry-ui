@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Mcp\Servers;
 
+use Cbox\TelemetryUi\Mcp\Tools\CompareTracesTool;
 use Cbox\TelemetryUi\Mcp\Tools\ListServicesTool;
+use Cbox\TelemetryUi\Mcp\Tools\ListTracesTool;
 use Cbox\TelemetryUi\Mcp\Tools\QueryLogsTool;
 use Cbox\TelemetryUi\Mcp\Tools\QueryMetricsTool;
 use Cbox\TelemetryUi\Mcp\Tools\QueryRangeTool;
 use Cbox\TelemetryUi\Mcp\Tools\SearchTracesTool;
 use Cbox\TelemetryUi\Mcp\Tools\TraceContextTool;
+use Cbox\TelemetryUi\Mcp\Tools\TraceSummaryTool;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Composer\InstalledVersions;
 use Laravel\Mcp\Server;
@@ -36,9 +39,20 @@ class TelemetryServer extends Server
         - query_metrics / query_range — PromQL
         - search_traces — TraceQL (e.g. { status = error })
         - query_logs — LogQL
+        - list_traces — recent traces, by label (X-Telemetry-Label header) or
+          only those with flag hints (errors, N+1, duplicates, slow queries)
+        - trace_summary — one trace diagnosed: time per category, totals and
+          flags (errors first, then N+1 shapes with the app file:line that ran
+          them, identical repeats, slow queries, telemetry overhead). Start
+          here when you have a trace id and want to know what is wrong.
+        - compare_traces — two traces (ids, or labels) side by side: did the
+          fix land? Totals, time per category, query shapes and flags diffed.
         - trace_context — a trace PLUS the host/runtime signals around it,
-          flagged when they were out of their normal range. Start here when you
-          have a trace id and want to know what was different.
+          flagged when they were out of their normal range: what was
+          different about the box it ran on.
+
+        Responses omit empty keys; lists are paged (pass next_offset back as
+        offset), and verbose=true adds full SQL and span ids.
 
         Everything is read-only.
         MARKDOWN;
@@ -53,6 +67,9 @@ class TelemetryServer extends Server
         SearchTracesTool::class,
         QueryLogsTool::class,
         TraceContextTool::class,
+        ListTracesTool::class,
+        TraceSummaryTool::class,
+        CompareTracesTool::class,
     ];
 
     /**

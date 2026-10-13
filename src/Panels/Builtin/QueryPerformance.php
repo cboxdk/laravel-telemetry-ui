@@ -26,8 +26,11 @@ use DateTimeInterface;
  * calls, avg, p95, max and total time (+ share of DB time).
  *
  * Laravel emits `db.query.text` already parameterised (`?` placeholders, no
- * literals — {@see QueryInstrumentation}), so the raw text is a stable
- * fingerprint with no normalisation needed.
+ * literals — {@see QueryInstrumentation}). Newer laravel-telemetry also stamps
+ * `laravel.db.query.shape`, a hash of the statement normalised further (IN
+ * lists collapsed, literals the query builder inlined replaced), so the
+ * sampled path groups by shape when a span has one — `in (?, ?)` and
+ * `in (?, ?, ?)` are one row — and by the text on older data.
  *
  * When the traces backend can aggregate server-side ({@see AggregatesSpans} — a
  * ClickHouse store) the numbers are EXACT over every span. Otherwise it folds a
@@ -115,7 +118,7 @@ final class QueryPerformance extends Panel
             'exact' => $exact,
             'note' => ($exact
                 ? 'Exact aggregation over every matching span (ClickHouse store).'
-                : 'Sampled from the most recent matching traces — representative, not exact (a ClickHouse store aggregates every span).')
+                : 'Sampled from the most recent matching traces — representative, not exact (a ClickHouse store aggregates every span). Grouped by query shape where the emitter stamps one.')
                 .' Ranked by total DB time consumed; query text is parameterised and redacted at emit time.',
             'controls' => [
                 Ui::search('q_search', 'Filter', $this->search, 'Filter queries…'),
@@ -198,7 +201,7 @@ final class QueryPerformance extends Panel
         $fromNano = $start->getTimestamp() * 1_000_000_000;
         $span = max(1, $end->getTimestamp() * 1_000_000_000 - $fromNano);
 
-        $query = $where->select('span.db.query.text', 'span.db.system.name');
+        $query = $where->select('span.db.query.text', 'span.db.system.name', 'span.laravel.db.query.shape');
 
         /** @var array<string, array{query: string, system: string, calls: int, totalMs: float, maxMs: float, durations: list<float>, buckets: array<int, int>}> $groups */
         $groups = [];
@@ -211,8 +214,11 @@ final class QueryPerformance extends Panel
                     continue;
                 }
 
+                $shape = $matched->attributes['laravel.db.query.shape'] ?? null;
+                $key = is_string($shape) && $shape !== '' ? 'shape:'.$shape : $text;
+
                 $ms = $matched->durationMs;
-                $group = $groups[$text] ?? [
+                $group = $groups[$key] ?? [
                     'query' => $text,
                     'system' => is_string($matched->attributes['db.system.name'] ?? null) ? $matched->attributes['db.system.name'] : '',
                     'calls' => 0, 'totalMs' => 0.0, 'maxMs' => 0.0, 'durations' => [],
@@ -226,7 +232,7 @@ final class QueryPerformance extends Panel
                 $bucket = min(self::BUCKETS - 1, (int) (($matched->startNano - $fromNano) / $span * self::BUCKETS));
                 $group['buckets'][max(0, $bucket)]++;
 
-                $groups[$text] = $group;
+                $groups[$key] = $group;
             }
         }
 

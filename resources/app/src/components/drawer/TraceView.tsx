@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTraceContext, useTraceStory } from '../../api/hooks';
-import type { Link as LinkData, ReportItem, SpanData, TraceCorrelation, TraceData } from '../../api/types';
+import type { Link as LinkData, ReportItem, ReportRepeat, SpanData, TraceCorrelation, TraceData } from '../../api/types';
 import { count, ms, shortId, statusTone } from '../../lib/format';
 import { Go } from '../../lib/links';
 import { useBoot, DimensionValue } from '../DimensionValue';
@@ -163,7 +163,7 @@ function Story({ data, pending = false }: { data: TraceData; pending?: boolean }
                 </section>
             )}
 
-            <ReportSection spans={spans} title="Database" items={report.db.items} duplicates={report.db.duplicates} icon="database" />
+            <ReportSection spans={spans} title="Database" items={report.db.items} duplicates={report.db.duplicates} repeats={report.db.repeats} icon="database" />
             <ReportSection spans={spans} title="Cache" items={report.cache.items} summary={report.cache.summary} icon="zap" />
             <ReportSection spans={spans} title="Redis" items={report.redis} icon="database" />
             <ReportSection spans={spans} title="Outgoing" items={report.outgoing} icon="globe" />
@@ -242,21 +242,35 @@ function itemLink(span: SpanData | undefined): LinkData | null {
     return null;
 }
 
-function ReportSection({ title, items, duplicates, summary, icon, spans }: { title: string; items: ReportItem[]; duplicates?: Record<string, number>; summary?: Record<string, number>; icon: string; spans: Map<string, SpanData> }) {
+function ReportSection({ title, items, duplicates, repeats, summary, icon, spans }: { title: string; items: ReportItem[]; duplicates?: Record<string, number>; repeats?: ReportRepeat[]; summary?: Record<string, number>; icon: string; spans: Map<string, SpanData> }) {
     if (items.length === 0) return null;
     const total = items.reduce((s, i) => s + i.durationMs, 0);
-    const dupes = Object.entries(duplicates ?? {}).filter(([, n]) => n > 1);
+    // The emitter's own N+1 / identical-repeat markers win; traces from before
+    // them fall back to "the same statement text ran more than once".
+    const marked = repeats ?? [];
+    const dupes = marked.length > 0 ? [] : Object.entries(duplicates ?? {}).filter(([, n]) => n > 1);
     return (
         <section className="t-sect">
             <h4 className="t-sect-title"><Icon name={icon} size={12} /> {title} <span>· {items.length} · {ms(total)}</span></h4>
             {summary && Object.keys(summary).length > 0 && <div className="t-chips">{Object.entries(summary).map(([k, v]) => <span key={k} className="t-minchip"><span className="k">{k}</span>{v}</span>)}</div>}
-            {dupes.length > 0 && <div className="t-callout t-callout-warn"><p>{dupes.length} duplicated quer{dupes.length === 1 ? 'y' : 'ies'} — N+1 suspect.</p></div>}
+            {marked.length > 0 && (
+                <div className="t-callout t-callout-warn">
+                    {marked.slice(0, 5).map((r) => (
+                        <p key={`${r.kind}-${r.query}`}>
+                            <strong>{r.kind === 'n_plus_one' ? 'N+1' : 'Identical repeat'}</strong> · {r.count}× <code title={r.query}>{r.query.length > 90 ? `${r.query.slice(0, 90)}…` : r.query}</code>
+                            {r.origin && <span className="t-dim mono"> · {r.origin}</span>}
+                        </p>
+                    ))}
+                </div>
+            )}
+            {dupes.length > 0 && <div className="t-callout t-callout-warn"><p>{dupes.length} quer{dupes.length === 1 ? 'y' : 'ies'} ran more than once — N+1 suspect.</p></div>}
             <div className="t-report">
                 {items.slice(0, 12).map((item, i) => {
                     const link = itemLink(spans.get(item.spanId));
                     const body = (
                         <>
-                            <span className="mono t-report-detail" title={item.detail}>{item.detail || item.name}</span>
+                            <span className="mono t-report-detail" title={item.origin ? `${item.detail}\n${item.origin}` : item.detail}>{item.detail || item.name}</span>
+                            {item.origin && <span className="mono t-dim t-report-origin" title={item.origin}>{item.origin.split('/').slice(-2).join('/')}</span>}
                             <span className="mono t-dim">{ms(item.durationMs)}</span>
                         </>
                     );
@@ -434,6 +448,15 @@ function SpanDetail({ span, links, onClose }: { span: SpanData; links: Record<st
             </div>
             {span.links.length > 0 && (
                 <div className="t-chips">{span.links.map((l) => <Go key={l.spanId} link={{ to: 'trace', id: l.traceId }} className="t-minchip">linked {shortId(l.traceId)}</Go>)}</div>
+            )}
+            {span.attributes['code.file.path'] && (
+                <p className="t-note mono" title={span.attributes['code.function.name'] ?? undefined}>
+                    from {span.attributes['code.file.path']}{span.attributes['code.line.number'] ? `:${span.attributes['code.line.number']}` : ''}
+                    {span.attributes['code.function.name'] ? ` · ${span.attributes['code.function.name']}` : ''}
+                </p>
+            )}
+            {span.attributes['laravel.db.query.repeat'] && (
+                <p className="t-note">{span.attributes['laravel.db.query.repeat'] === 'n_plus_one' ? 'Part of an N+1: this query shape ran repeatedly with different values.' : 'An identical repeat: the same SQL and bindings ran earlier in this trace.'}</p>
             )}
             <TransferPhases attrs={span.attributes} durationMs={span.durationMs} />
             <dl className="t-kv t-raw">

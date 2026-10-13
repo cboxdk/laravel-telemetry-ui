@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Trace diagnosis over MCP.** `trace_summary` says what is wrong with one
+  trace: identity (root, service, status, duration, label), time per
+  category (db, cache, http, view, queue, other — a nested span is never
+  counted twice), the root's totals, and flags — errors first (exception
+  records, a 5xx, failed jobs, failed spans), then N+1 query shapes with the
+  app line that ran them, identical repeats, slow query shapes and high
+  telemetry overhead. `compare_traces` puts two traces side by side — by id,
+  or by the label sent in an `X-Telemetry-Label` header, so "before" and
+  "after" a fix compare by name — diffing duration, totals, time per
+  category, query shapes and flags. `list_traces` lists recent traces by
+  label and/or only those with flag hints. Responses leave out empty keys
+  and page their lists; `verbose` adds full SQL and span ids. Thresholds are
+  `traces.diagnostics.*`. The N+1, duplicate, origin, overhead, slow-query
+  count and label signals need laravel-telemetry 3.2; older traces are
+  diagnosed from their query text.
+- **Queries → N+1 queries.** laravel-telemetry 3.2's
+  `db.query.n_plus_one_detected` records grouped by query shape, with the
+  `file:line` (and function) that ran them, the traces affected, the worst
+  repeat and the latest trace. *Database throughput* counts N+1s and
+  duplicates as separate tiles, as does the app-side database box on a
+  host's services.
+- **Where a query came from, in the trace.** The trace story lists the
+  emitter's N+1 and identical-repeat markers per shape with their origin,
+  each database row shows the `file:line` that ran it when attributed, and
+  a selected span says where it ran from and whether it is part of an N+1.
+  The trace's label and the N+1 / duplicate / telemetry overhead tallies join
+  the request facts and totals.
+
 - **Overview → Events.** Every annotation marker in the window — deploys,
   versions, migrations, incidents, scaling, cache purges, feature flags —
   in one list, filterable by kind, each linking to its trace and the errors
@@ -35,6 +63,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Duplicate queries now means identical queries.** From laravel-telemetry
+  3.2, `db.query.duplicate_detected` fires only when the same SQL runs again with
+  the same bindings; N+1s are their own event and panel. The card is
+  renamed *Duplicate queries*, groups by `laravel.db.query.shape` (statement
+  text on older records, which still include N+1s) and shows the origin
+  line when the record has one.
+- **Query performance groups by query shape** on the sampled path when spans
+  carry `laravel.db.query.shape`, so `in (?, ?)` and `in (?, ?, ?)` are one
+  row. Older spans still group by text.
 - **Statamic → Content charts the changes over time** (stacked by type, with
   totals and deletions) instead of repeating the type × action table beside
   it.

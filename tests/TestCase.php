@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Tests;
 
 use Cbox\TelemetryUi\TelemetryUiServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Laravel\Mcp\Server\McpServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
@@ -22,6 +23,9 @@ abstract class TestCase extends Orchestra
     protected function getPackageProviders($app): array
     {
         return [
+            // laravel/mcp's provider hands a tool call's arguments to the
+            // tool's Request; without it every MCP tool test ran with none.
+            McpServiceProvider::class,
             TelemetryUiServiceProvider::class,
         ];
     }

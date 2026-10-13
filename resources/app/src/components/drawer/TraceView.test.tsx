@@ -117,4 +117,64 @@ describe('the trace drawer', () => {
         expect(screen.getByText('Connection reused — no lookup or handshake was needed.')).toBeInTheDocument();
         expect(screen.queryByText('DNS')).not.toBeInTheDocument();
     });
+
+    it('names an N+1 by its shape, with the line that ran it, instead of guessing from repeated text', async () => {
+        const sql = 'select * from `users` where `users`.`id` = ? limit 1';
+        const withRepeats = {
+            ...story,
+            report: {
+                ...story.report,
+                db: {
+                    items: [{ name: 'mysql', detail: sql, durationMs: 2, spanId: 'q1', origin: 'app/Http/Controllers/OrderController.php:42' }],
+                    duplicates: { [sql]: 12 },
+                    repeats: [{ kind: 'n_plus_one', query: sql, count: 12, origin: 'app/Http/Controllers/OrderController.php:42' }],
+                },
+            },
+        } as unknown as TraceStory;
+
+        vi.stubGlobal('fetch', vi.fn((input: string) => String(input).includes('/context')
+            ? new Promise<Response>(() => {})
+            : Promise.resolve(new Response(JSON.stringify(withRepeats), { status: 200, headers: { 'Content-Type': 'application/json' } }))));
+
+        await renderAt(<TraceView traceId={story.traceId} />);
+
+        expect(await screen.findByText('N+1')).toBeInTheDocument();
+        expect(screen.getByText(/· app\/Http\/Controllers\/OrderController\.php:42/)).toBeInTheDocument();
+        // The row says where it ran, too.
+        expect(screen.getByText('Controllers/OrderController.php:42')).toBeInTheDocument();
+        // The emitter's markers replace the text-repeat guess.
+        expect(screen.queryByText(/N\+1 suspect/)).not.toBeInTheDocument();
+    });
+
+    it('shows the app line a query span ran from', async () => {
+        const query = {
+            ...span, spanId: 'q1', name: 'db.query', kind: 'client', durationMs: 4,
+            attributes: {
+                'db.query.text': 'select 1',
+                'code.file.path': 'app/Models/Order.php',
+                'code.line.number': '19',
+                'code.function.name': 'App\\Models\\Order::lines',
+                'laravel.db.query.repeat': 'n_plus_one',
+            },
+        };
+        const withQuery = {
+            ...story, spanCount: 2,
+            waterfall: [
+                { span, depth: 0, offsetPct: 0, widthPct: 100, ancestors: [], children: 1 },
+                { span: query, depth: 1, offsetPct: 10, widthPct: 1, ancestors: ['a1'], children: 0 },
+            ],
+        } as unknown as TraceStory;
+
+        vi.stubGlobal('fetch', vi.fn((input: string) => String(input).includes('/context')
+            ? new Promise<Response>(() => {})
+            : Promise.resolve(new Response(JSON.stringify(withQuery), { status: 200, headers: { 'Content-Type': 'application/json' } }))));
+
+        await renderAt(<TraceView traceId={story.traceId} />);
+
+        await userEvent.click(await screen.findByRole('tab', { name: /Waterfall/ }));
+        await userEvent.click(screen.getByTitle('db.query'));
+
+        expect(screen.getByText(/from app\/Models\/Order\.php:19/)).toBeInTheDocument();
+        expect(screen.getByText(/Part of an N\+1/)).toBeInTheDocument();
+    });
 });

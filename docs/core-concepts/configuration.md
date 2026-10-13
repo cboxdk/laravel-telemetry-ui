@@ -133,6 +133,19 @@ treatment in [correlation](correlation.md).
 | `hosts.host_label` | `TELEMETRY_UI_HOSTS_HOST_LABEL` | metrics host label | The label those queries carry the host in (`nodename` for node_exporter). |
 | `scope.labels.<signal>.<dimension>` | `TELEMETRY_UI_METRICS_ENVIRONMENT_LABEL`, … | laravel-telemetry's names | What service, environment and host are called in each backend. See [authorization](authorization.md#the-label-names-the-lock-filters-by). |
 
+## Trace diagnosis
+
+What the trace diagnosis behind the `trace_summary`, `compare_traces` and
+`list_traces` [MCP tools](../cookbook/mcp.md#diagnosing-a-trace) flags as a
+warning.
+
+| Key | Env | Default | Notes |
+| --- | --- | --- | --- |
+| `traces.diagnostics.slow_query_ms` | `TELEMETRY_UI_SLOW_QUERY_MS` | `100` | A query at or over this is a slow query. Keep it at laravel-telemetry's `traces.details.slow_span_ms`: from 3.2 the root's `db.query.slow.count` is counted against that, and this is what the per-query flags use. |
+| `traces.diagnostics.overhead_ms` | `TELEMETRY_UI_OVERHEAD_MS` | `5` | Telemetry overhead (`telemetry.overhead_ms` on the root) is flagged from this many ms… |
+| `traces.diagnostics.overhead_ratio` | `TELEMETRY_UI_OVERHEAD_RATIO` | `0.05` | …and only when it is also this share of the trace's duration. |
+| `traces.diagnostics.repeat_threshold` | `TELEMETRY_UI_REPEAT_THRESHOLD` | `3` | On traces from before laravel-telemetry 3.2 (which marks N+1s itself), a statement that ran this many times is flagged as a repeat. Match the emitter's `query_duplicates_threshold`. |
+
 ## MCP server
 
 The local stdio server (`php artisan mcp:start telemetry-ui`) always works.

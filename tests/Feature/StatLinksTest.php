@@ -27,7 +27,8 @@ it('fills stat links a panel declares, keeping links the payload already set', f
         ->assertOk()
         ->assertJsonPath('stats.0.link', ['to' => 'entities', 'type' => 'query'])
         ->assertJsonPath('stats.1.link', ['to' => 'entities', 'type' => 'query'])
-        ->assertJsonPath('stats.3.link', ['to' => 'explore', 'signal' => 'requests', 'where' => ['db.query.duplicate.count>0']]);
+        ->assertJsonPath('stats.3.link', ['to' => 'explore', 'signal' => 'requests', 'where' => ['db.query.n_plus_one.count>0']])
+        ->assertJsonPath('stats.4.link', ['to' => 'explore', 'signal' => 'requests', 'where' => ['db.query.duplicate.count>0']]);
 });
 
 it('links a job outcome tile to the matching spans', function (): void {

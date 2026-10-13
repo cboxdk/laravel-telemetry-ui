@@ -128,6 +128,19 @@ final class FixtureLogs implements LogsSource, ProbesConnection
     ];
 
     /**
+     * The app line each of {@see DUPLICATED_QUERIES} runs from, in order.
+     *
+     * @var list<array{string, int, string}>
+     */
+    private const QUERY_ORIGINS = [
+        ['app/Http/Controllers/OrderController.php', 42, 'App\\Http\\Controllers\\OrderController::show'],
+        ['resources/views/orders/index.blade.php', 18, ''],
+        ['app/Http/Resources/CartResource.php', 27, 'App\\Http\\Resources\\CartResource::toArray'],
+        ['app/Services/Stock.php', 61, 'App\\Services\\Stock::available'],
+        ['app/Models/Product.php', 88, 'App\\Models\\Product::getThumbnailAttribute'],
+    ];
+
+    /**
      * Weighted toward the home market, as a Danish shop's traffic is.
      *
      * @var list<string>
@@ -196,6 +209,10 @@ final class FixtureLogs implements LogsSource, ProbesConnection
             return $this->deployments($start, $end);
         }
 
+        if (in_array('db.query.n_plus_one_detected', $events, true)) {
+            return $this->repeatedQueries('db.query.n_plus_one_detected', $start, $end, $limit);
+        }
+
         if (in_array('statamic.content.change', $events, true)) {
             return $this->contentChanges($start, $end, $limit);
         }
@@ -211,7 +228,7 @@ final class FixtureLogs implements LogsSource, ProbesConnection
         }
 
         if (in_array('db_query_text', $required, true)) {
-            return $this->duplicateQueries($start, $end, $limit);
+            return $this->repeatedQueries('db.query.duplicate_detected', $start, $end, $limit);
         }
 
         // An event query this fixture has no records for gets none, rather
@@ -349,12 +366,14 @@ final class FixtureLogs implements LogsSource, ProbesConnection
     }
 
     /**
-     * Duplicate-query (N+1) records: one per detected repeat, carrying the
-     * statement and how many times it ran inside the one request.
+     * Repeated-query records — N+1 (`db.query.n_plus_one_detected`) or
+     * identical (`db.query.duplicate_detected`): one per detected repeat,
+     * carrying the statement, its shape, the app line that ran it and how
+     * many times it ran inside the one request.
      *
      * @return list<LogEntry>
      */
-    private function duplicateQueries(DateTimeInterface $start, DateTimeInterface $end, int $limit): array
+    private function repeatedQueries(string $event, DateTimeInterface $start, DateTimeInterface $end, int $limit): array
     {
         $from = $start->getTimestamp();
         $span = max(1, $end->getTimestamp() - $from);
@@ -362,15 +381,20 @@ final class FixtureLogs implements LogsSource, ProbesConnection
         $budget = min($limit, 240);
 
         for ($i = 0; $i < $budget; $i++) {
-            $key = "dup:{$from}:{$i}";
+            $key = "{$event}:{$from}:{$i}";
             $statement = $this->data->one("q:{$key}", self::DUPLICATED_QUERIES);
+            $origin = self::QUERY_ORIGINS[(int) array_search($statement, self::DUPLICATED_QUERIES, true)];
 
             $entries[] = new LogEntry(
                 timestampNano: $this->recent($key, $from, $span),
-                line: 'db.query.duplicate_detected',
+                line: $event,
                 labels: [
                     'db_query_text' => $statement,
-                    'db_namespace' => $this->data->one("db:{$key}", ['mysql', 'mysql', 'pgsql']),
+                    'laravel_db_query_shape' => substr(hash('xxh128', $statement), 0, 16),
+                    'laravel_db_connection' => $this->data->one("db:{$key}", ['mysql', 'mysql', 'pgsql']),
+                    'code_file_path' => $origin[0],
+                    'code_line_number' => (string) $origin[1],
+                    'code_function_name' => $origin[2],
                     // The point of the card: how bad the N+1 got.
                     'db_query_repeat_count' => (string) (int) $this->data->band("n:{$key}", 4.0, 180.0),
                     'trace_id' => $this->data->id("trace:{$key}"),

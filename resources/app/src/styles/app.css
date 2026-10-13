@@ -889,6 +889,7 @@ a.t-corr-item:hover { border-color: var(--border-strong); color: var(--foregroun
 .t-sect-links { margin-top: 6px; flex-wrap: wrap; }
 .t-log-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .t-report-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.t-report-origin { flex-shrink: 1; min-width: 0; max-width: 40%; margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .t-report-more { font-size: 11px; padding-top: 6px; }
 
 .t-waterfall-wrap { display: flex; flex-direction: column; gap: 12px; }

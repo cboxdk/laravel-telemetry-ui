@@ -465,10 +465,24 @@ return [
     | at an hour they were all found, in half the time of a full lookup. A miss
     | falls back to the full lookup either way.
     |
+    | "diagnostics" sets what the trace diagnosis (the `trace_summary`,
+    | `compare_traces` and `list_traces` MCP tools) flags as a warning: a
+    | query at or over `slow_query_ms`; telemetry overhead of at least
+    | `overhead_ms` that is also `overhead_ratio` of the trace; and, on traces
+    | from before laravel-telemetry 3.2 (which marks N+1s itself), a statement repeated
+    | `repeat_threshold` times (match the emitter's
+    | `query_duplicates_threshold`).
+    |
     */
 
     'traces' => [
         'lookup_window' => (int) env('TELEMETRY_UI_TRACE_LOOKUP_WINDOW', 3600),
+        'diagnostics' => [
+            'slow_query_ms' => (float) env('TELEMETRY_UI_SLOW_QUERY_MS', 100),
+            'overhead_ms' => (float) env('TELEMETRY_UI_OVERHEAD_MS', 5),
+            'overhead_ratio' => (float) env('TELEMETRY_UI_OVERHEAD_RATIO', 0.05),
+            'repeat_threshold' => (int) env('TELEMETRY_UI_REPEAT_THRESHOLD', 3),
+        ],
     ],
 
     'hosts' => [
@@ -650,7 +664,10 @@ return [
             'tiles' => [
                 ['label' => 'Queries/s', 'query' => 'sum(rate(db_queries_total{host_name="{host}"}[5m]))', 'unit' => 'raw'],
                 ['label' => 'Queries (1h)', 'query' => 'sum(increase(db_queries_total{host_name="{host}"}[1h]))'],
-                ['label' => 'N+1 detections (1h)', 'query' => 'sum(increase(db_queries_duplicated_total{host_name="{host}"}[1h]))'],
+                // N+1s are their own counter from laravel-telemetry 3.2; before
+                // that the duplicate counter held them.
+                ['label' => 'N+1 detections (1h)', 'query' => 'sum(increase(db_queries_n_plus_one_total{host_name="{host}"}[1h]))'],
+                ['label' => 'Duplicate queries (1h)', 'query' => 'sum(increase(db_queries_duplicated_total{host_name="{host}"}[1h]))'],
             ],
         ],
         // No exporter needed: what the app ITSELF measured about the Redis

@@ -22,12 +22,18 @@ abstract class TelemetryTool extends Tool
     /**
      * @return array{0: DateTimeImmutable, 1: DateTimeImmutable}
      */
-    protected function window(Request $request): array
+    protected function window(Request $request, int $default = 60): array
     {
-        $raw = $request->get('minutes', 60);
-        $minutes = min(self::MAX_MINUTES, max(1, is_numeric($raw) ? (int) $raw : 60));
+        $minutes = $this->minutes($request, $default);
 
         return [new DateTimeImmutable('-'.$minutes.' minutes'), new DateTimeImmutable];
+    }
+
+    protected function minutes(Request $request, int $default = 60): int
+    {
+        $raw = $request->get('minutes', $default);
+
+        return min(self::MAX_MINUTES, max(1, is_numeric($raw) ? (int) $raw : $default));
     }
 
     protected function limit(Request $request, int $default = 20): int
@@ -35,5 +41,43 @@ abstract class TelemetryTool extends Tool
         $raw = $request->get('limit', $default);
 
         return min(self::MAX_LIMIT, max(1, is_numeric($raw) ? (int) $raw : $default));
+    }
+
+    protected function offset(Request $request): int
+    {
+        $raw = $request->get('offset', 0);
+
+        return max(0, is_numeric($raw) ? (int) $raw : 0);
+    }
+
+    protected function flag(Request $request, string $key): bool
+    {
+        return filter_var($request->get($key, false), FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Drop null, empty-string and empty-array values, recursively — an agent
+     * pays for every key it reads, and an absent key says "none" for free.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @return array<array-key, mixed>
+     */
+    protected function compact(array $data): array
+    {
+        $out = [];
+
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $value = $this->compact($value);
+            }
+
+            if ($value === null || $value === '' || $value === []) {
+                continue;
+            }
+
+            $out[$key] = $value;
+        }
+
+        return array_is_list($data) ? array_values($out) : $out;
     }
 }

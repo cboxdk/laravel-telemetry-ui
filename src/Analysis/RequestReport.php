@@ -19,7 +19,8 @@ use Cbox\TelemetryUi\Support\Format;
  * Works for any unit of work: a queue job's trace has no HTTP facts but
  * its database/cache/outgoing sections light up the same way.
  *
- * @phpstan-type Item array{name: string, detail: string, durationMs: float, spanId: string}
+ * @phpstan-type Item array{name: string, detail: string, durationMs: float, spanId: string, origin?: string}
+ * @phpstan-type Repeat array{kind: 'n_plus_one'|'duplicate', query: string, count: int, origin: string}
  */
 final class RequestReport
 {
@@ -29,7 +30,7 @@ final class RequestReport
      *     requestHeaders: array<string, string>,
      *     responseHeaders: array<string, string>,
      *     totals: list<array{label: string, value: string}>,
-     *     db: array{items: list<Item>, duplicates: array<string, int>},
+     *     db: array{items: list<Item>, duplicates: array<string, int>, repeats: list<Repeat>},
      *     cache: array{items: list<Item>, summary: array<string, int>},
      *     redis: list<Item>,
      *     outgoing: list<Item>,
@@ -43,7 +44,7 @@ final class RequestReport
         $root = $trace->root();
         $rootAttributes = $root !== null ? $root->attributes : [];
 
-        $db = ['items' => [], 'duplicates' => []];
+        $db = ['items' => [], 'duplicates' => [], 'repeats' => []];
         $cache = ['items' => [], 'summary' => []];
         $redis = [];
         $outgoing = [];
@@ -122,6 +123,7 @@ final class RequestReport
 
         $db['duplicates'] = array_filter($sqlSeen, static fn (int $count): bool => $count > 1);
         arsort($db['duplicates']);
+        $db['repeats'] = self::repeats($trace);
 
         return [
             'request' => self::request($root, $rootAttributes),
@@ -161,6 +163,7 @@ final class RequestReport
             'response size' => $get('http.response.body.size') !== '' ? Format::bytes((float) $get('http.response.body.size')) : '',
             'command' => $get('laravel.command'),
             'job' => $get('messaging.destination.name'),
+            'label' => $get('laravel.trace.label'),
         ], static fn (string $value): bool => $value !== '');
 
         if ($facts === [] && $root !== null) {
@@ -202,7 +205,8 @@ final class RequestReport
         $map = [
             'db.query.count' => 'queries',
             'db.query.time_ms' => 'query time',
-            'db.query.duplicate.count' => 'N+1 queries',
+            'db.query.n_plus_one.count' => 'N+1 queries',
+            'db.query.duplicate.count' => 'duplicate queries',
             'db.transaction.count' => 'transactions',
             'cache.event.count' => 'cache ops',
             'redis.command.count' => 'redis commands',
@@ -211,6 +215,7 @@ final class RequestReport
             'storage.operation.count' => 'storage ops',
             'php.cpu.time_ms' => 'CPU time',
             'php.memory.delta_bytes' => 'memory',
+            'telemetry.overhead_ms' => 'telemetry overhead',
         ];
 
         $totals = [];
@@ -240,12 +245,45 @@ final class RequestReport
      */
     private static function item(Span $span, string $detail, string $name): array
     {
-        return [
+        $item = [
             'name' => $name,
             'detail' => $detail,
             'durationMs' => $span->durationMs(),
             'spanId' => $span->spanId,
         ];
+
+        // The app-code line that ran it, when the emitter attributed one.
+        $file = self::str($span->attributes['code.file.path'] ?? '');
+
+        if ($file !== '') {
+            $line = self::str($span->attributes['code.line.number'] ?? '');
+            $item['origin'] = $file.($line !== '' ? ':'.$line : '');
+        }
+
+        return $item;
+    }
+
+    /**
+     * Query shapes laravel-telemetry marked as N+1 or identical repeats, with
+     * every run of the shape counted and the line that ran it.
+     *
+     * @return list<Repeat>
+     */
+    private static function repeats(Trace $trace): array
+    {
+        $repeats = [];
+
+        foreach (TraceDiagnosis::analyze($trace)->shapes as $shape) {
+            foreach (['n_plus_one' => $shape['nPlusOne'], 'duplicate' => $shape['duplicate']] as $kind => $marked) {
+                if ($marked > 0) {
+                    $repeats[] = ['kind' => $kind, 'query' => $shape['text'], 'count' => $shape['count'], 'origin' => $shape['origin']];
+                }
+            }
+        }
+
+        usort($repeats, static fn (array $a, array $b): int => [$a['kind'] === 'duplicate', $b['count']] <=> [$b['kind'] === 'duplicate', $a['count']]);
+
+        return $repeats;
     }
 
     private static function str(mixed $value): string
