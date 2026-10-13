@@ -68,7 +68,8 @@ jobs:
       # The browser suite renders every page in Chromium. Without it the run
       # died on PlaywrightNotInstalledException after a green install.
       - name: Install Playwright
-        run: npm ci --no-audit --no-fund && npx playwright install --with-deps chromium
+        # package-lock.json is not committed (see .gitignore), so no npm ci.
+        run: npm install --no-audit --no-fund --no-save playwright@^1.63.0 && npx playwright install --with-deps chromium
 
       - name: List Installed Dependencies
         run: composer show -D
