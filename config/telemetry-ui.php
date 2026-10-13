@@ -473,6 +473,12 @@ return [
     | `repeat_threshold` times (match the emitter's
     | `query_duplicates_threshold`).
     |
+    | "waterfall.group_threshold" is how many consecutive identical sibling
+    | spans (same query shape, same cache operation and key group, else the
+    | same name) the trace waterfall's condensed layout folds into one row.
+    | Below 2 turns grouping off; the reader can always switch to the full
+    | layout.
+    |
     */
 
     'traces' => [
@@ -482,6 +488,9 @@ return [
             'overhead_ms' => (float) env('TELEMETRY_UI_OVERHEAD_MS', 5),
             'overhead_ratio' => (float) env('TELEMETRY_UI_OVERHEAD_RATIO', 0.05),
             'repeat_threshold' => (int) env('TELEMETRY_UI_REPEAT_THRESHOLD', 3),
+        ],
+        'waterfall' => [
+            'group_threshold' => (int) env('TELEMETRY_UI_WATERFALL_GROUP_THRESHOLD', 3),
         ],
     ],
 

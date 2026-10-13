@@ -893,7 +893,7 @@ a.t-corr-item:hover { border-color: var(--border-strong); color: var(--foregroun
 .t-report-more { font-size: 11px; padding-top: 6px; }
 
 .t-waterfall-wrap { display: flex; flex-direction: column; gap: 12px; }
-.t-waterfall { display: flex; flex-direction: column; font-size: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; }
+.t-waterfall { display: flex; flex-direction: column; font-size: 12px; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: clip; }
 .t-wf-row { display: grid; grid-template-columns: minmax(0, 46%) minmax(0, 1fr); align-items: center; min-height: 28px; border-bottom: 1px solid var(--border-subtle); cursor: pointer; }
 .t-wf-row:last-child { border-bottom: 0; }
 .t-wf-row:hover { background: var(--secondary); }
@@ -922,7 +922,50 @@ a.t-corr-item:hover { border-color: var(--border-strong); color: var(--foregroun
 .t-wf-bar { position: absolute; top: 9px; height: 10px; min-width: 2px; border-radius: 3px; opacity: 0.9; }
 .t-wf-dur { position: absolute; top: 6px; font-size: 10.5px; color: var(--muted-foreground); padding: 0 2px; white-space: nowrap; }
 .t-wf-dur.is-inside { top: 7px; font-size: 9.5px; color: var(--primary-foreground); }
-.t-spandetail { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 12px; background: var(--canvas); }
+/* Condensed waterfall: groups of identical sibling spans, their pager, and the layout switch. */
+.t-wf-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.t-wf-top .t-wf-legend { margin-bottom: 0; }
+.t-wf-layout { display: flex; align-items: center; gap: 10px; margin-left: auto; font-size: 11px; }
+.t-wf-layout .t-seg > button { font-size: 11px; }
+.t-wf-lines > div:last-child > .t-wf-row { border-bottom: 0; }
+.t-wf-vrow { position: absolute; top: 0; left: 0; right: 0; }
+.t-wf-vrow > .t-wf-row { height: 28px; }
+.t-wf-group .t-wf-name { gap: 6px; }
+.t-wf-group.is-open { background: var(--secondary); }
+.t-wf-gname { flex: none; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.t-wf-group.has-error .t-wf-gname { color: var(--destructive); }
+.t-wf-count, .t-wf-errbtn { flex: none; height: 17px; }
+.t-wf-errbtn { cursor: pointer; }
+.t-wf-errbtn:hover { box-shadow: inset 0 0 0 1px var(--destructive); }
+.t-wf-origin { flex: none; font-size: 10.5px; }
+.t-wf-group .t-wf-summary { flex: 1; min-width: 0; }
+.t-wf-dot-stack { background: transparent; box-shadow: 0 0 0 1.5px var(--muted-foreground), 2px 2px 0 0 var(--muted-foreground); }
+.t-wf-mini { flex: none; margin-left: auto; }
+.t-wf-mini-base { fill: var(--border); }
+.t-wf-mini-mark { fill: var(--muted-foreground); }
+.t-wf-mini-err { fill: var(--destructive); }
+.t-wf-extent { position: absolute; top: 9px; height: 10px; min-width: 2px; border-radius: 3px; opacity: 0.22; }
+.t-wf-marks { position: absolute; top: 9px; left: 0; width: 100%; height: 10px; }
+.t-wf-mark-app { fill: var(--chart-1); }
+.t-wf-mark-connect { fill: var(--chart-4); }
+.t-wf-mark-db { fill: var(--chart-3); }
+.t-wf-mark-cache { fill: var(--chart-5); }
+.t-wf-mark-http { fill: var(--chart-6); }
+.t-wf-mark-queue { fill: var(--chart-2); }
+.t-wf-mark-view { fill: var(--muted-foreground); }
+.t-wf-pager { cursor: default; background: var(--canvas); }
+.t-wf-pager:hover { background: var(--canvas); }
+.t-wf-pager-ctl { gap: 6px; outline-offset: -2px; }
+.t-wf-pager-ctl:focus-visible { outline: 2px solid var(--ring, var(--primary)); }
+.t-wf-step { width: 22px; height: 22px; }
+.t-wf-step:disabled { opacity: 0.35; cursor: default; }
+.t-wf-pos { font-size: 11px; min-width: 6.5ch; text-align: center; }
+.t-wf-pager-err { color: var(--destructive); }
+.t-wf-pager-info { display: flex; align-items: center; padding: 0 8px; background-image: none; font-size: 11px; min-width: 0; }
+.t-wf-row.is-occurrence { background: color-mix(in oklch, var(--canvas) 60%, transparent); }
+.t-wf-row.is-occurrence.is-sel { background: var(--accent-soft); }
+.t-wf-nth { flex: none; font-size: 10.5px; color: var(--muted-foreground); }
+.t-spandetail { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px 12px; background: var(--canvas); position: sticky; bottom: 0; z-index: 2; max-height: 45vh; overflow-y: auto; box-shadow: var(--shadow-card); }
 .t-spandetail-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 .t-spandetail-head .t-iconbtn { margin-left: auto; }
 .t-phases { margin: 10px 0 12px; }

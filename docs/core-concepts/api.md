@@ -47,7 +47,7 @@ filters are applied per signal.
 
 | Method | Path | Returns | Gate |
 | --- | --- | --- | --- |
-| GET | `/bootstrap` | App config: brand, nav (detection- and gate-filtered), pages, Explore signals, entity types, dimensions, navLinks, connections, scope options + locks, remembered state, periods, refresh intervals, abilities, capabilities, user. | master |
+| GET | `/bootstrap` | App config: brand, nav (detection- and gate-filtered), pages, Explore signals, entity types, dimensions, navLinks, connections, scope options + locks, remembered state, periods, refresh intervals, abilities, capabilities, `traces.groupThreshold` (the condensed waterfall's run length), user. | master |
 | POST | `/view-state` | Reports the reader's window/scope (`period`, `from`, `to`, `service`, `env`, `refresh`); returns `{state}`. Sets the cookie and fires `ViewStateChanged` only when it changed. | master |
 | GET | `/pages/{page}` | `{page, label, group, panels: [{id, span}]}`. 404 for an unknown page, or a detected page with no data in scope. | page |
 | GET | `/panels/{panel}` | `{id, span, kind, …}` — the panel payload. Extra params scope detail panels. | any page the panel is on |
