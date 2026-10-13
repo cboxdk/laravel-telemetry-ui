@@ -21,6 +21,10 @@ use Cbox\TelemetryUi\Support\Format;
  *
  * @phpstan-type Item array{name: string, detail: string, durationMs: float, spanId: string, origin?: string}
  * @phpstan-type Repeat array{kind: 'n_plus_one'|'duplicate', query: string, count: int, origin: string}
+ *
+ * `outgoingRepeats` uses the same shape for outgoing calls the app marked as
+ * an N+1 (laravel-telemetry 3.6+): `query` is the call
+ * (`GET api.example.com/users/{id}`), and the list is empty on older data.
  */
 final class RequestReport
 {
@@ -34,6 +38,7 @@ final class RequestReport
      *     cache: array{items: list<Item>, summary: array<string, int>},
      *     redis: list<Item>,
      *     outgoing: list<Item>,
+     *     outgoingRepeats: list<Repeat>,
      *     queued: list<Item>,
      *     views: list<Item>,
      *     storage: list<Item>,
@@ -123,7 +128,8 @@ final class RequestReport
 
         $db['duplicates'] = array_filter($sqlSeen, static fn (int $count): bool => $count > 1);
         arsort($db['duplicates']);
-        $db['repeats'] = self::repeats($trace);
+        $diagnosis = TraceDiagnosis::analyze($trace);
+        $db['repeats'] = self::repeats($diagnosis);
 
         return [
             'request' => self::request($root, $rootAttributes),
@@ -134,6 +140,7 @@ final class RequestReport
             'cache' => $cache,
             'redis' => $redis,
             'outgoing' => $outgoing,
+            'outgoingRepeats' => self::outgoingRepeats($diagnosis),
             'queued' => $queued,
             'views' => $views,
             'storage' => $storage,
@@ -207,6 +214,7 @@ final class RequestReport
             'db.query.time_ms' => 'query time',
             'db.query.n_plus_one.count' => 'N+1 queries',
             'db.query.duplicate.count' => 'duplicate queries',
+            'http.client.n_plus_one.count' => 'N+1 outgoing calls',
             'db.transaction.count' => 'transactions',
             'cache.event.count' => 'cache ops',
             'redis.command.count' => 'redis commands',
@@ -269,11 +277,11 @@ final class RequestReport
      *
      * @return list<Repeat>
      */
-    private static function repeats(Trace $trace): array
+    private static function repeats(TraceDiagnosis $diagnosis): array
     {
         $repeats = [];
 
-        foreach (TraceDiagnosis::analyze($trace)->shapes as $shape) {
+        foreach ($diagnosis->shapes as $shape) {
             foreach (['n_plus_one' => $shape['nPlusOne'], 'duplicate' => $shape['duplicate']] as $kind => $marked) {
                 if ($marked > 0) {
                     $repeats[] = ['kind' => $kind, 'query' => $shape['text'], 'count' => $shape['count'], 'origin' => $shape['origin']];
@@ -282,6 +290,27 @@ final class RequestReport
         }
 
         usort($repeats, static fn (array $a, array $b): int => [$a['kind'] === 'duplicate', $b['count']] <=> [$b['kind'] === 'duplicate', $a['count']]);
+
+        return $repeats;
+    }
+
+    /**
+     * Outgoing call shapes laravel-telemetry marked as an N+1, every call of
+     * the shape counted, most calls first.
+     *
+     * @return list<Repeat>
+     */
+    private static function outgoingRepeats(TraceDiagnosis $diagnosis): array
+    {
+        $repeats = [];
+
+        foreach ($diagnosis->httpShapes as $shape) {
+            if ($shape['nPlusOne'] > 0) {
+                $repeats[] = ['kind' => 'n_plus_one', 'query' => $shape['text'], 'count' => $shape['count'], 'origin' => $shape['origin']];
+            }
+        }
+
+        usort($repeats, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
 
         return $repeats;
     }

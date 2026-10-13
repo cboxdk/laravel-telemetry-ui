@@ -46,7 +46,7 @@ Point your MCP client at the artisan command. For Claude Desktop / Cursor:
 | `search_traces` | TraceQL → matching trace summaries |
 | `query_logs` | LogQL → matching log lines |
 | `trace_context` | A trace **plus** the host/runtime signals around it and how they compare to normal — the "what happened / what was different" tool |
-| `list_traces` | Recent traces, by label and/or only those with flag hints (error, 5xx, N+1, duplicate, slow query, overhead) |
+| `list_traces` | Recent traces, by label and/or only those with flag hints (error, 5xx, N+1, duplicate, slow query, N+1 outgoing calls, overhead) |
 | `trace_summary` | One trace diagnosed: identity, time per category, totals and flags — errors first, then N+1s with the app line that ran them |
 | `trace_markdown` | One trace as a ready-to-paste Markdown snapshot (≤12 KB): flags, timing, exceptions with app frames and source, what led up to the failure, query groups with SQL and origin |
 | `compare_traces` | Two traces (ids or labels) side by side: duration, totals, time per category, query shapes and flags diffed |
@@ -83,14 +83,18 @@ you would fix it:
   a 5xx response, failed jobs, other failed spans. Then **warnings**: N+1
   query shapes (every run of the shape counted, with the app line that ran
   it), identical repeats (same SQL *and* bindings), slow query shapes
-  (`traces.diagnostics.slow_query_ms`), and the telemetry's own overhead when
-  it is a noticeable share of the trace.
+  (`traces.diagnostics.slow_query_ms`), N+1 outgoing HTTP calls (section
+  `http`: one endpoint called one after another with different ids, every
+  call of the shape counted, with the app line that made it), and the
+  telemetry's own overhead when it is a noticeable share of the trace.
 - **Time per category** (db, cache, http, view, queue, other) never counts a
   span twice: a query run while rendering a view is the view's time; `other`
   is what is left of the root — your code, the framework, waiting.
 - **Compact by default**: empty keys are left out, flags are paged (`limit`,
   default 25; pass `next_offset` back as `offset`). `verbose: true` adds the
-  full SQL, span ids, per-shape timings and the function that ran it.
+  full SQL, span ids, per-shape timings and the function that ran it, plus
+  `http_shapes`: the outgoing call shapes (`GET api.example.com/users/{id}`)
+  with an example URL, count, timings and `repeat`.
 
 The N+1 and duplicate flags, the origins, the overhead, the root's
 `db.query.slow.count` and labels need laravel-telemetry 3.5 or later. On older
@@ -99,6 +103,14 @@ ran `repeat_threshold` times as a *repeat*, without guessing which kind. If
 the root counts slow queries that no span shows at
 `traces.diagnostics.slow_query_ms`, a flag says so — keep that threshold at
 the emitter's `traces.details.slow_span_ms`.
+
+N+1 outgoing calls need laravel-telemetry 3.6 or later, which stamps
+`laravel.http.client.shape`, `url.template` and
+`laravel.http.client.repeat = "n_plus_one"` on client spans and counts the
+shapes on the root as `http.client.n_plus_one.count` (`http_n_plus_one_shapes`
+in `totals`). On older traces there is no outgoing-call pass and no flag is
+guessed. When the root counts some but no span read carries the marker, a
+flag says so.
 
 ### A trace as Markdown
 
@@ -138,7 +150,8 @@ in `only_a` and a new one in `only_b`. Either side can be a trace id instead.
 
 `list_traces` finds the traces to look at: `label` lists one label's runs,
 `has_flags: true` keeps only traces with a hint of trouble. Hints come from
-the root span's tallies (N+1, duplicate and, from 3.5, slow-query counts)
+the root span's tallies (N+1, duplicate, from 3.5 slow-query and from 3.6
+`http_n_plus_one` counts)
 plus a bounded search for traces with an error span — and, for roots from
 before 3.5, one for traces with a slow query; `trace_summary` is the full
 diagnosis. Both tools ask the trace store for root spans (TraceQL

@@ -43,14 +43,17 @@ class TelemetryServer extends Server
         - search_traces — TraceQL (e.g. { status = error })
         - query_logs — LogQL
         - list_traces — recent traces, by label (X-Telemetry-Label header) or
-          only those with flag hints (errors, N+1, duplicates, slow queries)
+          only those with flag hints (errors, N+1, duplicates, slow queries,
+          N+1 outgoing calls)
         - trace_summary — one trace diagnosed: time per category, totals and
           flags (errors first, then N+1 shapes with the app file:line that ran
-          them, identical repeats, slow queries, telemetry overhead). Start
+          them, identical repeats, slow queries, N+1 outgoing HTTP calls,
+          telemetry overhead). Start
           here when you have a trace id and want to know what is wrong.
         - trace_markdown — the same trace as one ready-to-paste Markdown
           snapshot (flags, timing, exceptions with app frames, what led up
-          to the failure, query groups with SQL and origin), capped at 12 KB:
+          to the failure, query groups with SQL and origin, N+1 outgoing call
+          groups), capped at 12 KB:
           for a PR description, an issue or a hand-off note.
         - compare_traces — two traces (ids, or labels) side by side: did the
           fix land? Totals, time per category, query shapes and flags diffed.

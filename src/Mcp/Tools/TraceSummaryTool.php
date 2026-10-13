@@ -15,14 +15,14 @@ use Laravel\Mcp\Response;
 /**
  * One trace, diagnosed: what it was, where the time went, its cost tallies
  * and what is wrong with it — errors first, then N+1s, identical repeats,
- * slow queries and telemetry overhead, each with the app-code line that ran
- * it when laravel-telemetry attributed one.
+ * slow queries, N+1 outgoing HTTP calls and telemetry overhead, each with the
+ * app-code line that ran it when laravel-telemetry attributed one.
  */
 final class TraceSummaryTool extends TelemetryTool
 {
     protected string $name = 'trace_summary';
 
-    protected string $description = 'Diagnose one trace: identity (root, service, status, duration, label), time by category (db/cache/http/view/queue/other), totals (queries, N+1, duplicates, telemetry overhead) and flags — errors first, then N+1 query shapes with their origin file:line, identical repeats, slow queries and high telemetry overhead. Paged; pass verbose for the full SQL, span ids and per-shape timings.';
+    protected string $description = 'Diagnose one trace: identity (root, service, status, duration, label), time by category (db/cache/http/view/queue/other), totals (queries, N+1, duplicates, N+1 outgoing calls, telemetry overhead) and flags — errors first, then N+1 query shapes with their origin file:line, identical repeats, slow queries, N+1 outgoing HTTP calls (section "http": one endpoint called one after another with different ids) and high telemetry overhead. Paged; pass verbose for the full SQL, span ids and per-shape timings of queries and outgoing calls.';
 
     public function __construct(private readonly TraceDiagnostics $diagnostics) {}
 
@@ -33,7 +33,7 @@ final class TraceSummaryTool extends TelemetryTool
     {
         return [
             'trace_id' => JsonSchemaFactory::string()->description('The trace id (hex)')->required(),
-            'verbose' => JsonSchemaFactory::boolean()->description('Include full SQL, span ids and per-flag detail, and the query shapes')->default(false),
+            'verbose' => JsonSchemaFactory::boolean()->description('Include full SQL, span ids and per-flag detail, the query shapes and the outgoing call shapes')->default(false),
             'limit' => JsonSchemaFactory::integer()->description('Max flags per page')->default(25),
             'offset' => JsonSchemaFactory::integer()->description('Flags to skip (from next_offset)')->default(0),
         ];
@@ -81,6 +81,7 @@ final class TraceSummaryTool extends TelemetryTool
         $levels = array_count_values(array_column($diagnosis->flags, 'level'));
 
         $shapes = null;
+        $httpShapes = null;
 
         if ($verbose) {
             $shapes = array_map(static fn (array $s): array => [
@@ -92,6 +93,18 @@ final class TraceSummaryTool extends TelemetryTool
                 'repeat' => $s['repeat'],
                 'origin' => $s['origin'],
             ], array_slice(array_values($diagnosis->shapes), 0, $limit));
+
+            // laravel-telemetry 3.6+ shapes outgoing calls; older data has none.
+            $httpShapes = $diagnosis->httpShapes === [] ? null : array_map(static fn (array $s): array => [
+                'shape' => $s['key'],
+                'call' => $s['text'],
+                'example_url' => $s['example'],
+                'count' => $s['count'],
+                'total_ms' => round($s['totalMs'], 2),
+                'max_ms' => round($s['maxMs'], 2),
+                'repeat' => $s['nPlusOne'] > 0 ? 'n_plus_one' : '',
+                'origin' => $s['origin'],
+            ], array_slice(array_values($diagnosis->httpShapes), 0, $limit));
         }
 
         return $this->compact([
@@ -103,6 +116,7 @@ final class TraceSummaryTool extends TelemetryTool
             'flags_total' => count($flags),
             'next_offset' => $next,
             'shapes' => $shapes,
+            'http_shapes' => $httpShapes,
         ]);
     }
 }

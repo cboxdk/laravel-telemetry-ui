@@ -90,6 +90,33 @@ describe('condensing the waterfall', () => {
         expect(named[0]!.label).toBeNull();
     });
 
+    it('groups shaped outgoing calls by endpoint, labels the template and carries their N+1 marker', () => {
+        // laravel-telemetry 3.6: the shape and template on every client span,
+        // the marker from the threshold-crossing call onward.
+        const call = (shape: string, template: string, id: number, marked = false) => span('GET api.example.com', {
+            'http.request.method': 'GET',
+            'server.address': 'api.example.com',
+            'url.full': `https://api.example.com${template.replace('{id}', String(id))}`,
+            'url.template': template,
+            'laravel.http.client.shape': shape,
+            ...(marked ? { 'laravel.http.client.repeat': 'n_plus_one' } : {}),
+        }, { kind: 'client' });
+        const rows = rowsOf({
+            name: 'root',
+            children: [
+                ...times(5, (i) => call('u1', '/users/{id}', 17 + i, i >= 2)),
+                // Same host and method, another endpoint: its own group.
+                ...times(3, (i) => call('o1', '/orgs/{id}', i)),
+            ],
+        });
+
+        const groups = groupsOf(condense(rows, 3));
+        expect(groups.map((g) => g.rows.length)).toEqual([5, 3]);
+        // The name already says the host; the label says which endpoint.
+        expect(groups.map((g) => g.label)).toEqual(['/users/{id}', '/orgs/{id}']);
+        expect(groups.map((g) => g.repeat)).toEqual(['n_plus_one', null]);
+    });
+
     it('never groups outgoing calls by method alone, and finds the host in url.full', () => {
         const call = (attrs: Record<string, string>) => span('HTTP GET', { 'http.request.method': 'GET', ...attrs }, { kind: 'client' });
         const rows = rowsOf({

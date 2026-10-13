@@ -141,6 +141,18 @@ final class FixtureLogs implements LogsSource, ProbesConnection
     ];
 
     /**
+     * Outgoing calls a loop makes once per row — [method, host, template,
+     * example id, file, line, function] — for the N+1 outgoing calls card.
+     *
+     * @var list<array{string, string, string, string, string, int, string}>
+     */
+    private const REPEATED_CALLS = [
+        ['GET', 'api.stripe.com', '/v1/customers/{id}', 'cus_NffrFeUfNV2Hib', 'app/Services/Billing.php', 54, 'App\\Services\\Billing::customers'],
+        ['GET', 'api.github.com', '/repos/cboxdk/{id}/releases', '1042', 'app/Jobs/SyncReleases.php', 31, 'App\\Jobs\\SyncReleases::handle'],
+        ['GET', 'shipping.example.com', '/rates/{id}', '2024-01-31', 'app/Http/Controllers/CartController.php', 77, 'App\\Http\\Controllers\\CartController::show'],
+    ];
+
+    /**
      * Weighted toward the home market, as a Danish shop's traffic is.
      *
      * @var list<string>
@@ -211,6 +223,10 @@ final class FixtureLogs implements LogsSource, ProbesConnection
 
         if (in_array('db.query.n_plus_one_detected', $events, true)) {
             return $this->repeatedQueries('db.query.n_plus_one_detected', $start, $end, $limit);
+        }
+
+        if (in_array('http.client.n_plus_one_detected', $events, true)) {
+            return $this->repeatedCalls($start, $end, $limit);
         }
 
         if (in_array('statamic.content.change', $events, true)) {
@@ -397,6 +413,47 @@ final class FixtureLogs implements LogsSource, ProbesConnection
                     'code_function_name' => $origin[2],
                     // The point of the card: how bad the N+1 got.
                     'db_query_repeat_count' => (string) (int) $this->data->band("n:{$key}", 4.0, 180.0),
+                    'trace_id' => $this->data->id("trace:{$key}"),
+                    'service_name' => $this->data->one("svc:{$key}", FixtureData::SERVICES),
+                    'deployment_environment' => 'production',
+                ],
+            );
+        }
+
+        return $entries;
+    }
+
+    /**
+     * N+1 outgoing-call records (`http.client.n_plus_one_detected`): one per
+     * call shape per trace, with the call, an example URL, the app line that
+     * made it and how many sequential calls the trace made.
+     *
+     * @return list<LogEntry>
+     */
+    private function repeatedCalls(DateTimeInterface $start, DateTimeInterface $end, int $limit): array
+    {
+        $from = $start->getTimestamp();
+        $span = max(1, $end->getTimestamp() - $from);
+        $entries = [];
+        $budget = min($limit, 120);
+
+        for ($i = 0; $i < $budget; $i++) {
+            $key = "http-n1:{$from}:{$i}";
+            [$method, $host, $template, $id, $file, $line, $function] = $this->data->one("call:{$key}", self::REPEATED_CALLS);
+
+            $entries[] = new LogEntry(
+                timestampNano: $this->recent($key, $from, $span),
+                line: 'http.client.n_plus_one_detected',
+                labels: [
+                    'http_request_method' => $method,
+                    'server_address' => $host,
+                    'url_template' => $template,
+                    'url_full' => 'https://'.$host.str_replace('{id}', $id, $template),
+                    'laravel_http_client_shape' => substr(hash('xxh128', $method.' '.$host.$template), 0, 16),
+                    'code_file_path' => $file,
+                    'code_line_number' => (string) $line,
+                    'code_function_name' => $function,
+                    'http_client_repeat_count' => (string) (int) $this->data->band("n:{$key}", 3.0, 40.0),
                     'trace_id' => $this->data->id("trace:{$key}"),
                     'service_name' => $this->data->one("svc:{$key}", FixtureData::SERVICES),
                     'deployment_environment' => 'production',

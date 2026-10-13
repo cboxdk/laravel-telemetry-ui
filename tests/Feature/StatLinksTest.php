@@ -31,6 +31,13 @@ it('fills stat links a panel declares, keeping links the payload already set', f
         ->assertJsonPath('stats.4.link', ['to' => 'explore', 'signal' => 'requests', 'where' => ['db.query.duplicate.count>0']]);
 });
 
+it('links the outgoing N+1 tile to the requests that made one', function (): void {
+    $this->getJson(panelUrl('outgoing-activity'))
+        ->assertOk()
+        ->assertJsonPath('stats.3.label', 'N+1 detected')
+        ->assertJsonPath('stats.3.link', ['to' => 'explore', 'signal' => 'requests', 'where' => ['http.client.n_plus_one.count>0']]);
+});
+
 it('links a job outcome tile to the matching spans', function (): void {
     $this->getJson(panelUrl('jobs-overview'))
         ->assertOk()

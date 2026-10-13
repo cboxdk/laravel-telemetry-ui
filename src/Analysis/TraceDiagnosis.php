@@ -28,8 +28,16 @@ use Cbox\TelemetryUi\Queries\Results\Trace;
  * a statement that ran at least the repeat threshold times is reported as a
  * repeat whose kind cannot be told apart.
  *
+ * Outgoing HTTP calls get the same pass (laravel-telemetry 3.6+): client
+ * spans carry `laravel.http.client.shape` (method, host, path with ids taken
+ * out, query parameter names) and `url.template`, and the calls of a shape
+ * the app saw called one after another with different ids carry
+ * `laravel.http.client.repeat = "n_plus_one"`. Spans without the shape — an
+ * older emitter — are left out of that pass, and no HTTP flag is guessed.
+ *
  * @phpstan-type Flag array{level: 'error'|'warning', section: string, message: string, origin?: string, key: string, detail?: array<string, mixed>}
  * @phpstan-type Shape array{key: string, text: string, connection: string, count: int, totalMs: float, maxMs: float, slow: int, repeat: string, nPlusOne: int, duplicate: int, origin: string, function: string, spanIds: list<string>}
+ * @phpstan-type HttpShape array{key: string, text: string, method: string, host: string, template: string, example: string, count: int, totalMs: float, maxMs: float, nPlusOne: int, origin: string, function: string, spanIds: list<string>}
  * @phpstan-type Thresholds array{slow_query_ms: float, overhead_ms: float, overhead_ratio: float, repeat_threshold: int}
  */
 final readonly class TraceDiagnosis
@@ -44,6 +52,7 @@ final readonly class TraceDiagnosis
         'db.query.n_plus_one.count' => 'n_plus_one_shapes',
         'db.query.duplicate.count' => 'duplicate_queries_distinct',
         'db.query.slow.count' => 'slow_queries',
+        'http.client.n_plus_one.count' => 'http_n_plus_one_shapes',
         'telemetry.overhead_ms' => 'telemetry_overhead_ms',
     ];
 
@@ -55,6 +64,7 @@ final readonly class TraceDiagnosis
      * @param  array<string, float|int>  $totals
      * @param  list<Flag>  $flags  errors first, then warnings
      * @param  array<string, Shape>  $shapes  keyed by shape (or a text hash on older data)
+     * @param  array<string, HttpShape>  $httpShapes  outgoing calls keyed by `laravel.http.client.shape`; empty on older data
      */
     public function __construct(
         public string $traceId,
@@ -63,6 +73,7 @@ final readonly class TraceDiagnosis
         public array $totals,
         public array $flags,
         public array $shapes,
+        public array $httpShapes = [],
     ) {}
 
     /**
@@ -77,7 +88,8 @@ final readonly class TraceDiagnosis
         $durationMs = $root !== null ? $root->durationMs() : $trace->durationMs();
 
         $shapes = self::shapes($trace, $t);
-        $totals = self::totals($rootAttributes, $shapes);
+        $httpShapes = self::httpShapes($trace);
+        $totals = self::totals($rootAttributes, $shapes, $httpShapes);
 
         return new self(
             traceId: $trace->traceId,
@@ -88,9 +100,11 @@ final readonly class TraceDiagnosis
                 ...self::errorFlags($trace, $root, $exceptions),
                 ...self::queryFlags($shapes, $t),
                 ...self::slowTallyFlag($totals, $shapes),
+                ...self::httpFlags($httpShapes, $totals),
                 ...self::overheadFlag($totals, $durationMs, $t),
             ],
             shapes: $shapes,
+            httpShapes: $httpShapes,
         );
     }
 
@@ -296,11 +310,73 @@ final readonly class TraceDiagnosis
     }
 
     /**
+     * Outgoing calls grouped by the emitter's shape. Only spans that carry
+     * one: there is no guessing a shape from the URL on older data.
+     *
+     * @return array<string, HttpShape>
+     */
+    private static function httpShapes(Trace $trace): array
+    {
+        $shapes = [];
+
+        foreach ($trace->spans as $span) {
+            $a = $span->attributes;
+            $key = self::str($a['laravel.http.client.shape'] ?? '');
+
+            if ($key === '') {
+                continue;
+            }
+
+            $ms = $span->durationMs();
+
+            if (! isset($shapes[$key])) {
+                $method = self::str($a['http.request.method'] ?? '');
+                $host = self::str($a['server.address'] ?? '');
+                $template = self::str($a['url.template'] ?? '');
+                $example = self::str($a['url.full'] ?? $a['http.url'] ?? '');
+
+                $shapes[$key] = [
+                    'key' => $key,
+                    'text' => trim($method.' '.$host.$template) ?: ($example !== '' ? $example : $span->name),
+                    'method' => $method, 'host' => $host, 'template' => $template, 'example' => $example,
+                    'count' => 0, 'totalMs' => 0.0, 'maxMs' => 0.0, 'nPlusOne' => 0, 'origin' => '', 'function' => '', 'spanIds' => [],
+                ];
+            }
+
+            $row = $shapes[$key];
+            $row['count']++;
+            $row['totalMs'] += $ms;
+            $row['maxMs'] = max($row['maxMs'], $ms);
+
+            if (self::str($a['laravel.http.client.repeat'] ?? '') === 'n_plus_one') {
+                $row['nPlusOne']++;
+            }
+
+            if ($row['origin'] === '' && ($file = self::str($a['code.file.path'] ?? '')) !== '') {
+                $line = self::str($a['code.line.number'] ?? '');
+                $row['origin'] = $file.($line !== '' ? ':'.$line : '');
+                $row['function'] = self::str($a['code.function.name'] ?? '');
+            }
+
+            if (count($row['spanIds']) < 10) {
+                $row['spanIds'][] = $span->spanId;
+            }
+
+            $shapes[$key] = $row;
+        }
+
+        uasort($shapes, static fn (array $a, array $b): int => $b['totalMs'] <=> $a['totalMs']);
+
+        return $shapes;
+    }
+
+    /**
      * @param  array<string, mixed>  $attributes
      * @param  array<string, Shape>  $shapes
+     * @param  array<string, HttpShape>  $httpShapes
      * @return array<string, float|int>
      */
-    private static function totals(array $attributes, array $shapes): array
+    private static function totals(array $attributes, array $shapes, array $httpShapes = []): array
     {
         $totals = [];
 
@@ -320,6 +396,12 @@ final readonly class TraceDiagnosis
         }
 
         $totals['query_shapes'] = count($shapes);
+
+        // Only from an emitter that shapes outgoing calls: a zero here would
+        // claim "no outgoing calls" on data that never said.
+        if ($httpShapes !== []) {
+            $totals['http_call_shapes'] = count($httpShapes);
+        }
 
         return $totals;
     }
@@ -462,6 +544,50 @@ final readonly class TraceDiagnosis
         }
 
         return [self::flag('warning', 'db', $count.' slow '.($count === 1 ? 'query' : 'queries').' counted by the app, none slow among the spans read here (check traces.diagnostics.slow_query_ms against the emitter\'s slow_span_ms)', 'slow:root')];
+    }
+
+    /**
+     * Outgoing call shapes the app marked as an N+1, most calls first. When
+     * the root counts some (`http.client.n_plus_one.count`) but no span read
+     * here carries the marker — its spans were dropped or never exported —
+     * say so rather than report nothing.
+     *
+     * @param  array<string, HttpShape>  $shapes
+     * @param  array<string, float|int>  $totals
+     * @return list<Flag>
+     */
+    private static function httpFlags(array $shapes, array $totals): array
+    {
+        $flagged = array_filter($shapes, static fn (array $s): bool => $s['nPlusOne'] > 0);
+        usort($flagged, static fn (array $a, array $b): int => $b['count'] <=> $a['count']);
+
+        $flags = [];
+
+        foreach ($flagged as $shape) {
+            $flags[] = self::flag('warning', 'http', 'N+1 outgoing calls: '.$shape['count'].'× '.self::shortText($shape['text']),
+                'http_n_plus_one:'.$shape['key'], $shape['origin'], [
+                    'shape' => $shape['key'],
+                    'call' => $shape['text'],
+                    'method' => $shape['method'],
+                    'host' => $shape['host'],
+                    'url_template' => $shape['template'],
+                    'example_url' => $shape['example'],
+                    'count' => $shape['count'],
+                    'flagged_n_plus_one' => $shape['nPlusOne'],
+                    'total_ms' => round($shape['totalMs'], 2),
+                    'max_ms' => round($shape['maxMs'], 2),
+                    'function' => $shape['function'],
+                    'span_ids' => $shape['spanIds'],
+                ]);
+        }
+
+        $counted = (int) ($totals['http_n_plus_one_shapes'] ?? 0);
+
+        if ($flags === [] && $counted > 0) {
+            $flags[] = self::flag('warning', 'http', $counted.' N+1 outgoing call '.($counted === 1 ? 'shape' : 'shapes').' counted by the app, none marked among the spans read here', 'http_n_plus_one:root');
+        }
+
+        return $flags;
     }
 
     /**

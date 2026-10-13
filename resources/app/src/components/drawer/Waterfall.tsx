@@ -560,6 +560,9 @@ function SpanDetail({ span, links, occurrence, onClose }: { span: SpanData; link
             {span.attributes['laravel.db.query.repeat'] && (
                 <p className="t-note">{span.attributes['laravel.db.query.repeat'] === 'n_plus_one' ? 'Part of an N+1: this query shape ran repeatedly with different values.' : 'An identical repeat: the same SQL and bindings ran earlier in this trace.'}</p>
             )}
+            {span.attributes['laravel.http.client.repeat'] === 'n_plus_one' && (
+                <p className="t-note">Part of an N+1: this endpoint{span.attributes['url.template'] ? <> (<code>{span.attributes['url.template']}</code>)</> : null} was called one after another with different values. A batch endpoint, or Http::pool, sends them together.</p>
+            )}
             <TransferPhases attrs={span.attributes} durationMs={span.durationMs} />
             <dl className="t-kv t-raw">
                 {Object.entries(span.attributes).map(([k, v]) => (

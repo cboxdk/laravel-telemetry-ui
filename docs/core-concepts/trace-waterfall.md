@@ -29,7 +29,7 @@ nothing in between), **leaves** (no children of their own), and **the same**:
 | Queries | Same name and the same `laravel.db.query.shape`, the hash of the normalised SQL that laravel-telemetry 3.5 stamps on every query span. Traces from before 3.5 fall back to identical `db.query.text`. |
 | Cache operations | Same name, `cache.store`, `cache.operation` and `cache.key.group`. |
 | Views | Same name and `view.name`. |
-| Outgoing HTTP | Same name, `http.request.method` and `server.address`. |
+| Outgoing HTTP | Same name and the same `laravel.http.client.shape` (method, host, path with ids taken out, query parameter names), which laravel-telemetry 3.6 stamps on every client span. Older traces fall back to `http.request.method` and `server.address`. |
 | Redis | Same name, `db.operation.name` and `db.system.name`. |
 | Jobs, queues | Same name and `laravel.job.class` / `messaging.destination.name`. |
 | Anything else | Same name. |
@@ -51,11 +51,14 @@ One row per group shows:
 - the span name and the count (`×300`);
 - **N+1** or **duplicate** when the occurrences carry
   `laravel.db.query.repeat`. laravel-telemetry 3.5 sets it from the
-  threshold-crossing occurrence onward. N+1 wins when both appear;
+  threshold-crossing occurrence onward. N+1 wins when both appear.
+  Outgoing calls get **N+1** from `laravel.http.client.repeat`
+  (laravel-telemetry 3.6): one endpoint called one after another with
+  different ids;
 - the `file:line` that ran them, from the first occurrence with `code.*`
   attributes (the emitter records these on the crossing span and on slow
   spans only);
-- the shared SQL text or cache key group;
+- the shared SQL text, cache key group or URL template (`/users/{id}`);
 - a mini-timeline of where the occurrences fell inside their parent's time
   range, with failed occurrences in red;
 - on the timeline track, the group's extent with one tick per occurrence,

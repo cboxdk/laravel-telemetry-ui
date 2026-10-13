@@ -39,6 +39,8 @@ class OutgoingActivity extends Panel
             $total = $this->total($count->increase($p)->sumBy());
             $failed = $this->total($failures->increase($p)->sumBy());
             $serverErrors = $this->total($this->metric('http_client_request_duration_seconds_count', 'http_response_status_code=~"5.."')->increase($p)->sumBy());
+            // laravel-telemetry 3.6+; reads zero on older emitters.
+            $nPlusOne = $this->total($this->metric('http_client_requests_n_plus_one_total')->increase($p)->sumBy());
 
             $range = $this->metrics()->queryRange(
                 $count->rate($this->rateWindow())->sumBy('server_address')->times(60),
@@ -57,6 +59,7 @@ class OutgoingActivity extends Panel
                 $this->stat('Requests', Format::count($total), null, Ui::entityIndex('outgoing')),
                 $this->stat('5XX', Format::count($serverErrors), $serverErrors > 0 ? 'danger' : 'dim', Ui::explore('traces', ['server.address!=', 'http.response.status_code>=500'])),
                 $this->stat('Conn. failures', Format::count($failed), $failed > 0 ? 'danger' : 'dim'),
+                $this->stat('N+1 detected', Format::count($nPlusOne), $nPlusOne > 0 ? 'warn' : 'dim'),
             ],
             type: 'area',
             unit: 'req/min',
@@ -66,6 +69,9 @@ class OutgoingActivity extends Panel
 
     protected function statLinks(): array
     {
-        return ['Conn. failures' => Ui::explore('traces', ['kind=client', 'status=error'])];
+        return [
+            'Conn. failures' => Ui::explore('traces', ['kind=client', 'status=error']),
+            'N+1 detected' => Ui::explore('requests', ['http.client.n_plus_one.count>0']),
+        ];
     }
 }

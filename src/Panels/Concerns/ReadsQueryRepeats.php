@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Concerns;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
-use Cbox\TelemetryUi\Queries\Ir\MatchOp;
-use Cbox\TelemetryUi\Queries\Results\LogEntry;
 
 /**
  * Reads laravel-telemetry's repeated-query log events back and groups them by
@@ -25,7 +23,7 @@ use Cbox\TelemetryUi\Queries\Results\LogEntry;
  */
 trait ReadsQueryRepeats
 {
-    private const REPEAT_SEARCH_LIMIT = 500;
+    use ReadsRepeatRecords;
 
     /**
      * @return list<RepeatGroup> most traces affected first
@@ -34,91 +32,25 @@ trait ReadsQueryRepeats
      */
     private function repeatGroups(string $event): array
     {
-        [$start, $end] = $this->range();
+        $groups = $this->repeatRecordGroups($event, [
+            'text' => 'db_query_text',
+            'shape' => 'laravel_db_query_shape',
+            'count' => 'db_query_repeat_count',
+            'context' => ['laravel_db_connection', 'db_namespace'],
+        ]);
 
-        $entries = $this->logs()->query(
-            $this->logSelector()
-                ->lineContains($event)
-                ->whereLabel('db_query_text', MatchOp::Neq, ''),
-            $start,
-            $end,
-            limit: self::REPEAT_SEARCH_LIMIT,
-        );
-
-        /** @var array<string, RepeatGroup> $groups */
-        $groups = [];
-        /** @var array<string, array<string, true>> $seen trace ids per group */
-        $seen = [];
-
-        foreach ($entries as $entry) {
-            if (trim($entry->line) !== $event) {
-                continue;
-            }
-
-            $query = $entry->labels['db_query_text'] ?? '';
-
-            if ($query === '') {
-                continue;
-            }
-
-            $shape = $entry->labels['laravel_db_query_shape'] ?? '';
-            $key = $shape !== '' ? $shape : $query;
-
-            $row = $groups[$key] ?? [
-                'key' => $key,
-                'query' => $query,
-                'connection' => $entry->labels['laravel_db_connection'] ?? $entry->labels['db_namespace'] ?? '',
-                'origin' => '', 'function' => '',
-                'traces' => 0, 'worstRepeat' => 0, 'lastNano' => 0, 'traceId' => '',
-            ];
-
-            // One trace with three duplicated binding sets of one shape is one
-            // trace affected, not three. A record without a trace id counts
-            // on its own.
-            $traceId = $entry->labels['trace_id'] ?? '';
-            $traceKey = $traceId !== '' ? $traceId : 'record:'.$entry->timestampNano.':'.count($seen[$key] ?? []);
-
-            if (! isset($seen[$key][$traceKey])) {
-                $seen[$key][$traceKey] = true;
-                $row['traces']++;
-            }
-
-            $row['worstRepeat'] = max($row['worstRepeat'], (int) ($entry->labels['db_query_repeat_count'] ?? 0));
-
-            if ($entry->timestampNano >= $row['lastNano']) {
-                $row['lastNano'] = $entry->timestampNano;
-                $row['traceId'] = $entry->labels['trace_id'] ?? '';
-                // The newest example text and origin: the code as it is now.
-                $row['query'] = $query;
-                [$row['origin'], $row['function']] = self::origin($entry) ?? [$row['origin'], $row['function']];
-            } elseif ($row['origin'] === '') {
-                [$row['origin'], $row['function']] = self::origin($entry) ?? ['', ''];
-            }
-
-            $groups[$key] = $row;
-        }
-
-        $rows = array_values($groups);
-        usort($rows, static fn (array $a, array $b): int => $b['traces'] <=> $a['traces'] ?: $b['worstRepeat'] <=> $a['worstRepeat']);
-
-        return $rows;
-    }
-
-    /**
-     * `file:line` and the function, when the record names the app code.
-     *
-     * @return array{0: string, 1: string}|null
-     */
-    private static function origin(LogEntry $entry): ?array
-    {
-        $file = $entry->labels['code_file_path'] ?? '';
-
-        if ($file === '') {
-            return null;
-        }
-
-        $line = $entry->labels['code_line_number'] ?? '';
-
-        return [$file.($line !== '' ? ':'.$line : ''), $entry->labels['code_function_name'] ?? ''];
+        return array_map(static fn (array $group): array => [
+            'key' => $group['key'],
+            'query' => $group['text'],
+            'connection' => ($group['context']['laravel_db_connection'] ?? '') !== ''
+                ? $group['context']['laravel_db_connection']
+                : ($group['context']['db_namespace'] ?? ''),
+            'origin' => $group['origin'],
+            'function' => $group['function'],
+            'traces' => $group['traces'],
+            'worstRepeat' => $group['worstRepeat'],
+            'lastNano' => $group['lastNano'],
+            'traceId' => $group['traceId'],
+        ], $groups);
     }
 }

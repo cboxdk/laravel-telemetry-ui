@@ -32,7 +32,7 @@ final class ListTracesTool extends TelemetryTool
 {
     protected string $name = 'list_traces';
 
-    protected string $description = 'List recent traces (newest first), optionally filtered by label (the X-Telemetry-Label request header) and/or to those with flags. Each row has a "flags" hint list (error, 5xx, n_plus_one, duplicate, slow_query, overhead) — pass a trace_id to trace_summary for the full diagnosis.';
+    protected string $description = 'List recent traces (newest first), optionally filtered by label (the X-Telemetry-Label request header) and/or to those with flags. Each row has a "flags" hint list (error, 5xx, n_plus_one, duplicate, slow_query, http_n_plus_one, overhead) — pass a trace_id to trace_summary for the full diagnosis.';
 
     /** Root-span tallies selected for the hints. */
     private const SELECT = [
@@ -42,6 +42,7 @@ final class ListTracesTool extends TelemetryTool
         'span.db.query.n_plus_one.count',
         'span.db.query.duplicate.count',
         'span.db.query.slow.count',
+        'span.http.client.n_plus_one.count',
         'span.telemetry.overhead_ms',
     ];
 
@@ -155,6 +156,7 @@ final class ListTracesTool extends TelemetryTool
                 'n_plus_one' => $num('db.query.n_plus_one.count') > 0,
                 'duplicate' => $num('db.query.duplicate.count') > 0,
                 'slow_query' => isset($attributes['db.query.slow.count']) ? $num('db.query.slow.count') > 0 : isset($slow[$summary->traceId]),
+                'http_n_plus_one' => $num('http.client.n_plus_one.count') > 0,
                 'overhead' => $overhead >= $thresholds['overhead_ms'] && $summary->durationMs > 0.0
                     && $overhead / $summary->durationMs >= $thresholds['overhead_ratio'],
             ]));
