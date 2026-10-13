@@ -97,6 +97,29 @@ it('keeps an unreachable backend unreachable', function (): void {
         ->toThrow(SourceException::class, 'Could not reach the telemetry backend.');
 });
 
+it('calls a connection that never came up unreachable, not a slow query', function (string $reason): void {
+    Http::fake(fn () => throw new ConnectionException($reason));
+
+    try {
+        (new ApiClient('http://prometheus.test', timeout: 30.0))->get('/api/v1/query');
+        $this->fail('expected a SourceException');
+    } catch (SourceException $exception) {
+        expect($exception->status)->toBe(BackendStatus::Unreachable)
+            ->and($exception->getMessage())->toBe('Could not reach the telemetry backend.');
+    }
+})->with([
+    'errno 7, connect timed out' => ['cURL error 7: Failed to connect to prometheus.test port 9090 after 75002 ms: Connection timed out'],
+    'connect timeout' => ['cURL error 28: Connection timed out after 5001 milliseconds'],
+    'name lookup' => ['cURL error 28: Resolving timed out after 5000 milliseconds'],
+]);
+
+it('says how long it actually waited, not a timeout it was never given', function (): void {
+    Http::fake(fn () => throw new ConnectionException('cURL error 28: Operation timed out after 30002 milliseconds with 0 bytes received'));
+
+    expect(fn () => (new ApiClient('http://prometheus.test'))->get('/api/v1/query'))
+        ->toThrow(SourceException::class, 'did not answer within 30s');
+});
+
 it('draws the duration chart when only the day-wide p95 times out', function (): void {
     slowFor('_bucket[3600s]');
 

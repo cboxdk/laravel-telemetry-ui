@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Mcp\Servers;
 
 use Cbox\TelemetryUi\Mcp\Tools\CompareTracesTool;
+use Cbox\TelemetryUi\Mcp\Tools\ListMonitorsTool;
 use Cbox\TelemetryUi\Mcp\Tools\ListServicesTool;
 use Cbox\TelemetryUi\Mcp\Tools\ListTracesTool;
+use Cbox\TelemetryUi\Mcp\Tools\MonitorTool;
 use Cbox\TelemetryUi\Mcp\Tools\QueryLogsTool;
 use Cbox\TelemetryUi\Mcp\Tools\QueryMetricsTool;
 use Cbox\TelemetryUi\Mcp\Tools\QueryRangeTool;
@@ -55,11 +57,18 @@ class TelemetryServer extends Server
         - trace_context — a trace PLUS the host/runtime signals around it,
           flagged when they were out of their normal range: what was
           different about the box it ran on.
+        - list_monitors — active monitors: rules that keep every trace of one
+          route, path, user, job or tenant for a while (optionally with a CPU
+          profile). Their traces carry span.telemetry.directive = <id>.
+        - monitor — place or remove one, when the operator has enabled MCP
+          write tools (TELEMETRY_UI_MCP_WRITE). Say why in `reason`.
 
         Responses omit empty keys; lists are paged (pass next_offset back as
-        offset), and verbose=true adds full SQL and span ids.
+        offset; list_traces pages by next_cursor → cursor), and verbose=true
+        adds full SQL and span ids. Everything stays inside your scope lock.
 
-        Everything is read-only.
+        Everything is read-only except `monitor`, which is only offered when
+        write tools are switched on.
         MARKDOWN;
 
     /**
@@ -76,6 +85,7 @@ class TelemetryServer extends Server
         TraceSummaryTool::class,
         TraceMarkdownTool::class,
         CompareTracesTool::class,
+        ListMonitorsTool::class,
     ];
 
     /**
@@ -88,6 +98,11 @@ class TelemetryServer extends Server
         // Advertise the installed package version, not a constant that drifts.
         if (InstalledVersions::isInstalled('cboxdk/laravel-telemetry-ui')) {
             $this->version = InstalledVersions::getPrettyVersion('cboxdk/laravel-telemetry-ui') ?? $this->version;
+        }
+
+        // Write tools only when the operator asked for them.
+        if ((bool) config('telemetry-ui.mcp.write', false)) {
+            $this->tools[] = MonitorTool::class;
         }
 
         $extra = app(TelemetryUiManager::class)->mcpTools();

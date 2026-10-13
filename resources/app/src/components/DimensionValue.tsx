@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { QUIET } from '../api/hooks';
 import type { Bootstrap, DimensionDef, Link as LinkData, Signal } from '../api/types';
 import { loadLabel } from '../lib/dimensionLabels';
 import { useNavigation } from '../lib/navigation';
 import { useGo } from '../lib/links';
 import { formatFilter, list, parseSearch, scopeOf, withFilter, type Op } from '../lib/search';
+import { canMonitor, monitorTarget } from '../lib/monitors';
 import { Icon } from './Icon';
+import { MonitorDialog } from './MonitorDialog';
 import { Popover } from './Popover';
 
 export const BootContext = createContext<Bootstrap | null>(null);
@@ -102,8 +104,13 @@ export function DimensionValue({ dimKey, value, children, chip, label, linkOut, 
     const entity = dim?.entity;
     const canOpen = Boolean(dim && (custom || dim.entity !== dim.key));
     const name = useValueLabel(dimKey, value);
+    const boot = useContext(BootContext);
+    const target = canMonitor(boot) ? monitorTarget(dimKey, value, boot?.dimensions ?? []) : null;
+    const [monitoring, setMonitoring] = useState(false);
 
     return (
+        <>
+        {monitoring && target && <MonitorDialog targets={[target]} onClose={() => setMonitoring(false)} />}
         <Popover
             align="left"
             trigger={(toggle, open) => (
@@ -142,10 +149,14 @@ export function DimensionValue({ dimKey, value, children, chip, label, linkOut, 
                     {linkOut && (
                         <a href={linkOut} target="_blank" rel="noopener noreferrer" onClick={close}><Icon name="external" size={13} />Open in app</a>
                     )}
+                    {target && (
+                        <button type="button" onClick={() => { close(); setMonitoring(true); }}><Icon name="activity" size={13} />Monitor…</button>
+                    )}
                     <button type="button" onClick={() => { close(); void navigator.clipboard?.writeText(value); }}><Icon name="copy" size={13} />Copy value</button>
                     <div className="t-menu-foot mono">{formatFilter({ key: dimKey, op: '=', value })}</div>
                 </div>
             )}
         </Popover>
+        </>
     );
 }

@@ -305,6 +305,8 @@ export interface Bootstrap {
     capabilities: { issues: boolean; exactAggregation: boolean };
     /** Optional so an embed talking to an older host still renders. */
     traces?: { groupThreshold: number };
+    /** Services this viewer may place monitors on; `page` is whether it may see the list. Optional for older hosts. */
+    monitors?: { services: string[]; page: boolean };
     user: { name: string; email?: string | null } | null;
 }
 
@@ -633,4 +635,31 @@ export interface IssueData {
     createdAt: string | null;
     updatedAt: string | null;
     traceIds: string[];
+}
+
+export type MonitorMatch = 'route' | 'path' | 'user' | 'context' | 'job';
+
+/** A cboxdk/laravel-telemetry directive on one service, as `/monitors` serves it. */
+export interface MonitorData {
+    id: string;
+    service: string;
+    match: MonitorMatch;
+    key: string | null;
+    value: string;
+    profile: boolean;
+    /** Unix seconds. */
+    expiresAt: number;
+    reason: string | null;
+    createdBy: string | null;
+    describe: string;
+}
+
+export interface MonitorsPayload {
+    services: { service: string; transport: 'local' | 'http'; environment: string | null }[];
+    monitors: MonitorData[];
+    /** Per service: why it could not be read. */
+    errors: Record<string, string>;
+    /** The server's clock, unix seconds: countdowns run against it, not the browser's. */
+    now: number;
+    canManage: boolean;
 }

@@ -32,7 +32,7 @@ function sampleReport(): array
             'host' => 'web-01',
         ],
         'request' => [
-            'traceId' => 'abc123',
+            'traceId' => 'abc123abc123abc123abc123abc123ab',
             'origin' => 'GET /',
             'method' => 'POST',
             'route' => 'checkout.store',
@@ -76,7 +76,7 @@ it('builds a Markdown brief with every section the page knows', function (): voi
         ->toContain("## Stacktrace\n\n```text\n#0 app/Services/Cart.php(80)")
         // App frames and the trace of the request that hit it come along.
         ->toContain('## App frames')
-        ->toContain('- **Trace:** `abc123`');
+        ->toContain('- **Trace:** `abc123abc123abc123abc123abc123ab`');
 });
 
 it('marks sampled counts with a + and omits empty sections', function (): void {
@@ -97,4 +97,13 @@ it('marks sampled counts with a + and omits empty sections', function (): void {
         ->not->toContain('## Suspect change')
         ->not->toContain('## Releases seen')
         ->not->toContain('## Stacktrace');
+});
+
+it('links no trace from a trace id that is not one', function (): void {
+    $report = sampleReport();
+    $report['request']['traceId'] = 'x](https://evil.test) [y';
+
+    expect(app(ErrorGroupReport::class)->llmMarkdown('1dea8b7623a5', $report))
+        ->not->toContain('**Trace:**')
+        ->not->toContain('evil.test');
 });

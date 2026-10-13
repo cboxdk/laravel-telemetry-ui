@@ -106,7 +106,7 @@ it('lists the flags errors first, then the N+1 with the line that ran it', funct
 
     expect($flags)
         ->toContain('## Flags (')
-        ->toContain('- **error** · exception — Illuminate\\Database\\QueryException: Deadlock found when trying to get lock — at `app/Repositories/OrderRepository.php:88`')
+        ->toContain('- **error** · exception — Illuminate\\\\Database\\\\QueryException: Deadlock found when trying to get lock — at `app/Repositories/OrderRepository.php:88`')
         // Backticks in a message are escaped, never opened as code spans.
         ->toContain('- **warning** · db — N+1: 6× select * from \\`users\\`')
         ->and(strpos($flags, '**error**'))->toBeLessThan(strpos($flags, '**warning**'));
@@ -174,7 +174,7 @@ it('shows what led up to the first failing span, and nothing after it', function
     expect($lead)
         ->toContain('The last 7 spans that started before the first failing span, `db.query` at +300 ms:')
         ->toContain('| +2 ms | cache.get · key: cart:7 | cache | 1 ms |')
-        ->toContain('| +300 ms | **failed:** insert into \\`orders\\` (\\`user_id\\`) values (?) (Illuminate\\Database\\QueryException) | db | 5 ms |')
+        ->toContain('| +300 ms | **failed:** insert into \\`orders\\` (\\`user_id\\`) values (?) (Illuminate\\\\Database\\\\QueryException) | db | 5 ms |')
         ->not->toContain('rollback');
 });
 
@@ -274,4 +274,23 @@ it('snapshots an error group with source, app frames and a link to its trace sna
         ->toContain('- **Trace:** `1111111111111111aaaaaaaaaaaaaaaa` — http://localhost/telemetry-ui/traces/1111111111111111aaaaaaaaaaaaaaaa')
         ->toContain('- **Trace snapshot (Markdown):** http://localhost/telemetry-ui/api/v2/traces/1111111111111111aaaaaaaaaaaaaaaa/markdown?format=text')
         ->and($snapshot->truncated)->toBeFalse();
+});
+
+it('makes untrusted text inert: no code spans, links or HTML, and no way to escape the escaping', function (): void {
+    expect(MarkdownSnapshot::text('pay [here](https://evil.test) <img src=x onerror=alert(1)> `rm` \\` end'))
+        ->toBe('pay \\[here\\](https://evil.test) \\<img src=x onerror=alert(1)\\> \\`rm\\` \\\\\\` end');
+});
+
+it('keeps the footer inside the cap, newlines included', function (): void {
+    $title = '# '.str_repeat('a', 100);
+    $footer = str_repeat('f', 50);
+    // Exactly enough for title + "\n\n" + footer + "\n"…
+    $fits = MarkdownSnapshot::assemble([['Title', $title]], $footer, maxBytes: strlen($title) + strlen($footer) + 3);
+    // …and one byte short.
+    $short = MarkdownSnapshot::assemble([['Title', $title]], $footer, maxBytes: strlen($title) + strlen($footer) + 2);
+
+    expect($fits->markdown)->toEndWith($footer."\n")
+        ->and($fits->bytes())->toBeLessThanOrEqual(strlen($title) + strlen($footer) + 3)
+        ->and($short->markdown)->not->toContain($footer)
+        ->and($short->bytes())->toBeLessThanOrEqual(strlen($title) + strlen($footer) + 2);
 });

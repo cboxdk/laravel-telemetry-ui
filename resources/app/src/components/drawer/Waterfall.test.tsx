@@ -152,6 +152,33 @@ describe('the condensed waterfall', () => {
         expect(screen.queryByText(/Occurrence \d+ of 300/)).not.toBeInTheDocument();
     });
 
+    it('opens a group from the keyboard and gives focus back to it on Escape', async () => {
+        await mount(<Waterfall data={nPlusOne()} />);
+
+        const group = screen.getByRole('treeitem', { name: 'db.query, 300 occurrences' });
+        group.focus();
+        await userEvent.keyboard('{Enter}');
+        expect(within(pager()).getByText('1 of 300')).toBeInTheDocument();
+        expect(pager()).toHaveFocus();
+
+        fireEvent.keyDown(pager(), { key: 'Escape' });
+        expect(screen.queryByRole('group', { name: /Occurrences of/ })).not.toBeInTheDocument();
+        expect(screen.getByRole('treeitem', { name: 'db.query, 300 occurrences' })).toHaveFocus();
+
+        await userEvent.keyboard(' ');
+        expect(within(pager()).getByText('1 of 300')).toBeInTheDocument();
+    });
+
+    it('forgets open groups when the layout changes, so no stale "occurrence n of N" lingers', async () => {
+        await mount(<Waterfall data={nPlusOne()} />);
+
+        await userEvent.click(screen.getByRole('treeitem', { name: 'db.query, 300 occurrences' }));
+        expect(screen.getByText('Occurrence 1 of 300')).toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole('button', { name: 'Full' }));
+        expect(screen.queryByText(/Occurrence \d+ of 300/)).not.toBeInTheDocument();
+    });
+
     it('takes its threshold from the host, and groups nothing when it is off', async () => {
         const data = traceOf(rowsOf({ name: 'root', children: times(4, () => span('work')) }));
 

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Mcp\Tools;
 
+use Cbox\TelemetryUi\Analysis\RootSearch;
 use Cbox\TelemetryUi\Analysis\TraceDiagnostics;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\TracesSource;
+use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
@@ -22,7 +24,7 @@ use Laravel\Mcp\Response;
  * Recent traces (root spans), optionally only those with a label or with
  * something worth a look. The hints come from the root span's tallies plus
  * one bounded search for traces with an error span — and, only for roots
- * from before laravel-telemetry 3.2 (no `db.query.slow.count`), one for
+ * from before laravel-telemetry 3.5 (no `db.query.slow.count`), one for
  * traces with a slow query. A hint list is cheap and indicative;
  * `trace_summary` is the full diagnosis.
  */
@@ -59,7 +61,7 @@ final class ListTracesTool extends TelemetryTool
             'service' => JsonSchemaFactory::string()->description('Only this service.name'),
             'minutes' => JsonSchemaFactory::integer()->description('Lookback window in minutes')->default(60),
             'limit' => JsonSchemaFactory::integer()->description('Max traces per page')->default(20),
-            'offset' => JsonSchemaFactory::integer()->description('Traces to skip (from next_offset)')->default(0),
+            'cursor' => JsonSchemaFactory::string()->description('Where the next page starts (next_cursor from the previous page)'),
         ];
     }
 
@@ -67,29 +69,57 @@ final class ListTracesTool extends TelemetryTool
     {
         [$start, $end] = $this->window($request);
         $limit = $this->limit($request);
-        $offset = $this->offset($request);
         $label = trim((string) $request->get('label', ''));
         $service = trim((string) $request->get('service', ''));
         $hasFlags = $this->flag($request, 'has_flags');
 
-        $scope = $service !== '' ? [TraceCondition::eq('resource.service.name', $service)] : [];
-        // Root spans only: they hold the tallies the hints read. From
-        // laravel-telemetry 3.2 the label is on every span of the request (and
-        // its jobs), so it narrows the roots rather than finding them.
-        $conditions = [...$scope, TraceCondition::token('nestedSetParent', TraceOp::Lt, '0')];
+        // Pages run backwards in time: a cursor is the second the last page
+        // stopped in and how many traces of that second it already listed, so
+        // pages never overlap and a trace that arrives meanwhile does not
+        // shift them (an offset into "the newest N" would do both).
+        [$before, $skip] = $this->cursor($request);
+
+        if ($before !== null) {
+            $end = min($end, (new DateTimeImmutable)->setTimestamp($before + 1));
+        }
+
+        // The viewer's scope lock, like every Explore search: a blank or
+        // out-of-bounds `service` can never widen past it.
+        $scope = (new RequestScope(service: $service))->scopeTraceConditions();
+        $conditions = $scope;
 
         if ($label !== '') {
             $conditions[] = TraceCondition::eq('span.'.TraceDiagnostics::LABEL_ATTRIBUTE, $label);
         }
 
         // Filtering after the fetch thins the page, so fetch a wider sample.
-        $fetch = min(self::MAX_LIMIT, ($offset + $limit) * ($hasFlags ? 4 : 1) + 1);
+        $fetch = min(self::MAX_LIMIT, $skip + $limit * ($hasFlags ? 4 : 1) + 1);
 
         try {
             $source = $this->connections->traces();
-            $summaries = $source->search(new TraceQuery($conditions, self::SELECT), $start, $end, $fetch);
+            // Root spans only: they hold the tallies the hints read. From
+            // laravel-telemetry 3.5 the label is on every span of the request
+            // (and its jobs), so it narrows the roots rather than finding them.
+            $summaries = RootSearch::search($source, $conditions, $start, $end, $fetch, self::SELECT);
         } catch (SourceException $exception) {
             return Response::error($exception->getMessage());
+        }
+
+        $full = count($summaries) >= $fetch;
+
+        usort($summaries, static fn (TraceSummary $x, TraceSummary $y): int => [$y->startedAt, $x->traceId] <=> [$x->startedAt, $y->traceId]);
+
+        // What the last page already listed of the second it stopped in.
+        if ($before !== null && $skip > 0) {
+            $summaries = array_values(array_filter($summaries, static function (TraceSummary $s) use ($before, &$skip): bool {
+                if ($skip > 0 && $s->startedAt->getTimestamp() === $before) {
+                    $skip--;
+
+                    return false;
+                }
+
+                return true;
+            }));
         }
 
         $thresholds = $this->diagnostics->thresholds();
@@ -104,11 +134,17 @@ final class ListTracesTool extends TelemetryTool
             TraceCondition::token('duration', TraceOp::Gte, ((int) $thresholds['slow_query_ms']).'ms'),
         ], $start, $end);
 
-        usort($summaries, static fn (TraceSummary $x, TraceSummary $y): int => $y->startedAt <=> $x->startedAt);
-
         $rows = [];
+        $examined = 0;
+        $last = null;
 
         foreach ($summaries as $summary) {
+            if (count($rows) >= $limit) {
+                break;
+            }
+
+            $examined++;
+            $last = $summary;
             $attributes = isset($summary->matchedSpans[0]) ? $summary->matchedSpans[0]->attributes : [];
             $num = static fn (string $key): float => is_numeric($attributes[$key] ?? null) ? (float) $attributes[$key] : 0.0;
             $overhead = $num('telemetry.overhead_ms');
@@ -139,13 +175,47 @@ final class ListTracesTool extends TelemetryTool
             ];
         }
 
-        $page = array_slice($rows, $offset, $limit);
+        // More may exist when this page stopped before the end of what was
+        // fetched, or when the fetch itself was full.
+        $more = $last !== null && ($examined < count($summaries) || $full);
 
         return Response::json($this->compact([
-            'traces' => $page,
-            'next_offset' => count($rows) > $offset + $limit ? $offset + $limit : null,
-            'note' => $page === [] ? 'No matching traces in the last '.$this->minutes($request).' minutes.' : null,
+            'traces' => $rows,
+            'next_cursor' => $more ? $this->nextCursor($last, $summaries, $examined, $before, $request) : null,
+            'note' => $rows === [] ? 'No matching traces in the last '.$this->minutes($request).' minutes'.($more ? ' on this page — pass next_cursor for older ones.' : '.') : null,
         ]));
+    }
+
+    /**
+     * @return array{0: int|null, 1: int}
+     */
+    private function cursor(Request $request): array
+    {
+        $raw = (string) $request->get('cursor', '');
+
+        if (preg_match('/^(\d{9,11}):(\d{1,4})$/', $raw, $m) !== 1) {
+            return [null, 0];
+        }
+
+        return [(int) $m[1], (int) $m[2]];
+    }
+
+    /**
+     * The second the page stopped in, and how many traces of that second it
+     * (and, when it started in the same second, the pages before it) listed.
+     *
+     * @param  list<TraceSummary>  $summaries
+     */
+    private function nextCursor(TraceSummary $last, array $summaries, int $examined, ?int $before, Request $request): string
+    {
+        $second = $last->startedAt->getTimestamp();
+        $seen = count(array_filter(array_slice($summaries, 0, $examined), static fn (TraceSummary $s): bool => $s->startedAt->getTimestamp() === $second));
+
+        if ($before === $second) {
+            $seen += $this->cursor($request)[1];
+        }
+
+        return $second.':'.$seen;
     }
 
     /**

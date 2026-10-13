@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/re
 import { AppShell } from './components/shell/AppShell';
 import { EntityIndexPage, EntityPage } from './pages/EntityPages';
 import { ExplorePage } from './pages/ExplorePage';
+import { MonitorsPage } from './pages/MonitorsPage';
 import { NotFound } from './pages/NotFound';
 import { ErrorPage, OverviewPage, PanelPageRoute } from './pages/PanelPage';
 import { TracePage } from './pages/TracePage';
@@ -25,6 +26,7 @@ const routes = [
     createRoute({ getParentRoute: () => shell, path: '/p/$page', component: PanelPageRoute }),
     createRoute({ getParentRoute: () => shell, path: '/errors/$group', component: ErrorPage }),
     createRoute({ getParentRoute: () => shell, path: '/traces/$traceId', component: TracePage }),
+    createRoute({ getParentRoute: () => shell, path: '/monitors', component: MonitorsPage }),
 ];
 
 export function makeRouter(basepath: string) {

@@ -41,8 +41,8 @@ final readonly class TraceDiagnosis
     private const TOTALS = [
         'db.query.count' => 'queries',
         'db.query.time_ms' => 'query_time_ms',
-        'db.query.n_plus_one.count' => 'n_plus_one_queries',
-        'db.query.duplicate.count' => 'duplicate_queries',
+        'db.query.n_plus_one.count' => 'n_plus_one_shapes',
+        'db.query.duplicate.count' => 'duplicate_queries_distinct',
         'db.query.slow.count' => 'slow_queries',
         'telemetry.overhead_ms' => 'telemetry_overhead_ms',
     ];
@@ -444,7 +444,7 @@ final readonly class TraceDiagnosis
     }
 
     /**
-     * The root counts slow queries (laravel-telemetry 3.2+, against its own
+     * The root counts slow queries (laravel-telemetry 3.5+, against its own
      * `slow_span_ms`) that no exported span shows as slow here — a different
      * threshold, or query spans that were never exported. Say so rather than
      * report nothing.

@@ -11,9 +11,11 @@ use Cbox\TelemetryUi\Queries\Results\LogEntry;
 /**
  * Reads laravel-telemetry's repeated-query log events back and groups them by
  * query shape: `db.query.n_plus_one_detected` (one statement shape run over
- * and over with different bindings) and `db.query.duplicate_detected` (the
- * identical statement AND bindings run again). Each fires once per shape per
- * trace, at the repeat threshold.
+ * and over with different bindings), fired once per shape per trace, and
+ * `db.query.duplicate_detected` (the identical statement AND bindings run
+ * again), fired once per distinct statement-and-bindings per trace — so one
+ * trace can hold several duplicate records of the same shape. Both fire at
+ * the repeat threshold; `traces` counts distinct trace ids, never records.
  *
  * The group key is `laravel.db.query.shape` — the emitter's hash of the
  * normalised statement, so `in (?, ?)` and `in (?, ?, ?)` fold together —
@@ -45,6 +47,8 @@ trait ReadsQueryRepeats
 
         /** @var array<string, RepeatGroup> $groups */
         $groups = [];
+        /** @var array<string, array<string, true>> $seen trace ids per group */
+        $seen = [];
 
         foreach ($entries as $entry) {
             if (trim($entry->line) !== $event) {
@@ -68,7 +72,17 @@ trait ReadsQueryRepeats
                 'traces' => 0, 'worstRepeat' => 0, 'lastNano' => 0, 'traceId' => '',
             ];
 
-            $row['traces']++;
+            // One trace with three duplicated binding sets of one shape is one
+            // trace affected, not three. A record without a trace id counts
+            // on its own.
+            $traceId = $entry->labels['trace_id'] ?? '';
+            $traceKey = $traceId !== '' ? $traceId : 'record:'.$entry->timestampNano.':'.count($seen[$key] ?? []);
+
+            if (! isset($seen[$key][$traceKey])) {
+                $seen[$key][$traceKey] = true;
+                $row['traces']++;
+            }
+
             $row['worstRepeat'] = max($row['worstRepeat'], (int) ($entry->labels['db_query_repeat_count'] ?? 0));
 
             if ($entry->timestampNano >= $row['lastNano']) {

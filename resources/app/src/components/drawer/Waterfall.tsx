@@ -1,4 +1,4 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual';
 import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import type { SpanData, TraceData, WaterfallRow } from '../../api/types';
 import { condense, DEFAULT_GROUP_THRESHOLD, timelineBuckets, type CondensedItem, type SpanGroup } from '../../lib/condense';
@@ -72,12 +72,17 @@ export function Waterfall({ data, threshold: thresholdProp }: { data: TraceData;
     const [open, setOpen] = useState<Map<string, Open>>(new Map());
     const [selected, setSelected] = useState<string | null>(null);
     const [focusPager, setFocusPager] = useState<string | null>(null);
+    const [focusGroup, setFocusGroup] = useState<string | null>(null);
+    const [revealId, setRevealId] = useState<string | null>(null);
     const listRef = useRef<HTMLDivElement>(null);
     const scroll = useScrollParent(listRef);
 
     const setLayout = (next: Layout) => {
         setLayoutState(next);
         save(LAYOUT_KEY, next);
+        // Groups do not exist in the other layout: an open one, and the
+        // "occurrence n of N" it gave the selection, would linger otherwise.
+        setOpen(new Map());
     };
 
     const spans = useMemo(() => new Map(data.waterfall.map((r) => [r.span.spanId, r.span])), [data.waterfall]);
@@ -113,43 +118,71 @@ export function Waterfall({ data, threshold: thresholdProp }: { data: TraceData;
     }, [items, collapsed, open]);
 
     const virtual = lines.length > VIRTUALIZE_FROM;
+    // Open groups' pagers stay mounted however far they scroll away: the one
+    // that has the keyboard must not lose focus to the virtualiser.
+    const pinned = useMemo(() => lines.flatMap((l, i) => (l.kind === 'pager' ? [i] : [])), [lines]);
     const virtualizer = useVirtualizer({
         count: virtual ? lines.length : 0,
         getScrollElement: () => scroll.element,
         estimateSize: () => ROW,
         overscan: 24,
         scrollMargin: scroll.margin,
+        // The sticky span-detail panel covers the bottom of the scroll box.
+        scrollPaddingEnd: 240,
+        rangeExtractor: (range: Range) => (pinned.length === 0 ? defaultRangeExtractor(range) : [...new Set([...defaultRangeExtractor(range), ...pinned])].sort((a, b) => a - b)),
     });
 
-    // A pager that just opened takes the keyboard, so ← → step at once.
+    const focusData = (attribute: 'pager' | 'group', id: string) => {
+        const els = listRef.current?.querySelectorAll<HTMLElement>(`[data-${attribute}]`) ?? [];
+        [...els].find((el) => el.dataset[attribute] === id)?.focus({ preventScroll: true });
+    };
+
+    // A pager that just opened takes the keyboard, so ← → step at once; a
+    // group closed from its pager gives the keyboard back to its row.
     useEffect(() => {
         if (focusPager === null) return;
-        const pagers = listRef.current?.querySelectorAll<HTMLElement>('[data-pager]') ?? [];
-        [...pagers].find((el) => el.dataset.pager === focusPager)?.focus({ preventScroll: true });
+        focusData('pager', focusPager);
         setFocusPager(null);
     }, [focusPager, lines]);
 
-    const reveal = (spanId: string) => {
-        const at = lines.findIndex((l) => l.kind === 'span' && l.row.span.spanId === spanId);
-        if (at === -1) return;
-        if (virtual) virtualizer.scrollToIndex(at, { align: 'auto' });
-    };
+    useEffect(() => {
+        if (focusGroup === null) return;
+        focusData('group', focusGroup);
+        setFocusGroup(null);
+    }, [focusGroup, lines]);
+
+    // Bring a stepped-to occurrence into view, from the lines as they are
+    // after the step rendered — centred, so the sticky span detail at the
+    // bottom does not cover it.
+    useEffect(() => {
+        if (revealId === null) return;
+        const at = lines.findIndex((l) => l.kind === 'span' && l.row.span.spanId === revealId);
+        if (at !== -1) {
+            if (virtual) virtualizer.scrollToIndex(at, { align: 'center' });
+            else {
+                const el = listRef.current?.querySelector<HTMLElement>(`[data-span="${revealId}"]`);
+                if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
+            }
+        }
+        setRevealId(null);
+    }, [revealId, lines, virtual, virtualizer]);
 
     const openGroup = (group: SpanGroup, index: number, all?: boolean) => {
         const at = Math.max(0, Math.min(group.rows.length - 1, index));
         setOpen((o) => new Map(o).set(group.id, { index: at, all: all ?? o.get(group.id)?.all ?? false }));
         setSelected(group.rows[at]!.span.spanId);
         setFocusPager(group.id);
-        if (all ?? open.get(group.id)?.all) requestAnimationFrame(() => reveal(group.rows[at]!.span.spanId));
+        setRevealId(group.rows[at]!.span.spanId);
     };
 
-    const closeGroup = (group: SpanGroup) => {
+    const closeGroup = (group: SpanGroup, refocus = false) => {
         setOpen((o) => {
             const n = new Map(o);
             n.delete(group.id);
             return n;
         });
         if (selected !== null && group.rows.some((r) => r.span.spanId === selected)) setSelected(null);
+        if (refocus) setFocusGroup(group.id);
     };
 
     const nextError = (group: SpanGroup, from: number) => group.errors.find((e) => e > from) ?? group.errors[0] ?? from;
@@ -158,7 +191,7 @@ export function Waterfall({ data, threshold: thresholdProp }: { data: TraceData;
         const last = group.rows.length - 1;
         const to = e.key === 'ArrowRight' ? index + 1 : e.key === 'ArrowLeft' ? index - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? last : e.key === 'e' ? nextError(group, index) : null;
         if (to === null) {
-            if (e.key === 'Escape') { e.stopPropagation(); closeGroup(group); }
+            if (e.key === 'Escape') { e.stopPropagation(); closeGroup(group, true); }
             return;
         }
         e.preventDefault();
@@ -173,6 +206,7 @@ export function Waterfall({ data, threshold: thresholdProp }: { data: TraceData;
     });
 
     const selectedSpan = selected !== null ? spans.get(selected) : undefined;
+    const toggleGroup = (group: SpanGroup) => (open.has(group.id) ? closeGroup(group) : openGroup(group, 0));
     const selectedOccurrence = useMemo(() => {
         if (selected === null) return null;
         for (const id of open.keys()) {
@@ -185,7 +219,7 @@ export function Waterfall({ data, threshold: thresholdProp }: { data: TraceData;
 
     const renderLine = (line: Line) => {
         if (line.kind === 'group') {
-            return <GroupLine group={line.group} open={open.has(line.group.id)} onToggle={() => (open.has(line.group.id) ? closeGroup(line.group) : openGroup(line.group, 0))} onError={() => openGroup(line.group, line.group.errors[0] ?? 0)} />;
+            return <GroupLine group={line.group} open={open.has(line.group.id)} onToggle={() => toggleGroup(line.group)} onError={() => openGroup(line.group, line.group.errors[0] ?? 0)} />;
         }
         if (line.kind === 'pager') {
             const state = open.get(line.group.id) ?? { index: 0, all: false };
@@ -311,6 +345,7 @@ function SpanLine({ row, identityColor, selected, collapsed, occurrence, onSelec
             className={`t-wf-row ${s.error ? 'is-error' : ''} ${selected ? 'is-sel' : ''} ${occurrence ? 'is-occurrence' : ''}`}
             role="treeitem"
             aria-selected={selected}
+            data-span={s.spanId}
             onClick={onSelect}
         >
             <div className="t-wf-name" style={{ paddingLeft: 6 + (row.depth + (occurrence ? 1 : 0)) * 12 }}>
@@ -370,7 +405,14 @@ function GroupLine({ group, open, onToggle, onError }: { group: SpanGroup; open:
             aria-expanded={open}
             aria-label={`${group.name}, ${n} occurrences`}
             title={title}
+            tabIndex={0}
+            data-group={group.id}
             onClick={onToggle}
+            onKeyDown={(e) => {
+                // A row you can reach with Tab opens like a button.
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); }
+            }}
         >
             <div className="t-wf-name" style={{ paddingLeft: 6 + group.depth * 12 }}>
                 <span className="t-wf-toggle"><Icon name={open ? 'chevronDown' : 'chevronRight'} size={11} /></span>

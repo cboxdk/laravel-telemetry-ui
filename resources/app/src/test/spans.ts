@@ -68,7 +68,7 @@ export function times(n: number, make: (i: number) => SpanSpec): SpanSpec[] {
 /**
  * The benchmark trace: 5,000 spans shaped like a bad real request — a
  * controller with an N+1 of 1,200 queries, a loop of 1,500 cache reads, a
- * second N+1 nested under 40 jobs, and a tail of unique spans.
+ * second N+1 nested under 40 jobs, and a partial rendered 1,057 times.
  */
 export function bigTrace(): WaterfallRow[] {
     const shape = 'a1b2c3d4';
@@ -90,7 +90,7 @@ export function bigTrace(): WaterfallRow[] {
         children: [
             { name: 'App\\Http\\Controllers\\OrderController@index', children: [...times(1200, query), ...times(1500, cache)] },
             { name: 'App\\Jobs\\Dispatcher', children: times(40, job) },
-            ...times(5000 - 1 - 1 - 1200 - 1500 - 1 - 40 - 40 * 30, (i) => span(`view.render`, { 'view.name': `partials.row${i}` })),
+            ...times(5000 - 1 - 1 - 1200 - 1500 - 1 - 40 - 40 * 30, () => span('view partials.order-row', { 'view.name': 'partials.order-row' })),
         ],
     };
     return rowsOf(tree, 2000);

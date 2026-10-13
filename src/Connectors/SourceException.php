@@ -46,7 +46,7 @@ class SourceException extends RuntimeException
                 // a hostname that is fine, when the query was simply too big
                 // for the time it was given.
                 BackendStatus::Timeout => 'The telemetry backend did not answer'
-                    .($timeout !== null ? ' within '.rtrim(rtrim(number_format($timeout, 1, '.', ''), '0'), '.').'s' : ' in time')
+                    .(($waited = self::waited($reason, $timeout)) !== null ? ' within '.rtrim(rtrim(number_format($waited, 1, '.', ''), '0'), '.').'s' : ' in time')
                     .'. A long window over a lot of data can take longer: try a shorter window, or raise the connection\'s timeout.',
                 BackendStatus::Dropped => 'The telemetry backend cut its answer off part-way. Usually a proxy in front of it (a response buffer or size limit), or the backend giving up on a heavy query: try a shorter window.',
                 default => 'Could not reach the telemetry backend.',
@@ -54,6 +54,20 @@ class SourceException extends RuntimeException
             "Could not reach [{$url}]: {$reason}",
             $status,
         );
+    }
+
+    /**
+     * How long the request actually waited: cURL says ("after 30001
+     * milliseconds"), which is the truth even when a proxy or a lower
+     * transport limit cut it short; else the connection's configured timeout.
+     */
+    private static function waited(string $reason, ?float $timeout): ?float
+    {
+        if (preg_match('/after (\d+) milliseconds/i', $reason, $m) === 1) {
+            return round(((int) $m[1]) / 1000, 1);
+        }
+
+        return $timeout;
     }
 
     public static function requestFailed(string $url, int $status, string $body): self

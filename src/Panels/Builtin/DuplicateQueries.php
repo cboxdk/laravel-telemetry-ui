@@ -13,11 +13,11 @@ use Cbox\TelemetryUi\Support\Format;
 /**
  * Identical queries: the same statement with the same bindings run again
  * within one trace — work a memo or the query cache would have saved.
- * laravel-telemetry emits `db.query.duplicate_detected` once per shape per
- * trace when it crosses the repeat threshold; this groups those records by
- * query shape.
+ * laravel-telemetry emits `db.query.duplicate_detected` once per distinct
+ * statement-and-bindings per trace when it crosses the repeat threshold; this
+ * groups those records by query shape and counts the distinct traces.
  *
- * Before laravel-telemetry 3.2 split out `db.query.n_plus_one_detected`, this
+ * Before laravel-telemetry 3.5 split out `db.query.n_plus_one_detected`, this
  * event ignored bindings and so fired for N+1s too; records from those
  * versions still land here, grouped by their statement text. N+1s from newer
  * versions are on {@see NPlusOneQueries}.
@@ -65,7 +65,7 @@ final class DuplicateQueries extends Panel
             'subtitle' => 'The same SQL with the same bindings, run again within one trace',
             'error' => $error,
             'empty' => 'No identical repeated queries in this period.',
-            'note' => 'Fired once per query shape per trace when it crosses the repeat threshold (default 3). Fix by keeping the first result (a variable, once(), a memo). Before laravel-telemetry 3.2 this record ignored bindings, so older records include N+1s.',
+            'note' => 'Recorded once per distinct statement and bindings per trace when it crosses the repeat threshold (default 3); Traces counts each trace once. Fix by keeping the first result (a variable, once(), a memo). Before laravel-telemetry 3.5 this record ignored bindings, so older records include N+1s.',
         ], static fn ($v): bool => $v !== null));
     }
 }

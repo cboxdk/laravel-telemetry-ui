@@ -22,5 +22,7 @@ docs (and the code) fall into place.
   trace to its logs, an exception to its issue.
 - [Authorization](authorization.md) — the `viewTelemetryUi` gate and the
   read/write ability split.
+- [Monitors](monitors.md) — record one route, user, tenant or job in full
+  for a while (laravel-telemetry directives), and the scope rule.
 - [Trace waterfall](trace-waterfall.md) — the condensed and full layouts,
   span grouping, paging through a group and the rendering cost.

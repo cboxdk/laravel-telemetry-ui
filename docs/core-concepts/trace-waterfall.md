@@ -26,8 +26,12 @@ nothing in between), **leaves** (no children of their own), and **the same**:
 
 | Spans | "The same" means |
 |---|---|
-| Queries | Same name and the same `laravel.db.query.shape`, the hash of the normalised SQL that laravel-telemetry 3.2 stamps on every query span. Traces from before 3.2 fall back to identical `db.query.text`. |
+| Queries | Same name and the same `laravel.db.query.shape`, the hash of the normalised SQL that laravel-telemetry 3.5 stamps on every query span. Traces from before 3.5 fall back to identical `db.query.text`. |
 | Cache operations | Same name, `cache.store`, `cache.operation` and `cache.key.group`. |
+| Views | Same name and `view.name`. |
+| Outgoing HTTP | Same name, `http.request.method` and `server.address`. |
+| Redis | Same name, `db.operation.name` and `db.system.name`. |
+| Jobs, queues | Same name and `laravel.job.class` / `messaging.destination.name`. |
 | Anything else | Same name. |
 
 Service and span kind are always part of the match, so a client span never
@@ -46,7 +50,7 @@ One row per group shows:
 
 - the span name and the count (`×300`);
 - **N+1** or **duplicate** when the occurrences carry
-  `laravel.db.query.repeat`. laravel-telemetry 3.2 sets it from the
+  `laravel.db.query.repeat`. laravel-telemetry 3.5 sets it from the
   threshold-crossing occurrence onward. N+1 wins when both appear;
 - the `file:line` that ran them, from the first occurrence with `code.*`
   attributes (the emitter records these on the crossing span and on slow
@@ -92,7 +96,7 @@ already uses for Explore and the logs list. No dependency was added.
 Measured with `npm run bench:waterfall` (a production build in headless
 Chromium, Apple M-series, median of 5 runs). The trace has 5,000 spans: an
 N+1 of 1,200 queries with one failure, 1,500 cache reads, 40 jobs with 30
-queries each, and 1,057 view renders. "→ paint" includes waiting up to two
+queries each, and 1,057 renders of one partial. "→ paint" includes waiting up to two
 frames (~33 ms) for the paint.
 
 | | Rows in DOM | Mount → paint | Scroll frame p95 / max |

@@ -9,11 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Monitors.** Record one route, path, user, job or tenant in full for a
+  while (15m, 1h, 4h or 24h), optionally with a CPU profile. This builds on
+  cboxdk/laravel-telemetry 3.5's directives. Every value menu and the trace
+  header have *Monitor…*. *Explore → Monitors* lists the active ones with a
+  countdown, the reason and who placed them, links to the traces each one
+  recorded, and has a *Stop* button. *Recorded by monitor* on Requests and
+  Traces filters to traces a monitor kept (`telemetry.directive`). This app
+  is monitored in-process through `Telemetry::directives()`. Other apps are
+  reached over the core's signed endpoint, configured in
+  `telemetry-ui.monitors.services` with a URL and secret per service.
+  Placing and stopping a monitor needs `manageTelemetryUi`. The scope lock
+  applies: only allowed services and environments, and a viewer locked to
+  context values (the new `contexts` key from `restrictScopeUsing`) may only
+  monitor those values and never a route, path, job or user. The lock
+  must name exactly one dimension: two allow no monitor, and a malformed
+  lock allows none. Signed calls sign the method and directive id with the
+  body, and never send the same signature twice. The app accepts each
+  signature once. MCP gets
+  `list_monitors`, and `monitor`, which is registered only with
+  `TELEMETRY_UI_MCP_WRITE=true`. API: `GET|POST /api/v2/monitors` and
+  `DELETE /api/v2/monitors/{service}/{id}`. See
+  [Monitors](docs/core-concepts/monitors.md).
 - **Condensed trace waterfall.** The waterfall now folds runs of identical
   sibling spans into one row by default: an N+1 of 300 queries, or 500 cache
-  reads, becomes one row. Queries match by laravel-telemetry 3.2's query
-  shape (older traces by exact SQL), cache operations by store, operation
-  and key group, and other spans by name. A group row shows the count, the
+  reads, becomes one row. Queries match by laravel-telemetry 3.5's query
+  shape (older traces by exact SQL). Cache operations match by store,
+  operation and key group. Views match by `view.name`, outgoing calls by
+  method and host, Redis commands by command, and other spans by name. A group row shows the count, the
   total and worst duration, a mini-timeline of where the occurrences fell in
   their parent, the N+1 / duplicate marker, and the `file:line` that ran them.
   Failed occurrences are counted on the row and are one click away; a group
@@ -41,7 +64,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   occurrence's trace snapshot. The snapshots are also served by
   `GET /api/v2/traces/{id}/markdown` and `GET /api/v2/errors/{group}/markdown`
   (`?format=text` for plain Markdown), under the same gates and scope lock as
-  their views, and by the `trace_markdown` MCP tool.
+  their views, and by the `trace_markdown` MCP tool. Untrusted text
+  (exception messages, routes, user ids) is escaped: no code spans, links
+  or HTML, and backslashes too, so it cannot escape the escaping. A trace
+  link is only built from a real trace id.
 
 - **Trace diagnosis over MCP.** `trace_summary` says what is wrong with one
   trace: identity (root, service, status, duration, label), time per
@@ -52,13 +78,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   telemetry overhead. `compare_traces` puts two traces side by side — by id,
   or by the label sent in an `X-Telemetry-Label` header, so "before" and
   "after" a fix compare by name — diffing duration, totals, time per
-  category, query shapes and flags. `list_traces` lists recent traces by
-  label and/or only those with flag hints. Responses leave out empty keys
-  and page their lists; `verbose` adds full SQL and span ids. Thresholds are
-  `traces.diagnostics.*`. The N+1, duplicate, origin, overhead, slow-query
-  count and label signals need laravel-telemetry 3.2; older traces are
+  category, query shapes and flags. A reference shaped like an id that
+  matches no trace is tried as a label. `list_traces` lists recent traces by
+  label and/or only those with flag hints, paged backwards in time by
+  `cursor` (`next_cursor`), so pages never overlap. Responses leave out
+  empty keys; `verbose` adds full SQL and span ids. The totals say what
+  they count (`n_plus_one_shapes`, `duplicate_queries_distinct`). The tools
+  ask for root spans with `nestedSetParent < 0`. A store that cannot parse
+  that (telemetryd) is searched again without it. Every one of them, and
+  `trace_markdown`, stays inside the viewer's scope lock, as the dashboard
+  does: a trace with a service outside it is "not found", searches are
+  forced into the locked services and environments, and stacktraces and
+  source appear only for a viewer who may open the exceptions page.
+  Thresholds are `traces.diagnostics.*`. The N+1, duplicate, origin, overhead, slow-query
+  count and label signals need laravel-telemetry 3.5; older traces are
   diagnosed from their query text.
-- **Queries → N+1 queries.** laravel-telemetry 3.2's
+- **Queries → N+1 queries.** laravel-telemetry 3.5's
   `db.query.n_plus_one_detected` records grouped by query shape, with the
   `file:line` (and function) that ran them, the traces affected, the worst
   repeat and the latest trace. *Database throughput* counts N+1s and
@@ -97,8 +132,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **MCP `search_traces` and `trace_context` honour the scope lock.** A raw
+  TraceQL query is forced into the viewer's locked services and
+  environments, as `?q=` on the traces page already was, and `trace_context`
+  answers "not found" for a trace outside the lock. Before, both read
+  across every service.
+- **A backend that never answered the connection is unreachable, not
+  slow.** cURL error 7, a connect timeout ("Connection timed out after N
+  ms") and a name lookup timeout now read *Could not reach the telemetry
+  backend*, not "try a shorter window". A real timeout says how long it
+  actually waited, from cURL's own message.
+- **Duplicate queries count traces, not records.** laravel-telemetry
+  records a duplicate once per distinct statement and bindings per trace,
+  so one trace with several duplicated binding sets of one shape counted
+  several times. *Traces* is now the distinct trace ids.
+- **Requires cboxdk/laravel-telemetry ^3.5.** The N+1, query-shape, label
+  and directive (monitor) signals all ship in 3.5. Monitors are only
+  offered when the core has directives, so nothing breaks when an install
+  lacks them.
+
 - **Duplicate queries now means identical queries.** From laravel-telemetry
-  3.2, `db.query.duplicate_detected` fires only when the same SQL runs again with
+  3.5, `db.query.duplicate_detected` fires only when the same SQL runs again with
   the same bindings; N+1s are their own event and panel. The card is
   renamed *Duplicate queries*, groups by `laravel.db.query.shape` (statement
   text on older records, which still include N+1s) and shows the origin

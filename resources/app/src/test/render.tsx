@@ -37,7 +37,7 @@ export const bootFixture: Bootstrap = {
  * Render inside a real (memory) router + query client + boot context, at a
  * given URL, so links, search state and drill-downs behave as in the app.
  */
-export async function renderAt(ui: ReactNode, url = '/explore/requests?period=1h') {
+export async function renderAt(ui: ReactNode, url = '/explore/requests?period=1h', boot: Bootstrap = bootFixture) {
     const root = createRootRoute({ component: () => <RouterNavigation><Outlet /></RouterNavigation> });
     const page = createRoute({ getParentRoute: () => root, path: '$', component: () => <>{ui}</> });
     const home = createRoute({ getParentRoute: () => root, path: '/', component: () => <>{ui}</> });
@@ -51,7 +51,7 @@ export async function renderAt(ui: ReactNode, url = '/explore/requests?period=1h
 
     const utils = render(
         <QueryClientProvider client={client}>
-            <BootContext.Provider value={bootFixture}>
+            <BootContext.Provider value={boot}>
                 <RouterProvider router={router} />
             </BootContext.Provider>
         </QueryClientProvider>,

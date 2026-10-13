@@ -141,11 +141,17 @@ warning.
 
 | Key | Env | Default | Notes |
 | --- | --- | --- | --- |
-| `traces.diagnostics.slow_query_ms` | `TELEMETRY_UI_SLOW_QUERY_MS` | `100` | A query at or over this is a slow query. Keep it at laravel-telemetry's `traces.details.slow_span_ms`: from 3.2 the root's `db.query.slow.count` is counted against that, and this is what the per-query flags use. |
+| `traces.diagnostics.slow_query_ms` | `TELEMETRY_UI_SLOW_QUERY_MS` | `100` | A query at or over this is a slow query. Keep it at laravel-telemetry's `traces.details.slow_span_ms`: from 3.5 the root's `db.query.slow.count` is counted against that, and this is what the per-query flags use. |
 | `traces.diagnostics.overhead_ms` | `TELEMETRY_UI_OVERHEAD_MS` | `5` | Telemetry overhead (`telemetry.overhead_ms` on the root) is flagged from this many ms… |
 | `traces.diagnostics.overhead_ratio` | `TELEMETRY_UI_OVERHEAD_RATIO` | `0.05` | …and only when it is also this share of the trace's duration. |
-| `traces.diagnostics.repeat_threshold` | `TELEMETRY_UI_REPEAT_THRESHOLD` | `3` | On traces from before laravel-telemetry 3.2 (which marks N+1s itself), a statement that ran this many times is flagged as a repeat. Match the emitter's `query_duplicates_threshold`. |
+| `traces.diagnostics.repeat_threshold` | `TELEMETRY_UI_REPEAT_THRESHOLD` | `3` | On traces from before laravel-telemetry 3.5 (which marks N+1s itself), a statement that ran this many times is flagged as a repeat. Match the emitter's `query_duplicates_threshold`. |
 | `traces.waterfall.group_threshold` | `TELEMETRY_UI_WATERFALL_GROUP_THRESHOLD` | `3` | How many consecutive identical sibling spans the condensed waterfall folds into one row. Below 2 turns grouping off. See [Trace waterfall](trace-waterfall.md). |
+| `monitors.enabled` | `TELEMETRY_UI_MONITORS` | `true` | Offer monitors (laravel-telemetry directives) at all. See [Monitors](monitors.md). |
+| `monitors.local` | `TELEMETRY_UI_MONITORS_LOCAL` | `true` | Monitor this app in-process when it runs the core with directives on. |
+| `monitors.services` | — | `[]` | Other apps, keyed by `service.name`: `url`, `secret` (their `TELEMETRY_DIRECTIVES_SECRET`), optional `environment` and `path`. |
+| `monitors.timeout` | `TELEMETRY_UI_MONITORS_TIMEOUT` | `5` | Seconds per signed directives call. |
+| `mcp.write` | `TELEMETRY_UI_MCP_WRITE` | `false` | Register MCP write tools (`monitor`). |
+| `scope.lock.contexts` | — | `null` | Context values a viewer is confined to, e.g. `['tenant.id' => ['7']]` (usually from `restrictScopeUsing`). Governs monitors only. |
 
 ## MCP server
 

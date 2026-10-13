@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Mcp\Tools;
 use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Support\ScopeLock;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\JsonSchema as JsonSchemaFactory;
 use Laravel\Mcp\Request;
@@ -40,6 +41,11 @@ final class TraceContextTool extends Tool
             $trace = $this->connections->traces()->trace((string) $request->get('trace_id', ''));
         } catch (SourceException $exception) {
             return Response::error($exception->getMessage());
+        }
+
+        // A trace id is a deep link: inside the viewer's scope lock only.
+        if ($trace->spans === [] || ! app(ScopeLock::class)->allowsTrace($trace)) {
+            return Response::error('Trace not found (it may have expired, or be outside your scope).');
         }
 
         $context = [];

@@ -63,7 +63,9 @@ it('groups N+1 detections by query shape and shows the line that ran them', func
 it('groups identical-repeat detections by shape, falling back to the text on older records', function (): void {
     fakeRepeatRecords([
         [['db_query_text' => 'select * from `settings` where `key` = ?', 'laravel_db_query_shape' => 'dddd', 'db_query_repeat_count' => '4', 'trace_id' => 'aaaa1111aaaa1111aaaa1111aaaa1111', 'code_file_path' => 'app/Support/Settings.php', 'code_line_number' => '12'],
-            [['1735689600000000000', 'db.query.duplicate_detected'], ['1735689500000000000', 'db.query.duplicate_detected']]],
+            [['1735689600000000000', 'db.query.duplicate_detected']]],
+        [['db_query_text' => 'select * from `settings` where `key` = ?', 'laravel_db_query_shape' => 'dddd', 'db_query_repeat_count' => '4', 'trace_id' => 'ffff1111ffff1111ffff1111ffff1111'],
+            [['1735689500000000000', 'db.query.duplicate_detected']]],
         // Older record: no shape, grouped by its text.
         [['db_query_text' => 'select * from users where id = ?', 'db_namespace' => 'mysql', 'db_query_repeat_count' => '9', 'trace_id' => 'eeee1111eeee1111eeee1111eeee1111'],
             [['1735689400000000000', 'db.query.duplicate_detected']]],
@@ -110,4 +112,23 @@ it('folds query performance by shape when the spans carry one', function (): voi
         ->assertJsonPath('rows.1.query.v', 'select count(*) from orders');
 
     Http::assertSent(fn (Request $request): bool => str_contains(rawurldecode(requestQuery($request)['q'] ?? ''), 'span.laravel.db.query.shape'));
+});
+
+it('counts a trace with several duplicated binding sets of one shape as one trace', function (): void {
+    // laravel-telemetry records a duplicate once per distinct SQL and
+    // bindings per trace: user 1 fetched three times AND user 2 three times
+    // is two records, one trace.
+    $base = ['db_query_text' => 'select * from `users` where `id` = ?', 'laravel_db_query_shape' => 'dddd', 'db_query_repeat_count' => '3'];
+
+    fakeRepeatRecords([
+        [[...$base, 'trace_id' => 'aaaa1111aaaa1111aaaa1111aaaa1111'],
+            [['1735689600000000000', 'db.query.duplicate_detected'], ['1735689600100000000', 'db.query.duplicate_detected']]],
+        [[...$base, 'trace_id' => 'bbbb2222bbbb2222bbbb2222bbbb2222'],
+            [['1735689700000000000', 'db.query.duplicate_detected']]],
+    ]);
+
+    $this->getJson(panelUrl(DuplicateQueries::id()))
+        ->assertOk()
+        ->assertJsonCount(1, 'rows')
+        ->assertJsonPath('rows.0.traces.raw', 2);
 });

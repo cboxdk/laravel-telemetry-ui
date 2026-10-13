@@ -105,7 +105,8 @@ final class ExceptionSnapshot
 
         // The newest occurrence's trace: the snapshot of the request as a
         // whole — its queries, its time, what led up to the throw.
-        if ($traceId !== '') {
+        // The id comes from a log record: only a real trace id becomes a link.
+        if (preg_match('/^[0-9a-f]{16,32}$/i', $traceId) === 1) {
             $lines[] = '- **Trace:** '.MarkdownSnapshot::code($traceId)
                 .(($page = DashboardUrl::page('traces/'.$traceId)) !== null ? ' — '.$page : '');
 

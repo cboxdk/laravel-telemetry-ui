@@ -56,11 +56,17 @@ export function buildAreas(boot: Bootstrap): NavArea[] {
         icon: 'compass',
         sections: [
             {
-                items: boot.explore.map((s) => ({
-                    label: s.label,
-                    to: `/explore/${s.signal}`,
-                    match: (path) => path === `/explore/${s.signal}` || (s.signal === 'errors' && path.startsWith('/errors/')) || (s.signal === 'traces' && path.startsWith('/traces/')),
-                })),
+                items: [
+                    ...boot.explore.map((s) => ({
+                        label: s.label,
+                        to: `/explore/${s.signal}`,
+                        match: (path: string) => path === `/explore/${s.signal}` || (s.signal === 'errors' && path.startsWith('/errors/')) || (s.signal === 'traces' && path.startsWith('/traces/')),
+                    })),
+                    // Directives the viewer can reach: only when there is a service to monitor.
+                    ...(boot.monitors?.page && boot.monitors.services.length > 0
+                        ? [{ label: 'Monitors', to: '/monitors', match: (path: string) => path === '/monitors' }]
+                        : []),
+                ],
             },
             ...[...customGroups.entries()].map(([group, entities]) => ({
                 title: group,

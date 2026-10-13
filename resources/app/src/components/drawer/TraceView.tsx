@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 import { traceParams, useTraceContext, useTraceStory } from '../../api/hooks';
 import type { Link as LinkData, ReportItem, ReportRepeat, SpanData, TraceCorrelation, TraceData } from '../../api/types';
 import { count, ms, shortId, statusTone } from '../../lib/format';
 import { Go } from '../../lib/links';
-import { useBoot, DimensionValue } from '../DimensionValue';
+import { BootContext, useBoot, DimensionValue } from '../DimensionValue';
+import { MonitorDialog } from '../MonitorDialog';
+import { canMonitor, traceTargets } from '../../lib/monitors';
 import { Sparkline } from '../charts/Sparkline';
 import { CopyButton } from '../CopyButton';
 import { CopyMarkdownButton } from '../CopyMarkdownButton';
@@ -30,6 +32,12 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
     const pending = story !== undefined && correlation.isPending;
     const data: TraceData | undefined = story === undefined ? undefined : { ...story, ...(correlation.data ?? NO_CORRELATION) };
     const [tab, setTab] = useState<Tab>('story');
+    const [monitoring, setMonitoring] = useState(false);
+    const boot = useContext(BootContext);
+    const monitorTargets = useMemo(
+        () => (story && canMonitor(boot) ? traceTargets(story.waterfall.map((r) => r.span), story.root, boot?.dimensions ?? []) : []),
+        [story, boot],
+    );
     const correlationState = pending
         ? <div className="t-pad"><Spinner label="Reading the metrics and logs around this request…" /></div>
         : correlation.error
@@ -68,6 +76,15 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
                     <span className="mono t-dim" title={data.traceId}>trace {shortId(data.traceId, 16)}</span>
                     <CopyButton text={data.traceId} label="ID" />
                     <CopyMarkdownButton path={`traces/${data.traceId}/markdown`} params={traceParams(data.traceId)} />
+                    {monitorTargets.length > 0 && (
+                        <button type="button" className="t-btn t-btn-sm t-btn-secondary" onClick={() => setMonitoring(true)} title="Keep every trace of this user, route or tenant for a while">
+                            <Icon name="activity" size={12} />Monitor…
+                        </button>
+                    )}
+                    {monitoring && <MonitorDialog targets={monitorTargets} service={root?.service} onClose={() => setMonitoring(false)} />}
+                    {root?.attributes['telemetry.directive'] && (
+                        <Go link={{ to: 'explore', signal: 'requests', where: [`telemetry.directive=${root.attributes['telemetry.directive']}`] }} className="t-pill t-pill-warn" title="Kept because a monitor matched it: every trace that monitor recorded">recorded by monitor</Go>
+                    )}
                     {data.chain.length > 1 && (
                         <span className="t-chain">
                             {data.chain.map((hop, i) => (

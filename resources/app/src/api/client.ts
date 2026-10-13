@@ -53,7 +53,7 @@ async function parse(response: Response): Promise<unknown> {
     }
 }
 
-export async function request<T>(method: 'GET' | 'POST', path: string, params: Params = {}, body?: unknown, signal?: AbortSignal): Promise<T> {
+export async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, params: Params = {}, body?: unknown, signal?: AbortSignal): Promise<T> {
     let response: Response;
 
     try {
@@ -64,7 +64,8 @@ export async function request<T>(method: 'GET' | 'POST', path: string, params: P
             headers: {
                 Accept: 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
-                ...(method === 'POST' ? { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': boot().csrf } : {}),
+                ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+                ...(method !== 'GET' ? { 'X-CSRF-TOKEN': boot().csrf } : {}),
             },
             body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
         });
@@ -87,4 +88,5 @@ export async function request<T>(method: 'GET' | 'POST', path: string, params: P
 export const api = {
     get: <T>(path: string, params?: Params, signal?: AbortSignal) => request<T>('GET', path, params, undefined, signal),
     post: <T>(path: string, body?: unknown) => request<T>('POST', path, {}, body),
+    delete: <T>(path: string) => request<T>('DELETE', path),
 };

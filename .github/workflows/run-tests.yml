@@ -29,7 +29,8 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu-latest]
-        php: [8.5, 8.4, 8.3]
+        # The package requires PHP ^8.4; 8.3 could never install.
+        php: [8.5, 8.4]
         laravel: [13.*, 12.*]
         stability: [prefer-lowest, prefer-stable]
         include:
@@ -40,8 +41,6 @@ jobs:
         exclude:
           - php: 8.5
             stability: prefer-lowest
-          - php: 8.3
-            laravel: 13.*
 
     name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}
 
@@ -65,6 +64,12 @@ jobs:
         run: |
           composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
           composer update --${{ matrix.stability }} --prefer-dist --no-interaction
+
+      # The browser suite renders every page in Chromium. Without it the run
+      # died on PlaywrightNotInstalledException after a green install.
+      - name: Install Playwright
+        # package-lock.json is not committed (see .gitignore), so no npm ci.
+        run: npm install --no-audit --no-fund --no-save playwright@^1.63.0 && npx playwright install --with-deps chromium
 
       - name: List Installed Dependencies
         run: composer show -D

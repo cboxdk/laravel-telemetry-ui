@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Mcp\Tools;
 
 use Cbox\TelemetryUi\Analysis\TraceDiagnostics;
-use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\JsonSchema as JsonSchemaFactory;
@@ -25,10 +24,7 @@ final class TraceMarkdownTool extends TelemetryTool
 
     protected string $description = 'One trace as a ready-to-paste Markdown snapshot (≤12 KB): title (root, service, status, duration, label, trace id), flags (errors first), time per category, totals, the exceptions with their app frames and source excerpt, the spans that led up to the first failure, and the N+1/duplicate/slow query groups with SQL and origin file:line. Use it to write a PR description, an issue or a hand-off; use trace_summary to reason over the data. SQL is as the app recorded it, never with bindings.';
 
-    public function __construct(
-        private readonly ConnectionManager $connections,
-        private readonly TraceDiagnostics $diagnostics,
-    ) {}
+    public function __construct(private readonly TraceDiagnostics $diagnostics) {}
 
     /**
      * @return array<string, JsonSchemaFactory>
@@ -49,15 +45,17 @@ final class TraceMarkdownTool extends TelemetryTool
         }
 
         try {
-            $trace = $this->connections->traces()->trace($traceId);
+            // Inside the viewer's scope lock, as the API's /markdown is.
+            $trace = $this->diagnostics->visible($traceId);
         } catch (SourceException $exception) {
             return Response::error($exception->getMessage());
         }
 
-        if ($trace->spans === []) {
+        if ($trace === null) {
             return Response::error("Trace {$traceId} has no spans (not found, or outside the trace store's retention).");
         }
 
-        return Response::text($this->diagnostics->snapshot($trace)->markdown);
+        // Stacktraces and source only for a viewer who may read exceptions.
+        return Response::text($this->diagnostics->snapshot($trace, $this->mayReadExceptions())->markdown);
     }
 }

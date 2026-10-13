@@ -7,7 +7,7 @@ const sql = 'select * from `users` where `users`.`id` = ? limit 1';
 
 describe('condensing the waterfall', () => {
     it('folds an N+1 into one group with its count, total, worst, marker and origin', () => {
-        // laravel-telemetry 3.2: the shape on every query, the marker from the
+        // laravel-telemetry 3.5: the shape on every query, the marker from the
         // threshold-crossing occurrence onward, code.* on that one only.
         const rows = rowsOf({
             name: 'GET /orders',
@@ -65,6 +65,53 @@ describe('condensing the waterfall', () => {
         expect(groups.map((g) => g.rows.length)).toEqual([500, 4, 4]);
         expect(groups.map((g) => g.label)).toEqual([null, 'user:*', 'team:*']);
         expect(groupKey(rows[1]!.span)).not.toBe(groupKey(rows[501]!.span));
+    });
+
+    it('tells apart views, outgoing calls and Redis commands that share a generic name', () => {
+        const rows = rowsOf({
+            name: 'root',
+            children: [
+                // Older emitters and other SDKs name every render the same.
+                ...times(3, () => span('view.render', { 'view.name': 'orders.row' })),
+                ...times(3, () => span('view.render', { 'view.name': 'orders.total' })),
+                ...times(3, () => span('HTTP GET', { 'http.request.method': 'GET', 'server.address': 'api.stripe.com' }, { kind: 'client' })),
+                ...times(3, () => span('HTTP GET', { 'http.request.method': 'GET', 'server.address': 'api.github.com' }, { kind: 'client' })),
+                ...times(3, () => span('HTTP GET', { 'http.request.method': 'POST', 'server.address': 'api.github.com' }, { kind: 'client' })),
+                ...times(3, () => span('redis', { 'db.system.name': 'redis', 'db.operation.name': 'GET' })),
+                ...times(3, () => span('redis', { 'db.system.name': 'redis', 'db.operation.name': 'SET' })),
+            ],
+        });
+
+        const groups = groupsOf(condense(rows, 3));
+        expect(groups).toHaveLength(7);
+        expect(groups.map((g) => g.label)).toEqual(['orders.row', 'orders.total', 'api.stripe.com', 'api.github.com', 'api.github.com', null, null]);
+        // The current emitter puts the view in the name; the label does not repeat it.
+        const named = groupsOf(condense(rowsOf({ name: 'root', children: times(3, () => span('view orders.row', { 'view.name': 'orders.row' })) }), 3));
+        expect(named[0]!.label).toBeNull();
+    });
+
+    it('never groups outgoing calls by method alone, and finds the host in url.full', () => {
+        const call = (attrs: Record<string, string>) => span('HTTP GET', { 'http.request.method': 'GET', ...attrs }, { kind: 'client' });
+        const rows = rowsOf({
+            name: 'root',
+            children: [
+                ...times(3, () => call({ 'url.full': 'https://api.stripe.com/v1/charges' })),
+                ...times(3, () => call({ 'url.full': 'https://api.github.com/repos' })),
+                // No host anywhere: the method says nothing, so it groups by name.
+                ...times(3, () => call({})),
+            ],
+        });
+
+        const groups = groupsOf(condense(rows, 3));
+        expect(groups.map((g) => g.rows.length)).toEqual([3, 3, 3]);
+        expect(groups.map((g) => g.label)).toEqual(['api.stripe.com', 'api.github.com', null]);
+        expect(groupKey(rows[1]!.span)).not.toBe(groupKey(rows[4]!.span));
+    });
+
+    it('never groups orphans that surface at the top level', () => {
+        // Tail sampling dropped their parent: unrelated entry points, not repeats.
+        const orphans = [0, 1, 2].flatMap(() => rowsOf({ name: 'GET /health' }));
+        expect(condense(orphans, 3).every((i) => i.kind === 'span')).toBe(true);
     });
 
     it('groups only consecutive siblings at or over the threshold', () => {
@@ -133,7 +180,8 @@ describe('condensing the waterfall', () => {
         expect(groups.find((g) => g.rows.length === 1200)?.repeat).toBe('n_plus_one');
         expect(groups.find((g) => g.rows.length === 1200)?.errors).toEqual([700]);
         expect(groups.find((g) => g.rows.length === 1500)?.label).toBe('user:*');
-        expect(items.length).toBeLessThan(1200);
+        expect(groups.find((g) => g.rows.length === 1057)?.name).toBe('view partials.order-row');
+        expect(items.length).toBeLessThan(100);
 
         // Measured ~1–3 ms on an M-series laptop; the bound is a regression
         // tripwire, not the target.
