@@ -145,6 +145,7 @@ warning.
 | `traces.diagnostics.overhead_ms` | `TELEMETRY_UI_OVERHEAD_MS` | `5` | Telemetry overhead (`telemetry.overhead_ms` on the root) is flagged from this many ms… |
 | `traces.diagnostics.overhead_ratio` | `TELEMETRY_UI_OVERHEAD_RATIO` | `0.05` | …and only when it is also this share of the trace's duration. |
 | `traces.diagnostics.repeat_threshold` | `TELEMETRY_UI_REPEAT_THRESHOLD` | `3` | On traces from before laravel-telemetry 3.2 (which marks N+1s itself), a statement that ran this many times is flagged as a repeat. Match the emitter's `query_duplicates_threshold`. |
+| `traces.waterfall.group_threshold` | `TELEMETRY_UI_WATERFALL_GROUP_THRESHOLD` | `3` | How many consecutive identical sibling spans the condensed waterfall folds into one row. Below 2 turns grouping off. See [Trace waterfall](trace-waterfall.md). |
 
 ## MCP server
 

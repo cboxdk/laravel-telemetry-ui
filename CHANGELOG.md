@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Condensed trace waterfall.** The waterfall now folds runs of identical
+  sibling spans into one row by default: an N+1 of 300 queries, or 500 cache
+  reads, becomes one row. Queries match by laravel-telemetry 3.2's query
+  shape (older traces by exact SQL), cache operations by store, operation
+  and key group, and other spans by name. A group row shows the count, the
+  total and worst duration, a mini-timeline of where the occurrences fell in
+  their parent, the N+1 / duplicate marker, and the `file:line` that ran them.
+  Failed occurrences are counted on the row and are one click away; a group
+  never hides an error. Open a group to page through its occurrences (`←` `→`,
+  `Home` `End`, `e` for the next failure), with each one in the span detail
+  panel, or show them all inline. *Full* switches back to one row per span,
+  and the choice is remembered per viewer. Long waterfalls are virtualised in
+  both layouts: a 5,000-span trace mounts in about 28 ms instead of 180 ms
+  (headless Chromium). The run length is
+  `telemetry-ui.traces.waterfall.group_threshold` (default 3), served to the
+  SPA as `traces.groupThreshold` in `/bootstrap`. See
+  [Trace waterfall](docs/core-concepts/trace-waterfall.md).
+
 - **Copy as Markdown.** The trace drawer has a *Copy as Markdown* button
   that copies a snapshot of the trace for an AI agent, a pull request or a
   support ticket. It holds the title (root, service, status, duration,

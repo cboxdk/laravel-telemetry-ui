@@ -5,7 +5,8 @@
         "dev": "vite",
         "build": "tsc --noEmit -p tsconfig.json && vite build",
         "test": "vitest run",
-        "typecheck": "tsc --noEmit -p tsconfig.json"
+        "typecheck": "tsc --noEmit -p tsconfig.json",
+        "bench:waterfall": "node resources/app/bench/run.mjs"
     },
     "dependencies": {
         "@fontsource/jetbrains-mono": "^5.3.0",

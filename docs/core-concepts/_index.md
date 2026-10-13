@@ -22,3 +22,5 @@ docs (and the code) fall into place.
   trace to its logs, an exception to its issue.
 - [Authorization](authorization.md) — the `viewTelemetryUi` gate and the
   read/write ability split.
+- [Trace waterfall](trace-waterfall.md) — the condensed and full layouts,
+  span grouping, paging through a group and the rendering cost.

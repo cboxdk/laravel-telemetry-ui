@@ -167,3 +167,14 @@ it('names the signed-in user', function (): void {
         ->getJson(apiUrl('bootstrap'))
         ->assertJsonPath('user', ['name' => 'Ada', 'email' => 'ada@example.test']);
 });
+
+it('tells the waterfall how many identical spans to fold into one row', function (): void {
+    $this->getJson(apiUrl('bootstrap'))->assertOk()->assertJsonPath('traces.groupThreshold', 3);
+
+    config()->set('telemetry-ui.traces.waterfall.group_threshold', 10);
+    $this->getJson(apiUrl('bootstrap'))->assertOk()->assertJsonPath('traces.groupThreshold', 10);
+
+    // Below 2 is "off", and a negative value is read as off rather than passed on.
+    config()->set('telemetry-ui.traces.waterfall.group_threshold', -1);
+    $this->getJson(apiUrl('bootstrap'))->assertOk()->assertJsonPath('traces.groupThreshold', 0);
+});

@@ -130,6 +130,9 @@ final class BootstrapController
                 'issues' => $connections->hasIssues(),
                 'exactAggregation' => self::aggregates($connections),
             ],
+            'traces' => [
+                'groupThreshold' => max(0, (int) config('telemetry-ui.traces.waterfall.group_threshold', 3)),
+            ],
             'user' => $user !== null ? [
                 'name' => (string) (data_get($user, 'name') ?? data_get($user, 'email') ?? 'User'),
                 'email' => data_get($user, 'email'),

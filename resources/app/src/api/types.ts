@@ -303,6 +303,8 @@ export interface Bootstrap {
     refreshIntervals: number[];
     abilities: { manage: boolean; createIssues: boolean };
     capabilities: { issues: boolean; exactAggregation: boolean };
+    /** Optional so an embed talking to an older host still renders. */
+    traces?: { groupThreshold: number };
     user: { name: string; email?: string | null } | null;
 }
 
@@ -512,6 +514,16 @@ export interface SpanData {
     links: { traceId: string; spanId: string }[];
 }
 
+/** One span in the trace's depth-first waterfall, laid out against the trace's own window. */
+export interface WaterfallRow {
+    span: SpanData;
+    depth: number;
+    offsetPct: number;
+    widthPct: number;
+    ancestors: string[];
+    children: number;
+}
+
 export interface ReportItem {
     name: string;
     detail: string;
@@ -537,7 +549,7 @@ export interface TraceData {
     error: boolean;
     spanCount: number;
     services: Record<string, Record<string, string>>;
-    waterfall: { span: SpanData; depth: number; offsetPct: number; widthPct: number; ancestors: string[]; children: number }[];
+    waterfall: WaterfallRow[];
     chain: { spanId: string; service: string; name: string; durationMs: number; kind: string; color: string }[];
     identities: Record<string, { color: string; kind: string; label: string | null }>;
     context: { label: string; group: string; unit: string; current: number; avg: number; max: number; baseline: number | null; outlier: boolean; points: number[] }[];
