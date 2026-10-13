@@ -36,6 +36,23 @@ Point your MCP client at the artisan command. For Claude Desktop / Cursor:
 }
 ```
 
+## A skill for the agent (Laravel Boost)
+
+The package ships an agent skill, `telemetry-ui-mcp`, at
+`resources/boost/skills/telemetry-ui-mcp/SKILL.md`, the path
+[Laravel Boost](https://laravel.com/docs/boost#third-party-package-skills)
+reads in third-party packages. It teaches the agent the workflows on this
+page: `list_traces` → `trace_summary` for a slow request, labels and
+`compare_traces` for a fix, `trace_markdown` for a write-up, and when it
+may place a monitor.
+
+Run `php artisan boost:install` (Boost 2.x), choose *Agent Skills*, and
+tick `cboxdk/laravel-telemetry-ui` in the third-party list. Boost only
+reads direct dependencies: for laravel-telemetry's own skills
+(instrumenting code, debugging a slow request, testing with
+`Telemetry::fake()`), require `cboxdk/laravel-telemetry` in the app's
+`composer.json` too.
+
 ## Tools
 
 | Tool | What it does |

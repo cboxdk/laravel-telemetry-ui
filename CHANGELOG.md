@@ -36,11 +36,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   HTTP pass adds no flags or totals. Calls group by method and host as
   before.
 
+- **A Laravel Boost skill for the MCP tools.** `php artisan boost:install`
+  (Boost 2.x) now offers `telemetry-ui-mcp` from
+  `resources/boost/skills/`: which tool answers which question, the
+  slow-request, before/after and write-up workflows, monitors and
+  `TELEMETRY_UI_MCP_WRITE`, and the scope lock. See
+  [MCP server](docs/cookbook/mcp.md#a-skill-for-the-agent-laravel-boost).
+
 ### Changed
 
 - `Panels\Concerns\ReadsQueryRepeats` now builds on a new generic
   `ReadsRepeatRecords` trait, which takes the record family's label names.
   The query cards behave as before.
+
 
 ## [3.1.0] - 2026-10-13
 
