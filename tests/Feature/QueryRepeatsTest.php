@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Cbox\TelemetryUi\Panels\Builtin\DuplicateQueries;
 use Cbox\TelemetryUi\Panels\Builtin\NPlusOneQueries;
+use Cbox\TelemetryUi\Panels\Builtin\OutgoingNPlusOne;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -131,4 +132,51 @@ it('counts a trace with several duplicated binding sets of one shape as one trac
         ->assertOk()
         ->assertJsonCount(1, 'rows')
         ->assertJsonPath('rows.0.traces.raw', 2);
+});
+
+it('groups N+1 outgoing calls by call shape and shows the line that made them', function (): void {
+    $base = [
+        'laravel_http_client_shape' => 'cccc222222222222',
+        'http_request_method' => 'GET',
+        'server_address' => 'api.example.com',
+        'url_template' => '/users/{id}',
+        'code_file_path' => 'app/Services/Feed.php',
+        'code_line_number' => '17',
+        'code_function_name' => 'App\\Services\\Feed::build',
+    ];
+
+    fakeRepeatRecords([
+        [[...$base, 'url_full' => 'https://api.example.com/users/17', 'http_client_repeat_count' => '3', 'trace_id' => 'aaaa1111aaaa1111aaaa1111aaaa1111'],
+            [['1735689500000000000', 'http.client.n_plus_one_detected']]],
+        [[...$base, 'url_full' => 'https://api.example.com/users/42', 'http_client_repeat_count' => '3', 'trace_id' => 'bbbb2222bbbb2222bbbb2222bbbb2222'],
+            [['1735689600000000000', 'http.client.n_plus_one_detected']]],
+        // A query N+1 in the same read is not an outgoing call.
+        [['db_query_text' => 'select 1', 'laravel_db_query_shape' => 'dddd', 'trace_id' => 'cccc3333cccc3333cccc3333cccc3333'],
+            [['1735689600000000000', 'db.query.n_plus_one_detected']]],
+    ]);
+
+    $this->getJson(panelUrl(OutgoingNPlusOne::id()))
+        ->assertOk()
+        ->assertJsonPath('title', 'N+1 outgoing calls')
+        ->assertJsonCount(1, 'rows')
+        ->assertJsonPath('rows.0.call.v', 'GET api.example.com/users/{id}')
+        // The newest example URL, and the newest trace.
+        ->assertJsonPath('rows.0.call.sub', 'https://api.example.com/users/42')
+        ->assertJsonPath('rows.0.origin.v', 'app/Services/Feed.php:17')
+        ->assertJsonPath('rows.0.traces.raw', 2)
+        ->assertJsonPath('rows.0.repeat.v', '×3')
+        ->assertJsonPath('rows.0.trace.link.id', 'bbbb2222bbbb2222bbbb2222bbbb2222')
+        ->assertJsonPath('rows.0._link', ['to' => 'entity', 'type' => 'outgoing', 'value' => 'api.example.com']);
+
+    Http::assertSent(fn (Request $request): bool => str_contains(rawurldecode(requestQuery($request)['query'] ?? ''), '|= "http.client.n_plus_one_detected"')
+        && str_contains(rawurldecode(requestQuery($request)['query'] ?? ''), 'url_template'));
+});
+
+it('shows an empty N+1 outgoing calls card against an emitter that has none', function (): void {
+    fakeRepeatRecords([]);
+
+    $this->getJson(panelUrl(OutgoingNPlusOne::id()))
+        ->assertOk()
+        ->assertJsonPath('rows', [])
+        ->assertJsonPath('empty', 'No N+1 outgoing calls in this period. They need laravel-telemetry 3.6 or later.');
 });

@@ -186,7 +186,7 @@ function Story({ data, pending = false }: { data: TraceData; pending?: boolean }
             <ReportSection spans={spans} title="Database" items={report.db.items} duplicates={report.db.duplicates} repeats={report.db.repeats} icon="database" />
             <ReportSection spans={spans} title="Cache" items={report.cache.items} summary={report.cache.summary} icon="zap" />
             <ReportSection spans={spans} title="Redis" items={report.redis} icon="database" />
-            <ReportSection spans={spans} title="Outgoing" items={report.outgoing} icon="globe" />
+            <ReportSection spans={spans} title="Outgoing" items={report.outgoing} repeats={report.outgoingRepeats} icon="globe" />
             <ReportSection spans={spans} title="Queued jobs" items={report.queued} icon="layers" />
             <ReportSection spans={spans} title="Views" items={report.views} icon="file" />
             <ReportSection spans={spans} title="Storage" items={report.storage} icon="box" />

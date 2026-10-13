@@ -159,6 +159,47 @@ describe('the trace drawer', () => {
         expect(screen.queryByText(/N\+1 suspect/)).not.toBeInTheDocument();
     });
 
+    it('names an N+1 of outgoing calls in the Outgoing section, and on the span', async () => {
+        const call = {
+            ...span, spanId: 'h3', name: 'GET api.example.com', kind: 'client', durationMs: 20,
+            attributes: {
+                'http.request.method': 'GET',
+                'server.address': 'api.example.com',
+                'url.full': 'https://api.example.com/users/19',
+                'url.template': '/users/{id}',
+                'laravel.http.client.shape': 'cccc222222222222',
+                'laravel.http.client.repeat': 'n_plus_one',
+            },
+        };
+        const withCalls = {
+            ...story, spanCount: 2,
+            waterfall: [
+                { span, depth: 0, offsetPct: 0, widthPct: 100, ancestors: [], children: 1 },
+                { span: call, depth: 1, offsetPct: 10, widthPct: 5, ancestors: ['a1'], children: 0 },
+            ],
+            report: {
+                ...story.report,
+                outgoing: [{ name: '200', detail: 'https://api.example.com/users/19', durationMs: 20, spanId: 'h3' }],
+                outgoingRepeats: [{ kind: 'n_plus_one', query: 'GET api.example.com/users/{id}', count: 5, origin: 'app/Services/Feed.php:17' }],
+            },
+        } as unknown as TraceStory;
+
+        vi.stubGlobal('fetch', vi.fn((input: string) => String(input).includes('/context')
+            ? new Promise<Response>(() => {})
+            : Promise.resolve(new Response(JSON.stringify(withCalls), { status: 200, headers: { 'Content-Type': 'application/json' } }))));
+
+        await renderAt(<TraceView traceId={story.traceId} />);
+
+        expect(await screen.findByText('GET api.example.com/users/{id}')).toBeInTheDocument();
+        expect(screen.getByText('N+1')).toBeInTheDocument();
+        expect(screen.getByText(/· app\/Services\/Feed\.php:17/)).toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole('tab', { name: /Waterfall/ }));
+        await userEvent.click(screen.getByTitle('GET api.example.com'));
+
+        expect(screen.getByText(/Part of an N\+1: this endpoint/)).toBeInTheDocument();
+    });
+
     it('shows the app line a query span ran from', async () => {
         const query = {
             ...span, spanId: 'q1', name: 'db.query', kind: 'client', durationMs: 4,

@@ -29,7 +29,7 @@ export interface SpanGroup {
     maxMs: number;
     /** Indices into `rows` of the occurrences that failed: grouping never hides an error. */
     errors: number[];
-    /** laravel-telemetry 3.5's marker, on the threshold-crossing occurrence onward. N+1 wins over duplicate. */
+    /** laravel-telemetry's marker (`laravel.db.query.repeat` from 3.5, `laravel.http.client.repeat` from 3.6), on the threshold-crossing occurrence onward. N+1 wins over duplicate. */
     repeat: RepeatKind | null;
     /** `file:line` from the first occurrence that carries `code.*` (the crossing one, or a slow one). */
     origin: string | null;
@@ -48,8 +48,10 @@ export type CondensedItem = { kind: 'span'; row: WaterfallRow } | { kind: 'group
  * What makes two sibling spans "the same": the query's shape (laravel-telemetry
  * 3.5 stamps a hash of the normalised SQL on every query span), else its exact
  * text; a cache operation's store, operation and key group; a view by its
- * `view.name`, an outgoing call by method and `server.address`, a Redis
- * command by `db.operation.name`; else the name.
+ * `view.name`, an outgoing call by its shape (laravel-telemetry 3.6 stamps
+ * method, host, path template and query parameter names as one hash), else
+ * by method and `server.address`, a Redis command by `db.operation.name`;
+ * else the name.
  * Service and kind are part of it, so a client span and the server span it
  * caused never merge.
  */
@@ -62,6 +64,9 @@ export function groupKey(span: SpanData): string {
 
     const text = a['db.query.text'];
     if (text) return `${base}\u0000text\u0000${text}`;
+
+    const httpShape = a['laravel.http.client.shape'];
+    if (httpShape) return `${base}\u0000httpshape\u0000${httpShape}`;
 
     if (a['cache.operation'] !== undefined || a['cache.key.group'] !== undefined || span.name.startsWith('cache.')) {
         return `${base}\u0000cache\u0000${a['cache.store'] ?? ''}\u0000${a['cache.operation'] ?? ''}\u0000${a['cache.key.group'] ?? ''}`;
@@ -110,6 +115,13 @@ function labelOf(span: SpanData): string | null {
     if (a['db.query.text']) return a['db.query.text'];
     if (a['cache.key.group']) return a['cache.key.group'];
     if (a['cache.operation'] && !span.name.endsWith(a['cache.operation'])) return a['cache.operation'];
+    // A shaped outgoing call: the path template says which endpoint, the
+    // host only when the name does not already.
+    const template = a['url.template'];
+    if (template && a['laravel.http.client.shape']) {
+        const host = a['server.address'] ?? hostOf(a['url.full']);
+        return host && !span.name.includes(host) ? `${host}${template}` : template;
+    }
     const distinct = a['view.name'] ?? a['server.address'] ?? (a['http.request.method'] ? hostOf(a['url.full']) : null) ?? a['messaging.destination.name'] ?? a['laravel.job.class'];
     return distinct && !span.name.includes(distinct) ? distinct : null;
 }
@@ -138,7 +150,7 @@ function buildGroup(rows: WaterfallRow[], key: string, byId: Map<string, Waterfa
         if (row.offsetPct + row.widthPct > endPct) endPct = row.offsetPct + row.widthPct;
         if (s.error) errors.push(i);
 
-        const marker = s.attributes['laravel.db.query.repeat'];
+        const marker = s.attributes['laravel.db.query.repeat'] ?? s.attributes['laravel.http.client.repeat'];
         if (marker === 'n_plus_one') repeat = 'n_plus_one';
         else if (marker === 'duplicate' && repeat === null) repeat = 'duplicate';
 

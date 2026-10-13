@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **N+1 outgoing HTTP calls.** cboxdk/laravel-telemetry 3.6 flags one
+  endpoint called over and over with a different id, one call after
+  another, in one trace. The UI now shows this in several places:
+  - The Outgoing HTTP page has a new *N+1 outgoing calls* card. It reads
+    `http.client.n_plus_one_detected` records and groups them by call shape
+    (`GET api.example.com/users/{id}`). Each row shows an example URL, the
+    app line that made the call, the traces affected and the worst repeat.
+  - *Outgoing requests* gets an *N+1 detected* tile from
+    `http_client_requests_n_plus_one_total`.
+  - The condensed waterfall groups client spans by
+    `laravel.http.client.shape` and labels them with `url.template`. It badges
+    `laravel.http.client.repeat = "n_plus_one"` as N+1, and notes it on the
+    span.
+  - The trace story's *Outgoing* section lists the marked shapes.
+  - `trace_summary`, `compare_traces`, `trace_markdown` and *Copy as
+    Markdown* get an HTTP shape pass. That means `http`-section flags with
+    the origin, `http_n_plus_one_shapes` (from the root's
+    `http.client.n_plus_one.count`) and `http_call_shapes` totals,
+    `http_shapes` in verbose summaries, and an *Outgoing call groups*
+    snapshot section.
+  - `list_traces` hints `http_n_plus_one`.
+
+  Traces and records from laravel-telemetry before 3.6 carry none of these
+  attributes. Against them the card is empty, the tile reads zero, and the
+  HTTP pass adds no flags or totals. Calls group by method and host as
+  before.
+
+### Changed
+
+- `Panels\Concerns\ReadsQueryRepeats` now builds on a new generic
+  `ReadsRepeatRecords` trait, which takes the record family's label names.
+  The query cards behave as before.
+
 ## [3.1.0] - 2026-10-13
 
 ### Added

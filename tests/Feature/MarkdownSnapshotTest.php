@@ -294,3 +294,31 @@ it('keeps the footer inside the cap, newlines included', function (): void {
         ->and($short->markdown)->not->toContain($footer)
         ->and($short->bytes())->toBeLessThanOrEqual(strlen($title) + strlen($footer) + 2);
 });
+
+it('shows each N+1 of outgoing calls with the call, an example URL and its origin', function (): void {
+    $spans = [snapSpan('root', 'GET /feed', ['http.route' => '/feed', 'http.client.n_plus_one.count' => 1], 400, 0, null, SpanKind::Server)];
+
+    for ($i = 1; $i <= 4; $i++) {
+        $spans[] = snapSpan("h{$i}", 'GET api.example.com', [
+            'http.request.method' => 'GET', 'server.address' => 'api.example.com', 'url.full' => 'https://api.example.com/users/'.(40 + $i),
+            'laravel.http.client.shape' => 'cccc222222222222', 'url.template' => '/users/{id}',
+            ...($i >= 3 ? ['laravel.http.client.repeat' => 'n_plus_one'] : []),
+            ...($i === 3 ? ['code.file.path' => 'app/Services/Feed.php', 'code.line.number' => 17] : []),
+        ], 10, 20 + $i * 15);
+    }
+
+    $md = snapMarkdown(new Trace('feedfeedfeedfeedfeedfeedfeedfeed', $spans))->markdown;
+
+    expect($md)
+        ->toContain('- **warning** · http — N+1 outgoing calls: 4× GET api.example.com/users/{id} — at `app/Services/Feed.php:17`')
+        ->toContain('- N+1 outgoing call shapes (app-counted): 1')
+        ->toContain('- Distinct outgoing call shapes: 1')
+        ->toContain("## Outgoing call groups\n\n### N+1 — 4 calls")
+        ->toContain('- **Call:** `GET api.example.com/users/{id}`')
+        ->toContain('- **Origin:** `app/Services/Feed.php:17`')
+        ->toContain('**Example:** `https://api.example.com/users/41`');
+});
+
+it('has no outgoing call groups on a trace from before call shapes', function (): void {
+    expect(snapMarkdown()->markdown)->not->toContain('Outgoing call groups');
+});

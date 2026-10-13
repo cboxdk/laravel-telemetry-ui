@@ -110,7 +110,10 @@ A **trace** snapshot holds, in this order:
 5. what led up to the first failing span: the last 10 spans that started
    before it;
 6. the N+1, duplicate and slow query groups, each with its SQL, run count,
-   time and the `file:line` that ran it.
+   time and the `file:line` that ran it;
+7. the N+1 outgoing call groups (laravel-telemetry 3.6+), each with the
+   call (`GET api.example.com/users/{id}`), an example URL, call count, time
+   and the `file:line` that made it.
 
 An **error group** snapshot has its type, message, location, fingerprint,
 counts and first/last seen, the request that hit it, the suspect change, the

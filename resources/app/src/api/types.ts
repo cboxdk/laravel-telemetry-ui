@@ -535,7 +535,11 @@ export interface ReportItem {
     origin?: string;
 }
 
-/** A query shape laravel-telemetry marked as an N+1 or an identical repeat. */
+/**
+ * A query shape laravel-telemetry marked as an N+1 or an identical repeat;
+ * in `outgoingRepeats`, an outgoing call shape marked as an N+1, with the
+ * call (`GET api.example.com/users/{id}`) as `query`.
+ */
 export interface ReportRepeat {
     kind: 'n_plus_one' | 'duplicate';
     query: string;
@@ -565,6 +569,8 @@ export interface TraceData {
         cache: { items: ReportItem[]; summary: Record<string, number> };
         redis: ReportItem[];
         outgoing: ReportItem[];
+        /** laravel-telemetry 3.6+; absent from older servers, empty on older traces. */
+        outgoingRepeats?: ReportRepeat[];
         queued: ReportItem[];
         views: ReportItem[];
         storage: ReportItem[];

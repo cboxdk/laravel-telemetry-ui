@@ -118,7 +118,7 @@ final class TelemetryUiManager
         'features' => [Builtin\FeatureChecks::class],
         'horizon' => [Builtin\HorizonOverview::class, Builtin\HorizonIncidents::class],
         'reverb' => [Builtin\ReverbConnections::class, Builtin\ReverbMessages::class],
-        'outgoing' => [Builtin\OutgoingActivity::class, Builtin\OutgoingTable::class, Builtin\OutgoingConnectionPairs::class],
+        'outgoing' => [Builtin\OutgoingActivity::class, Builtin\OutgoingTable::class, Builtin\OutgoingNPlusOne::class, Builtin\OutgoingConnectionPairs::class],
         'outgoing-detail' => [Builtin\Detail\OutgoingHostHeader::class, Builtin\Detail\OutgoingHostActivity::class, Builtin\Detail\OutgoingHostTraces::class],
         'mail' => [Builtin\MailOverview::class, Builtin\NotificationsOverview::class],
         'statamic-cache' => [Builtin\StaticCacheOverview::class, Builtin\Statamic\StaticCacheBreakdown::class],

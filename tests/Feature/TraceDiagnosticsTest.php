@@ -237,3 +237,80 @@ it('marks repeats and origins in the trace story', function (): void {
         ->and($report['request']['label'])->toBe('after-fix')
         ->and(collect($report['totals'])->pluck('label')->all())->toContain('N+1 queries', 'duplicate queries');
 });
+
+/**
+ * $n sequential GETs of one endpoint with a different id each, the way
+ * laravel-telemetry 3.6 stamps them: the shape and template on every call,
+ * the N+1 marker from the threshold-crossing (third) call onward, the origin
+ * on the crossing call.
+ *
+ * @return list<Span>
+ */
+function diagCalls(string $prefix, int $n, bool $shaped = true): array
+{
+    $spans = [];
+
+    for ($i = 1; $i <= $n; $i++) {
+        $spans[] = diagSpan("{$prefix}{$i}", 'GET api.example.com', [
+            'http.request.method' => 'GET',
+            'server.address' => 'api.example.com',
+            'url.full' => 'https://api.example.com/users/'.(16 + $i),
+            'http.response.status_code' => 200,
+            ...($shaped ? ['laravel.http.client.shape' => 'cccc222222222222', 'url.template' => '/users/{id}'] : []),
+            ...($shaped && $i >= 3 ? ['laravel.http.client.repeat' => 'n_plus_one'] : []),
+            ...($shaped && $i === 3 ? DIAG_ORIGIN : []),
+        ], 20, 100 + $i * 25);
+    }
+
+    return $spans;
+}
+
+it('groups outgoing calls by shape and flags an N+1 of them with the line that made them', function (): void {
+    $d = TraceDiagnosis::analyze(new Trace('h1', [
+        diagRoot(['http.client.n_plus_one.count' => 1]),
+        diagSpan('p1', 'POST api.example.com', ['http.request.method' => 'POST', 'server.address' => 'api.example.com', 'url.full' => 'https://api.example.com/orders', 'laravel.http.client.shape' => 'dddd333333333333', 'url.template' => '/orders'], 30, 50),
+        ...diagCalls('c', 5),
+    ]));
+
+    expect($d->totals)->toMatchArray(['http_n_plus_one_shapes' => 1, 'http_call_shapes' => 2])
+        ->and($d->httpShapes['cccc222222222222'])->toMatchArray([
+            'text' => 'GET api.example.com/users/{id}',
+            'example' => 'https://api.example.com/users/17',
+            'count' => 5,
+            'nPlusOne' => 3,
+            'origin' => 'app/Http/Controllers/OrderController.php:42',
+        ]);
+
+    $flags = collect($d->flags)->where('section', 'http')->values();
+
+    // Every call of the shape counted, not only the three marked ones.
+    expect($flags)->toHaveCount(1)
+        ->and($flags[0]['key'])->toBe('http_n_plus_one:cccc222222222222')
+        ->and($flags[0]['message'])->toBe('N+1 outgoing calls: 5× GET api.example.com/users/{id}')
+        ->and($flags[0]['origin'])->toBe('app/Http/Controllers/OrderController.php:42')
+        ->and($flags[0]['detail'])->toMatchArray(['url_template' => '/users/{id}', 'count' => 5, 'flagged_n_plus_one' => 3]);
+
+    $report = RequestReport::from(new Trace('h1', [diagRoot(['http.client.n_plus_one.count' => 1]), ...diagCalls('c', 5)]));
+
+    expect($report['outgoingRepeats'])->toBe([
+        ['kind' => 'n_plus_one', 'query' => 'GET api.example.com/users/{id}', 'count' => 5, 'origin' => 'app/Http/Controllers/OrderController.php:42'],
+    ])
+        ->and(collect($report['totals'])->pluck('label')->all())->toContain('N+1 outgoing calls');
+});
+
+it('leaves outgoing calls from before call shapes alone, guessing nothing', function (): void {
+    $d = TraceDiagnosis::analyze(new Trace('h2', [diagRoot(), ...diagCalls('c', 6, shaped: false)]));
+
+    expect($d->httpShapes)->toBe([])
+        ->and($d->totals)->not->toHaveKeys(['http_call_shapes', 'http_n_plus_one_shapes'])
+        ->and(collect($d->flags)->where('section', 'http')->all())->toBe([])
+        ->and(RequestReport::from(new Trace('h2', [diagRoot(), ...diagCalls('c', 6, shaped: false)]))['outgoingRepeats'])->toBe([]);
+});
+
+it('says when the app counted N+1 outgoing calls that no span read here carries', function (): void {
+    $flags = TraceDiagnosis::analyze(new Trace('h3', [diagRoot(['http.client.n_plus_one.count' => 2])]))->flags;
+
+    expect($flags)->toHaveCount(1)
+        ->and($flags[0]['key'])->toBe('http_n_plus_one:root')
+        ->and($flags[0]['message'])->toBe('2 N+1 outgoing call shapes counted by the app, none marked among the spans read here');
+});

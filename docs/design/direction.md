@@ -129,7 +129,7 @@ All names below are the stable schema emitted by `cboxdk/laravel-telemetry`.
 | Exceptions / Issues | `exceptions_reported_total` by `exception` label; trace samples via TraceQL `{ status = error }`; correlated logs via Loki `level=error` |
 | Queries | `db_query_time_ms`/`db_query_count` span tallies; slow queries via TraceQL `{ span.db.query.text != "" && duration > N }`; performance grouped by `span.laravel.db.query.shape` (text on older spans); `db_queries_n_plus_one_total` / `db_queries_duplicated_total`; N+1 and identical repeats from Loki `db.query.n_plus_one_detected` / `db.query.duplicate_detected` records grouped by `laravel_db_query_shape`, with `code_file_path`/`code_line_number` as the origin |
 | Cache | `cache_operations_total` by operation/store (hit ratio) |
-| Outgoing | `http_client_request_duration_milliseconds` by `server_address`, `http_client_connection_failures_total` |
+| Outgoing | `http_client_request_duration_milliseconds` by `server_address`, `http_client_connection_failures_total`; `http_client_requests_n_plus_one_total`; N+1 outgoing calls from Loki `http.client.n_plus_one_detected` records grouped by `laravel_http_client_shape`, with `code_file_path`/`code_line_number` as the origin |
 | Mail / Notifications | `mail_sent_total`, `notifications_sent_total` by channel |
 | Users | TraceQL facets on `.enduser.id`/`.enduser.guard`/`.enduser.type`/`.client.address` or any custom attribute; traces + sampled error counts per value |
 | Traces | TraceQL search + waterfall with request-chain header (proxy→app), collapsible span subtrees, per-service colours; Service graph from `traces_service_graph_*` |

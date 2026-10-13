@@ -325,7 +325,7 @@ it('reads the slow-query hint off the root from laravel-telemetry 3.2, searching
     $queries = collect(Http::recorded())->map(fn (array $pair): string => rawurldecode(requestQuery($pair[0])['q'] ?? ''));
 
     // The label is on every span from 3.2: the listing still asks for roots.
-    expect($queries)->toContain('{ nestedSetParent < 0 && span.laravel.trace.label = "after" } | select(span.laravel.trace.label, span.http.response.status_code, span.db.query.count, span.db.query.n_plus_one.count, span.db.query.duplicate.count, span.db.query.slow.count, span.telemetry.overhead_ms)')
+    expect($queries)->toContain('{ nestedSetParent < 0 && span.laravel.trace.label = "after" } | select(span.laravel.trace.label, span.http.response.status_code, span.db.query.count, span.db.query.n_plus_one.count, span.db.query.duplicate.count, span.db.query.slow.count, span.http.client.n_plus_one.count, span.telemetry.overhead_ms)')
         // Every root counted its slow queries, so no slow-span search.
         ->and($queries->filter(fn (string $q): bool => str_contains($q, 'duration >='))->all())->toBe([]);
 });
@@ -340,4 +340,59 @@ it('resolves a label to the newest root span carrying it', function (): void {
     TelemetryServer::tool(CompareTracesTool::class, ['a' => 'x', 'b' => 'aaaa1111aaaa1111aaaa1111aaaa1111'])->assertOk();
 
     Http::assertSent(fn (Request $request): bool => rawurldecode(requestQuery($request)['q'] ?? '') === '{ nestedSetParent < 0 && span.laravel.trace.label = "x" }');
+});
+
+it('flags an N+1 of outgoing calls and lists their shapes when verbose', function (): void {
+    $payload = mcpTracePayload(0, 'calls');
+    $t0 = 1_735_689_600_000_000_000;
+    $payload['batches'][0]['scopeSpans'][0]['spans'][0]['attributes'][] = mcpAttr('http.client.n_plus_one.count', 1);
+
+    for ($i = 1; $i <= 4; $i++) {
+        $start = $t0 + (20 + $i * 10) * 1_000_000;
+        $payload['batches'][0]['scopeSpans'][0]['spans'][] = [
+            'spanId' => "h{$i}", 'parentSpanId' => 'root', 'name' => 'GET api.example.com', 'kind' => 'SPAN_KIND_CLIENT',
+            'startTimeUnixNano' => (string) $start, 'endTimeUnixNano' => (string) ($start + 8_000_000),
+            'attributes' => [
+                mcpAttr('http.request.method', 'GET'),
+                mcpAttr('server.address', 'api.example.com'),
+                mcpAttr('url.full', 'https://api.example.com/users/'.(16 + $i)),
+                mcpAttr('url.template', '/users/{id}'),
+                mcpAttr('laravel.http.client.shape', 'cccc222222222222'),
+                ...($i >= 3 ? [mcpAttr('laravel.http.client.repeat', 'n_plus_one')] : []),
+            ],
+        ];
+    }
+
+    Http::fake([
+        'tempo.test:3200/api/traces/*' => Http::response($payload),
+        'loki.test:3100/*' => Http::response(MCP_EMPTY_LOKI),
+    ]);
+
+    TelemetryServer::tool(TraceSummaryTool::class, ['trace_id' => 'abc123abc123abc123abc123abc123ab'])
+        ->assertOk()
+        ->assertSee('"http_n_plus_one_shapes":1')
+        ->assertSee('"section":"http","message":"N+1 outgoing calls: 4× GET api.example.com/users/{id}"')
+        ->assertDontSee('"http_shapes"');
+
+    TelemetryServer::tool(TraceSummaryTool::class, ['trace_id' => 'abc123abc123abc123abc123abc123ab', 'verbose' => true])
+        ->assertOk()
+        ->assertSee('"http_shapes":[{"shape":"cccc222222222222","call":"GET api.example.com/users/{id}","example_url":"https://api.example.com/users/17","count":4');
+});
+
+it('hints an N+1 of outgoing calls in the trace list', function (): void {
+    Http::fake([
+        'tempo.test:3200/api/search*' => function (Request $request) {
+            $q = rawurldecode(requestQuery($request)['q'] ?? '');
+
+            return Http::response(['traces' => str_contains($q, 'status = error') || str_contains($q, 'duration >= ') ? [] : [
+                mcpSearchHit('aaaa0000aaaa0000aaaa0000aaaa0000', 10, ['http.client.n_plus_one.count' => 2, 'db.query.count' => 1, 'db.query.slow.count' => 0]),
+            ]]);
+        },
+    ]);
+
+    TelemetryServer::tool(ListTracesTool::class)
+        ->assertOk()
+        ->assertSee('"flags":["http_n_plus_one"]');
+
+    Http::assertSent(fn (Request $request): bool => str_contains(rawurldecode(requestQuery($request)['q'] ?? ''), 'span.http.client.n_plus_one.count'));
 });

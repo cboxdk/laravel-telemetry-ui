@@ -15,8 +15,9 @@ use Cbox\TelemetryUi\Support\DashboardUrl;
  * support ticket ("copy as Markdown"): who it was, what is wrong with it
  * (the {@see TraceDiagnosis} flags, errors first), where the time went, the
  * exceptions it threw with the app frames and source excerpt their records
- * carry, the spans that led up to the first failure, and the N+1 / duplicate /
- * slow query groups with the line that ran them.
+ * carry, the spans that led up to the first failure, the N+1 / duplicate /
+ * slow query groups and the N+1 outgoing call groups with the line that ran
+ * them.
  *
  * Built from what the trace store and the exception records already hold —
  * nothing is looked up or reconstructed: SQL is the statement text as the app
@@ -58,6 +59,7 @@ final class TraceSnapshot
             ['Exceptions', self::exceptions($exceptions)],
             ['What led up to it', self::leadUp($trace)],
             ['Query groups', self::queryGroups($diagnosis)],
+            ['Outgoing call groups', self::callGroups($diagnosis)],
         ], '_Snapshot from telemetry-ui, built from stored telemetry only: SQL is shown as the app recorded it, and query bindings are never added._', $maxBytes);
     }
 
@@ -157,6 +159,8 @@ final class TraceSnapshot
             'n_plus_one_shapes' => 'N+1 shapes (app-counted)',
             'duplicate_queries_distinct' => 'Duplicate queries, distinct (app-counted)',
             'slow_queries' => 'Slow queries (app-counted)',
+            'http_call_shapes' => 'Distinct outgoing call shapes',
+            'http_n_plus_one_shapes' => 'N+1 outgoing call shapes (app-counted)',
             'telemetry_overhead_ms' => 'Telemetry overhead',
         ];
 
@@ -390,6 +394,58 @@ final class TraceSnapshot
         if (count($groups) > self::MAX_QUERY_GROUPS) {
             $lines[] = '';
             $lines[] = '… and '.(count($groups) - self::MAX_QUERY_GROUPS).' more query groups (see the trace view or the `trace_summary` MCP tool).';
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * The outgoing call shapes the app marked as an N+1, in the diagnosis's
+     * order, each with an example URL as the app called it.
+     */
+    private static function callGroups(TraceDiagnosis $d): string
+    {
+        $groups = array_values(array_filter(
+            $d->flags,
+            static fn (array $flag): bool => $flag['section'] === 'http' && isset($flag['detail']['call']),
+        ));
+
+        if ($groups === []) {
+            return '';
+        }
+
+        $lines = ['## Outgoing call groups'];
+
+        foreach (array_slice($groups, 0, self::MAX_QUERY_GROUPS) as $flag) {
+            $detail = $flag['detail'] ?? [];
+            $count = self::str($detail['count'] ?? '');
+            $lines[] = '';
+            $lines[] = '### N+1 — '.$count.($count === '1' ? ' call' : ' calls')
+                .' · '.MarkdownSnapshot::ms((float) self::str($detail['total_ms'] ?? 0)).' total'
+                .' · max '.MarkdownSnapshot::ms((float) self::str($detail['max_ms'] ?? 0));
+            $lines[] = '';
+            $lines[] = '- **Call:** '.MarkdownSnapshot::code(self::str($detail['call'] ?? ''));
+            $lines[] = '- One endpoint called one after another with different ids (marked by the app from the repeat threshold on).';
+
+            if (isset($flag['origin'])) {
+                $function = self::str($detail['function'] ?? '');
+                $lines[] = '- **Origin:** '.MarkdownSnapshot::code($flag['origin']).($function !== '' ? ' in '.MarkdownSnapshot::code($function) : '');
+            }
+
+            $example = self::str($detail['example_url'] ?? '');
+            $shape = self::str($detail['shape'] ?? '');
+
+            if ($example !== '' || $shape !== '') {
+                $lines[] = '- '.implode(' · ', array_filter([
+                    $example !== '' ? '**Example:** '.MarkdownSnapshot::code(MarkdownSnapshot::limit($example, 300)) : null,
+                    $shape !== '' ? '**Shape:** '.MarkdownSnapshot::code($shape) : null,
+                ]));
+            }
+        }
+
+        if (count($groups) > self::MAX_QUERY_GROUPS) {
+            $lines[] = '';
+            $lines[] = '… and '.(count($groups) - self::MAX_QUERY_GROUPS).' more outgoing call groups (see the trace view or the `trace_summary` MCP tool).';
         }
 
         return implode("\n", $lines);
