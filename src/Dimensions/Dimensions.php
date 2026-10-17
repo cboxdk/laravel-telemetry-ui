@@ -188,6 +188,9 @@ final class Dimensions
             // this app calls out to.
             new Dimension('server.address', 'Outgoing host', 'Outgoing', entity: 'outgoing', builtin: true, signals: [], spanKind: 'client'),
             new Dimension('laravel.command', 'Command', 'Console', entity: 'command', builtin: true, signals: []),
+            // laravel/ai, through laravel-telemetry's GenAI instrumentation.
+            new Dimension('gen_ai.request.model', 'AI model', 'AI', entity: 'ai-model', builtin: true, signals: []),
+            new Dimension('gen_ai.agent.name', 'Agent', 'AI', entity: 'ai-agent', builtin: true, signals: []),
             new Dimension('name', 'Span name', 'Span', scope: 'intrinsic', builtin: true, signals: ['traces']),
             // cboxdk/laravel-telemetry 3.5: the directive (monitor) that made a
             // trace be kept. Not a default facet: most traces have none.

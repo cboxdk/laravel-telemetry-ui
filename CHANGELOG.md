@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **AI page.** A new *AI* page under *Activity* shows what an app's
+  laravel/ai calls do and cost, from cboxdk/laravel-telemetry's GenAI
+  instrumentation. It appears when `gen_ai_*` metrics exist. Its panels:
+  - *AI usage*: cost per model over time, or tokens when no prices are
+    configured, with tiles for cost, input and output tokens, model calls
+    and error rate.
+  - *Models*: calls, tokens, cost, p95 latency and error rate per provider
+    and model.
+  - *Chat latency*: p95 of chat calls per provider, overall p50 and p95.
+  - *AI errors*: failed calls by provider and `error_type`.
+  - *Recent model calls*: individual `chat` and `embeddings` spans with
+    tokens, cache tokens, cost, finish reason or error and duration.
+  - *Slowest agent runs*: `invoke_agent` spans from Tempo with the tools
+    each run called, sortable by time, duration or cost, each opening its
+    trace.
+  - *Agent tools*: `execute_tool` spans per tool.
+- **AI model and agent pages.** A model (`ai-model`) and an agent
+  (`ai-agent`) are now entities with their own pages, like a route or an
+  outgoing host. The model page's *Metrics* tab shows calls, tokens and
+  cost, latency and the model's own call list; the agent page shows runs
+  over time, the tools its runs called and its run log. Agents carry no
+  metric label, so agent numbers come from a sample of recent runs.
+- **AI usage by user, team, tenant or IP.** A new *AI usage by …* panel
+  groups calls, tokens, cost and errors by the user, any declared
+  dimension (`tenant.id`, `team.id`, …), the client IP or a free-form
+  attribute. It reads laravel-telemetry's usage records from Loki when
+  `instrument.ai_usage_events` is on (exact), and the spans otherwise (a
+  recent sample, and the panel says so). The client IP comes from the
+  request's root span above each call.
+- **AI usage on user and dimension pages.** When the app emits GenAI
+  metrics, the entity page of a user, a client IP and every declared
+  context dimension gets an *AI usage* summary and that value's model
+  calls on its *Metrics* tab.
+
+  Cost reads `gen_ai_client_cost_total`, which only exists for models
+  priced in `telemetry.instrument.ai_pricing.models` and needs
+  laravel-telemetry 3.7 or later. A model with tokens and no cost
+  is shown as *no price*, never as free, and without any prices the page
+  shows tokens and a hint about the config key. The currency comes from
+  `telemetry.instrument.ai_pricing.currency` (USD by default). See
+  `docs/cookbook/ai.md`.
+- `Format::money()` for cost amounts: cents from a cent up, up to four
+  decimals below that (`$0.0004`).
+- The fixture backends speak the GenAI vocabulary (models, providers,
+  tokens, cost, agents, tools), so the AI pages render with realistic data
+  in browser tests and screenshots.
+
 ## [3.2.0] - 2026-10-13
 
 ### Added

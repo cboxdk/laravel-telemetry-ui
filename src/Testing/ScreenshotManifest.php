@@ -60,6 +60,11 @@ final class ScreenshotManifest
                 '/telemetry-ui/p/outgoing',
                 'Outgoing HTTP by host: connection time, TLS handshake and request duration, which is where a host provisioned in the wrong zone becomes visible.',
             ),
+            'ai' => self::shot(
+                '/telemetry-ui/p/ai',
+                'The AI page: what laravel/ai calls cost per model, tokens, latency and errors, with an unpriced model marked as such rather than as free.',
+                full: true,
+            ),
             'logs' => self::shot(
                 '/telemetry-ui/explore/logs',
                 'Log explorer with live tail. The query is the same IR the other explorers use, compiled to LogQL.',

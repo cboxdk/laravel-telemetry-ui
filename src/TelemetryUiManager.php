@@ -72,6 +72,11 @@ final class TelemetryUiManager
         'outgoing' => ['label' => 'Outgoing HTTP', 'group' => 'Activity', 'icon' => null, 'detect' => null],
         'outgoing-detail' => ['label' => 'Host', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'outgoing'],
         'mail' => ['label' => 'Mail & Notifications', 'group' => 'Activity', 'icon' => null, 'detect' => null],
+        // laravel/ai calls, from cboxdk/laravel-telemetry's GenAI instrumentation.
+        'ai' => ['label' => 'AI', 'group' => 'Activity', 'icon' => null, 'detect' => 'gen_ai_.*'],
+        'ai-model-detail' => ['label' => 'AI model', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'ai'],
+        'ai-agent-detail' => ['label' => 'Agent', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'ai'],
+        'ai-usage-detail' => ['label' => 'AI usage', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'ai'],
         'analytics' => ['label' => 'Analytics', 'group' => 'Frontend', 'icon' => null, 'detect' => null],
         'page-detail' => ['label' => 'Page', 'group' => null, 'icon' => null, 'detect' => null, 'hidden' => true, 'parent' => 'analytics'],
         'frontend' => ['label' => 'Web Vitals', 'group' => 'Frontend', 'icon' => null, 'detect' => null],
@@ -121,6 +126,10 @@ final class TelemetryUiManager
         'outgoing' => [Builtin\OutgoingActivity::class, Builtin\OutgoingTable::class, Builtin\OutgoingNPlusOne::class, Builtin\OutgoingConnectionPairs::class],
         'outgoing-detail' => [Builtin\Detail\OutgoingHostHeader::class, Builtin\Detail\OutgoingHostActivity::class, Builtin\Detail\OutgoingHostTraces::class],
         'mail' => [Builtin\MailOverview::class, Builtin\NotificationsOverview::class],
+        'ai' => [Builtin\AiOverview::class, Builtin\AiModels::class, Builtin\AiLatency::class, Builtin\AiErrors::class, Builtin\AiUsageByDimension::class, Builtin\AiCalls::class, Builtin\AiAgentRuns::class, Builtin\AiTools::class],
+        'ai-model-detail' => [Builtin\Detail\AiModelHeader::class, Builtin\Detail\AiModelActivity::class, Builtin\Detail\AiModelTokens::class, Builtin\Detail\AiModelLatency::class, Builtin\Detail\AiModelCalls::class],
+        'ai-agent-detail' => [Builtin\Detail\AiAgentHeader::class, Builtin\Detail\AiAgentActivity::class, Builtin\Detail\AiAgentTools::class, Builtin\Detail\AiAgentRunLog::class],
+        'ai-usage-detail' => [Builtin\Detail\AiUsageSummary::class, Builtin\Detail\AiUsageCalls::class],
         'statamic-cache' => [Builtin\StaticCacheOverview::class, Builtin\Statamic\StaticCacheBreakdown::class],
         'statamic-stache' => [Builtin\Statamic\StacheActivity::class, Builtin\Statamic\StacheWarmLatency::class],
         'statamic-glide' => [Builtin\Statamic\GlideGenerations::class, Builtin\Statamic\GlideByPreset::class],
@@ -884,6 +893,8 @@ final class TelemetryUiManager
         'query' => ['page' => 'query-detail', 'param' => 'dbq'],
         'outgoing' => ['page' => 'outgoing-detail', 'param' => 'host'],
         'path' => ['page' => 'page-detail', 'param' => 'path'],
+        'ai-model' => ['page' => 'ai-model-detail', 'param' => 'model'],
+        'ai-agent' => ['page' => 'ai-agent-detail', 'param' => 'agent'],
     ];
 
     /**

@@ -368,10 +368,6 @@ final class FixtureMetrics implements EnumeratesMetricNames, MetricsSource, Prob
     {
         $by = $query->by !== [] || $query->raw === null ? $query->by : $this->rawBy($query->raw);
 
-        if ($by === []) {
-            return [[]];
-        }
-
         $sets = [[]];
 
         // Three labels, not two. The routes table groups by route, method AND
@@ -390,6 +386,13 @@ final class FixtureMetrics implements EnumeratesMetricNames, MetricsSource, Prob
             }
 
             $sets = $next;
+        }
+
+        $metric = strtolower($this->metricName($query));
+
+        if (str_starts_with($metric, 'gen_ai')) {
+            $filters = $this->filterLabels($query);
+            $sets = array_values(array_filter($sets, static fn (array $set): bool => FixtureData::genAiConsistent($set + $filters, $metric)));
         }
 
         // Enough for route × method × status without truncating whole routes

@@ -229,6 +229,10 @@ final class FixtureLogs implements LogsSource, ProbesConnection
             return $this->repeatedCalls($start, $end, $limit);
         }
 
+        if (in_array('gen_ai.client.inference.operation.details', $events, true)) {
+            return $this->aiUsageRecords($query, $start, $end, $limit);
+        }
+
         if (in_array('statamic.content.change', $events, true)) {
             return $this->contentChanges($start, $end, $limit);
         }
@@ -460,6 +464,80 @@ final class FixtureLogs implements LogsSource, ProbesConnection
                 ],
             );
         }
+
+        return $entries;
+    }
+
+    /**
+     * laravel-telemetry's usage records: one per model call, with the call's
+     * usage, the user and the app's context dimensions (team, tenant, plan),
+     * and the ids of its span. Equality label filters narrow them the way
+     * Loki would, so a user's page reads that user's calls.
+     *
+     * @return list<LogEntry>
+     */
+    private function aiUsageRecords(LogQuery $query, DateTimeInterface $start, DateTimeInterface $end, int $limit): array
+    {
+        $from = $start->getTimestamp();
+        $span = max(1, $end->getTimestamp() - $from);
+        $wanted = [];
+
+        foreach ($query->pipeline as $stage) {
+            if ($stage instanceof LabelFilter) {
+                foreach ($stage->matchers as $matcher) {
+                    if ($matcher->op === MatchOp::Eq) {
+                        $wanted[$matcher->label] = $matcher->value;
+                    }
+                }
+            }
+        }
+
+        $chat = array_keys(array_filter(FixtureData::GEN_AI_MODELS, static fn (array $m): bool => $m[1] === 'chat'));
+        $entries = [];
+
+        for ($i = 0; $i < min($limit, 900); $i++) {
+            $key = "ai-usage:{$from}:{$i}";
+            $model = $this->data->one("model:{$key}", [...$chat, ...$chat, 'text-embedding-3-small']);
+            [$provider, $operation, $priced] = FixtureData::GEN_AI_MODELS[$model];
+            $input = (int) $this->data->band("in:{$key}", 300, 7_000);
+            $output = $operation === 'chat' ? (int) $this->data->band("out:{$key}", 40, 1_200) : 0;
+            $failed = $this->data->int("err:{$key}") % 40 === 0;
+
+            $labels = array_filter([
+                'gen_ai_operation_name' => $operation,
+                'gen_ai_provider_name' => $provider,
+                'gen_ai_request_model' => $model,
+                'gen_ai_usage_input_tokens' => (string) $input,
+                'gen_ai_usage_output_tokens' => (string) $output,
+                'gen_ai_usage_cache_read_input_tokens' => (string) (int) $this->data->band("cache:{$key}", 0, 2_000),
+                'gen_ai_usage_cost' => $priced && ! $failed ? (string) round(($input * 2.5 + $output * 10) / 1_000_000, 6) : '',
+                'gen_ai_response_finish_reasons' => $failed ? '' : $this->data->one("fin:{$key}", ['["stop"]', '["stop"]', '["tool_calls"]', '["length"]']),
+                'gen_ai_agent_name' => $this->data->one("agent:{$key}", ['SupportAgent', 'OrderSummarizer', 'ProductRecommender', '']),
+                'error_type' => $failed ? $this->data->one("et:{$key}", FixtureData::GEN_AI_ERRORS) : '',
+                'user_id' => $this->data->one("user:{$key}", $this->data->labelValues('user.id')),
+                'tenant_id' => $this->data->one("tenant:{$key}", $this->data->labelValues('tenant.id')),
+                'team_id' => $this->data->one("team:{$key}", $this->data->labelValues('team.id')),
+                'plan' => $this->data->one("plan:{$key}", $this->data->labelValues('plan')),
+                'trace_id' => $this->data->id("trace:{$key}"),
+                'span_id' => $this->data->id("span:{$key}", 16),
+                'service_name' => $this->data->one("svc:{$key}", FixtureData::SERVICES),
+                'deployment_environment_name' => 'production',
+            ], static fn (string $v): bool => $v !== '');
+
+            foreach ($wanted as $label => $value) {
+                if (array_key_exists($label, $labels) && $labels[$label] !== $value) {
+                    continue 2;
+                }
+            }
+
+            $entries[] = new LogEntry(
+                timestampNano: $this->recent($key, $from, $span),
+                line: 'gen_ai.client.inference.operation.details',
+                labels: $labels,
+            );
+        }
+
+        usort($entries, static fn (LogEntry $a, LogEntry $b): int => $a->timestampNano <=> $b->timestampNano);
 
         return $entries;
     }

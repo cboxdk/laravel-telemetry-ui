@@ -18,6 +18,7 @@ use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Format;
+use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLabels;
 use Cbox\TelemetryUi\TelemetryUiManager;
 
@@ -469,6 +470,27 @@ final class EntityStory
         return $out;
     }
 
+    /**
+     * The AI usage panels, for an entity with no detail page of its own that
+     * laravel-telemetry stamps on model calls: the user, the client IP, and
+     * every host-declared context dimension (team, tenant, …). Only when the
+     * app emits GenAI metrics at all, so an app without laravel/ai keeps its
+     * entity pages as they were. A host that attaches its own page wins.
+     *
+     * @return array{page: string, param: string}|null
+     */
+    private function aiUsagePage(Dimension $dimension): ?array
+    {
+        $eligible = in_array($dimension->key, ['user.id', 'client.address'], true)
+            || (! $dimension->builtin && $dimension->derived === null);
+
+        if (! $eligible || ! app(SchemaDetector::class)->hasMetricsMatching('gen_ai_.*')) {
+            return null;
+        }
+
+        return ['page' => 'ai-usage-detail', 'param' => 'ai_value'];
+    }
+
     private static function gap(int $ms): string
     {
         $minutes = intdiv($ms, 60_000);
@@ -485,15 +507,24 @@ final class EntityStory
     private function panels(Dimension $dimension, string $value): array
     {
         $page = $this->manager->entityPageFor($dimension->entitySlug());
+        $params = [];
+
+        if ($page === null && ($page = $this->aiUsagePage($dimension)) !== null) {
+            // One page serves every such entity type, so it is told which
+            // attribute the value belongs to.
+            $params = ['_dim' => $dimension->key];
+        }
 
         if ($page === null) {
             return [];
         }
 
+        $params = [$page['param'] => $value, '_page' => $page['page'], ...$params];
+
         return array_map(static fn (string $panel): array => [
             'id' => $panel::id(),
             'span' => $panel::span(),
-            'params' => [$page['param'] => $value, '_page' => $page['page']],
+            'params' => $params,
         ], array_values(array_filter(
             $this->manager->panels($page['page']),
             static fn (string $panel): bool => is_subclass_of($panel, Panel::class),

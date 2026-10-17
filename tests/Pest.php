@@ -61,6 +61,7 @@ function allMetricNames(): array
         'cache_operations_total',
         'storage_operations_total',
         'livewire_updates_total',
+        'gen_ai_client_operation_duration_seconds_count',
         'feature_checks_total',
         'reverb_connections_active',
         'system_cpu_seconds_total',

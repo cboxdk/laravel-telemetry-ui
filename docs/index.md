@@ -83,6 +83,7 @@ incident RCA.
   [infrastructure discovery](core-concepts/infrastructure.md)
 - Cookbook:
   [web analytics & RUM](cookbook/analytics.md) ·
+  [AI usage and cost](cookbook/ai.md) ·
   [connect through a Grafana datasource proxy](cookbook/connect-via-grafana-proxy.md) ·
   [emitting annotations](cookbook/annotations.md) ·
   [MCP server](cookbook/mcp.md) ·

@@ -42,7 +42,8 @@ MCP).
   last.
 - **Laravel-shaped screens** — Dashboard, Requests, Jobs, Queues, Commands,
   Scheduled Tasks, Exceptions, Queries, Cache, Outgoing, Mail & Notifications,
-  Hosts, Logs, System, Web Vitals, Analytics, plus a full trace waterfall.
+  AI (laravel/ai calls, tokens, cost and agent runs), Hosts, Logs, System,
+  Web Vitals, Analytics, plus a full trace waterfall.
 - **Signal correlation** — a trace shows the host/runtime signals recorded
   *around* it (CPU, load, memory, network, RSS), each flagged against its
   typical baseline ("Host CPU 95%, typical 30%").
