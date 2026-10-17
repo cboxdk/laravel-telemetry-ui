@@ -251,7 +251,7 @@ it('returns the error instead of throwing when prometheus fails', function (): v
     expect($this->getJson(panelUrl(AiOverview::id()))->assertOk()->json('error'))->toBeString();
 });
 
-it('charts chat p50 and p95 per provider', function (): void {
+it('charts chat p95 per provider, with the overall p50 and p95 as tiles', function (): void {
     aiBackend([
         [['histogram_quantile(0.5'], [[[], 0.8]]],
         [['histogram_quantile(0.95'], [[[], 2.5]]],
@@ -262,8 +262,9 @@ it('charts chat p50 and p95 per provider', function (): void {
 
     $this->getJson(panelUrl(AiLatency::id()))
         ->assertOk()
-        ->assertJsonPath('series.0.name', 'openai p50')
-        ->assertJsonPath('series.1.name', 'openai p95')
+        // One line per provider: p50 beside it doubled the lines and wrapped the legend.
+        ->assertJsonCount(1, 'series')
+        ->assertJsonPath('series.0.name', 'openai')
         ->assertJsonPath('stats.0.value', '800ms')
         ->assertJsonPath('stats.1.value', '2.5s');
 

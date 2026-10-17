@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     and error rate.
   - *Models*: calls, tokens, cost, p95 latency and error rate per provider
     and model.
-  - *Chat latency*: p50 and p95 of chat calls per provider.
+  - *Chat latency*: p95 of chat calls per provider, overall p50 and p95.
   - *AI errors*: failed calls by provider and `error_type`.
   - *Recent model calls*: individual `chat` and `embeddings` spans with
     tokens, cache tokens, cost, finish reason or error and duration.

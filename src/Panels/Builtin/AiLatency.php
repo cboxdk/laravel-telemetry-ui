@@ -10,7 +10,8 @@ use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
- * How long chat calls take per provider — p50 and p95 over time, from the
+ * How long chat calls take per provider — p95 over time (p50 and p95 for a
+ * single model), from the
  * GenAI operation-duration histogram. Embeddings are left out: they are a
  * different order of magnitude and would flatten the chat lines. Scoped to
  * one model (its detail page), it charts that model whatever it does.
@@ -31,12 +32,16 @@ class AiLatency extends Panel
         try {
             $series = [];
 
-            foreach ([[0.5, 'p50'], [0.95, 'p95']] as [$quantile, $label]) {
+            // Across providers, p50 and p95 each doubled the lines and wrapped
+            // the legend over the axis; the tiles carry the overall p50.
+            $quantiles = $scoped ? [[0.5, 'p50'], [0.95, 'p95']] : [[0.95, 'p95']];
+
+            foreach ($quantiles as [$quantile, $label]) {
                 foreach ($this->metrics()->queryRange($bucket->quantile($quantile, $this->rateWindow(), 'gen_ai_provider_name')->times(1000), $start, $end) as $timeSeries) {
                     $provider = $timeSeries->labels['gen_ai_provider_name'] ?? '';
 
                     $series[] = [
-                        'name' => ($provider !== '' ? $provider : 'unknown').' '.$label,
+                        'name' => ($provider !== '' ? $provider : 'unknown').($scoped ? ' '.$label : ''),
                         'data' => $timeSeries->toChartData(),
                     ];
                 }
@@ -53,7 +58,7 @@ class AiLatency extends Panel
 
         return $this->chartCard(
             title: $title,
-            subtitle: $scoped ? 'p50 and p95 of calls to this model, per provider' : 'p50 and p95 of chat calls, per provider',
+            subtitle: $scoped ? 'p50 and p95 of calls to this model, per provider' : 'p95 of chat calls per provider; overall p50 and p95 above',
             series: $series,
             stats: [
                 $this->stat('p50', $headline($p50)),
