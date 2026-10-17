@@ -83,7 +83,7 @@ it('serves every built-in page and every panel on it as typed json', function (s
 })->with([
     'dashboard', 'traces', 'events', 'requests', 'jobs', 'queues', 'autoscale', 'commands', 'schedule',
     'exceptions', 'queries', 'cache', 'storage', 'livewire', 'features',
-    'horizon', 'reverb', 'outgoing', 'mail',
+    'horizon', 'reverb', 'outgoing', 'mail', 'ai',
     'statamic-cache', 'statamic-stache', 'statamic-glide', 'statamic-forms',
     'statamic-content', 'statamic-inventory',
     'analytics', 'frontend', 'users', 'logs', 'system', 'hosts',
@@ -106,6 +106,8 @@ it('serves every hidden detail page with its entity param', function (string $pa
     'outgoing' => ['outgoing-detail', ['host' => 'api.test']],
     'host' => ['host-detail', ['host' => 'web-1']],
     'page' => ['page-detail', ['path' => '/orders']],
+    'ai model' => ['ai-model-detail', ['model' => 'gpt-4o']],
+    'ai agent' => ['ai-agent-detail', ['agent' => 'SupportAgent']],
 ]);
 
 it('covers every registered page in the smoke list', function (): void {
@@ -114,7 +116,7 @@ it('covers every registered page in the smoke list', function (): void {
         'dashboard', 'traces', 'events', 'requests', 'request-detail', 'jobs', 'job-detail', 'queues', 'queue-detail',
         'autoscale', 'horizon', 'commands', 'schedule', 'exceptions', 'exception-detail', 'error-detail',
         'queries', 'query-detail', 'cache', 'storage', 'livewire', 'features', 'reverb', 'outgoing',
-        'outgoing-detail', 'mail', 'analytics', 'page-detail', 'frontend', 'hosts', 'host-detail', 'users',
+        'outgoing-detail', 'mail', 'ai', 'ai-model-detail', 'ai-agent-detail', 'analytics', 'page-detail', 'frontend', 'hosts', 'host-detail', 'users',
         'logs', 'system', 'statamic-cache', 'statamic-stache', 'statamic-glide', 'statamic-forms',
         'statamic-content', 'statamic-inventory',
     ]);

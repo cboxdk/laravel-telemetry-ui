@@ -125,6 +125,46 @@ final class FixtureData
         ['ReferenceError', 'dataLayer is not defined', 'assets/analytics-7c3b11.js', 47],
     ];
 
+    /**
+     * laravel/ai models: provider, operation, and whether the app priced it.
+     * One unpriced model with a long name, because the AI page has to show
+     * "no price" for it and still fit the name in its column.
+     *
+     * @var array<string, array{string, string, bool}>
+     */
+    public const GEN_AI_MODELS = [
+        'gpt-4o-mini' => ['openai', 'chat', true],
+        'claude-sonnet-4-5-20250929' => ['anthropic', 'chat', true],
+        'gpt-4o' => ['openai', 'chat', true],
+        'text-embedding-3-small' => ['openai', 'embeddings', true],
+        'meta-llama/Llama-3.3-70B-Instruct-Turbo' => ['together', 'chat', false],
+    ];
+
+    /** @var list<string> */
+    public const GEN_AI_ERRORS = ['RateLimitExceededException', 'ProviderOverloadedException', 'ConnectionException'];
+
+    /**
+     * Whether a fixture label set is one laravel/ai could emit: a model only
+     * with its own provider and operation, and a cost only for a priced model.
+     * The fixture expands every grouped label against every other, which
+     * would otherwise bill Anthropic for gpt-4o.
+     *
+     * @param  array<string, string>  $labels
+     */
+    public static function genAiConsistent(array $labels, string $metric): bool
+    {
+        $model = self::GEN_AI_MODELS[$labels['gen_ai_request_model'] ?? ''] ?? null;
+
+        if ($model === null) {
+            return true;
+        }
+
+        return (! isset($labels['gen_ai_provider_name']) || $labels['gen_ai_provider_name'] === $model[0])
+            && (! isset($labels['gen_ai_operation_name']) || $labels['gen_ai_operation_name'] === $model[1])
+            && (! isset($labels['gen_ai_token_type']) || $model[1] === 'chat' || $labels['gen_ai_token_type'] === 'input')
+            && (! str_contains($metric, 'gen_ai_client_cost') || $model[2]);
+    }
+
     public function __construct(
         /**
          * Anchors every timestamp. Null follows the clock, which is what a
@@ -164,6 +204,27 @@ final class FixtureData
         // The Statamic content counter's own vocabulary: its `type` and
         // `action` are Statamic's, and a Content page of "alpha saved beta"
         // documents nothing.
+        if (str_starts_with($label, 'gen_ai')) {
+            $values = match (str_replace('.', '_', $label)) {
+                'gen_ai_request_model', 'gen_ai_response_model' => array_keys(self::GEN_AI_MODELS),
+                'gen_ai_provider_name' => ['openai', 'anthropic', 'together'],
+                'gen_ai_operation_name' => ['chat', 'embeddings'],
+                'gen_ai_token_type' => ['input', 'output'],
+                'gen_ai_agent_name' => ['SupportAgent', 'OrderSummarizer', 'ProductRecommender'],
+                'gen_ai_tool_name' => ['search_orders', 'lookup_customer', 'search_docs', 'issue_refund'],
+                'gen_ai_response_finish_reasons' => ['["stop"]', '["stop"]', '["stop"]', '["tool_calls"]', '["length"]'],
+                default => null,
+            };
+
+            if ($values !== null) {
+                return $values;
+            }
+        }
+
+        if ($label === 'error_type' && str_contains($metric, 'gen_ai')) {
+            return self::GEN_AI_ERRORS;
+        }
+
         if (str_contains($metric, 'statamic_content')) {
             if ($label === 'type') {
                 return ['entry', 'asset', 'term', 'nav_tree', 'global_variables'];
@@ -297,6 +358,24 @@ final class FixtureData
         $rate = (2.5 + 7.0 * $wave * $jitter) * $spread * $this->weight($name, $labels);
         $count = round($rate * $countScale, 3);
 
+        // laravel/ai calls: seconds, not milliseconds, tokens by the hundred
+        // and cost in fractions of a cent. Ahead of the generic arms, which
+        // read `token_usage` as gigabytes of memory.
+        if (str_starts_with($name, 'gen_ai_')) {
+            $embedding = ($labels['gen_ai_operation_name'] ?? '') === 'embeddings'
+                || str_contains($labels['gen_ai_request_model'] ?? '', 'embedding');
+            $call = round((0.5 + 2.6 * $wave * $wave) * $jitter * $spread * $tail * ($embedding ? 0.08 : 1.0), 4);
+            $tokens = ($labels['gen_ai_token_type'] ?? '') === 'output' ? 220.0 : 1_100.0;
+
+            return match (true) {
+                str_contains($name, 'gen_ai_client_cost') => round($count * 0.0021 * $spread * ($embedding ? 0.01 : 1.0), 6),
+                str_contains($name, 'token_usage') && str_ends_with($name, '_sum') => round($count * $tokens * $spread),
+                str_ends_with($name, '_sum') => round($call * $count, 4),
+                $counting => $count,
+                default => $call,
+            };
+        }
+
         return match (true) {
             // A histogram's `_sum` is TOTAL time, not one duration: a
             // panel reads average latency as sum/count, and giving those
@@ -377,8 +456,19 @@ final class FixtureData
      * attribute's NAME says it holds. Stable for the pair, so the same span
      * carries the same values on every read.
      */
-    public function attribute(string $key, string $of): string
+    /**
+     * @param  array<string, string>  $pinned  attributes the query pinned with
+     *                                         an equality condition: a span the
+     *                                         search matched carries that value,
+     *                                         and what follows from it (a model's
+     *                                         provider and price) follows.
+     */
+    public function attribute(string $key, string $of, array $pinned = []): string
     {
+        if (isset($pinned[$key])) {
+            return $pinned[$key];
+        }
+
         $name = strtolower($key);
         $seed = "attr:{$name}:{$of}";
 
@@ -392,6 +482,20 @@ final class FixtureData
         $fault = $this->one("fault:{$of}", self::BROWSER_EXCEPTIONS);
 
         return match (true) {
+            // An agent runs on a chat model, and its provider and price follow
+            // from the model rather than being drawn on their own.
+            $name === 'gen_ai.request.model' => $this->one("attr:gen_ai.request.model:{$of}", array_keys(array_filter(self::GEN_AI_MODELS, static fn (array $m): bool => $m[1] === 'chat'))),
+            $name === 'gen_ai.provider.name' => self::GEN_AI_MODELS[$this->genAiModel($of, $pinned)][0],
+            $name === 'gen_ai.operation.name' => self::GEN_AI_MODELS[$this->genAiModel($of, $pinned)][1],
+            // Most calls succeed; a failed one says why, as laravel/ai does.
+            $name === 'error.type' => $this->int($seed) % 17 === 0 ? $this->one($seed, self::GEN_AI_ERRORS) : '',
+            $name === 'gen_ai.usage.cache_read.input_tokens' => $this->int($seed) % 3 === 0 ? '0' : (string) round($this->band($seed, 200, 4_000)),
+            $name === 'gen_ai.usage.cache_creation.input_tokens' => $this->int($seed) % 4 === 0 ? (string) round($this->band($seed, 100, 1_200)) : '0',
+            $name === 'gen_ai.usage.reasoning.output_tokens' => $this->int($seed) % 5 === 0 ? (string) round($this->band($seed, 100, 900)) : '0',
+            $name === 'gen_ai.usage.input_tokens' => (string) round($this->band($seed, 400, 9_000)),
+            $name === 'gen_ai.usage.output_tokens' => (string) round($this->band($seed, 60, 1_400)),
+            // A run on the unpriced model carries no cost.
+            $name === 'gen_ai.usage.cost' => self::GEN_AI_MODELS[$this->genAiModel($of, $pinned)][2] ? (string) round($this->band($seed, 0.0004, 0.084), 6) : '',
             $name === 'db.query.text' => $this->one($seed, self::STATEMENTS),
             $name === 'db.system.name', $name === 'db.system' => $this->one($seed, ['mysql', 'mysql', 'pgsql', 'sqlite']),
             $name === 'db.namespace' => $this->one($seed, ['shop', 'shop', 'analytics']),
@@ -411,6 +515,19 @@ final class FixtureData
             str_contains($name, 'duration'), str_contains($name, 'latency') => (string) round($this->band($seed, 0.004, 1.9), 6),
             default => (string) $this->one($seed, $this->labelValues($name)),
         };
+    }
+
+    /**
+     * A span's model as a known fixture model (a pinned one the fixture does
+     * not know reads as the first).
+     *
+     * @param  array<string, string>  $pinned
+     */
+    private function genAiModel(string $of, array $pinned): string
+    {
+        $model = $this->attribute('gen_ai.request.model', $of, $pinned);
+
+        return isset(self::GEN_AI_MODELS[$model]) ? $model : array_key_first(self::GEN_AI_MODELS);
     }
 
     /**
@@ -444,6 +561,8 @@ final class FixtureData
             // more connections than requests against every upstream and made
             // the table's "Reused" column read 0% for all of them.
             str_contains($name, 'connection') => 0.15,
+            // Model calls are seconds long and few: a tenth of the request rate.
+            str_starts_with($name, 'gen_ai') => 0.06,
             default => 1.0,
         };
 
@@ -466,6 +585,10 @@ final class FixtureData
                 $value === 'failed', $value === 'error', $value === 'fatal' => 0.012,
                 $value === 'released', $value === 'retried', $value === 'warning' => 0.05,
                 $value === 'reserved' => 0.25,
+                in_array($value, self::GEN_AI_ERRORS, true) => 0.004,
+                $value === 'gpt-4o' => 0.35,
+                $value === 'claude-sonnet-4-5-20250929' => 0.6,
+                $value === 'meta-llama/Llama-3.3-70B-Instruct-Turbo' => 0.12,
                 $value === 'scheduled' => 0.4,
                 default => 1.0,
             };

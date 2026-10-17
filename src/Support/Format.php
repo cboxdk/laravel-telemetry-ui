@@ -55,6 +55,50 @@ final class Format
         return self::trim($ratio * 100).'%';
     }
 
+    /**
+     * A money amount in an ISO 4217 currency: `$12.34`, `€0.0042`, `1.2K DKK`.
+     * Cents from a cent up; a single model call costs a fraction of one, so
+     * below that up to four decimals instead of a misleading `$0.00`.
+     */
+    public static function money(float $amount, string $currency = 'USD'): string
+    {
+        $currency = strtoupper(trim($currency));
+        $currency = $currency !== '' ? $currency : 'USD';
+        $abs = abs($amount);
+
+        // Below a hundredth of a cent there is nothing useful left to print.
+        if ($abs > 0 && $abs < 0.0001) {
+            return '<'.self::money($amount < 0 ? -0.0001 : 0.0001, $currency);
+        }
+
+        $number = match (true) {
+            $abs >= 1_000 => self::count($amount),
+            $abs >= 0.01 || $abs == 0.0 => number_format($amount, 2, '.', ','),
+            default => self::trimZeros(number_format($amount, 4, '.', ','), 2),
+        };
+
+        $symbol = match ($currency) {
+            'USD' => '$',
+            'EUR' => '€',
+            'GBP' => '£',
+            default => null,
+        };
+
+        if ($symbol === null) {
+            return $number.' '.$currency;
+        }
+
+        return str_starts_with($number, '-') ? '-'.$symbol.substr($number, 1) : $symbol.$number;
+    }
+
+    /** Strip trailing zeros, keeping at least `$min` decimals. */
+    private static function trimZeros(string $formatted, int $min): string
+    {
+        [$whole, $decimals] = array_pad(explode('.', $formatted, 2), 2, '');
+
+        return $whole.'.'.str_pad(rtrim($decimals, '0'), $min, '0');
+    }
+
     private static function trim(float $value): string
     {
         $formatted = number_format($value, abs($value) >= 100 ? 0 : (abs($value) >= 10 ? 1 : 2), '.', ',');

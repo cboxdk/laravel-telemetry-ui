@@ -8,7 +8,9 @@ use Cbox\TelemetryUi\Connectors\ProbeResult;
 use Cbox\TelemetryUi\Contracts\AggregatesSpans;
 use Cbox\TelemetryUi\Contracts\ProbesConnection;
 use Cbox\TelemetryUi\Contracts\TracesSource;
+use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
 use Cbox\TelemetryUi\Queries\Ir\SpanAggregation;
+use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Queries\Results\MatchedSpan;
 use Cbox\TelemetryUi\Queries\Results\Span;
@@ -29,6 +31,14 @@ use DateTimeInterface;
  */
 final class FixtureTraces implements AggregatesSpans, ProbesConnection, TracesSource
 {
+    /**
+     * Fingerprints of the structured searches answered so far, by their
+     * compiled spanset — see {@see fingerprint()}.
+     *
+     * @var array<string, string>
+     */
+    private static array $searched = [];
+
     public function __construct(private readonly FixtureData $data = new FixtureData) {}
 
     public function search(
@@ -204,8 +214,25 @@ final class FixtureTraces implements AggregatesSpans, ProbesConnection, TracesSo
     private function selected(TraceQuery $query, string $traceId): array
     {
         $attributes = [];
+        $fields = $query->select;
 
-        foreach ($query->select as $field) {
+        // A hand-built structural query (`{run} >> {tool} | select(…)`)
+        // carries its select inside the string.
+        if ($query->raw !== null && preg_match_all('/select\(([^)]*)\)/', $query->raw, $m) > 0) {
+            foreach ($m[1] as $list) {
+                $fields = [...$fields, ...array_map('trim', explode(',', $list))];
+            }
+        }
+
+        $pinned = [];
+
+        foreach ($query->conditions as $condition) {
+            if ($condition->op === TraceOp::Eq && $condition->quoted) {
+                $pinned[(string) preg_replace('/^(span|resource)\./', '', $condition->field)] = $condition->value;
+            }
+        }
+
+        foreach ($fields as $field) {
             // `span.db.query.text` and `resource.host.name` name the same
             // attribute a span carries, with the scope the dialect needs.
             $key = (string) preg_replace('/^(span|resource|event|instrumentation)\./', '', $field);
@@ -214,7 +241,7 @@ final class FixtureTraces implements AggregatesSpans, ProbesConnection, TracesSo
                 continue;
             }
 
-            $attributes[$key] = $this->data->attribute($key, $traceId);
+            $attributes[$key] = $this->data->attribute($key, $traceId, $pinned);
         }
 
         return $attributes;
@@ -222,6 +249,23 @@ final class FixtureTraces implements AggregatesSpans, ProbesConnection, TracesSo
 
     private function fingerprint(TraceQuery $query): string
     {
-        return $this->data->id($query->raw ?? (json_encode($query->conditions) ?: 'traces'), 12);
+        // A structural search (`{run} >> {tool}`) asks about the traces its
+        // left side matched, so it answers with those same traces — or a
+        // run list would never find the tools its runs called.
+        if ($query->raw !== null && str_contains($query->raw, ' >> ')) {
+            $left = trim(explode(' >> ', $query->raw, 2)[0]);
+
+            if (isset(self::$searched[$left])) {
+                return self::$searched[$left];
+            }
+        }
+
+        $fingerprint = $this->data->id($query->raw ?? (json_encode($query->conditions) ?: 'traces'), 12);
+
+        if ($query->raw === null) {
+            self::$searched[(new TraceqlCompiler)->compile(new TraceQuery($query->conditions))] = $fingerprint;
+        }
+
+        return $fingerprint;
     }
 }

@@ -24,6 +24,19 @@ it('formats durations with sensible units', function (): void {
         ->and(Format::ms(80_000))->toBe('1.33min');
 });
 
+it('formats money without rounding a cheap call to zero', function (): void {
+    expect(Format::money(0))->toBe('$0.00')
+        ->and(Format::money(12.5))->toBe('$12.50')
+        ->and(Format::money(0.5, 'eur'))->toBe('€0.50')
+        ->and(Format::money(0.934))->toBe('$0.93')
+        ->and(Format::money(0.0004))->toBe('$0.0004')
+        ->and(Format::money(0.00425))->toBe('$0.0043')
+        ->and(Format::money(0.00001))->toBe('<$0.0001')
+        ->and(Format::money(2_400, 'GBP'))->toBe('£2.4K')
+        ->and(Format::money(3.2, 'DKK'))->toBe('3.20 DKK')
+        ->and(Format::money(-1.5))->toBe('-$1.50');
+});
+
 it('formats bytes and percentages', function (): void {
     expect(Format::bytes(4_190_000))->toBe('4 MB')
         ->and(Format::bytes(512))->toBe('512 B')

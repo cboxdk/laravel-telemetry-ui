@@ -140,9 +140,9 @@ it('resolves every detect pattern in one backend call, and sees the same pages a
         is_string(...),
     )));
 
-    // Sixteen patterns is what the built-in registry declares today; the point
+    // Seventeen patterns is what the built-in registry declares today; the point
     // of the test is that the call count does not follow it.
-    expect($patterns)->toHaveCount(16);
+    expect($patterns)->toHaveCount(17);
 
     $batched = TelemetryUi::visiblePages(app(SchemaDetector::class));
 
@@ -157,7 +157,7 @@ it('resolves every detect pattern in one backend call, and sees the same pages a
 
     $perPattern = TelemetryUi::visiblePages(app(SchemaDetector::class));
 
-    expect($source->queries)->toHaveCount(16)
+    expect($source->queries)->toHaveCount(17)
         ->and(array_keys($batched))->toBe(array_keys($perPattern));
 });
 

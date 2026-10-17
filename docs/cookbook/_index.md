@@ -10,6 +10,8 @@ Short, task-focused recipes for the things people actually reach for.
 
 - [Web analytics & RUM](analytics.md) — turn on visit analytics and real-user
   monitoring, and where the data comes from.
+- [AI usage and cost](ai.md) — the AI page: model calls, tokens, cost,
+  latency, errors and agent runs from laravel/ai.
 - [Emitting annotations](annotations.md) — mark deploys, incidents and cache
   purges on every chart.
 - [Connect through a Grafana datasource proxy](connect-via-grafana-proxy.md) —
