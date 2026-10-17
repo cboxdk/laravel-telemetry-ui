@@ -134,6 +134,20 @@ it('falls back to tokens and hints at the pricing config when no cost series exi
         ->and(aiRangeQueries()[0])->not->toContain('gen_ai_client_cost_total');
 });
 
+it('shows a dash, not a zero, for the output tokens of an embeddings-only model', function (): void {
+    $embed = ['gen_ai_provider_name' => 'openai', 'gen_ai_request_model' => 'text-embedding-3-small'];
+
+    aiBackend([
+        [['_count'], [[[...$embed, 'gen_ai_operation_name' => 'embeddings'], 40]]],
+        [['gen_ai_client_token_usage_sum'], [[[...$embed, 'gen_ai_token_type' => 'input'], 9_000]]],
+    ]);
+
+    $this->getJson(panelUrl(AiModels::id()))
+        ->assertOk()
+        ->assertJsonPath('rows.0.input.v', '9K')
+        ->assertJsonPath('rows.0.output.v', '—');
+});
+
 it('shows an empty chart and no error when nothing emits gen_ai metrics', function (): void {
     aiBackend([]);
 

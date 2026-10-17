@@ -136,7 +136,10 @@ final class AiModels extends Panel
                     : Ui::cell('—'),
                 'calls' => Ui::cell(Format::count($row['calls']), ['raw' => $row['calls']]),
                 'input' => Ui::cell(Format::count($row['input']), ['raw' => $row['input']]),
-                'output' => Ui::cell(Format::count($row['output']), ['raw' => $row['output']]),
+                // Embeddings produce no output tokens: a dash, not a zero that reads as a measurement.
+                'output' => array_keys($row['operations']) === ['embeddings']
+                    ? Ui::cell('—', ['raw' => 0, 'tone' => 'dim'])
+                    : Ui::cell(Format::count($row['output']), ['raw' => $row['output']]),
                 'cost' => match (true) {
                     $row['cost'] !== null => Ui::cell(Format::money($row['cost'], $currency), ['raw' => $row['cost']]),
                     $costRead && $row['input'] + $row['output'] > 0 => Ui::cell('no price', ['tone' => 'dim']),
