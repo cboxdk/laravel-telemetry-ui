@@ -35,16 +35,16 @@ model prices, per 1M tokens:
 No price catalog ships with either package. A model without a price gets no
 cost series, so the dashboard shows it as **no price**, never as free.
 
-The cost counter (`gen_ai_client_cost_total`) needs a laravel-telemetry
-release that includes it. Older emitters still fill every other panel on the
-page, and the cost columns show the pricing hint.
+The cost counter (`gen_ai_client_cost_total`) needs laravel-telemetry 3.7 or
+later in the emitting app. Older versions still fill every other panel on
+the page, and the cost columns show the pricing hint.
 
 ## The panels
 
 | Panel | Reads | Shows |
 | --- | --- | --- |
 | AI usage | `gen_ai_client_cost_total`, `gen_ai_client_token_usage_sum`, `gen_ai_client_operation_duration_seconds_count` | Cost per model per hour when prices are set, tokens per model per minute otherwise. Tiles: cost, input and output tokens, model calls, error rate. |
-| Models | the same, plus `gen_ai_client_operation_duration_seconds_bucket` | One row per provider and model: calls (with chat / embeddings), input and output tokens, cost or *no price*, p95 latency, error rate. A row opens the model's traces. |
+| Models | the same, plus `gen_ai_client_operation_duration_seconds_bucket` | One row per provider and model: calls (with chat / embeddings), input and output tokens, cost or *no price*, p95 latency, error rate. A row opens the model's page. |
 | Chat latency | `gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="chat"}` | p50 and p95 per provider over time. Embeddings are left out: they would flatten the chat lines. |
 | AI errors | `gen_ai_client_operation_duration_seconds_count{error_type!=""}` | Failed calls by provider and `error_type`, each with its share of that provider's calls. |
 | Recent model calls | Tempo: `chat` and `embeddings` spans | One row per call: model and where it came from, tokens (with reasoning), cache read / write, cost, finish reason or error, duration. Sortable by time, duration or cost. A row opens the trace. |
@@ -68,8 +68,8 @@ detail panels:
 
 | Page | Panels |
 | --- | --- |
-| AI model (`ai-model-detail`, `?model=`) | Header (calls, tokens, cost or *No price*, p95, error rate), *Calls* per minute with failures, *Tokens* per minute with cost, *Latency* p50 / p95 per provider, and the model's *Calls* list from Tempo. |
-| Agent (`ai-agent-detail`, `?agent=`) | Header and *Runs* over time (runs, failures, average duration, cost), the tools its runs called, and its run log, newest first. |
+| AI model | *Calls* per minute with failures, *Tokens* per minute with cost (or *No price*), *Latency* p50 / p95, and the model's *Calls* list from Tempo. |
+| Agent | *Runs* over time with runs, failures, average duration and cost, the tools its runs called, and its run log, newest first. |
 
 Agents have no metric label, so every agent number comes from a sample of
 its most recent runs (one Tempo search), and each panel says so.

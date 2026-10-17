@@ -33,8 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metric label, so agent numbers come from a sample of recent runs.
 
   Cost reads `gen_ai_client_cost_total`, which only exists for models
-  priced in `telemetry.instrument.ai_pricing.models` and needs a
-  laravel-telemetry release that emits it. A model with tokens and no cost
+  priced in `telemetry.instrument.ai_pricing.models` and needs
+  laravel-telemetry 3.7 or later. A model with tokens and no cost
   is shown as *no price*, never as free, and without any prices the page
   shows tokens and a hint about the config key. The currency comes from
   `telemetry.instrument.ai_pricing.currency` (USD by default). See
