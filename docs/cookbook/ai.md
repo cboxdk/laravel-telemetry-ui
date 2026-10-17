@@ -44,12 +44,12 @@ the page, and the cost columns show the pricing hint.
 | Panel | Reads | Shows |
 | --- | --- | --- |
 | AI usage | `gen_ai_client_cost_total`, `gen_ai_client_token_usage_sum`, `gen_ai_client_operation_duration_seconds_count` | Cost per model per hour when prices are set, tokens per model per minute otherwise. Tiles: cost, input and output tokens, model calls, error rate. |
-| Models | the same, plus `gen_ai_client_operation_duration_seconds_bucket` | One row per provider and model: calls (with chat / embeddings), input and output tokens, cost or *no price*, p95 latency, error rate. A row opens the model's page. |
+| Models | the same, plus `gen_ai_client_operation_duration_seconds_bucket` | One row per provider and model (provider and chat / embeddings under the name): calls, input and output tokens, cost or *no price*, p95 latency, error rate. A row opens the model's page. |
 | Chat latency | `gen_ai_client_operation_duration_seconds_bucket{gen_ai_operation_name="chat"}` | p50 and p95 per provider over time. Embeddings are left out: they would flatten the chat lines. |
 | AI errors | `gen_ai_client_operation_duration_seconds_count{error_type!=""}` | Failed calls by provider and `error_type`, each with its share of that provider's calls. |
 | AI usage by … | Loki usage records, else Tempo `chat` / `embeddings` spans | Calls, input and output tokens, cost (or *no price*, with a count of unpriced calls), error rate and last call per user, declared dimension (team, tenant, …), client IP or any attribute. A value opens its entity page when it has one, its traces otherwise. |
-| Recent model calls | Tempo: `chat` and `embeddings` spans | One row per call: model and where it came from, tokens (with reasoning), cache read / write, cost, finish reason or error, duration. Sortable by time, duration or cost. A row opens the trace. |
-| Slowest agent runs | Tempo: `invoke_agent` spans | Agent, model, tokens, cost (`gen_ai.usage.cost`), the tools the run called, finish reason or error, and duration. Sortable by time, duration or cost. A row opens the waterfall with its `chat` and `execute_tool` children. |
+| Recent model calls | Tempo: `chat` and `embeddings` spans | One row per call: model and where it came from, tokens in / out (cache and reasoning tokens under them), cost, finish reason or error, duration. Sortable by time, duration or cost. A row opens the trace. |
+| Slowest agent runs | Tempo: `invoke_agent` spans | Agent (with when it ran and the tools it called under the name), model, tokens, cost (`gen_ai.usage.cost`), finish reason or error, and duration. Sortable by time, duration or cost. A row opens the waterfall with its `chat` and `execute_tool` children. |
 | Agent tools | Tempo: `execute_tool` spans | Runs, average and max duration per tool. A row opens the slowest run. |
 
 The trace panels are built from a sample of recent traces (a Tempo

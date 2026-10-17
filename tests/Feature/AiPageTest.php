@@ -186,8 +186,8 @@ it('lists models with calls, tokens, cost, p95 and error rate, marking an unpric
         ->assertOk()
         // Priced (and costliest) first.
         ->assertJsonPath('rows.0.model.v', 'gpt-4o')
-        ->assertJsonPath('rows.0.model.sub', 'chat, embeddings')
-        ->assertJsonPath('rows.0.provider.v', 'openai')
+        // Provider and use under the model: no columns of their own.
+        ->assertJsonPath('rows.0.model.sub', 'openai · chat, embeddings')
         ->assertJsonPath('rows.0.calls.v', '100')
         ->assertJsonPath('rows.0.input.v', '50K')
         ->assertJsonPath('rows.0.output.v', '8K')
@@ -201,7 +201,7 @@ it('lists models with calls, tokens, cost, p95 and error rate, marking an unpric
         // A row opens the model's own page.
         ->assertJsonPath('rows.1._link', ['to' => 'entity', 'type' => 'ai-model', 'value' => 'claude-sonnet'])
         ->assertJsonPath('rows.1.model.dim', ['key' => 'gen_ai.request.model', 'value' => 'claude-sonnet'])
-        ->assertJsonPath('columns.5.label', 'Cost (USD)')
+        ->assertJsonPath('columns.4.label', 'Cost (USD)')
         ->assertJsonPath('note', 'Models marked "no price" used tokens but have no entry in telemetry.instrument.ai_pricing.models, so their cost is unknown, not zero.');
 });
 
@@ -339,7 +339,7 @@ it('lists agent runs from invoke_agent spans, sortable by cost, each opening its
         ->assertJsonPath('rows.0.agent.v', 'Researcher')
         ->assertJsonPath('rows.0.agent.link', ['to' => 'entity', 'type' => 'ai-agent', 'value' => 'Researcher'])
         ->assertJsonPath('rows.0.cost.v', '—')
-        ->assertJsonPath('rows.0.tools.v', 'none')
+        ->assertJsonPath('rows.0.agent.sub', gmdate('H:i:s', 1735689660).' · no tools')
         ->assertJsonPath('rows.0.status.v', 'length')
         ->assertJsonPath('rows.0.status.tone', 'warn')
         ->assertJsonPath('rows.0.duration.v', '9.1s')
@@ -350,11 +350,11 @@ it('lists agent runs from invoke_agent spans, sortable by cost, each opening its
         ->assertJsonPath('title', 'Most expensive agent runs')
         ->assertJsonPath('rows.0.agent.v', 'SupportAgent')
         ->assertJsonPath('rows.0.model.v', 'gpt-4o')
-        ->assertJsonPath('rows.0.agent.sub', gmdate('H:i:s', 1735689600))
+        // When it ran and the tools it called, under the agent.
+        ->assertJsonPath('rows.0.agent.sub', gmdate('H:i:s', 1735689600).' · lookup_order')
         ->assertJsonPath('rows.0.tokens.v', '1.2K / 300')
         ->assertJsonPath('rows.0.cost.v', '$0.0042')
         ->assertJsonPath('rows.0.status.v', 'stop')
-        ->assertJsonPath('rows.0.tools.v', 'lookup_order')
         ->assertJsonPath('rows.0.model.link', ['to' => 'entity', 'type' => 'ai-model', 'value' => 'gpt-4o'])
         ->assertJsonPath('rows.0._link.to', 'trace')
         ->assertJsonPath('rows.0._link.id', 'aaaa1111aaaa1111aaaa1111aaaa1111');
@@ -443,13 +443,13 @@ it('lists individual model calls with tokens, cache, cost and how each ended', f
         // Short enough for the badge; the full type is in the trace.
         ->assertJsonPath('rows.0.status.v', 'RateLimitExceeded')
         ->assertJsonPath('rows.0.status.tone', 'danger')
-        ->assertJsonPath('rows.0.cache.v', '—')
+        ->assertJsonMissingPath('rows.0.tokens.sub')
         ->assertJsonPath('rows.0.duration.tone', 'warn')
         // Chat is not named; the column is gone.
         ->assertJsonMissingPath('rows.1.operation')
         ->assertJsonPath('rows.1.tokens.v', '2.4K / 310')
-        ->assertJsonPath('rows.1.tokens.sub', '128 reasoning')
-        ->assertJsonPath('rows.1.cache.v', '1.2K / 0')
+        // Cache and reasoning tokens under the totals they are part of.
+        ->assertJsonPath('rows.1.tokens.sub', '1.2K cached · 128 reasoning')
         ->assertJsonPath('rows.1.cost.v', '$0.0004')
         ->assertJsonPath('rows.1.status.v', 'stop')
         ->assertJsonPath('rows.1._link', ['to' => 'trace', 'id' => 'dddd1111dddd1111dddd1111dddd1111', 'at' => 1735689600000]);
@@ -555,7 +555,7 @@ it('summarises an agent from a sample of its runs, and lists them newest first',
         ->assertJsonPath('title', 'Runs')
         ->assertJsonPath('columns.0.label', 'Started')
         ->assertJsonPath('rows.0.status.v', 'Connection')
-        ->assertJsonPath('rows.0.tools.v', 'search_docs')
+        ->assertJsonPath('rows.0.agent.sub', 'search_docs')
         ->assertJsonMissingPath('rows.0.when');
 
     $this->getJson(panelUrl(AiAgentTools::id(), ['agent' => 'SupportAgent']))

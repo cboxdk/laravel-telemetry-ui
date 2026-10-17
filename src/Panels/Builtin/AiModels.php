@@ -129,11 +129,10 @@ final class AiModels extends Panel
                     'mono' => true,
                     'link' => $link,
                     ...($row['model'] !== '' ? ['dim' => ['key' => 'gen_ai.request.model', 'value' => $row['model']]] : []),
-                    ...($row['operations'] !== [] ? ['sub' => implode(', ', array_keys($row['operations']))] : []),
+                    // Provider and use under the model, not in columns of their
+                    // own: the table has to stay a table on a laptop.
+                    ...(($sub = implode(' · ', array_filter([$row['provider'], implode(', ', array_keys($row['operations']))]))) !== '' ? ['sub' => $sub] : []),
                 ]),
-                'provider' => $row['provider'] !== ''
-                    ? Ui::cell($row['provider'], ['badge' => $row['provider'], 'tone' => 'info'])
-                    : Ui::cell('—'),
                 'calls' => Ui::cell(Format::count($row['calls']), ['raw' => $row['calls']]),
                 'input' => Ui::cell(Format::count($row['input']), ['raw' => $row['input']]),
                 // Embeddings produce no output tokens: a dash, not a zero that reads as a measurement.
@@ -162,10 +161,9 @@ final class AiModels extends Panel
 
         return Ui::table('Models', [
             Ui::col('model', 'Model'),
-            Ui::col('provider', 'Provider'),
             Ui::num('calls', 'Calls'),
-            Ui::num('input', 'Input tokens'),
-            Ui::num('output', 'Output tokens'),
+            Ui::num('input', 'Input'),
+            Ui::num('output', 'Output'),
             Ui::num('cost', 'Cost ('.$currency.')'),
             Ui::num('p95', 'P95'),
             Ui::num('errors', 'Errors'),

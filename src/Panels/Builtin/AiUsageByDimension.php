@@ -122,8 +122,8 @@ final class AiUsageByDimension extends Panel
         return Ui::table('AI usage by '.lcfirst($label), [
             Ui::col('value', $label),
             Ui::num('calls', 'Calls'),
-            Ui::num('input', 'Input tokens'),
-            Ui::num('output', 'Output tokens'),
+            Ui::num('input', 'Input'),
+            Ui::num('output', 'Output'),
             Ui::num('cost', 'Cost ('.$currency.')'),
             Ui::num('errors', 'Errors'),
             Ui::num('last', 'Last call'),

@@ -111,7 +111,6 @@ class AiCalls extends Panel
         $table = array_map(static function (array $row) use ($currency, $model): array {
             $trace = Ui::trace($row['traceId'], $row['startedAt']);
             $at = $row['startNano'] > 0 ? intdiv($row['startNano'], 1_000_000_000) : $row['startedAt']->getTimestamp();
-            $cached = $row['cacheRead'] + $row['cacheWrite'];
             // Chat is the rule, so only another operation is named — under the
             // call rather than in a column of its own, which kept the table
             // just short of turning into cards at laptop width.
@@ -133,11 +132,15 @@ class AiCalls extends Panel
                     ]),
                 'tokens' => Ui::cell(Format::count($row['input']).' / '.Format::count($row['output']), [
                     'raw' => $row['input'] + $row['output'],
-                    ...($row['reasoning'] > 0 ? ['sub' => Format::count($row['reasoning']).' reasoning'] : []),
+                    // Cache and reasoning tokens ride under the totals they are
+                    // part of, rather than in columns that push the table into
+                    // cards on a laptop.
+                    ...(($detail = implode(' · ', array_filter([
+                        $row['cacheRead'] > 0 ? Format::count($row['cacheRead']).' cached' : null,
+                        $row['cacheWrite'] > 0 ? Format::count($row['cacheWrite']).' cache write' : null,
+                        $row['reasoning'] > 0 ? Format::count($row['reasoning']).' reasoning' : null,
+                    ]))) !== '' ? ['sub' => $detail] : []),
                 ]),
-                'cache' => $cached > 0
-                    ? Ui::cell(Format::count($row['cacheRead']).' / '.Format::count($row['cacheWrite']), ['raw' => $cached])
-                    : Ui::cell('—', ['tone' => 'dim']),
                 'cost' => $row['cost'] !== null
                     ? Ui::cell(Format::money($row['cost'], $currency), ['raw' => $row['cost']])
                     : Ui::cell('—', ['tone' => 'dim']),
@@ -159,7 +162,6 @@ class AiCalls extends Panel
             Ui::col('when', 'When'),
             Ui::col('call', $model === '' ? 'Model' : 'Origin'),
             Ui::num('tokens', 'Tokens in / out'),
-            Ui::num('cache', 'Cache read / write'),
             Ui::num('cost', 'Cost'),
             Ui::col('status', 'Finish'),
             Ui::num('duration', 'Duration'),

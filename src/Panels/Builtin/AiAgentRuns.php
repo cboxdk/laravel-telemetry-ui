@@ -97,13 +97,18 @@ class AiAgentRuns extends Panel
         $table = array_map(static function (array $row) use ($currency, $tools, $agent): array {
             $trace = Ui::trace($row['traceId'], $row['startedAt']);
             $used = $tools[$row['traceId']] ?? [];
+            $toolsLine = match (true) {
+                $tools === null => '',
+                $used === [] => 'no tools',
+                default => implode(', ', array_values(array_unique($used))),
+            };
 
             return [
+                // When it ran and the tools it called ride under the agent:
+                // two columns fewer keep the run list a table on a laptop.
                 'agent' => $agent === ''
-                    // When it ran rides under the agent: one column fewer keeps
-                    // the run list a table rather than cards on a laptop.
-                    ? Ui::cell($row['agent'], ['mono' => true, 'link' => Ui::entity('ai-agent', $row['agent']), 'sub' => $row['startedAt']->format('H:i:s')])
-                    : Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true, 'link' => $trace]),
+                    ? Ui::cell($row['agent'], ['mono' => true, 'link' => Ui::entity('ai-agent', $row['agent']), 'sub' => implode(' · ', array_filter([$row['startedAt']->format('H:i:s'), $toolsLine]))])
+                    : Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true, 'link' => $trace, ...($toolsLine !== '' ? ['sub' => $toolsLine] : [])]),
                 'model' => $row['model'] !== ''
                     ? Ui::cell($row['model'], ['mono' => true, 'link' => Ui::entity('ai-model', $row['model'])])
                     : Ui::cell('—', ['tone' => 'dim']),
@@ -111,11 +116,6 @@ class AiAgentRuns extends Panel
                 'cost' => $row['cost'] !== null
                     ? Ui::cell(Format::money($row['cost'], $currency), ['raw' => $row['cost']])
                     : Ui::cell('—', ['tone' => 'dim']),
-                'tools' => match (true) {
-                    $tools === null => Ui::cell('—', ['tone' => 'dim']),
-                    $used === [] => Ui::cell('none', ['raw' => 0, 'tone' => 'dim']),
-                    default => Ui::cell(implode(', ', array_values(array_unique($used))), ['raw' => count($used), 'mono' => true]),
-                },
                 'status' => match (true) {
                     $row['error'] !== '' => Ui::cell(self::shortErrorType($row['error']), ['badge' => self::shortErrorType($row['error']), 'tone' => 'danger']),
                     $row['finish'] !== '' => Ui::cell($row['finish'], ['badge' => $row['finish'], 'tone' => self::finishedNormally($row['finish']) ? null : 'warn']),
@@ -131,7 +131,6 @@ class AiAgentRuns extends Panel
             Ui::col('model', 'Model'),
             Ui::num('tokens', 'Tokens in / out'),
             Ui::num('cost', 'Cost'),
-            Ui::col('tools', 'Tools'),
             Ui::col('status', 'Finish'),
             Ui::num('duration', 'Duration'),
         ]));
