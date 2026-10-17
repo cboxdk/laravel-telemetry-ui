@@ -112,6 +112,10 @@ class AiCalls extends Panel
             $trace = Ui::trace($row['traceId'], $row['startedAt']);
             $at = $row['startNano'] > 0 ? intdiv($row['startNano'], 1_000_000_000) : $row['startedAt']->getTimestamp();
             $cached = $row['cacheRead'] + $row['cacheWrite'];
+            // Chat is the rule, so only another operation is named — under the
+            // call rather than in a column of its own, which kept the table
+            // just short of turning into cards at laptop width.
+            $context = implode(' · ', array_filter([$row['operation'] !== 'chat' ? $row['operation'] : '', $row['origin']]));
 
             return [
                 'when' => Ui::cell((new DateTimeImmutable('@'.$at))->format('H:i:s'), ['raw' => $at, 'mono' => true]),
@@ -121,10 +125,12 @@ class AiCalls extends Panel
                     ? Ui::cell($row['model'] !== '' ? $row['model'] : '(unknown)', [
                         'mono' => true,
                         'link' => $row['model'] !== '' ? Ui::entity('ai-model', $row['model']) : $trace,
-                        ...($row['origin'] !== '' ? ['sub' => $row['origin']] : []),
+                        ...($context !== '' ? ['sub' => $context] : []),
                     ])
-                    : Ui::cell($row['origin'] !== '' ? $row['origin'] : '(unnamed)', ['link' => $trace]),
-                'operation' => Ui::cell($row['operation'], ['badge' => $row['operation']]),
+                    : Ui::cell($row['origin'] !== '' ? $row['origin'] : '(unnamed)', [
+                        'link' => $trace,
+                        ...($row['operation'] !== 'chat' ? ['sub' => $row['operation']] : []),
+                    ]),
                 'tokens' => Ui::cell(Format::count($row['input']).' / '.Format::count($row['output']), [
                     'raw' => $row['input'] + $row['output'],
                     ...($row['reasoning'] > 0 ? ['sub' => Format::count($row['reasoning']).' reasoning'] : []),
@@ -152,7 +158,6 @@ class AiCalls extends Panel
         }, [
             Ui::col('when', 'When'),
             Ui::col('call', $model === '' ? 'Model' : 'Origin'),
-            Ui::col('operation', 'Operation'),
             Ui::num('tokens', 'Tokens in / out'),
             Ui::num('cache', 'Cache read / write'),
             Ui::num('cost', 'Cost'),

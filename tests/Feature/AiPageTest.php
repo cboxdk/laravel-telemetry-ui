@@ -445,7 +445,8 @@ it('lists individual model calls with tokens, cache, cost and how each ended', f
         ->assertJsonPath('rows.0.status.tone', 'danger')
         ->assertJsonPath('rows.0.cache.v', '—')
         ->assertJsonPath('rows.0.duration.tone', 'warn')
-        ->assertJsonPath('rows.1.operation.v', 'chat')
+        // Chat is not named; the column is gone.
+        ->assertJsonMissingPath('rows.1.operation')
         ->assertJsonPath('rows.1.tokens.v', '2.4K / 310')
         ->assertJsonPath('rows.1.tokens.sub', '128 reasoning')
         ->assertJsonPath('rows.1.cache.v', '1.2K / 0')
