@@ -10,7 +10,9 @@ use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Panels\Concerns\ReadsAiUsage;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Support\Format;
 use DateTimeImmutable;
 
@@ -38,6 +40,7 @@ class AiCalls extends Panel
         $sort = in_array($this->sort, ['duration', 'cost'], true) ? $this->sort : 'recent';
         $currency = $this->aiCurrency();
         $model = $this->scopedModel();
+        [$dimension, $value] = $this->scopedDimension() ?? [null, null];
 
         $rows = [];
         $error = null;
@@ -59,6 +62,15 @@ class AiCalls extends Panel
                 'span.gen_ai.response.finish_reasons',
                 'span.error.type',
             );
+
+            if ($dimension === 'client.address') {
+                // The client address is on the request's root span, above the
+                // call: `{root} >> {call}`.
+                $compiler = new TraceqlCompiler;
+                $query = TraceQuery::raw($compiler->compile($this->traceQuery(TraceCondition::eq('span.client.address', (string) $value))).' >> '.$compiler->compile($query));
+            } elseif ($dimension !== null) {
+                $query = $query->where(TraceCondition::eq('span.'.$dimension, (string) $value));
+            }
 
             foreach ($this->traces()->search($query, $start, $end, limit: 50) as $summary) {
                 foreach ($summary->matchedSpans as $span) {
@@ -133,7 +145,11 @@ class AiCalls extends Panel
             ];
         }, array_slice($rows, 0, 50));
 
-        return Ui::table($model === '' ? 'Recent model calls' : 'Calls', [
+        return Ui::table(match (true) {
+            $model !== '' => 'Calls',
+            $dimension !== null => 'Model calls',
+            default => 'Recent model calls',
+        }, [
             Ui::col('when', 'When'),
             Ui::col('call', $model === '' ? 'Model' : 'Origin'),
             Ui::col('operation', 'Operation'),
@@ -145,7 +161,11 @@ class AiCalls extends Panel
         ], $table, [
             'subtitle' => 'Individual chat and embeddings calls sampled from traces. Click a row for the waterfall',
             'error' => $error,
-            'empty' => $model === '' ? 'No model calls traced in this period.' : 'No calls to this model traced in this period.',
+            'empty' => match (true) {
+                $model !== '' => 'No calls to this model traced in this period.',
+                $dimension !== null => 'No model calls traced for '.$dimension.' = '.$value.' in this period.',
+                default => 'No model calls traced in this period.',
+            },
             'note' => 'Sampled from the most recent matching traces (Tempo search). Cost is set only on calls to a priced model.',
             'controls' => [Ui::select('ai_calls_sort', 'Sort by', $sort, [
                 ['value' => 'recent', 'label' => 'Most recent'],

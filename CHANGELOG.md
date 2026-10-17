@@ -31,6 +31,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cost, latency and the model's own call list; the agent page shows runs
   over time, the tools its runs called and its run log. Agents carry no
   metric label, so agent numbers come from a sample of recent runs.
+- **AI usage by user, team, tenant or IP.** A new *AI usage by …* panel
+  groups calls, tokens, cost and errors by the user, any declared
+  dimension (`tenant.id`, `team.id`, …), the client IP or a free-form
+  attribute. It reads laravel-telemetry's usage records from Loki when
+  `instrument.ai_usage_events` is on (exact), and the spans otherwise (a
+  recent sample, and the panel says so). The client IP comes from the
+  request's root span above each call.
+- **AI usage on user and dimension pages.** When the app emits GenAI
+  metrics, the entity page of a user, a client IP and every declared
+  context dimension gets an *AI usage* summary and that value's model
+  calls on its *Metrics* tab.
 
   Cost reads `gen_ai_client_cost_total`, which only exists for models
   priced in `telemetry.instrument.ai_pricing.models` and needs

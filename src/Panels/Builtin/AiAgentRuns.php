@@ -100,10 +100,12 @@ class AiAgentRuns extends Panel
 
             return [
                 'agent' => $agent === ''
-                    ? Ui::cell($row['agent'], ['mono' => true, 'link' => Ui::entity('ai-agent', $row['agent'])])
+                    // When it ran rides under the agent: one column fewer keeps
+                    // the run list a table rather than cards on a laptop.
+                    ? Ui::cell($row['agent'], ['mono' => true, 'link' => Ui::entity('ai-agent', $row['agent']), 'sub' => $row['startedAt']->format('H:i:s')])
                     : Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true, 'link' => $trace]),
                 'model' => $row['model'] !== ''
-                    ? Ui::cell($row['model'], ['mono' => true, 'link' => Ui::entity('ai-model', $row['model']), ...($row['provider'] !== '' ? ['sub' => $row['provider']] : [])])
+                    ? Ui::cell($row['model'], ['mono' => true, 'link' => Ui::entity('ai-model', $row['model'])])
                     : Ui::cell('—', ['tone' => 'dim']),
                 'tokens' => Ui::cell(Format::count($row['input']).' / '.Format::count($row['output']), ['raw' => $row['input'] + $row['output']]),
                 'cost' => $row['cost'] !== null
@@ -120,7 +122,6 @@ class AiAgentRuns extends Panel
                     default => Ui::cell('—', ['tone' => 'dim']),
                 },
                 'duration' => Ui::cell(Format::ms($row['durationMs']), ['raw' => $row['durationMs'], 'tone' => $row['durationMs'] > 10_000 ? 'warn' : null]),
-                'when' => Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true]),
                 '_link' => $trace,
             ];
         }, array_slice($rows, 0, 50));
@@ -133,16 +134,7 @@ class AiAgentRuns extends Panel
             Ui::col('tools', 'Tools'),
             Ui::col('status', 'Finish'),
             Ui::num('duration', 'Duration'),
-            $agent === '' ? Ui::num('when', 'When') : null,
         ]));
-
-        if ($agent !== '') {
-            $table = array_map(static function (array $row): array {
-                unset($row['when']);
-
-                return $row;
-            }, $table);
-        }
 
         return Ui::table(match (true) {
             $agent !== '' => 'Runs',

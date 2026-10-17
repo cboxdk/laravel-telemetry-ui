@@ -108,6 +108,7 @@ it('serves every hidden detail page with its entity param', function (string $pa
     'page' => ['page-detail', ['path' => '/orders']],
     'ai model' => ['ai-model-detail', ['model' => 'gpt-4o']],
     'ai agent' => ['ai-agent-detail', ['agent' => 'SupportAgent']],
+    'ai usage' => ['ai-usage-detail', ['_dim' => 'user.id', 'ai_value' => '42']],
 ]);
 
 it('covers every registered page in the smoke list', function (): void {
@@ -116,7 +117,7 @@ it('covers every registered page in the smoke list', function (): void {
         'dashboard', 'traces', 'events', 'requests', 'request-detail', 'jobs', 'job-detail', 'queues', 'queue-detail',
         'autoscale', 'horizon', 'commands', 'schedule', 'exceptions', 'exception-detail', 'error-detail',
         'queries', 'query-detail', 'cache', 'storage', 'livewire', 'features', 'reverb', 'outgoing',
-        'outgoing-detail', 'mail', 'ai', 'ai-model-detail', 'ai-agent-detail', 'analytics', 'page-detail', 'frontend', 'hosts', 'host-detail', 'users',
+        'outgoing-detail', 'mail', 'ai', 'ai-model-detail', 'ai-agent-detail', 'ai-usage-detail', 'analytics', 'page-detail', 'frontend', 'hosts', 'host-detail', 'users',
         'logs', 'system', 'statamic-cache', 'statamic-stache', 'statamic-glide', 'statamic-forms',
         'statamic-content', 'statamic-inventory',
     ]);

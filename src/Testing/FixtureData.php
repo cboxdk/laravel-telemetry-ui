@@ -258,6 +258,10 @@ final class FixtureData
             str_contains($label, 'connection') => ['redis', 'database', 'sqs'],
             str_contains($label, 'country') => ['DK', 'SE', 'DE', 'GB', 'US'],
             str_contains($label, 'city') => ['Copenhagen', 'Aarhus', 'Berlin', 'London'],
+            // Context dimensions an app adds with Telemetry::context().
+            str_contains($label, 'tenant') => ['acme', 'globex', 'initech', 'umbrella'],
+            str_contains($label, 'team') => ['growth', 'support', 'platform'],
+            $label === 'plan' => ['free', 'pro', 'pro', 'enterprise'],
             str_contains($label, 'user') => ['u_4812', 'u_1193', 'u_7740', 'u_2056'],
             // A caller's address, before the generic `address` arm below —
             // the trace list labelled every row "Client IP beta".

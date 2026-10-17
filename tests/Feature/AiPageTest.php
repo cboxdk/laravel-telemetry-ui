@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Cbox\TelemetryUi\Panels\Builtin\AiAgentRuns;
 use Cbox\TelemetryUi\Panels\Builtin\AiCalls;
 use Cbox\TelemetryUi\Panels\Builtin\AiErrors;
@@ -9,6 +10,7 @@ use Cbox\TelemetryUi\Panels\Builtin\AiLatency;
 use Cbox\TelemetryUi\Panels\Builtin\AiModels;
 use Cbox\TelemetryUi\Panels\Builtin\AiOverview;
 use Cbox\TelemetryUi\Panels\Builtin\AiTools;
+use Cbox\TelemetryUi\Panels\Builtin\AiUsageByDimension;
 use Cbox\TelemetryUi\Panels\Builtin\Detail\AiAgentActivity;
 use Cbox\TelemetryUi\Panels\Builtin\Detail\AiAgentHeader;
 use Cbox\TelemetryUi\Panels\Builtin\Detail\AiAgentRunLog;
@@ -17,6 +19,8 @@ use Cbox\TelemetryUi\Panels\Builtin\Detail\AiModelCalls;
 use Cbox\TelemetryUi\Panels\Builtin\Detail\AiModelHeader;
 use Cbox\TelemetryUi\Panels\Builtin\Detail\AiModelLatency;
 use Cbox\TelemetryUi\Panels\Builtin\Detail\AiModelTokens;
+use Cbox\TelemetryUi\Panels\Builtin\Detail\AiUsageCalls;
+use Cbox\TelemetryUi\Panels\Builtin\Detail\AiUsageSummary;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -302,6 +306,8 @@ function aiTempo(array $traces, array $tools = []): void
         'tempo.test:3200/api/search*' => fn (Request $request) => Http::response([
             'traces' => str_contains((string) (requestQuery($request)['q'] ?? ''), '>>') ? $tools : $traces,
         ]),
+        // No usage records: the panels that prefer them fall back to spans.
+        'loki.test:3100/*' => Http::response(lokiStreams([])),
     ]);
 }
 
@@ -344,7 +350,7 @@ it('lists agent runs from invoke_agent spans, sortable by cost, each opening its
         ->assertJsonPath('title', 'Most expensive agent runs')
         ->assertJsonPath('rows.0.agent.v', 'SupportAgent')
         ->assertJsonPath('rows.0.model.v', 'gpt-4o')
-        ->assertJsonPath('rows.0.model.sub', 'openai')
+        ->assertJsonPath('rows.0.agent.sub', gmdate('H:i:s', 1735689600))
         ->assertJsonPath('rows.0.tokens.v', '1.2K / 300')
         ->assertJsonPath('rows.0.cost.v', '$0.0042')
         ->assertJsonPath('rows.0.status.v', 'stop')
@@ -572,3 +578,187 @@ it('drills a model and an agent into their entity pages with the detail panels a
     'model' => ['ai-model', 'gpt-4o', 'model', 'ai-model-header'],
     'agent' => ['ai-agent', 'SupportAgent', 'agent', 'ai-agent-header'],
 ]);
+
+/**
+ * One laravel-telemetry usage record (`gen_ai.client.inference.operation.details`)
+ * as Loki returns it: the body is the event, attributes are labels.
+ *
+ * @param  array<string, string>  $labels
+ * @return array{stream: array<string, string>, values: list<array{0: string, 1: string}>}
+ */
+function aiUsageRecord(int $at, array $labels): array
+{
+    return [
+        'stream' => ['service_name' => 'shop', 'trace_id' => substr(md5((string) $at), 0, 32), 'span_id' => substr(md5('s'.$at), 0, 16), ...$labels],
+        'values' => [[(string) ($at * 1_000_000_000), 'gen_ai.client.inference.operation.details']],
+    ];
+}
+
+it('breaks AI usage down by user from the usage records, exactly, linking each user to their page', function (): void {
+    Http::fake([
+        'loki.test:3100/*' => Http::response(lokiStreams([
+            aiUsageRecord(1735689600, ['user_id' => '42', 'gen_ai_request_model' => 'gpt-4o', 'gen_ai_usage_input_tokens' => '1000', 'gen_ai_usage_output_tokens' => '200', 'gen_ai_usage_cost' => '0.004']),
+            aiUsageRecord(1735689660, ['user_id' => '42', 'gen_ai_request_model' => 'gpt-4o', 'gen_ai_usage_input_tokens' => '3000', 'gen_ai_usage_output_tokens' => '100', 'gen_ai_usage_cost' => '0.01', 'error_type' => 'RateLimitExceededException']),
+            aiUsageRecord(1735689720, ['user_id' => '7', 'gen_ai_request_model' => 'llama', 'gen_ai_usage_input_tokens' => '500', 'gen_ai_usage_output_tokens' => '50']),
+        ])),
+    ]);
+
+    $this->getJson(panelUrl(AiUsageByDimension::id()))
+        ->assertOk()
+        ->assertJsonPath('title', 'AI usage by user')
+        ->assertJsonPath('columns.0.label', 'User')
+        ->assertJsonPath('rows.0.value.v', '42')
+        ->assertJsonPath('rows.0.value.link', ['to' => 'entity', 'type' => 'user', 'value' => '42'])
+        ->assertJsonPath('rows.0.value.dim', ['key' => 'user.id', 'value' => '42'])
+        ->assertJsonPath('rows.0.calls.v', '2')
+        ->assertJsonPath('rows.0.input.v', '4K')
+        ->assertJsonPath('rows.0.output.v', '300')
+        ->assertJsonPath('rows.0.cost.v', '$0.01')
+        ->assertJsonPath('rows.0.errors.v', '50%')
+        ->assertJsonPath('rows.0.errors.tone', 'danger')
+        // Tokens and no cost series: unpriced, never free.
+        ->assertJsonPath('rows.1.value.v', '7')
+        ->assertJsonPath('rows.1.cost.v', 'no price')
+        ->assertJsonPath('rows.1.cost.tone', 'dim')
+        ->assertJsonPath('note', 'Exact: every model call in this period, from the usage records (instrument.ai_usage_events).');
+
+    expect(sentLogql()[0])->toContain('gen_ai.client.inference.operation.details');
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'tempo.test'));
+});
+
+it('falls back to spans for usage by dimension when there are no usage records, and says it is a sample', function (): void {
+    aiTempo([
+        tempoHit('ffff1111ffff1111ffff1111ffff1111', 'chat gpt-4o', 1735689600, 900, [
+            'gen_ai.operation.name' => 'chat',
+            'gen_ai.request.model' => 'gpt-4o',
+            'gen_ai.usage.input_tokens' => 800,
+            'gen_ai.usage.output_tokens' => 90,
+            'gen_ai.usage.cost' => 0.002,
+            'user.id' => '42',
+        ]),
+    ]);
+
+    $response = $this->getJson(panelUrl(AiUsageByDimension::id()))
+        ->assertOk()
+        ->assertJsonPath('rows.0.value.v', '42')
+        ->assertJsonPath('rows.0.cost.v', '$0.002');
+
+    expect($response->json('note'))->toStartWith('From the most recent 100 traces with model calls')
+        ->and(sentTraceql()[0])->toContain('span.user.id != nil')
+        ->and(sentTraceql()[0])->toContain('select(');
+});
+
+it('offers declared context dimensions and a free-form attribute', function (): void {
+    TelemetryUi::dimension('tenant.id', label: 'Tenant', group: 'Billing', entity: 'tenant');
+
+    Http::fake([
+        'loki.test:3100/*' => Http::response(lokiStreams([
+            aiUsageRecord(1735689600, ['tenant_id' => 'acme', 'plan' => 'pro', 'gen_ai_usage_input_tokens' => '10']),
+        ])),
+    ]);
+
+    $options = collect($this->getJson(panelUrl(AiUsageByDimension::id()))->json('controls.0.options'))->pluck('label', 'value')->all();
+
+    expect($options)->toMatchArray(['user.id' => 'User', 'tenant.id' => 'Tenant', 'client.address' => 'Client IP', 'custom' => 'Custom attribute…']);
+
+    $this->getJson(panelUrl(AiUsageByDimension::id(), ['ai_by' => 'tenant.id']))
+        ->assertOk()
+        ->assertJsonPath('title', 'AI usage by tenant')
+        ->assertJsonPath('rows.0.value.link', ['to' => 'entity', 'type' => 'tenant', 'value' => 'acme']);
+
+    $this->getJson(panelUrl(AiUsageByDimension::id(), ['ai_by' => 'custom', 'ai_by_attr' => 'plan']))
+        ->assertOk()
+        ->assertJsonPath('controls.1.param', 'ai_by_attr')
+        ->assertJsonPath('rows.0.value.v', 'pro')
+        ->assertJsonPath('rows.0.value.link', ['to' => 'explore', 'signal' => 'traces', 'where' => ['gen_ai.operation.name=~chat|embeddings', 'plan=pro']]);
+
+    $this->getJson(panelUrl(AiUsageByDimension::id(), ['ai_by' => 'custom']))
+        ->assertOk()
+        ->assertJsonPath('error', 'Enter a span attribute, e.g. team.id or plan.');
+});
+
+it('reads usage by client IP from the request root span above each call', function (): void {
+    Http::fake([
+        'loki.test:3100/*' => Http::response(lokiStreams([])),
+        'tempo.test:3200/api/search*' => fn (Request $request) => Http::response(['traces' => str_contains((string) (requestQuery($request)['q'] ?? ''), '<<')
+            ? [tempoHit('abab1111abab1111abab1111abab1111', 'GET /chat', 1735689600, 1200, ['client.address' => '203.0.113.9'])]
+            : [tempoHit('abab1111abab1111abab1111abab1111', 'chat gpt-4o', 1735689600, 900, ['gen_ai.usage.input_tokens' => 100]),
+                tempoHit('cdcd2222cdcd2222cdcd2222cdcd2222', 'chat gpt-4o', 1735689600, 900, ['gen_ai.usage.input_tokens' => 50])],
+        ]),
+    ]);
+
+    $this->getJson(panelUrl(AiUsageByDimension::id(), ['ai_by' => 'client.address']))
+        ->assertOk()
+        ->assertJsonPath('columns.0.label', 'Client IP')
+        ->assertJsonCount(1, 'rows')
+        ->assertJsonPath('rows.0.value.v', '203.0.113.9')
+        ->assertJsonPath('rows.0.value.link', ['to' => 'entity', 'type' => 'ip', 'value' => '203.0.113.9'])
+        ->assertJsonPath('rows.0.input.v', '100');
+
+    // Never the usage records: they carry no client address.
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'loki.test'));
+    expect(collect(sentTraceql())->contains(fn (string $q): bool => str_contains($q, '<<') && str_contains($q, 'span.client.address != nil')))->toBeTrue();
+});
+
+it('summarises one user\'s AI usage from their usage records on their page', function (): void {
+    Http::fake([
+        'loki.test:3100/*' => Http::response(lokiStreams([
+            aiUsageRecord(time() - 120, ['user_id' => '42', 'gen_ai_usage_input_tokens' => '1000', 'gen_ai_usage_output_tokens' => '200', 'gen_ai_usage_cost' => '0.25']),
+            aiUsageRecord(time() - 60, ['user_id' => '42', 'gen_ai_usage_input_tokens' => '500', 'gen_ai_usage_output_tokens' => '100']),
+        ])),
+    ]);
+
+    $data = $this->getJson(panelUrl(AiUsageSummary::id(), ['_dim' => 'user.id', 'ai_value' => '42']))
+        ->assertOk()
+        ->assertJsonPath('title', 'AI usage')
+        ->assertJsonPath('stats.0.value', '2')
+        ->assertJsonPath('stats.1.value', '1.5K')
+        ->assertJsonPath('stats.2.value', '300')
+        ->assertJsonPath('stats.3.value', '$0.25')
+        ->json();
+
+    expect($data['note'])->toStartWith('Exact:')->toContain('1 calls had no price')
+        ->and(array_sum(array_column($data['series'][0]['data'], 1)))->toEqual(2)
+        ->and(sentLogql()[0])->toContain('user_id="42"');
+});
+
+it('lists one user\'s model calls from their spans, and an IP\'s through its request root', function (): void {
+    aiTempo([]);
+
+    $this->getJson(panelUrl(AiUsageCalls::id(), ['_dim' => 'user.id', 'ai_value' => '42']))
+        ->assertOk()
+        ->assertJsonPath('title', 'Model calls')
+        ->assertJsonPath('empty', 'No model calls traced for user.id = 42 in this period.');
+
+    $this->getJson(panelUrl(AiUsageCalls::id(), ['_dim' => 'client.address', 'ai_value' => '203.0.113.9']))->assertOk();
+
+    $sent = sentTraceql();
+    expect($sent[0])->toContain('span.user.id = "42"')
+        ->and($sent[1])->toContain('span.client.address = "203.0.113.9" } >> {');
+});
+
+it('attaches AI usage to user, IP and declared dimension pages only when the app emits GenAI metrics', function (bool $emits): void {
+    TelemetryUi::dimension('tenant.id', label: 'Tenant', entity: 'tenant');
+
+    Http::fake([
+        'prometheus.test:9090/api/v1/label/__name__/values*' => Http::response(['status' => 'success', 'data' => $emits ? ['gen_ai_client_token_usage_sum'] : []]),
+        'prometheus.test:9090/*' => Http::response(labelledVector([])),
+        'tempo.test:3200/*' => Http::response(['traces' => []]),
+        'loki.test:3100/*' => Http::response(lokiStreams([])),
+    ]);
+
+    foreach (['user' => '42', 'ip' => '203.0.113.9', 'tenant' => 'acme'] as $type => $value) {
+        $panels = $this->getJson(apiUrl('entities/'.$type.'/story', ['value' => $value]))->assertOk()->json('panels');
+
+        if ($emits) {
+            expect(array_column($panels, 'id'))->toBe(['ai-usage-summary', 'ai-usage-calls'])
+                ->and($panels[0]['params']['ai_value'])->toBe($value);
+        } else {
+            expect($panels)->toBe([]);
+        }
+    }
+
+    // An entity with its own detail page keeps it.
+    $route = $this->getJson(apiUrl('entities/route/story', ['value' => '/orders']))->assertOk()->json('panels');
+    expect($route[0]['id'])->toBe('request-detail-header');
+})->with(['emits' => true, 'does not emit' => false]);

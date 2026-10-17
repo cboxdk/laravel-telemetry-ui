@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Concerns;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Builtin\Detail\ScopesToAiAgent;
+use Cbox\TelemetryUi\Panels\Builtin\Detail\ScopesToAiDimension;
 use Cbox\TelemetryUi\Panels\Builtin\Detail\ScopesToAiModel;
 use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -78,6 +79,18 @@ trait ReadsAiUsage
     protected function scopedAgent(): string
     {
         return '';
+    }
+
+    /**
+     * The context dimension a detail page is scoped to — `[attribute, value]`,
+     * e.g. `['user.id', '42']` — or null. See
+     * {@see ScopesToAiDimension}.
+     *
+     * @return array{string, string}|null
+     */
+    protected function scopedDimension(): ?array
+    {
+        return null;
     }
 
     /**
