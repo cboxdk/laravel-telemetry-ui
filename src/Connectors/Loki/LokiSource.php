@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\BackendStatus;
 use Cbox\TelemetryUi\Connectors\ProbeResult;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Contracts\KnowsStreamLabels;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\ProbesConnection;
 use Cbox\TelemetryUi\Queries\Compilers\LogqlCompiler;
@@ -18,7 +19,7 @@ use DateTimeInterface;
 /**
  * Grafana Loki driver (LogQL over the HTTP query API).
  */
-readonly class LokiSource implements LogsSource, ProbesConnection
+readonly class LokiSource implements KnowsStreamLabels, LogsSource, ProbesConnection
 {
     public function __construct(private ApiClient $client) {}
 
@@ -105,6 +106,22 @@ readonly class LokiSource implements LogsSource, ProbesConnection
         usort($entries, static fn (LogEntry $a, LogEntry $b): int => $a->timestampNano <=> $b->timestampNano);
 
         return $entries;
+    }
+
+    /**
+     * Loki's label names API lists only indexed stream labels: structured
+     * metadata and parsed fields are not in it.
+     */
+    public function streamLabels(): array
+    {
+        $response = $this->client->get('/loki/api/v1/labels');
+        $data = $response['data'] ?? null;
+
+        if (($response['status'] ?? null) !== 'success' || ! is_array($data) || ! array_is_list($data)) {
+            throw SourceException::unexpectedPayload('/loki/api/v1/labels', 'expected a list of label names');
+        }
+
+        return array_values(array_filter($data, is_string(...)));
     }
 
     public function labelValues(

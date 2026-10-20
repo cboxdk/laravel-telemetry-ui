@@ -13,6 +13,7 @@ use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Support\ScopeLabels;
 use Cbox\TelemetryUi\Support\ScopeLock;
+use Cbox\TelemetryUi\Support\StreamLabels;
 
 /**
  * The query-scoping engine shared by every query builder:
@@ -189,7 +190,16 @@ trait ScopesQueries
 
         $env = $this->scopeLabelMatcher(ScopeLabels::logs('environment'), $this->scopedEnvironments(), $lock->environmentsLocked());
 
-        return $env !== null ? $query->pipe(new LabelFilter([$env])) : $query;
+        if ($env === null) {
+            return $query;
+        }
+
+        // Where the store indexes the environment, it goes in the stream
+        // selector: Loki then reads only that environment's streams, instead
+        // of every stream in the window to drop the rest.
+        return app(StreamLabels::class)->indexes($env->label)
+            ? LogQuery::stream(...[...$stream, $env])
+            : $query->pipe(new LabelFilter([$env]));
     }
 
     /**
