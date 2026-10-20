@@ -11,7 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ApiError } from './api/client';
+import { shouldRetry } from './api/client';
 import { boot } from './boot';
 import { makeRouter } from './router';
 
@@ -20,8 +20,9 @@ const queryClient = new QueryClient({
         queries: {
             staleTime: 15_000,
             refetchOnWindowFocus: false,
-            // Forbidden / not-found / invalid are answers, not blips.
-            retry: (failures, error) => !(error instanceof ApiError && ['forbidden', 'not_found', 'invalid'].includes(error.type)) && failures < 2,
+            // Forbidden / not-found / invalid are answers and a timeout would
+            // only time out again; a dropped connection is worth two more tries.
+            retry: (failures, error) => shouldRetry(failures, error, 2),
         },
     },
 });

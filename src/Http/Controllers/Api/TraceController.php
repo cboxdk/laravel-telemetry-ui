@@ -157,7 +157,7 @@ final class TraceController
         try {
             $trace = self::fetch($connections->traces(), $traceId, $request);
         } catch (SourceException $exception) {
-            return ApiError::backend($exception->getMessage());
+            return ApiError::fromSource($exception);
         }
 
         // A trace id is a deep link anyone can paste: a locked viewer must not

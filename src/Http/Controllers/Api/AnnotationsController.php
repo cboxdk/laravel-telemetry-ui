@@ -27,7 +27,7 @@ final class AnnotationsController
         try {
             $marks = $annotations->between($start, $end, $scope->logQuery());
         } catch (SourceException $exception) {
-            return ApiError::backend($exception->getMessage());
+            return ApiError::fromSource($exception);
         }
 
         return Json::ok(['annotations' => array_map(static fn (Annotation $a): array => $a->toMarkLine(), $marks)]);

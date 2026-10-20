@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Http\Api;
 
+use Cbox\TelemetryUi\Connectors\BackendStatus;
+use Cbox\TelemetryUi\Connectors\SourceException;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -22,7 +24,7 @@ final class ApiError
 
     public const NOT_FOUND = 'not_found';
 
-    public static function response(string $type, string $message): JsonResponse
+    public static function response(string $type, string $message, ?BackendStatus $backend = null): JsonResponse
     {
         $status = match ($type) {
             self::BACKEND => 502,
@@ -32,12 +34,27 @@ final class ApiError
             default => 500,
         };
 
-        return new JsonResponse(['error' => ['type' => $type, 'message' => $message]], $status, [], Json::FLAGS);
+        $error = ['type' => $type, 'message' => $message];
+
+        // What went wrong at the backend, so the dashboard can tell a read
+        // worth repeating (a dropped connection) from one that would only
+        // wait out the same timeout again.
+        if ($backend !== null) {
+            $error['backend'] = $backend->value;
+        }
+
+        return new JsonResponse(['error' => $error], $status, [], Json::FLAGS);
     }
 
-    public static function backend(string $message): JsonResponse
+    public static function backend(string $message, ?BackendStatus $backend = null): JsonResponse
     {
-        return self::response(self::BACKEND, $message);
+        return self::response(self::BACKEND, $message, $backend);
+    }
+
+    /** A backend failure, with what kind of failure it was. */
+    public static function fromSource(SourceException $exception): JsonResponse
+    {
+        return self::backend($exception->getMessage(), $exception->status);
     }
 
     public static function notFound(string $message = 'Not found.'): JsonResponse

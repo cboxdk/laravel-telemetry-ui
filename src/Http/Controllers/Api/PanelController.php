@@ -42,7 +42,7 @@ final class PanelController
             // A declared panel is told which one it is.
             $data = (new $class($declared !== null ? $scope->with(['_panel' => $panel]) : $scope))->serve();
         } catch (SourceException $exception) {
-            return ApiError::backend($exception->getMessage());
+            return ApiError::fromSource($exception);
         }
 
         return Json::ok(['id' => $panel, 'span' => $declared['spec']['span'] ?? $class::span(), ...$data]);

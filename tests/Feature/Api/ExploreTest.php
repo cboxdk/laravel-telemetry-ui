@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Cbox\TelemetryUi\Explore\Stats;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -487,4 +488,13 @@ it('does not narrow an exclusion filter to one span kind', function (): void {
     foreach ($queries as $q) {
         expect($q)->not->toContain('kind = client');
     }
+});
+
+it('says a failed explore read timed out, so the dashboard does not send it again', function (): void {
+    Http::fake(fn () => throw new ConnectionException('cURL error 28: Operation timed out after 10001 milliseconds with 0 bytes received'));
+
+    $this->getJson(apiUrl('explore/requests'))
+        ->assertStatus(502)
+        ->assertJsonPath('error.type', 'backend')
+        ->assertJsonPath('error.backend', 'timeout');
 });

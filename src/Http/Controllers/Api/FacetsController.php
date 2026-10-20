@@ -49,7 +49,7 @@ final class FacetsController
                 default => $spans->facets($scope, $signal, $keys, $limit),
             };
         } catch (SourceException $exception) {
-            return ApiError::backend($exception->getMessage());
+            return ApiError::fromSource($exception);
         }
 
         return Json::ok(['signal' => $signal, ...$payload]);
