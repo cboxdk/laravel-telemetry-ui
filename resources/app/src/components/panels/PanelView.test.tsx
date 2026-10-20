@@ -38,3 +38,13 @@ describe('PanelView', () => {
         expect(await screen.findByRole('button', { name: 'Sort' })).toHaveTextContent('Last seen');
     });
 });
+
+describe('PanelView on a slow backend', () => {
+    it('says it is waiting, and for how long, once a first read takes more than a few seconds', async () => {
+        vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})));
+        await renderAt(<PanelView id="unified-errors" />, '/p/exceptions');
+
+        expect(screen.queryByRole('status')).toBeNull();
+        expect(await screen.findByText(/Waiting for the backend · [34]s/, undefined, { timeout: 5000 })).toBeInTheDocument();
+    }, 8000);
+});

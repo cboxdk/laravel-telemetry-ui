@@ -487,6 +487,7 @@ a.t-bar:hover, button .t-bar:hover { background: var(--secondary); color: var(--
 .t-spinner { display: inline-flex; align-items: center; gap: 10px; color: var(--muted-foreground); font-size: 12.5px; }
 .t-busy { display: inline-flex; align-items: center; gap: 7px; color: var(--muted-foreground); font-size: 12px; white-space: nowrap; animation: t-fade 200ms var(--ease); }
 .t-busy .t-spinner-dot { width: 12px; height: 12px; }
+.t-waiting { display: flex; flex-direction: column; gap: 10px; }
 /* The shell's progress line, on the topbar's bottom border. */
 .t-topbar { position: relative; }
 .t-fetchbar { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; overflow: hidden; pointer-events: none; opacity: 0; transition: opacity 200ms var(--ease); }
