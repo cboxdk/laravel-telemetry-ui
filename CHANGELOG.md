@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A 14- or 30-day window no longer fails every trace search.** Tempo
+  searches at most 168h at once (`query_frontend.search.max_duration`) and
+  answers a longer search, or tag-value lookup, with a 400 and a plain-text
+  reason, which the dashboard showed as "The telemetry backend returned
+  status 400." on Trace search, Request log, Query performance, Slow
+  queries and Explore. The Tempo driver now searches the newest part of the
+  window that fits. A panel that searched traces says "Traces are from the
+  newest 168h of this window only"; Explore marks it *newest 7d only* and
+  takes its rates over the part it searched. Set the traces connection's
+  `max_search` (`TELEMETRY_UI_TEMPO_MAX_SEARCH`, seconds) to your Tempo's
+  limit, or 0 for none.
+
+### Added
+
+- `Contracts\LimitsSearchWindow`, an optional capability of a traces driver:
+  the longest window one search covers. The Tempo driver implements it.
+
 ## [3.3.0] - 2026-10-17
 
 ### Added

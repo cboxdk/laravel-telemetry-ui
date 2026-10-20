@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Explore;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\AggregatesSpans;
+use Cbox\TelemetryUi\Contracts\LimitsSearchWindow;
 use Cbox\TelemetryUi\Dimensions\Dimensions;
 use Cbox\TelemetryUi\Http\Api\Filter;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
@@ -308,6 +309,10 @@ final class SpanExplorer
         [$start, $end] = $scope->range();
         $startMs = $start->getTimestamp() * 1000;
         $endMs = $end->getTimestamp() * 1000;
+        // A store that searches at most so far back searched the newest part
+        // of a longer window: say from where, and take rates over that part.
+        $searchedFrom = $this->searchedFrom($start->getTimestamp(), $end->getTimestamp());
+        $searchedSeconds = $searchedFrom === null ? $scope->rangeSeconds() : max(1, $end->getTimestamp() - $searchedFrom);
 
         $groups = null;
         $exact = false;
@@ -321,7 +326,7 @@ final class SpanExplorer
         return [
             'signal' => $signal,
             'rows' => $rows,
-            'stats' => Stats::red($rows, $scope->rangeSeconds()),
+            'stats' => Stats::red($rows, $searchedSeconds),
             'series' => Stats::series($rows, $startMs, $endMs),
             'heatmap' => Stats::heatmap($rows, $startMs, $endMs),
             'groupBy' => $groupBy,
@@ -333,9 +338,22 @@ final class SpanExplorer
                 'exact' => false,
                 'groupsExact' => $exact,
                 'readSideFiltered' => $this->readSideFiltered,
+                'searchedFrom' => $searchedFrom === null ? null : $searchedFrom * 1000,
             ],
             'range' => ['start' => $startMs, 'end' => $endMs],
         ];
+    }
+
+    /**
+     * Where a search of this window really starts, when the traces store
+     * cuts it (Tempo searches at most 168h at once), or null when it does not.
+     */
+    private function searchedFrom(int $start, int $end): ?int
+    {
+        $source = $this->connections->traces();
+        $max = $source instanceof LimitsSearchWindow ? $source->maxSearchSeconds() : null;
+
+        return $max !== null && $end - $start > $max ? $end - $max : null;
     }
 
     /**

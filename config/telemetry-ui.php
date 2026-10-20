@@ -375,6 +375,10 @@ return [
             'verify' => env('TELEMETRY_UI_TEMPO_CA_BUNDLE', true),
             'headers' => [],
             'timeout' => (float) env('TELEMETRY_UI_TEMPO_TIMEOUT', 10.0),
+            // The longest window one search covers, in seconds: Tempo's
+            // query_frontend.search.max_duration (168h unless changed). A
+            // longer window searches its newest part and says so. 0: no limit.
+            'max_search' => (int) env('TELEMETRY_UI_TEMPO_MAX_SEARCH', 604_800),
         ],
 
         'logs' => [

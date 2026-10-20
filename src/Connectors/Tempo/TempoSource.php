@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\BackendStatus;
 use Cbox\TelemetryUi\Connectors\ProbeResult;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Contracts\LimitsSearchWindow;
 use Cbox\TelemetryUi\Contracts\LocatesTracesInTime;
 use Cbox\TelemetryUi\Contracts\ProbesConnection;
 use Cbox\TelemetryUi\Contracts\TracesSource;
@@ -24,9 +25,33 @@ use DateTimeInterface;
 /**
  * Grafana Tempo driver: TraceQL search plus OTLP-JSON trace retrieval.
  */
-readonly class TempoSource implements LocatesTracesInTime, ProbesConnection, TracesSource
+readonly class TempoSource implements LimitsSearchWindow, LocatesTracesInTime, ProbesConnection, TracesSource
 {
-    public function __construct(private ApiClient $client) {}
+    /**
+     * @param  int  $maxSearchSeconds  the longest window Tempo searches at once
+     *                                 (its `search.max_duration`); 0 for no limit
+     */
+    public function __construct(private ApiClient $client, private int $maxSearchSeconds = 0) {}
+
+    public function maxSearchSeconds(): ?int
+    {
+        return $this->maxSearchSeconds > 0 ? $this->maxSearchSeconds : null;
+    }
+
+    /**
+     * The newest part of the window that one search may cover: Tempo answers
+     * a longer one with a 400.
+     */
+    private function within(?DateTimeInterface $start, ?DateTimeInterface $end): ?DateTimeInterface
+    {
+        if ($start === null || $this->maxSearchSeconds <= 0) {
+            return $start;
+        }
+
+        $earliest = ($end ?? new DateTimeImmutable)->getTimestamp() - $this->maxSearchSeconds;
+
+        return $start->getTimestamp() < $earliest ? new DateTimeImmutable('@'.$earliest) : $start;
+    }
 
     public function probe(): ProbeResult
     {
@@ -55,6 +80,8 @@ readonly class TempoSource implements LocatesTracesInTime, ProbesConnection, Tra
         DateTimeInterface $end,
         int $limit = 20,
     ): array {
+        $start = $this->within($start, $end) ?? $start;
+
         $response = $this->client->get('/api/search', [
             'q' => (new TraceqlCompiler)->compile($query),
             'start' => $start->getTimestamp(),
@@ -166,6 +193,8 @@ readonly class TempoSource implements LocatesTracesInTime, ProbesConnection, Tra
 
         // Bound the scan to a time window + limit so it doesn't enumerate the
         // whole retention (Tempo defaults to all blocks otherwise).
+        $start = $this->within($start, $end);
+
         if ($start !== null) {
             $params['start'] = $start->getTimestamp();
         }
