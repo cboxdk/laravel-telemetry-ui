@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
@@ -59,89 +58,97 @@ final class OutgoingTable extends Panel
         $connectCount = $this->metric('http_client_connection_duration_seconds_count');
 
         $rows = [];
-        $error = null;
-        $trends = [];
 
-        try {
-            $trends = $this->trendByKey(
-                $count->rate($this->rateWindow())->sumBy('server_address')->times(60),
-                $start,
-                $end,
-                fn (array $labels): string => $labels['server_address'] ?? '?',
-            );
+        // Every read sent together: the panel takes as long as the slowest.
+        $failure = null;
+        $trendRead = $this->later(fn (): array => $this->trendByKey(
+            $count->rate($this->rateWindow())->sumBy('server_address')->times(60),
+            $start,
+            $end,
+            fn (array $labels): string => $labels['server_address'] ?? '?',
+        ));
+        $countsRead = $this->later(fn (): array => $this->metrics()->query($count->increase($p)->sumBy('server_address', 'http_response_status_code')));
+        $timesRead = $this->later(fn (): array => $this->metrics()->query($sum->increase($p)->sumBy('server_address')));
+        $p95sRead = $this->later(fn (): array => $this->metrics()->query($bucket->quantile(0.95, $p, 'server_address')));
+        $failuresRead = $this->later(fn (): array => $this->metrics()->query($failures->increase($p)->sumBy('server_address')));
+        $connectTimesRead = $this->later(fn (): array => $this->metrics()->query($connectSum->increase($p)->sumBy('server_address')));
+        $connectsRead = $this->later(fn (): array => $this->metrics()->query($connectCount->increase($p)->sumBy('server_address')));
+        $connectP95sRead = $this->later(fn (): array => $this->metrics()->query($connectBucket->quantile(0.95, $p, 'server_address')));
+        $this->settle($failure);
 
-            foreach ($this->metrics()->query($count->increase($p)->sumBy('server_address', 'http_response_status_code')) as $sample) {
-                $host = $sample->labels['server_address'] ?? '?';
+        $trends = $trendRead->value() ?? [];
 
-                $rows[$host] ??= self::row($host, $trends[$host] ?? []);
+        foreach ($countsRead->value() ?? [] as $sample) {
+            $host = $sample->labels['server_address'] ?? '?';
 
-                $code = $sample->labels['http_response_status_code'] ?? '';
-                $class = match ($code === '' ? '' : $code[0].'xx') {
-                    '4xx' => '4xx',
-                    '5xx' => '5xx',
-                    default => 'ok',
-                };
+            $rows[$host] ??= self::row($host, $trends[$host] ?? []);
 
-                $rows[$host][$class] += $sample->value;
-                $rows[$host]['total'] += $sample->value;
-            }
+            $code = $sample->labels['http_response_status_code'] ?? '';
+            $class = match ($code === '' ? '' : $code[0].'xx') {
+                '4xx' => '4xx',
+                '5xx' => '5xx',
+                default => 'ok',
+            };
 
-            foreach ($this->metrics()->query($sum->increase($p)->sumBy('server_address')) as $sample) {
-                $host = $sample->labels['server_address'] ?? '?';
-
-                if (isset($rows[$host])) {
-                    // v2 duration histogram is in seconds; ×1000 → ms for the view.
-                    $rows[$host]['time'] = $sample->value * 1000;
-                }
-            }
-
-            foreach ($this->metrics()->query($bucket->quantile(0.95, $p, 'server_address')) as $sample) {
-                $host = $sample->labels['server_address'] ?? '?';
-
-                if (isset($rows[$host]) && ! is_nan($sample->value)) {
-                    $rows[$host]['p95'] = $sample->value * 1000;
-                }
-            }
-
-            foreach ($this->metrics()->query($failures->increase($p)->sumBy('server_address')) as $sample) {
-                $host = $sample->labels['server_address'] ?? '?';
-
-                $rows[$host] ??= self::row($host, $trends[$host] ?? []);
-                $rows[$host]['failures'] = $sample->value;
-            }
-
-            // How long it took to GET a connection, separately from how
-            // long the call took. Same total, opposite fixes: a handshake
-            // to a machine three regions away is a provisioning problem,
-            // and the far end thinking is theirs. Only connections
-            // actually established are in here — a reused one is a setup
-            // of zero and would drag every percentile toward it.
-            foreach ($this->metrics()->query($connectSum->increase($p)->sumBy('server_address')) as $sample) {
-                $host = $sample->labels['server_address'] ?? '?';
-
-                if (isset($rows[$host])) {
-                    $rows[$host]['connect_time'] = $sample->value * 1000;
-                }
-            }
-
-            foreach ($this->metrics()->query($connectCount->increase($p)->sumBy('server_address')) as $sample) {
-                $host = $sample->labels['server_address'] ?? '?';
-
-                if (isset($rows[$host])) {
-                    $rows[$host]['connects'] = $sample->value;
-                }
-            }
-
-            foreach ($this->metrics()->query($connectBucket->quantile(0.95, $p, 'server_address')) as $sample) {
-                $host = $sample->labels['server_address'] ?? '?';
-
-                if (isset($rows[$host]) && ! is_nan($sample->value)) {
-                    $rows[$host]['connect_p95'] = $sample->value * 1000;
-                }
-            }
-        } catch (SourceException $exception) {
-            $error = $exception->getMessage();
+            $rows[$host][$class] += $sample->value;
+            $rows[$host]['total'] += $sample->value;
         }
+
+        foreach ($timesRead->value() ?? [] as $sample) {
+            $host = $sample->labels['server_address'] ?? '?';
+
+            if (isset($rows[$host])) {
+                // v2 duration histogram is in seconds; ×1000 → ms for the view.
+                $rows[$host]['time'] = $sample->value * 1000;
+            }
+        }
+
+        foreach ($p95sRead->value() ?? [] as $sample) {
+            $host = $sample->labels['server_address'] ?? '?';
+
+            if (isset($rows[$host]) && ! is_nan($sample->value)) {
+                $rows[$host]['p95'] = $sample->value * 1000;
+            }
+        }
+
+        foreach ($failuresRead->value() ?? [] as $sample) {
+            $host = $sample->labels['server_address'] ?? '?';
+
+            $rows[$host] ??= self::row($host, $trends[$host] ?? []);
+            $rows[$host]['failures'] = $sample->value;
+        }
+
+        // How long it took to GET a connection, separately from how
+        // long the call took. Same total, opposite fixes: a handshake
+        // to a machine three regions away is a provisioning problem,
+        // and the far end thinking is theirs. Only connections
+        // actually established are in here — a reused one is a setup
+        // of zero and would drag every percentile toward it.
+        foreach ($connectTimesRead->value() ?? [] as $sample) {
+            $host = $sample->labels['server_address'] ?? '?';
+
+            if (isset($rows[$host])) {
+                $rows[$host]['connect_time'] = $sample->value * 1000;
+            }
+        }
+
+        foreach ($connectsRead->value() ?? [] as $sample) {
+            $host = $sample->labels['server_address'] ?? '?';
+
+            if (isset($rows[$host])) {
+                $rows[$host]['connects'] = $sample->value;
+            }
+        }
+
+        foreach ($connectP95sRead->value() ?? [] as $sample) {
+            $host = $sample->labels['server_address'] ?? '?';
+
+            if (isset($rows[$host]) && ! is_nan($sample->value)) {
+                $rows[$host]['connect_p95'] = $sample->value * 1000;
+            }
+        }
+
+        $error = $failure?->getMessage();
 
         usort($rows, static fn (array $a, array $b): int => $b['total'] <=> $a['total']);
 

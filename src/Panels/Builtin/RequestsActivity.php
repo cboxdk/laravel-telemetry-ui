@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
@@ -24,14 +23,21 @@ class RequestsActivity extends Panel
 
         $count = $this->metric('http_server_request_duration_seconds_count');
 
-        try {
-            $totals = $this->metrics()->query($count->increase($this->promDuration())->sumBy('http_response_status_code'));
-            $range = $this->metrics()->queryRange($count->rate($this->rateWindow())->sumBy('http_response_status_code')->times(60), $start, $end);
-            // Same period-total, evaluated at the window's start = the immediately
-            // preceding equal window, for the throughput delta.
-            $previous = $this->metrics()->query($count->increase($this->promDuration())->sumBy(), $start);
-        } catch (SourceException $exception) {
-            return $this->chartCard($this->activityTitle(), error: $exception->getMessage());
+        // All three together. The previous window is the one a backend
+        // reads from colder storage; without it the chart and the totals
+        // still stand, only the change against it is missing.
+        $failure = null;
+        $totals = $this->later(fn (): array => $this->metrics()->query($count->increase($this->promDuration())->sumBy('http_response_status_code')));
+        $range = $this->later(fn (): array => $this->metrics()->queryRange($count->rate($this->rateWindow())->sumBy('http_response_status_code')->times(60), $start, $end));
+        // Same period-total, evaluated at the window's start = the immediately
+        // preceding equal window, for the throughput delta.
+        $previous = $this->later(fn (): array => $this->metrics()->query($count->increase($this->promDuration())->sumBy(), $start));
+        $this->settle($failure);
+
+        [$totals, $range, $previous] = [$totals->value(), $range->value(), $previous->value()];
+
+        if ($totals === null || $range === null) {
+            return $this->chartCard($this->activityTitle(), error: $failure?->getMessage());
         }
 
         $classTotals = ['ok' => 0.0, '4xx' => 0.0, '5xx' => 0.0];
@@ -41,7 +47,7 @@ class RequestsActivity extends Panel
         }
 
         $total = array_sum($classTotals);
-        $previousTotal = array_sum(array_map(static fn ($sample): float => $sample->value, $previous));
+        $previousTotal = array_sum(array_map(static fn ($sample): float => $sample->value, $previous ?? []));
 
         return $this->chartCard(
             title: $this->activityTitle(),
@@ -55,6 +61,7 @@ class RequestsActivity extends Panel
             ],
             type: 'bar',
             unit: 'req/min',
+            note: $previous === null && $failure !== null ? 'The change against the previous period is missing: '.lcfirst($failure->getMessage()) : null,
         );
     }
 

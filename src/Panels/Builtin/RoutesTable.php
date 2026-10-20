@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
@@ -40,31 +39,36 @@ class RoutesTable extends Panel
         $rows = [];
         $note = null;
 
-        // The counts are the table; the rest is read on its own, cheapest
-        // first. The per-route p95 over the whole window is what a busy
-        // backend times out on — without it the rows still stand, with a
-        // dash and a note, instead of the whole table failing.
-        try {
-            $counts = $this->metrics()->query(
-                $count->increase($p)->sumBy('http_route', 'http_request_method', 'http_response_status_code'),
-            );
-        } catch (SourceException $exception) {
-            return $this->payload([], $exception->getMessage());
-        }
-
+        // The counts are the table; the rest is read on its own. The
+        // per-route p95 over the whole window is what a busy backend times
+        // out on — without it the rows still stand, with a dash and a note,
+        // instead of the whole table failing. All four go out together.
         $failure = null;
-        $times = $this->attempt(fn (): array => $this->metrics()->query(
+        $counts = $this->later(fn (): array => $this->metrics()->query(
+            $count->increase($p)->sumBy('http_route', 'http_request_method', 'http_response_status_code'),
+        ));
+        $times = $this->later(fn (): array => $this->metrics()->query(
             $sum->increase($p)->sumBy('http_route', 'http_request_method'),
-        ), $failure) ?? [];
-        $trends = $this->attempt(fn (): array => $this->trendByKey(
+        ));
+        $trends = $this->later(fn (): array => $this->trendByKey(
             $count->rate($this->rateWindow())->sumBy('http_route', 'http_request_method')->times(60),
             $start,
             $end,
             fn (array $labels): string => ($labels['http_request_method'] ?? '?').' '.($labels['http_route'] ?? '?'),
-        ), $failure) ?? [];
-        $p95s = $this->attempt(fn (): array => $this->metrics()->query(
+        ));
+        $p95s = $this->later(fn (): array => $this->metrics()->query(
             $bucket->quantile(0.95, $p, 'http_route', 'http_request_method'),
-        ), $failure) ?? [];
+        ));
+        $this->settle($failure);
+
+        // The counts come first, so a failure of theirs is the one kept.
+        if (($counts = $counts->value()) === null) {
+            return $this->payload([], $failure?->getMessage());
+        }
+
+        $times = $times->value() ?? [];
+        $trends = $trends->value() ?? [];
+        $p95s = $p95s->value() ?? [];
 
         if ($failure !== null) {
             $note = 'Part of this table is missing: '.lcfirst($failure->getMessage());

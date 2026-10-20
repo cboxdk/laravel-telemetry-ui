@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
@@ -32,49 +31,57 @@ class JobsTable extends Panel
         $p = $this->promDuration();
 
         $rows = [];
-        $trends = [];
 
-        try {
-            $trends = $this->trendByKey(
-                $this->metric('queue_jobs_processed_total')->rate($this->rateWindow())->sumBy('job_name', 'queue')->times(60),
-                $start,
-                $end,
-                fn (array $labels): string => ($labels['job_name'] ?? '?').'|'.($labels['queue'] ?? '?'),
-            );
+        // Seven reads, sent together; the table needs all of them.
+        $failure = null;
+        $trendRead = $this->later(fn (): array => $this->trendByKey(
+            $this->metric('queue_jobs_processed_total')->rate($this->rateWindow())->sumBy('job_name', 'queue')->times(60),
+            $start,
+            $end,
+            fn (array $labels): string => ($labels['job_name'] ?? '?').'|'.($labels['queue'] ?? '?'),
+        ));
+        $outcomeReads = [];
 
-            foreach (['processed', 'failed', 'released'] as $outcome) {
-                $samples = $this->metrics()->query(
-                    $this->metric('queue_jobs_'.$outcome.'_total')->increase($p)->sumBy('job_name', 'queue'),
-                );
+        foreach (['processed', 'failed', 'released'] as $outcome) {
+            $outcomeReads[$outcome] = $this->later(fn (): array => $this->metrics()->query(
+                $this->metric('queue_jobs_'.$outcome.'_total')->increase($p)->sumBy('job_name', 'queue'),
+            ));
+        }
 
-                foreach ($samples as $sample) {
-                    $key = ($sample->labels['job_name'] ?? '?').'|'.($sample->labels['queue'] ?? '?');
+        $timesRead = $this->later(fn (): array => $this->metrics()->query(
+            $this->metric('queue_job_duration_seconds_sum')->increase($p)->sumBy('job_name', 'queue')->times(1000),
+        ));
+        $countsRead = $this->later(fn (): array => $this->metrics()->query(
+            $this->metric('queue_job_duration_seconds_count')->increase($p)->sumBy('job_name', 'queue'),
+        ));
+        $p95sRead = $this->later(fn (): array => $this->metrics()->query(
+            $this->metric('queue_job_duration_seconds_bucket')->quantile(0.95, $p, 'job_name', 'queue')->times(1000),
+        ));
+        $this->settle($failure);
 
-                    $rows[$key] ??= [
-                        'job' => $sample->labels['job_name'] ?? '?',
-                        'queue' => $sample->labels['queue'] ?? '?',
-                        'processed' => 0.0, 'failed' => 0.0, 'released' => 0.0,
-                        'time' => 0.0, 'count' => 0.0, 'p95' => null,
-                        'spark' => $trends[$key] ?? [],
-                    ];
+        if ($failure !== null) {
+            return $this->payload([], $failure->getMessage());
+        }
 
-                    $rows[$key][$outcome] += $sample->value;
-                }
+        $trends = $trendRead->value() ?? [];
+        $times = $timesRead->value() ?? [];
+        $counts = $countsRead->value() ?? [];
+        $p95s = $p95sRead->value() ?? [];
+
+        foreach ($outcomeReads as $outcome => $read) {
+            foreach ($read->value() ?? [] as $sample) {
+                $key = ($sample->labels['job_name'] ?? '?').'|'.($sample->labels['queue'] ?? '?');
+
+                $rows[$key] ??= [
+                    'job' => $sample->labels['job_name'] ?? '?',
+                    'queue' => $sample->labels['queue'] ?? '?',
+                    'processed' => 0.0, 'failed' => 0.0, 'released' => 0.0,
+                    'time' => 0.0, 'count' => 0.0, 'p95' => null,
+                    'spark' => $trends[$key] ?? [],
+                ];
+
+                $rows[$key][$outcome] += $sample->value;
             }
-
-            $times = $this->metrics()->query(
-                $this->metric('queue_job_duration_seconds_sum')->increase($p)->sumBy('job_name', 'queue')->times(1000),
-            );
-
-            $counts = $this->metrics()->query(
-                $this->metric('queue_job_duration_seconds_count')->increase($p)->sumBy('job_name', 'queue'),
-            );
-
-            $p95s = $this->metrics()->query(
-                $this->metric('queue_job_duration_seconds_bucket')->quantile(0.95, $p, 'job_name', 'queue')->times(1000),
-            );
-        } catch (SourceException $exception) {
-            return $this->payload([], $exception->getMessage());
         }
 
         foreach ($times as $sample) {

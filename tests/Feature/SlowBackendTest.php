@@ -6,6 +6,8 @@ use Cbox\TelemetryUi\Connectors\ApiClient;
 use Cbox\TelemetryUi\Connectors\BackendStatus;
 use Cbox\TelemetryUi\Connectors\Prometheus\PrometheusSource;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Http\Api\RequestScope;
+use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -144,13 +146,41 @@ it('lists the routes with a dash for p95 when the per-route p95 times out', func
         ->assertJsonPath('note', fn (string $note): bool => str_contains($note, 'did not answer within'));
 });
 
-it('stops asking once a read has timed out, instead of waiting out the timeout again', function (): void {
-    // The first optional read times out; the two after it are never sent.
+it('sends the optional reads with the counts, so one timing out costs no extra wait', function (): void {
+    // Sent together, a read that times out holds up nothing: the others
+    // answer in the same wait, and the table says what is missing.
     $asked = slowFor('_sum[3600s]');
 
-    $this->getJson(panelUrl('routes-needing-attention', ['period' => '1h']))->assertOk();
+    $table = $this->getJson(panelUrl('routes-needing-attention', ['period' => '1h']))->assertOk()->json();
 
-    expect(array_filter($asked->getArrayCopy(), static fn (string $q): bool => str_contains($q, '_bucket')))->toBe([]);
+    expect(array_filter($asked->getArrayCopy(), static fn (string $q): bool => str_contains($q, '_bucket')))->not->toBe([])
+        ->and($table['rows'])->not->toBe([])
+        ->and($table['note'])->toContain('did not answer within');
+});
+
+it('does not send a later round of reads after a timeout in an earlier one', function (): void {
+    $asked = slowFor('slow_metric');
+
+    $panel = new class(new RequestScope) extends Panel
+    {
+        public function data(): array
+        {
+            $failure = null;
+            $this->later(fn (): array => $this->metrics()->query(new MetricQuery('slow_metric')));
+            $this->settle($failure);
+
+            $second = $this->later(fn (): array => $this->metrics()->query(new MetricQuery('second_round')));
+            $this->settle($failure);
+
+            return ['second' => $second->value(), 'error' => $failure?->getMessage()];
+        }
+    };
+
+    $payload = $panel->data();
+
+    expect($payload['second'])->toBeNull()
+        ->and($payload['error'])->toContain('did not answer within')
+        ->and(array_filter($asked->getArrayCopy(), static fn (string $q): bool => str_contains($q, 'second_round')))->toBe([]);
 });
 
 it('still fails the table when the counts themselves cannot be read', function (): void {

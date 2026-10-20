@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Analytics;
@@ -32,16 +31,22 @@ final class AnalyticsOverview extends Panel
         $series = [];
         $error = null;
 
-        try {
-            $selector = $this->logSelector();
+        // Page views and engagement records are two log reads; together.
+        $selector = $this->logSelector();
+        $failure = null;
+        $pageViews = $this->later(fn (): array => $this->logs()->query(
+            $selector->pipe(Analytics::pageViewFilter()), $start, $end, limit: self::SAMPLE_LIMIT,
+        ));
+        $engagement = $this->later(fn (): array => $this->logs()->query(
+            $selector->pipe(Analytics::engagementFilter()), $start, $end, limit: self::SAMPLE_LIMIT,
+        ));
+        $this->settle($failure);
 
-            $rows = Analytics::rows($this->logs()->query(
-                $selector->pipe(Analytics::pageViewFilter()), $start, $end, limit: self::SAMPLE_LIMIT,
-            ));
-
-            $engagementMs = Analytics::avgEngagementMs($this->logs()->query(
-                $selector->pipe(Analytics::engagementFilter()), $start, $end, limit: self::SAMPLE_LIMIT,
-            ));
+        if ($failure !== null) {
+            $error = $failure->getMessage();
+        } else {
+            $rows = Analytics::rows($pageViews->value() ?? []);
+            $engagementMs = Analytics::avgEngagementMs($engagement->value() ?? []);
 
             $views = count($rows);
             $visitors = Analytics::uniqueVisitors($rows);
@@ -62,8 +67,6 @@ final class AnalyticsOverview extends Panel
                     Analytics::viewsSeries($rows, $start->getTimestamp() * 1000, $end->getTimestamp() * 1000),
                 ),
             ]];
-        } catch (SourceException $exception) {
-            $error = $exception->getMessage();
         }
 
         return $this->chartCard(

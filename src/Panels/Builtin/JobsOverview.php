@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
@@ -32,22 +31,33 @@ class JobsOverview extends Panel
         $series = [];
         $stats = [];
 
-        try {
-            foreach (self::OUTCOMES as $outcome => [$label, $color, $tone]) {
-                $metric = $this->metric('queue_jobs_'.$outcome.'_total');
+        // A total and a chart per outcome, all sent together.
+        $failure = null;
+        $reads = [];
 
-                $total = $this->total($metric->increase($p)->sumBy());
+        foreach (self::OUTCOMES as $outcome => $_) {
+            $metric = $this->metric('queue_jobs_'.$outcome.'_total');
+            $reads[$outcome] = [
+                $this->later(fn (): float => $this->total($metric->increase($p)->sumBy())),
+                $this->later(fn (): array => $this->metrics()->queryRange($metric->rate($w)->sumBy()->times(60), $start, $end)),
+            ];
+        }
 
-                $stats[] = $this->stat($label, Format::count($total), $total > 0 ? $tone : 'dim');
+        $this->settle($failure);
 
-                $range = $this->metrics()->queryRange($metric->rate($w)->sumBy()->times(60), $start, $end);
+        if ($failure !== null) {
+            return $this->chartCard('Jobs', error: $failure->getMessage());
+        }
 
-                if (isset($range[0])) {
-                    $series[] = ['name' => $label, 'data' => $range[0]->toChartData(), 'color' => $color];
-                }
+        foreach (self::OUTCOMES as $outcome => [$label, $color, $tone]) {
+            $total = $reads[$outcome][0]->value() ?? 0.0;
+            $range = $reads[$outcome][1]->value() ?? [];
+
+            $stats[] = $this->stat($label, Format::count($total), $total > 0 ? $tone : 'dim');
+
+            if (isset($range[0])) {
+                $series[] = ['name' => $label, 'data' => $range[0]->toChartData(), 'color' => $color];
             }
-        } catch (SourceException $exception) {
-            return $this->chartCard('Jobs', error: $exception->getMessage());
         }
 
         return $this->chartCard(

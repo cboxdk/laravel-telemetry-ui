@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
@@ -51,40 +50,44 @@ final class OutgoingConnectionPairs extends Panel
 
         /** @var array<string, array{from: string, to: string, p95: float|null, time: float, connects: float}> $pairs */
         $pairs = [];
-        $error = null;
 
         $key = static fn (string $from, string $to): string => $from."\0".$to;
 
-        try {
-            foreach ($this->metrics()->query($count->increase($p)->sumBy($hostLabel, 'server_address')) as $sample) {
-                $from = (string) ($sample->labels[$hostLabel] ?? '');
-                $to = (string) ($sample->labels['server_address'] ?? '');
+        // Every read sent together: the panel takes as long as the slowest.
+        $failure = null;
+        $connectsRead = $this->later(fn (): array => $this->metrics()->query($count->increase($p)->sumBy($hostLabel, 'server_address')));
+        $timesRead = $this->later(fn (): array => $this->metrics()->query($sum->increase($p)->sumBy($hostLabel, 'server_address')));
+        $p95sRead = $this->later(fn (): array => $this->metrics()->query($bucket->quantile(0.95, $p, $hostLabel, 'server_address')));
+        $this->settle($failure);
 
-                if ($from === '' || $to === '') {
-                    continue;
-                }
+        foreach ($connectsRead->value() ?? [] as $sample) {
+            $from = (string) ($sample->labels[$hostLabel] ?? '');
+            $to = (string) ($sample->labels['server_address'] ?? '');
 
-                $pairs[$key($from, $to)] = ['from' => $from, 'to' => $to, 'p95' => null, 'time' => 0.0, 'connects' => $sample->value];
+            if ($from === '' || $to === '') {
+                continue;
             }
 
-            foreach ($this->metrics()->query($sum->increase($p)->sumBy($hostLabel, 'server_address')) as $sample) {
-                $id = $key((string) ($sample->labels[$hostLabel] ?? ''), (string) ($sample->labels['server_address'] ?? ''));
-
-                if (isset($pairs[$id])) {
-                    $pairs[$id]['time'] = $sample->value * 1000;
-                }
-            }
-
-            foreach ($this->metrics()->query($bucket->quantile(0.95, $p, $hostLabel, 'server_address')) as $sample) {
-                $id = $key((string) ($sample->labels[$hostLabel] ?? ''), (string) ($sample->labels['server_address'] ?? ''));
-
-                if (isset($pairs[$id]) && ! is_nan($sample->value)) {
-                    $pairs[$id]['p95'] = $sample->value * 1000;
-                }
-            }
-        } catch (SourceException $exception) {
-            $error = $exception->getMessage();
+            $pairs[$key($from, $to)] = ['from' => $from, 'to' => $to, 'p95' => null, 'time' => 0.0, 'connects' => $sample->value];
         }
+
+        foreach ($timesRead->value() ?? [] as $sample) {
+            $id = $key((string) ($sample->labels[$hostLabel] ?? ''), (string) ($sample->labels['server_address'] ?? ''));
+
+            if (isset($pairs[$id])) {
+                $pairs[$id]['time'] = $sample->value * 1000;
+            }
+        }
+
+        foreach ($p95sRead->value() ?? [] as $sample) {
+            $id = $key((string) ($sample->labels[$hostLabel] ?? ''), (string) ($sample->labels['server_address'] ?? ''));
+
+            if (isset($pairs[$id]) && ! is_nan($sample->value)) {
+                $pairs[$id]['p95'] = $sample->value * 1000;
+            }
+        }
+
+        $error = $failure?->getMessage();
 
         $rows = array_values($pairs);
         $typical = self::typicalPerUpstream($rows);

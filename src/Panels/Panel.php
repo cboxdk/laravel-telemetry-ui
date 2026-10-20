@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Panels;
 use Cbox\TelemetryUi\Connectors\BackendStatus;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Connectors\Together;
 use Cbox\TelemetryUi\Contracts\IssuesSource;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
@@ -21,10 +22,12 @@ use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Concerns\ScopesQueries;
 use Cbox\TelemetryUi\Support\Period;
 use Cbox\TelemetryUi\Support\TimeExpression;
+use Closure;
 use DateTimeImmutable;
 use Illuminate\Support\Str;
 use ReflectionClass;
 use ReflectionNamedType;
+use Throwable;
 
 /**
  * Base class for every dashboard panel — the extension point for the built-in
@@ -71,6 +74,9 @@ abstract class Panel
      * the panel header gains a link there. Null = no drill link.
      */
     protected ?string $drillPage = null;
+
+    /** @var list<Deferred<mixed>> Reads asked for with later(), not yet settled. */
+    private array $deferred = [];
 
     final public function __construct(protected readonly RequestScope $scope)
     {
@@ -338,6 +344,68 @@ abstract class Panel
             $failure ??= $exception;
 
             return null;
+        }
+    }
+
+    /**
+     * Ask for a read now and get its value after {@see settle()}: the reads
+     * asked for in between go to the backend at the same time, so the panel
+     * takes as long as its slowest read instead of the sum of all of them.
+     * Each read is otherwise an {@see attempt()}: a failure leaves its value
+     * null and is kept in settle()'s `$failure`.
+     *
+     *     $sum = $this->later(fn (): array => $this->metrics()->queryRange(...));
+     *     $p95 = $this->later(fn (): float => $this->total(...));
+     *     $this->settle($failure);
+     *     $sum->value(); // list<TimeSeries>|null
+     *
+     * @template T
+     *
+     * @param  callable(): T  $read
+     * @return Deferred<T>
+     */
+    protected function later(callable $read): Deferred
+    {
+        /** @var Deferred<T> $deferred */
+        $deferred = new Deferred(Closure::fromCallable($read));
+        $this->deferred[] = $deferred;
+
+        return $deferred;
+    }
+
+    /**
+     * Run every read asked for with {@see later()} since the last settle(),
+     * together. The first failure is kept in `$failure`; after a timeout
+     * there (or in an earlier attempt()), the reads are not sent at all.
+     *
+     * @param-out SourceException|null  $failure
+     */
+    protected function settle(?SourceException &$failure = null): void
+    {
+        $deferred = $this->deferred;
+        $this->deferred = [];
+
+        if ($failure?->status === BackendStatus::Timeout) {
+            foreach ($deferred as $read) {
+                $read->resolve(null);
+            }
+
+            return;
+        }
+
+        $results = Together::run(array_map(static fn (Deferred $read): Closure => $read->read, $deferred));
+
+        foreach ($deferred as $i => $read) {
+            $result = $results[$i] ?? null;
+
+            if ($result instanceof SourceException) {
+                $failure ??= $result;
+                $read->resolve(null);
+            } elseif ($result instanceof Throwable) {
+                throw $result;
+            } else {
+                $read->resolve($result);
+            }
         }
     }
 

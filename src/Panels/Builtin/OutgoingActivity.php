@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
@@ -35,21 +34,29 @@ class OutgoingActivity extends Panel
         $failures = $this->metric('http_client_request_duration_seconds_count', 'error_type!="",http_response_status_code=""');
         $p = $this->promDuration();
 
-        try {
-            $total = $this->total($count->increase($p)->sumBy());
-            $failed = $this->total($failures->increase($p)->sumBy());
-            $serverErrors = $this->total($this->metric('http_client_request_duration_seconds_count', 'http_response_status_code=~"5.."')->increase($p)->sumBy());
-            // laravel-telemetry 3.6+; reads zero on older emitters.
-            $nPlusOne = $this->total($this->metric('http_client_requests_n_plus_one_total')->increase($p)->sumBy());
+        // All five together; the card needs every one.
+        $failure = null;
+        $total = $this->later(fn (): float => $this->total($count->increase($p)->sumBy()));
+        $failed = $this->later(fn (): float => $this->total($failures->increase($p)->sumBy()));
+        $serverErrors = $this->later(fn (): float => $this->total($this->metric('http_client_request_duration_seconds_count', 'http_response_status_code=~"5.."')->increase($p)->sumBy()));
+        // laravel-telemetry 3.6+; reads zero on older emitters.
+        $nPlusOne = $this->later(fn (): float => $this->total($this->metric('http_client_requests_n_plus_one_total')->increase($p)->sumBy()));
+        $range = $this->later(fn (): array => $this->metrics()->queryRange(
+            $count->rate($this->rateWindow())->sumBy('server_address')->times(60),
+            $start,
+            $end,
+        ));
+        $this->settle($failure);
 
-            $range = $this->metrics()->queryRange(
-                $count->rate($this->rateWindow())->sumBy('server_address')->times(60),
-                $start,
-                $end,
-            );
-        } catch (SourceException $exception) {
-            return $this->chartCard('Outgoing requests', error: $exception->getMessage());
+        if ($failure !== null) {
+            return $this->chartCard('Outgoing requests', error: $failure->getMessage());
         }
+
+        $total = $total->value() ?? 0.0;
+        $failed = $failed->value() ?? 0.0;
+        $serverErrors = $serverErrors->value() ?? 0.0;
+        $nPlusOne = $nPlusOne->value() ?? 0.0;
+        $range = $range->value() ?? [];
 
         return $this->chartCard(
             title: 'Outgoing requests',

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Support\Format;
 
@@ -29,23 +28,34 @@ final class HorizonIncidents extends Panel
         $series = [];
         $stats = [];
 
-        try {
-            foreach (self::SIGNALS as $metric => [$label, $color]) {
-                $range = $this->metrics()->queryRange(
+        // A chart and a total per signal, all sent together.
+        $failure = null;
+        $reads = [];
+
+        foreach (array_keys(self::SIGNALS) as $metric) {
+            $reads[$metric] = [
+                $this->later(fn (): array => $this->metrics()->queryRange(
                     $this->metric($metric)->rate($this->rateWindow())->sumBy()->times(60),
                     $start,
                     $end,
-                );
+                )),
+                $this->later(fn (): float => $this->total($this->metric($metric)->increase($this->promDuration())->sumBy())),
+            ];
+        }
 
-                foreach ($range as $timeSeries) {
-                    $series[] = ['name' => $label, 'data' => $timeSeries->toChartData(), 'color' => $color];
-                }
+        $this->settle($failure);
 
-                $total = $this->total($this->metric($metric)->increase($this->promDuration())->sumBy());
-                $stats[] = $this->stat($label, Format::count($total), $total > 0 && $label !== 'Migrated jobs' ? 'warn' : 'dim');
+        if ($failure !== null) {
+            return $this->chartCard('Horizon incidents', error: $failure->getMessage(), span: 2);
+        }
+
+        foreach (self::SIGNALS as $metric => [$label, $color]) {
+            foreach ($reads[$metric][0]->value() ?? [] as $timeSeries) {
+                $series[] = ['name' => $label, 'data' => $timeSeries->toChartData(), 'color' => $color];
             }
-        } catch (SourceException $exception) {
-            return $this->chartCard('Horizon incidents', error: $exception->getMessage(), span: 2);
+
+            $total = $reads[$metric][1]->value() ?? 0.0;
+            $stats[] = $this->stat($label, Format::count($total), $total > 0 && $label !== 'Migrated jobs' ? 'warn' : 'dim');
         }
 
         return $this->chartCard(

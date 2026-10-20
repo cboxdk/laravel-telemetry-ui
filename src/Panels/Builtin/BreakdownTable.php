@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
@@ -59,50 +58,59 @@ abstract class BreakdownTable extends Panel
         $rows = [];
         $error = null;
 
-        try {
-            foreach ($spec['outcomes'] as $outcome => $metricName) {
-                $samples = $this->metrics()->query(
-                    $this->metric($metricName)->increase($p)->sumBy($key),
-                );
+        // Every read sent together; any failure is the table's error.
+        $failure = null;
+        $outcomeReads = [];
 
-                foreach ($samples as $sample) {
-                    $name = $sample->labels[$key] ?? '?';
+        foreach ($spec['outcomes'] as $outcome => $metricName) {
+            $outcomeReads[$outcome] = $this->later(fn (): array => $this->metrics()->query(
+                $this->metric($metricName)->increase($p)->sumBy($key),
+            ));
+        }
 
-                    $rows[$name] ??= [
-                        'name' => $name,
-                        'outcomes' => array_fill_keys(array_keys($spec['outcomes']), 0.0),
-                        'time' => 0.0, 'count' => 0.0, 'p95' => null,
-                    ];
+        $timesRead = $this->later(fn (): array => $this->metrics()->query($this->metric($spec['durationMetric'].'_sum')->increase($p)->sumBy($key)->times(1000)));
+        $countsRead = $this->later(fn (): array => $this->metrics()->query($this->metric($spec['durationMetric'].'_count')->increase($p)->sumBy($key)));
+        $p95sRead = $this->later(fn (): array => $this->metrics()->query($this->metric($spec['durationMetric'].'_bucket')->quantile(0.95, $p, $key)->times(1000)));
+        $this->settle($failure);
 
-                    $rows[$name]['outcomes'][$outcome] += $sample->value;
-                }
-            }
+        $error = $failure?->getMessage();
 
-            foreach ($this->metrics()->query($this->metric($spec['durationMetric'].'_sum')->increase($p)->sumBy($key)->times(1000)) as $sample) {
+        foreach ($outcomeReads as $outcome => $read) {
+            foreach ($read->value() ?? [] as $sample) {
                 $name = $sample->labels[$key] ?? '?';
 
-                if (isset($rows[$name])) {
-                    $rows[$name]['time'] = $sample->value;
-                }
+                $rows[$name] ??= [
+                    'name' => $name,
+                    'outcomes' => array_fill_keys(array_keys($spec['outcomes']), 0.0),
+                    'time' => 0.0, 'count' => 0.0, 'p95' => null,
+                ];
+
+                $rows[$name]['outcomes'][$outcome] += $sample->value;
             }
+        }
 
-            foreach ($this->metrics()->query($this->metric($spec['durationMetric'].'_count')->increase($p)->sumBy($key)) as $sample) {
-                $name = $sample->labels[$key] ?? '?';
+        foreach ($timesRead->value() ?? [] as $sample) {
+            $name = $sample->labels[$key] ?? '?';
 
-                if (isset($rows[$name])) {
-                    $rows[$name]['count'] = $sample->value;
-                }
+            if (isset($rows[$name])) {
+                $rows[$name]['time'] = $sample->value;
             }
+        }
 
-            foreach ($this->metrics()->query($this->metric($spec['durationMetric'].'_bucket')->quantile(0.95, $p, $key)->times(1000)) as $sample) {
-                $name = $sample->labels[$key] ?? '?';
+        foreach ($countsRead->value() ?? [] as $sample) {
+            $name = $sample->labels[$key] ?? '?';
 
-                if (isset($rows[$name]) && ! is_nan($sample->value)) {
-                    $rows[$name]['p95'] = $sample->value;
-                }
+            if (isset($rows[$name])) {
+                $rows[$name]['count'] = $sample->value;
             }
-        } catch (SourceException $exception) {
-            $error = $exception->getMessage();
+        }
+
+        foreach ($p95sRead->value() ?? [] as $sample) {
+            $name = $sample->labels[$key] ?? '?';
+
+            if (isset($rows[$name]) && ! is_nan($sample->value)) {
+                $rows[$name]['p95'] = $sample->value;
+            }
         }
 
         // increase() extrapolation leaves near-zero ghosts at period edges.

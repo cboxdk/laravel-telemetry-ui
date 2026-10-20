@@ -309,6 +309,16 @@ return [
     'retries' => (int) env('TELEMETRY_UI_RETRIES', 2),
 
     /*
+    | How many of one panel's backend reads go out at the same time. A page
+    | loads its panels at the same time already, and a backend queues what it
+    | cannot run side by side: on a single-node Mimir without query sharding,
+    | more than 2 made a long window's heavy queries slow each other down
+    | until one timed out. Raise it for a backend that shards queries. 1
+    | sends them one after the other, as before.
+    */
+    'concurrency' => (int) env('TELEMETRY_UI_CONCURRENCY', 2),
+
+    /*
     |--------------------------------------------------------------------------
     | Connections
     |--------------------------------------------------------------------------

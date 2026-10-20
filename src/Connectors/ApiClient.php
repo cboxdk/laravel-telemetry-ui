@@ -11,6 +11,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Thin JSON HTTP client shared by all connectors. Multi-tenant Grafana
@@ -103,7 +104,15 @@ readonly class ApiClient
         $started = microtime(true);
 
         try {
-            $response = $this->pending()->get($url, $query);
+            // Inside Together::run() the request joins the round in progress
+            // and goes out with the other reads; the answer comes back here.
+            $response = Together::inside()
+                ? Together::send(fn (PendingRequest $async): mixed => $this->configure($async)->get($url, $query))
+                : $this->pending()->get($url, $query);
+
+            if ($response instanceof Throwable) {
+                throw $response instanceof ConnectionException ? $response : new ConnectionException($response->getMessage(), 0, $response);
+            }
         } catch (ConnectionException $exception) {
             $this->meter($url, 'GET', $started, false);
             $this->fail(SourceException::connectionFailed($url, $exception->getMessage(), $this->timeout));
@@ -129,13 +138,22 @@ readonly class ApiClient
 
     private function pending(): PendingRequest
     {
+        return $this->configure(Http::acceptJson());
+    }
+
+    /**
+     * This connection's headers, timeout, TLS and retry policy, on a request
+     * of the caller's: a fresh one, or one of Together's pooled requests.
+     */
+    private function configure(PendingRequest $request): PendingRequest
+    {
         $headers = $this->headers;
 
         if ($this->tenant !== null) {
             $headers['X-Scope-OrgID'] = $this->tenant;
         }
 
-        $request = Http::withHeaders($headers)
+        $request = $request->withHeaders($headers)
             ->timeout($this->timeout)
             ->acceptJson();
 
@@ -155,7 +173,7 @@ readonly class ApiClient
             $request = $request->retry(
                 $this->retries + 1,
                 150,
-                static fn (\Throwable $exception): bool => $exception instanceof ConnectionException
+                static fn (Throwable $exception): bool => $exception instanceof ConnectionException
                     && ! str_contains($exception->getMessage(), 'Operation timed out'),
                 throw: false,
             );
