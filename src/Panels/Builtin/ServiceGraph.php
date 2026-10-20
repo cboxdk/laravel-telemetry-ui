@@ -77,12 +77,21 @@ final class ServiceGraph extends Panel
 
         $edges = array_filter($edges, static fn (array $edge): bool => $edge['requests'] >= 0.5);
         $derived = null;
+        $partial = null;
 
         // No metrics-generator? Derive the map from what the traces already
         // say: every client span is an edge from its service to what it
-        // called (another service, a database, a queue, an HTTP host).
+        // called (another service, a database, a queue, an HTTP host). A
+        // search that fails is said, never shown as "no edges": a timeout
+        // there would otherwise read as a missing metrics-generator.
         if ($edges === [] && $error === null) {
-            [$edges, $derived] = $this->edgesFromSpans();
+            [$edges, $derived, $failure] = $this->edgesFromSpans();
+
+            if ($failure !== null && $edges === []) {
+                $error = $failure->getMessage();
+            } elseif ($failure !== null) {
+                $partial = 'Part of this graph is missing: '.lcfirst($failure->getMessage());
+            }
         }
 
         usort($edges, static fn (array $a, array $b): int => $b['requests'] <=> $a['requests']);
@@ -97,10 +106,13 @@ final class ServiceGraph extends Panel
             ...$this->graphData($edges),
         ];
 
-        if ($error !== null || $edges === []) {
+        if ($error !== null) {
+            return [...$graph, 'error' => $error];
+        }
+
+        if ($edges === []) {
             return [
                 ...$graph,
-                'error' => $error,
                 'empty' => 'No service-graph edges in this period. Requires Tempo\'s metrics-generator (service-graphs processor) remote-writing to your metrics backend.',
             ];
         }
@@ -130,7 +142,9 @@ final class ServiceGraph extends Panel
         ], [
             'subtitle' => $graph['subtitle'],
             'span' => 2,
-            'note' => $derived !== null ? "Derived from {$derived} sampled client spans; volumes are relative, not totals. Enable Tempo's service-graphs processor for exact edges." : null,
+            'note' => $derived !== null
+                ? trim("Derived from {$derived} sampled client spans; volumes are relative, not totals. Enable Tempo's service-graphs processor for exact edges. ".($partial ?? ''))
+                : null,
         ]);
     }
 
@@ -139,7 +153,10 @@ final class ServiceGraph extends Panel
      * peer is `peer.service`, else the database system, else the messaging
      * system, else the upstream host.
      *
-     * @return array{0: list<array{client: string, server: string, requests: float, failed: float, p95: float|null}>, 1: int}
+     * The third element is the first search that failed, if any: the edges
+     * are then those of the searches that answered.
+     *
+     * @return array{0: list<array{client: string, server: string, requests: float, failed: float, p95: float|null}>, 1: int, 2: SourceException|null}
      */
     private function edgesFromSpans(): array
     {
@@ -147,16 +164,13 @@ final class ServiceGraph extends Panel
 
         $select = ['span.peer.service', 'span.db.system.name', 'span.messaging.system', 'span.server.address', 'span.http.response.status_code'];
 
-        try {
-            // Client spans (HTTP, queues) — and database spans, which some
-            // emitters record as internal rather than client kind.
-            $summaries = [
-                ...$this->traces()->search($this->traceQuery(TraceCondition::token('kind', TraceOp::Eq, 'client'))->select(...$select), $start, $end, 30),
-                ...$this->traces()->search($this->traceQuery(TraceCondition::nil('span.db.system.name'))->select(...$select), $start, $end, 10),
-            ];
-        } catch (SourceException) {
-            return [[], 0];
-        }
+        // Client spans (HTTP, queues) — and database spans, which some
+        // emitters record as internal rather than client kind.
+        $failure = null;
+        $summaries = [
+            ...$this->attempt(fn (): array => $this->traces()->search($this->traceQuery(TraceCondition::token('kind', TraceOp::Eq, 'client'))->select(...$select), $start, $end, 30), $failure) ?? [],
+            ...$this->attempt(fn (): array => $this->traces()->search($this->traceQuery(TraceCondition::nil('span.db.system.name'))->select(...$select), $start, $end, 10), $failure) ?? [],
+        ];
 
         $seen = [];
 
@@ -207,7 +221,7 @@ final class ServiceGraph extends Panel
             ];
         }
 
-        return [$edges, $spans];
+        return [$edges, $spans, $failure];
     }
 
     /**
