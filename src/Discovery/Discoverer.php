@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Discovery;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Connectors\Together;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLabels;
@@ -55,19 +56,81 @@ final readonly class Discoverer
     }
 
     /**
+     * The targets behind these names: what a trace view needs, for the host
+     * it ran on and the dependencies it called.
+     *
+     * A warm map answers. A cold one is not rebuilt here, because that is
+     * the whole fleet (one query per signal per instance: on 184 hosts,
+     * some 1,400 queries and two and a half minutes) and it would run inside
+     * the request that opened the trace. Instead only these names are matched
+     * and probed, with every probe sent together, and the answer is cached
+     * per name for as long as the map would be.
+     *
+     * @param  list<string>  $names
+     * @return list<DiscoveredTarget>
+     */
+    public function targetsFor(array $names): array
+    {
+        $store = $this->cache->store();
+        $cached = $store->get(self::CACHE_KEY);
+
+        if (is_array($cached)) {
+            $map = InfrastructureMap::fromArray($cached);
+
+            return array_values(array_merge([], ...array_map($map->for(...), $names)));
+        }
+
+        $targets = [];
+        $missing = [];
+
+        foreach ($names as $name) {
+            $hit = $store->get(self::nameKey($name));
+
+            if (! is_array($hit)) {
+                $missing[] = $name;
+
+                continue;
+            }
+
+            foreach ($hit as $target) {
+                if (is_array($target)) {
+                    $targets[] = DiscoveredTarget::fromArray($target);
+                }
+            }
+        }
+
+        if ($missing === []) {
+            return $targets;
+        }
+
+        $found = $this->probeAll($this->candidates($missing));
+
+        foreach ($missing as $name) {
+            $mine = array_values(array_filter(
+                $found,
+                static fn (DiscoveredTarget $t): bool => InfrastructureMap::normalise($t->name) === InfrastructureMap::normalise($name),
+            ));
+            $store->put(self::nameKey($name), array_map(static fn (DiscoveredTarget $t): array => $t->toArray(), $mine), $this->ttl());
+            $targets = [...$targets, ...$mine];
+        }
+
+        return $targets;
+    }
+
+    /**
      * Probe everything and replace the cached map.
      *
      * Costs one metric-name lookup, one label lookup per exporter present,
      * two tag lookups for the hosts and dependency addresses, and one query
-     * per signal per matched target. Run it on a schedule — infrastructure
-     * changes at deploy speed, not request speed.
+     * per signal per matched target (sent together). Run it on a schedule —
+     * infrastructure changes at deploy speed, not request speed. A request
+     * that needs a few names uses {@see targetsFor()} instead.
      */
     public function discover(): InfrastructureMap
     {
         $exporters = $this->present();
         $names = $this->knownNames();
-
-        $targets = [];
+        $candidates = [];
         $unmatchedInstances = [];
         $claimed = [];
 
@@ -83,21 +146,12 @@ final readonly class Discoverer
                     }
 
                     $claimed[$name] = true;
-                    $selector = $label.'="'.str_replace('"', '', $value).'"';
-                    [$resolved, $absent] = $this->probe($exporter, $selector);
-
-                    $targets[] = new DiscoveredTarget(
-                        name: $name,
-                        exporter: $exporter->key,
-                        instance: $value,
-                        matchedOn: $label,
-                        selector: $selector,
-                        signals: $resolved,
-                        absent: $absent,
-                    );
+                    $candidates[] = [$name, $exporter, $label, $value];
                 }
             }
         }
+
+        $targets = $this->probeAll($candidates);
 
         $map = new InfrastructureMap(
             targets: $targets,
@@ -195,10 +249,16 @@ final readonly class Discoverer
     {
         $found = [];
         $match = '{__name__=~"'.str_replace('"', '', $exporter->detect).'"}';
+        // The instances scraped in the last hour: a probe is an instant query
+        // and finds nothing on one that went away, and without a window the
+        // store answers from its whole retention (10.8 s against 0.09 s on a
+        // year of Mimir), which is what timed out a trace's context.
+        $end = new DateTimeImmutable('@'.time());
+        $start = new DateTimeImmutable('@'.(time() - 3600));
 
         foreach ($exporter->identityLabels as $label) {
             try {
-                $values = $this->connections->metrics()->labelValues($label, $match);
+                $values = $this->connections->metrics()->labelValues($label, $match, $start, $end);
             } catch (SourceException) {
                 continue;
             }
@@ -246,38 +306,88 @@ final readonly class Discoverer
     }
 
     /**
-     * Which of this exporter's signals actually return data for this
-     * instance. This is what keeps a wrong metric name from being invisible:
-     * it lands in `absent` instead of silently never rendering.
+     * The exporter instances that belong to these names, as
+     * [name, exporter, label, value].
      *
-     * @return array{list<string>, list<string>}
+     * @param  list<string>  $names
+     * @return list<array{string, Exporter, string, string}>
      */
-    private function probe(Exporter $exporter, string $selector): array
+    private function candidates(array $names): array
     {
-        $resolved = [];
-        $absent = [];
+        $candidates = [];
 
-        foreach ($exporter->signals as $signal) {
-            try {
-                $samples = $this->connections->metrics()->query(
-                    new MetricQuery('', raw: $signal->promql($selector)),
-                );
-            } catch (SourceException) {
-                $absent[] = $signal->key;
+        foreach ($this->present() as $exporter) {
+            foreach ($this->instances($exporter) as $label => $values) {
+                foreach ($values as $value) {
+                    $name = $this->match($value, $names);
 
-                continue;
+                    if ($name !== null) {
+                        $candidates[] = [$name, $exporter, $label, $value];
+                    }
+                }
             }
-
-            if ($samples === []) {
-                $absent[] = $signal->key;
-
-                continue;
-            }
-
-            $resolved[] = $signal->key;
         }
 
-        return [$resolved, $absent];
+        return $candidates;
+    }
+
+    /**
+     * Which of each candidate's signals actually return data. This is what
+     * keeps a wrong metric name from being invisible: it lands in `absent`
+     * instead of silently never rendering. Every signal of every candidate
+     * is one query, and they are all sent together.
+     *
+     * @param  list<array{string, Exporter, string, string}>  $candidates
+     * @return list<DiscoveredTarget>
+     */
+    private function probeAll(array $candidates): array
+    {
+        $reads = [];
+
+        foreach ($candidates as $i => [, $exporter, $label, $value]) {
+            $selector = $label.'="'.str_replace('"', '', $value).'"';
+
+            foreach ($exporter->signals as $signal) {
+                $reads[$i.'|'.$signal->key] = fn (): array => $this->connections->metrics()->query(
+                    new MetricQuery('', raw: $signal->promql($selector)),
+                );
+            }
+        }
+
+        $answers = Together::run($reads);
+        $targets = [];
+
+        foreach ($candidates as $i => [$name, $exporter, $label, $value]) {
+            $resolved = [];
+            $absent = [];
+
+            foreach ($exporter->signals as $signal) {
+                $answer = $answers[$i.'|'.$signal->key] ?? null;
+
+                if (is_array($answer) && $answer !== []) {
+                    $resolved[] = $signal->key;
+                } else {
+                    $absent[] = $signal->key;
+                }
+            }
+
+            $targets[] = new DiscoveredTarget(
+                name: $name,
+                exporter: $exporter->key,
+                instance: $value,
+                matchedOn: $label,
+                selector: $label.'="'.str_replace('"', '', $value).'"',
+                signals: $resolved,
+                absent: $absent,
+            );
+        }
+
+        return $targets;
+    }
+
+    private static function nameKey(string $name): string
+    {
+        return self::CACHE_KEY.':'.hash('xxh128', InfrastructureMap::normalise($name));
     }
 
     private function ttl(): int

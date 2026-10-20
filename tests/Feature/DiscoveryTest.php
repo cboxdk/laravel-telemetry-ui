@@ -2,11 +2,15 @@
 
 declare(strict_types=1);
 
+use Cbox\TelemetryUi\Analysis\SignalContext;
 use Cbox\TelemetryUi\Discovery\Catalogue;
 use Cbox\TelemetryUi\Discovery\Discoverer;
 use Cbox\TelemetryUi\Discovery\Exporter;
 use Cbox\TelemetryUi\Discovery\InfrastructureMap;
 use Cbox\TelemetryUi\Discovery\Signal;
+use Cbox\TelemetryUi\Queries\Results\Span;
+use Cbox\TelemetryUi\Queries\Results\SpanKind;
+use Cbox\TelemetryUi\Queries\Results\Trace;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -236,4 +240,77 @@ it('scopes the instance lookup to each exporter, so they do not claim each other
             && ! str_contains($url, '/label/addr/values')
             || str_contains($url, 'match');
     });
+});
+
+/** Instant queries Prometheus was asked (the per-signal probes), and Tempo tag lookups. */
+function probesAndTagLookups(): array
+{
+    $recorded = collect(Http::recorded())->map(fn (array $pair): string => rawurldecode($pair[0]->url()));
+
+    return [
+        $recorded->filter(fn (string $url): bool => str_contains($url, '/api/v1/query?'))->count(),
+        $recorded->filter(fn (string $url): bool => str_contains($url, '/api/v2/search/tag/'))->count(),
+    ];
+}
+
+it('opens a trace on a cold cache without discovering the whole fleet', function (): void {
+    $fleet = array_map(static fn (int $i): string => "web-{$i}:9100", range(1, 60));
+    fakeInfra(metricNames: ['node_load1', 'node_cpu_seconds_total'], instances: $fleet, hosts: array_map(static fn (string $i): string => explode(':', $i)[0], $fleet));
+    $signals = count(Catalogue::find('node')?->signals ?? []);
+
+    $targets = app(Discoverer::class)->targetsFor(['web-7']);
+
+    [$probes, $tagLookups] = probesAndTagLookups();
+
+    expect(array_map(static fn ($t): string => $t->instance, $targets))->toBe(['web-7:9100'])
+        // web-7's own signals, not sixty hosts' worth, and no fleet-wide name lookup.
+        ->and($probes)->toBe($signals)
+        ->and($tagLookups)->toBe(0);
+});
+
+it('remembers what it found for a name, and that a name has nothing', function (): void {
+    fakeInfra(metricNames: ['node_load1'], instances: ['web-3:9100'], hosts: ['web-3']);
+
+    app(Discoverer::class)->targetsFor(['web-3', 'api.stripe.com']);
+    $first = probesAndTagLookups()[0];
+
+    $again = app(Discoverer::class)->targetsFor(['web-3', 'api.stripe.com']);
+
+    expect(probesAndTagLookups()[0])->toBe($first)
+        ->and(array_map(static fn ($t): string => $t->name, $again))->toBe(['web-3']);
+});
+
+it('answers from the full map when one has been discovered', function (): void {
+    fakeInfra(metricNames: ['node_load1'], instances: ['web-3:9100', 'web-4:9100'], hosts: ['web-3', 'web-4']);
+    app(Discoverer::class)->discover();
+    $after = probesAndTagLookups()[0];
+
+    $targets = app(Discoverer::class)->targetsFor(['web-4']);
+
+    expect(array_map(static fn ($t): string => $t->instance, $targets))->toBe(['web-4:9100'])
+        ->and(probesAndTagLookups()[0])->toBe($after);
+});
+
+it('reads a trace\'s exporter context on a cold cache from that trace\'s host only', function (): void {
+    $fleet = array_map(static fn (int $i): string => "web-{$i}:9100", range(1, 60));
+    fakeInfra(metricNames: ['node_load1', 'node_cpu_seconds_total'], instances: $fleet, hosts: array_map(static fn (string $i): string => explode(':', $i)[0], $fleet));
+    config()->set('telemetry-ui.context.signals', []);
+    $signals = count(Catalogue::find('node')?->signals ?? []);
+
+    $span = new Span('s1', null, 'GET /orders', 'shop', SpanKind::Server, 1735689600_000_000_000, 1735689601_000_000_000, [], false);
+    app(SignalContext::class)->forTrace(new Trace('t1', [$span], ['shop' => ['host.name' => 'web-7']]));
+
+    expect(probesAndTagLookups())->toBe([$signals, 0]);
+});
+
+it('lists an exporter\'s instances over the last hour, not the store\'s whole retention', function (): void {
+    fakeInfra(metricNames: ['node_load1'], instances: ['web-3:9100'], hosts: ['web-3']);
+
+    app(Discoverer::class)->targetsFor(['web-3']);
+
+    $lookups = collect(Http::recorded())->map(fn (array $pair): array => requestQuery($pair[0]))
+        ->filter(fn (array $query, int $i): bool => str_contains(rawurldecode(Http::recorded()[$i][0]->url()), '/label/instance/values'));
+
+    expect($lookups)->not->toBeEmpty()
+        ->and($lookups->every(fn (array $q): bool => isset($q['start'], $q['end']) && (int) $q['end'] - (int) $q['start'] === 3600))->toBeTrue();
 });

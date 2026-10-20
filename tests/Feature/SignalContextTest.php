@@ -204,3 +204,19 @@ it('reads a cached baseline back from a store that returns numbers as strings, a
 
     expect($second[0]->baseline)->toBeFloat()->toEqualWithDelta($first[0]->baseline, 1e-9);
 });
+
+it('reads a trace\'s context signals at the same time', function (): void {
+    [$url, $peak] = slowPrometheus(150);
+    config()->set('telemetry-ui.connections.metrics.url', $url);
+    config()->set('telemetry-ui.cache.ttl', 0);
+    config()->set('telemetry-ui.concurrency', 8);
+    config()->set('telemetry-ui.context.signals', array_map(
+        static fn (int $i): array => ['label' => "Signal {$i}", 'group' => 'host', 'unit' => 'number', 'query' => "max(signal_{$i}{{scope}})"],
+        range(1, 6),
+    ));
+
+    $span = new Span('s1', null, 'GET /orders', 'shop', SpanKind::Server, 1735689600_000_000_000, 1735689601_000_000_000, [], false);
+    app(SignalContext::class)->forTrace(new Trace('t1', [$span], ['shop' => []]));
+
+    expect($peak())->toBe(6);
+});

@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Analysis;
 
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Connectors\Together;
 use Cbox\TelemetryUi\Discovery\Catalogue;
 use Cbox\TelemetryUi\Discovery\DiscoveredTarget;
 use Cbox\TelemetryUi\Discovery\Discoverer;
@@ -13,6 +14,7 @@ use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Results\TimeSeries;
 use Cbox\TelemetryUi\Queries\Results\Trace;
 use Cbox\TelemetryUi\Support\ScopeLabels;
+use Closure;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
@@ -118,7 +120,7 @@ final readonly class SignalContext
         }
 
         try {
-            $map = $this->discoverer->map();
+            $targets = $this->discoverer->targetsFor($names);
         } catch (SourceException) {
             return [];
         }
@@ -126,29 +128,29 @@ final readonly class SignalContext
         $lookback = max(300, (int) $this->config->get('telemetry-ui.context.baseline_window', 21_600));
         $baselineStart = (new DateTimeImmutable('@'.$start->getTimestamp()))->modify('-'.$lookback.' seconds');
 
-        $out = [];
+        $wanted = [];
         $seen = [];
 
-        foreach ($names as $name) {
-            foreach ($map->for($name) as $target) {
-                $key = $target->exporter.'|'.$target->instance;
+        foreach ($targets as $target) {
+            $key = $target->exporter.'|'.$target->instance;
 
-                if (isset($seen[$key])) {
-                    continue;
-                }
-
-                $seen[$key] = true;
-                $out = [...$out, ...$this->targetSignals($target, $start, $end, $baselineStart)];
+            if (isset($seen[$key])) {
+                continue;
             }
+
+            $seen[$key] = true;
+            $wanted = [...$wanted, ...$this->targetSignals($target)];
         }
 
-        return $out;
+        return $this->resolveAll($wanted, $start, $end, $baselineStart);
     }
 
     /**
-     * @return list<MetricSummary>
+     * The signals discovery found data for on this target, with their PromQL.
+     *
+     * @return list<array{array<string, mixed>, string}>
      */
-    private function targetSignals(DiscoveredTarget $target, DateTimeInterface $start, DateTimeInterface $end, DateTimeInterface $baselineStart): array
+    private function targetSignals(DiscoveredTarget $target): array
     {
         $exporter = Catalogue::find($target->exporter);
 
@@ -156,28 +158,32 @@ final readonly class SignalContext
             return [];
         }
 
-        $group = $exporter->describes;
         $out = [];
 
         foreach ($exporter->signals as $signal) {
-            if (! in_array($signal->key, $target->signals, true)) {
-                continue;
-            }
-
-            $summary = $this->resolve(
-                ['label' => $signal->label, 'group' => $group, 'unit' => $signal->unit],
-                $signal->promql($target->selector),
-                $start,
-                $end,
-                $baselineStart,
-            );
-
-            if ($summary !== null) {
-                $out[] = $summary;
+            if (in_array($signal->key, $target->signals, true)) {
+                $out[] = [['label' => $signal->label, 'group' => $exporter->describes, 'unit' => $signal->unit], $signal->promql($target->selector)];
             }
         }
 
         return $out;
+    }
+
+    /**
+     * Each signal's window and baseline, read together: a trace's context is
+     * thirty-odd small queries, and one after the other they took seconds.
+     *
+     * @param  list<array{array<string, mixed>, string}>  $wanted
+     * @return list<MetricSummary>
+     */
+    private function resolveAll(array $wanted, DateTimeInterface $start, DateTimeInterface $end, DateTimeInterface $baselineStart): array
+    {
+        $results = Together::run(array_map(
+            fn (array $pair): Closure => fn (): ?MetricSummary => $this->resolve($pair[0], $pair[1], $start, $end, $baselineStart),
+            $wanted,
+        ));
+
+        return array_values(array_filter($results, static fn (mixed $r): bool => $r instanceof MetricSummary));
     }
 
     /**
@@ -204,7 +210,7 @@ final readonly class SignalContext
         $lookback = max(300, (int) $this->config->get('telemetry-ui.context.baseline_window', 21_600));
         $baselineStart = (new DateTimeImmutable('@'.$start->getTimestamp()))->modify('-'.$lookback.' seconds');
 
-        $out = [];
+        $wanted = [];
 
         foreach ($signals as $signal) {
             if (! is_array($signal) || ! is_string($signal['query'] ?? null)) {
@@ -216,13 +222,11 @@ final readonly class SignalContext
                 continue; // it needs a value this slice doesn't have (a trace with no host, …)
             }
 
-            $summary = $this->resolve($signal, $query, $start, $end, $baselineStart);
-            if ($summary !== null) {
-                $out[] = $summary;
-            }
+            /** @var array<string, mixed> $signal */
+            $wanted[] = [$signal, $query];
         }
 
-        return $out;
+        return $this->resolveAll($wanted, $start, $end, $baselineStart);
     }
 
     /**
