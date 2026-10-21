@@ -14,6 +14,7 @@ import { ErrorState, Spinner } from '../States';
 import { Icon } from '../Icon';
 import { activeArea, buildAreas, type NavArea } from './nav';
 import { TopBar } from './TopBar';
+import cboxIcon from '../../assets/cbox-icon.png';
 
 /**
  * The two-tier shell (Intercom model): an icon rail (one icon per area,
@@ -180,11 +181,7 @@ function Rail({ boot, areas, active, pinned, expanded, onPin, onHover, scope }: 
                     </div>
                     {boot.app.credit !== false && (
                         <a href="https://cbox.dk" target="_blank" rel="noopener" className="t-rail-item t-rail-credit" title="Powered by Cbox">
-                            {/* The Cbox mark (cbox-design favicon). */}
-                            <svg viewBox="0 0 32 32" width={16} height={16} aria-hidden="true">
-                                <rect width="32" height="32" rx="7" fill="oklch(0.45 0.16 258)" />
-                                <circle cx="16" cy="16" r="6" fill="oklch(0.992 0.003 247)" />
-                            </svg>
+                            <img src={cboxIcon} alt="" width={18} height={18} />
                             <span className="t-rail-label">Powered by Cbox</span>
                         </a>
                     )}

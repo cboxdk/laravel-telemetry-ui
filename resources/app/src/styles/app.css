@@ -217,8 +217,8 @@
 .t-rail-account { cursor: default; }
 /* "Powered by Cbox": the quietest item in the rail, the last one. */
 .t-rail-credit { height: 30px; }
-.t-rail-credit svg { margin-left: 2px; opacity: 0.7; transition: opacity var(--dur-hover) var(--ease); }
-.t-rail-credit:hover svg { opacity: 1; }
+.t-rail-credit img { flex: none; border-radius: 4px; opacity: 0.75; transition: opacity var(--dur-hover) var(--ease); }
+.t-rail-credit:hover img { opacity: 1; }
 .t-rail-credit .t-rail-label { font-size: 12px; font-weight: 400; }
 
 .t-subnav { width: 216px; flex: none; display: flex; flex-direction: column; background: var(--sidebar); border-right: 1px solid var(--border); }
