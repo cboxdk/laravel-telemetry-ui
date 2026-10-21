@@ -472,7 +472,8 @@ return [
     | With "All services" selected, log reads ask only for the logs of those
     | services, not for every stream the log store holds: a shared Loki also
     | keeps load balancer, host and container logs, often far more than the
-    | apps write. Set `scopes_logs` to false to read every stream instead.
+    | apps write. The machine logs panel still reads every stream. Set
+    | `scopes_logs` to false to read every stream everywhere.
     | When discovery finds no services, log reads are not narrowed.
     |
     */

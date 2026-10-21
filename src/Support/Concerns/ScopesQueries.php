@@ -189,7 +189,7 @@ trait ScopesQueries
         $lock = app(ScopeLock::class);
         $services = $this->scopedServices();
 
-        if ($services === [] && ! $lock->servicesLocked() && (bool) config('telemetry-ui.fleet.scopes_logs', true)) {
+        if ($services === [] && ! $lock->servicesLocked() && $this->logsFollowFleet() && (bool) config('telemetry-ui.fleet.scopes_logs', true)) {
             $services = app(Fleet::class)->services();
         }
 
@@ -211,6 +211,16 @@ trait ScopesQueries
         return app(StreamLabels::class)->indexes($env->label)
             ? LogQuery::stream(...[...$stream, $env])
             : $query->pipe(new LabelFilter([$env]));
+    }
+
+    /**
+     * Whether "All services" narrows this reader's logs to the fleet. A reader
+     * of records only the apps emit says yes; one whose point is the other
+     * streams (a machine's own logs) says no.
+     */
+    protected function logsFollowFleet(): bool
+    {
+        return true;
     }
 
     /**

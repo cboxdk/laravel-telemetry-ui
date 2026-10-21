@@ -15,7 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   under one percent of that, and the 24-hour log panels (analytics, unified
   errors, N+1 and duplicate queries, event logs) timed out. The selector now
   names the services in the scope switcher (the ones the metrics store
-  reports), so Loki reads only their streams. Logs from a service
+  reports), so Loki reads only their streams. The machine logs panel still
+  reads every stream, since a machine's journal and proxy logs are its point.
+  Elsewhere, logs from a service
   that sends no metrics no longer show under "All services"; set
   `telemetry-ui.fleet.scopes_logs` (`TELEMETRY_UI_FLEET_SCOPES_LOGS`) to
   `false` to read every stream as before. When discovery finds no services,

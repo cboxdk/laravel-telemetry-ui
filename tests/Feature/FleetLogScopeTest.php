@@ -66,6 +66,14 @@ it('reads only the discovered services\' logs with all services selected', funct
     'a page view panel' => fn (): string => panelUrl('page-view-log'),
 ]);
 
+it('reads every stream for a machine\'s own logs', function (): void {
+    fleetOf(['cbox-web', 'billing']);
+
+    $this->getJson(panelUrl('host-logs'))->assertOk();
+
+    expect(sentSelectors())->not->toBeEmpty()->each->toBe('{service_name=~".+"}');
+});
+
 it('reads only the selected service when one is selected', function (): void {
     fleetOf(['cbox-web', 'billing']);
 
