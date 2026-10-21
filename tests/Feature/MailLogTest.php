@@ -73,7 +73,7 @@ it('lists each message sent, newest first, with what sent it', function (): void
 
         return str_contains($request->url(), '/api/search')
             && str_contains((string) ($q['q'] ?? ''), 'name = "mail.send"')
-            && str_contains((string) ($q['q'] ?? ''), 'select(status, span.mail.subject, span.mail.recipients)')
+            && str_contains((string) ($q['q'] ?? ''), 'select(status, statusMessage, span.error.type, span.mail.subject, span.mail.recipients)')
             // Every send in a trace, not Tempo's default three.
             && ($q['spss'] ?? null) === '100';
     });
@@ -146,4 +146,17 @@ it('asks Tempo for every matching span only when a search reads them', function 
     $spss = array_map(static fn (array $pair): mixed => requestQuery($pair[0])['spss'] ?? null, Http::recorded()->all());
 
     expect($spss)->toBe([null, '100']);
+});
+
+it('says why a send failed, from the exception the emitter recorded', function (): void {
+    fakeTempo(tempoHits([
+        ['mail.send', 1, 30.0, ['mail.subject' => 'Receipt', 'mail.recipients' => 1, 'status' => 'error', 'error.type' => 'Symfony\\Component\\Mailer\\Exception\\TransportException', 'statusMessage' => '554 5.7.1 Relay access denied']],
+    ]));
+
+    $this->getJson(panelUrl('mail-log', ['period' => '1h']))
+        ->assertOk()
+        ->assertJsonPath('rows.0.outcome.v', 'failed')
+        ->assertJsonPath('rows.0.outcome.sub', 'TransportException: 554 5.7.1 Relay access denied');
+
+    Http::assertSent(fn (Request $request): bool => str_contains((string) (requestQuery($request)['q'] ?? ''), 'select(status, statusMessage, span.error.type,'));
 });

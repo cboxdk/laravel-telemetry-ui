@@ -15,6 +15,7 @@ use Cbox\TelemetryUi\Queries\Results\MatchedSpan;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
 use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Format;
+use Illuminate\Support\Str;
 
 /**
  * The row-level half of a page: one row per span of a kind — a mail sent, a
@@ -96,7 +97,7 @@ abstract class SpanLog extends Panel implements ListsRows
 
         try {
             $query = $this->traceQuery(...$this->conditions(), ...($failedOnly ? [TraceCondition::token('status', TraceOp::Eq, 'error')] : []))
-                ->select('status', ...$this->attributes());
+                ->select('status', 'statusMessage', 'span.error.type', ...$this->attributes());
 
             foreach ($this->traces()->search($query, $start, $end, limit: static::LIMIT) as $trace) {
                 foreach ($trace->matchedSpans as $span) {
@@ -155,7 +156,7 @@ abstract class SpanLog extends Panel implements ListsRows
                 'sub' => $trace->rootServiceName,
             ]),
             'outcome' => $status === 'error'
-                ? Ui::cell('failed', ['badge' => 'failed', 'tone' => 'danger'])
+                ? Ui::cell('failed', array_filter(['badge' => 'failed', 'tone' => 'danger', 'sub' => $this->why($span->attributes)]))
                 : Ui::cell($status === 'ok' ? 'ok' : '—', ['tone' => $status === 'ok' ? 'ok' : 'dim']),
             'duration' => Ui::cell(Format::ms($span->durationMs), [
                 'raw' => $span->durationMs,
@@ -164,6 +165,21 @@ abstract class SpanLog extends Panel implements ListsRows
             ]),
             '_link' => $link,
         ];
+    }
+
+    /**
+     * Why a span failed, in a line: the exception's class and message (the
+     * span's status message), when the emitter recorded them.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function why(array $attributes): ?string
+    {
+        $type = $this->str($attributes['error.type'] ?? null);
+        $message = $this->str($attributes['statusMessage'] ?? null);
+        $why = implode(': ', array_filter([$type !== null ? class_basename($type) : null, $message !== null ? Str::limit($message, 140) : null]));
+
+        return $why !== '' ? $why : null;
     }
 
     private function paramName(string $name): string

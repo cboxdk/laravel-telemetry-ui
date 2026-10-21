@@ -7,16 +7,6 @@ use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
-/**
- * Pages whose signals have no per-event record yet: the companion packages
- * emit only counters for them. Each needs an emitter change upstream, not a
- * panel here. Remove a page from this list when its events arrive.
- */
-const PAGES_WITHOUT_EVENTS = [
-    'features',        // laravel-telemetry's Pennant instrumentation: counters only
-    'statamic-stache', // statamic-telemetry's Stache listeners: counters only
-];
-
 it('gives every page rows to open, not only aggregates', function (): void {
     $manager = app(TelemetryUiManager::class);
     $aggregateOnly = [];
@@ -24,25 +14,12 @@ it('gives every page rows to open, not only aggregates', function (): void {
     foreach (array_keys($manager->pages()) as $page) {
         $panels = $manager->panels($page);
 
-        if ($panels === [] || in_array($page, PAGES_WITHOUT_EVENTS, true)) {
-            continue;
-        }
-
-        if (array_filter($panels, static fn (string $panel): bool => is_subclass_of($panel, ListsRows::class)) === []) {
+        if ($panels !== [] && array_filter($panels, static fn (string $panel): bool => is_subclass_of($panel, ListsRows::class)) === []) {
             $aggregateOnly[] = $page;
         }
     }
 
     expect($aggregateOnly)->toBe([]);
-});
-
-it('still lacks rows only where the emitters do', function (): void {
-    $manager = app(TelemetryUiManager::class);
-
-    foreach (PAGES_WITHOUT_EVENTS as $page) {
-        expect(array_filter($manager->panels($page), static fn (string $panel): bool => is_subclass_of($panel, ListsRows::class)))
-            ->toBe([], "{$page} has rows now: take it off PAGES_WITHOUT_EVENTS");
-    }
 });
 
 /**
@@ -105,6 +82,7 @@ it('lists each span of its kind, with the fields that say what it was', function
     'cache' => ['cache-log', 'span.cache.operation != "hit"', 'cache.miss', ['cache.operation' => 'miss', 'cache.key' => 'user:1', 'cache.store' => 'redis'], 'key', 'user:1', 'redis'],
     'broadcasts' => ['broadcast-log', 'span.broadcasting.event != nil', 'broadcast App\\Events\\OrderShipped', ['broadcasting.event' => 'App\\Events\\OrderShipped', 'broadcasting.driver' => 'reverb', 'broadcasting.channels' => 'private', 'broadcasting.channel.count' => 1], 'event', 'OrderShipped', 'reverb'],
     'form submissions' => ['form-submission-log', 'span.url.path =~ ".*/!/forms/.+"', 'POST /!/forms/{form}', ['url.path' => '/!/forms/contact', 'http.response.status_code' => 422], 'form', 'contact', null],
+    'stache' => ['stache-log', 'name =~ "statamic\\\\.stache\\\\.(warm|clear)"', 'statamic.stache.warm', [], 'operation', 'warm', null],
     'glide images' => ['glide-request-log', 'span.url.path =~ "/img/.+"', 'GET /img/{path}', ['url.path' => '/img/hero.jpg', 'http.response.status_code' => 200], 'image', '/img/hero.jpg', null],
 ]);
 
@@ -156,6 +134,7 @@ it('lists each event of a family with what it said, not the resource it came fro
 })->with([
     'autoscaler' => ['autoscale-event-log', 'queue_autoscale.scaling.action', ['queue' => 'default', 'workers_from' => '2', 'workers_to' => '5'], 'queue default · workers.from 2 · workers.to 5'],
     'horizon' => ['horizon-event-log', 'horizon.process.out_of_memory', ['type' => 'supervisor'], 'type supervisor'],
+    'unknown features' => ['feature-unknown-log', 'feature.unknown', ['feature_flag_key' => 'new-dashbaord'], 'feature.flag.key new-dashbaord'],
     'statamic purges' => ['cache-purge-log', 'statamic.cache.purge', ['statamic_cache_url' => '/blog'], 'statamic.cache.url /blog'],
 ]);
 

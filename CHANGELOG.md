@@ -24,12 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runs with their exit code, scheduled task runs, storage operations, cache
   misses and writes, broadcasts, exceptions as they happened, page views,
   Statamic form submissions, image requests and cache purges, autoscaler
-  decisions and Horizon incidents, and a host's own log lines. Span rows
-  filter to failures only or sort by the slowest. Build your own with
-  `SpanLog` (one row per span) or `TelemetryEventLog` (one per telemetry
-  event); a test holds every page to having one (`ListsRows`). Feature flags
-  and the Statamic Stache emit counters only, so they get rows once their
-  emitters record events.
+  decisions and Horizon incidents, Stache warms and clears, checks against
+  undefined feature flags, and a host's own log lines. Span rows filter to
+  failures only or sort by the slowest, and a failed row says why (the
+  exception's class and message, where the emitter recorded them). Build
+  your own with `SpanLog` (one row per span) or `TelemetryEventLog` (one per
+  telemetry event); a test holds every page to having one (`ListsRows`).
+- **Failed sends on the Mail chart.** A `Failed` figure beside `Sent`, from
+  laravel-telemetry's `mail.failed` (3.8+, which also makes a refused send a
+  failed `mail.send` span with its exception). Unknown feature flags need
+  laravel-telemetry 3.8+ too.
 - **A refresh button in the header**, beside the auto-refresh interval. It
   refetches everything on screen, as `r` does, and turns while the reads are
   in flight.
