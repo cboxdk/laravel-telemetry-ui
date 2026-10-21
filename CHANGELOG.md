@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Service graph says when its span fallback failed.** Without Tempo's
+  metrics-generator the graph is derived from two Tempo searches. A
+  failure there (a timeout on a busy Tempo, say) was caught and dropped, so
+  the panel said "No service-graph edges in this period. Requires Tempo's
+  metrics-generator", which sent people to fix the wrong thing. It now
+  shows the backend's error, and when only the database search fails it
+  keeps the client edges with a note that part of the graph is missing.
+
 ## [3.3.0] - 2026-10-17
 
 ### Added
