@@ -59,7 +59,7 @@ final class NotificationLog extends SpanLog
         $short = class_basename($class);
 
         return [
-            'notification' => Ui::cell($short, ['mono' => true, ...($short !== $class ? ['sub' => $class] : [])]),
+            'notification' => Ui::cell($short, ['mono' => true, 'title' => $class]),
             'channel' => Ui::cell($channel, ['badge' => $channel]),
         ];
     }

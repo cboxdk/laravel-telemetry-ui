@@ -31,7 +31,7 @@ use InvalidArgumentException;
  *
  * @phpstan-type Link array{to: string, type?: string, value?: string, id?: string, at?: int, group?: string, page?: string, params?: array<string, string>, signal?: string, where?: list<string>, href?: string, label?: string}
  * @phpstan-type Action array{label: string, endpoint: string, body?: array<string, scalar|null>, confirm?: string, tone?: string}
- * @phpstan-type Cell array{v: string|int|float|null, raw?: float|int|null, tone?: string|null, mono?: bool, link?: Link, spark?: list<float>, bar?: float, badge?: string, dim?: array{key: string, value: string}, sub?: string, actions?: list<Action>}
+ * @phpstan-type Cell array{v: string|int|float|null, raw?: float|int|null, tone?: string|null, mono?: bool, link?: Link, spark?: list<float>, bar?: float, badge?: string, dim?: array{key: string, value: string}, sub?: string, title?: string, actions?: list<Action>}
  * @phpstan-type Column array{key: string, label: string, align?: string, width?: string}
  * @phpstan-type Stat array{label: string, value: string, tone?: string|null, delta?: string, deltaTone?: string, points?: list<float>, sparkColor?: string, link?: Link}
  * @phpstan-type Control array{param: string, label: string, type: string, value: string, options?: list<array{value: string, label: string}>, placeholder?: string}
@@ -158,7 +158,7 @@ final class Ui
     // ---- cells & columns ----------------------------------------------------
 
     /**
-     * @param  array{raw?: float|int|null, tone?: string|null, mono?: bool, link?: Link, spark?: list<float>, bar?: float, badge?: string, dim?: array{key: string, value: string}, sub?: string, actions?: list<Action>}  $opts
+     * @param  array{raw?: float|int|null, tone?: string|null, mono?: bool, link?: Link, spark?: list<float>, bar?: float, badge?: string, dim?: array{key: string, value: string}, sub?: string, title?: string, actions?: list<Action>}  $opts
      * @return Cell
      */
     public static function cell(string|int|float|null $value, array $opts = []): array

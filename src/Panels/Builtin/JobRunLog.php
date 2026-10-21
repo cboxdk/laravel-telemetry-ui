@@ -58,7 +58,7 @@ class JobRunLog extends SpanLog
 
     protected function columns(): array
     {
-        return [Ui::col('job', 'Job')];
+        return [Ui::col('job', 'Job'), Ui::col('queue', 'Queue'), Ui::num('attempt', 'Try')];
     }
 
     protected function slowMs(): float
@@ -72,16 +72,16 @@ class JobRunLog extends SpanLog
         $attempt = (int) $this->num($attributes['laravel.job.attempts'] ?? null);
         $outcome = $this->str($attributes['queue.job.outcome'] ?? null);
 
+        $queue = $this->str($attributes['messaging.destination.name'] ?? null);
+
         return [
-            'job' => Ui::cell(class_basename($class), [
+            'job' => Ui::cell(class_basename($class), array_filter([
                 'mono' => true,
                 'link' => Ui::entity('job', $class),
-                'sub' => implode(' · ', array_filter([
-                    $this->str($attributes['messaging.destination.name'] ?? null),
-                    $attempt > 1 ? 'attempt '.$attempt : null,
-                    $outcome,
-                ])),
-            ]),
+                'title' => implode(' · ', array_filter([$class, $outcome])),
+            ])),
+            'queue' => $queue !== null ? Ui::cell($queue, ['mono' => true, 'link' => Ui::entity('queue', $queue)]) : Ui::cell('—', ['tone' => 'dim']),
+            'attempt' => Ui::cell($attempt > 0 ? $attempt : '—', ['raw' => $attempt, 'mono' => true, 'tone' => $attempt > 1 ? 'warn' : null]),
         ];
     }
 }

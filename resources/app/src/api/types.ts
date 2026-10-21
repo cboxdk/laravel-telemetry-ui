@@ -67,6 +67,8 @@ export interface Cell {
     badges?: { label: string; tone?: string }[];
     dim?: { key: string; value: string };
     sub?: string;
+    /** Detail on hover — what a slim row leaves off its one line. */
+    title?: string;
     actions?: CellAction[];
 }
 

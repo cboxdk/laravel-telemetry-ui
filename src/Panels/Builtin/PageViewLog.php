@@ -48,10 +48,10 @@ final class PageViewLog extends Panel implements ListsRows
                 'page' => Ui::cell($view['path'], ['mono' => true, 'link' => Ui::entity('path', $view['path'])]),
                 'from' => Ui::cell($view['referrer'] !== '' ? $view['referrer'] : 'direct', array_filter([
                     'tone' => $view['referrer'] === '' ? 'dim' : null,
-                    'sub' => $campaign !== '' ? $campaign : ($view['channel'] !== '' ? $view['channel'] : null),
+                    'title' => $campaign !== '' ? $campaign : ($view['channel'] !== '' ? $view['channel'] : null),
                 ])),
                 'visitor' => Ui::cell(implode(' · ', array_filter([$view['country'], $view['device'], $view['browser']])) ?: '—', array_filter([
-                    'sub' => $view['session'] !== '' ? 'visit '.substr($view['session'], 0, 8) : null,
+                    'title' => $view['session'] !== '' ? 'visit '.substr($view['session'], 0, 8) : null,
                 ])),
                 '_link' => Ui::entity('path', $view['path']),
             ];

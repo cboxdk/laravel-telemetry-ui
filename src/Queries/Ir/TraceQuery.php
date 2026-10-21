@@ -61,10 +61,13 @@ final readonly class TraceQuery
             return 'raw:'.$this->raw;
         }
 
-        $conditions = array_map(
-            static fn (TraceCondition $c): string => $c->field.$c->op->value.($c->quoted ? '"'.$c->value.'"' : $c->value),
-            $this->conditions,
-        );
+        $one = static function (TraceCondition $c) use (&$one): string {
+            $key = $c->field.$c->op->value.($c->quoted ? '"'.$c->value.'"' : $c->value);
+
+            return $c->or === [] ? $key : '('.implode('||', [$key, ...array_map($one, $c->or)]).')';
+        };
+
+        $conditions = array_map($one, $this->conditions);
 
         return implode(' && ', $conditions).'|select:'.implode(',', $this->select);
     }

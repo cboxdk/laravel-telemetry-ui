@@ -61,7 +61,7 @@ final class ScheduleRunLog extends SpanLog
         return [
             'task' => Ui::cell($this->str($attributes['schedule.task'] ?? null) ?? $span->name, array_filter([
                 'mono' => true,
-                'sub' => $this->str($attributes['schedule.cron'] ?? null),
+                'title' => $this->str($attributes['schedule.cron'] ?? null),
             ])),
         ];
     }

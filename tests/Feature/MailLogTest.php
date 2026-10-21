@@ -59,21 +59,23 @@ it('lists each message sent, newest first, with what sent it', function (): void
         ->assertJsonPath('title', 'Mail sent')
         ->assertJsonCount(2, 'rows')
         ->assertJsonPath('rows.0.subject.v', 'Welcome')
-        ->assertJsonPath('rows.0.subject.sub', '3 recipients')
+        // Without the addresses recorded, the count laravel-telemetry always keeps.
+        ->assertJsonPath('rows.0.to.v', '3 recipients')
+        ->assertJsonPath('rows.0.subject.sub', null)
         ->assertJsonPath('rows.0.from.v', 'POST /checkout')
         ->assertJsonPath('rows.0.outcome.v', 'ok')
         // Over a second on the transport reads as slow.
         ->assertJsonPath('rows.0.duration.tone', 'warn')
         ->assertJsonPath('rows.0._link.to', 'trace')
         ->assertJsonPath('rows.1.subject.v', 'Your receipt')
-        ->assertJsonPath('rows.1.subject.sub', '1 recipient');
+        ->assertJsonPath('rows.1.to.v', '1 recipient');
 
     Http::assertSent(function (Request $request): bool {
         $q = requestQuery($request);
 
         return str_contains($request->url(), '/api/search')
             && str_contains((string) ($q['q'] ?? ''), 'name = "mail.send"')
-            && str_contains((string) ($q['q'] ?? ''), 'select(status, statusMessage, span.error.type, span.mail.subject, span.mail.recipients)')
+            && str_contains((string) ($q['q'] ?? ''), 'select(status, statusMessage, span.error.type, span.mail.subject, span.mail.recipients, span.mail.to, span.mail.cc, span.mail.bcc)')
             // Every send in a trace, not Tempo's default three.
             && ($q['spss'] ?? null) === '100';
     });
@@ -88,7 +90,7 @@ it('shows each notification delivery per channel, and which ones failed', functi
     $this->getJson(panelUrl('notification-log', ['period' => '1h']))
         ->assertOk()
         ->assertJsonPath('rows.0.notification.v', 'OrderShipped')
-        ->assertJsonPath('rows.0.notification.sub', 'App\\Notifications\\OrderShipped')
+        ->assertJsonPath('rows.0.notification.title', 'App\\Notifications\\OrderShipped')
         ->assertJsonPath('rows.0.channel.v', 'database')
         ->assertJsonPath('rows.0.outcome.v', 'failed')
         ->assertJsonPath('rows.0.outcome.tone', 'danger')
@@ -156,7 +158,34 @@ it('says why a send failed, from the exception the emitter recorded', function (
     $this->getJson(panelUrl('mail-log', ['period' => '1h']))
         ->assertOk()
         ->assertJsonPath('rows.0.outcome.v', 'failed')
-        ->assertJsonPath('rows.0.outcome.sub', 'TransportException: 554 5.7.1 Relay access denied');
+        ->assertJsonPath('rows.0.outcome.title', 'TransportException: 554 5.7.1 Relay access denied');
 
     Http::assertSent(fn (Request $request): bool => str_contains((string) (requestQuery($request)['q'] ?? ''), 'select(status, statusMessage, span.error.type,'));
+});
+
+it('shows who a message went to on one line, Cc and Bcc counted, the lists on hover', function (): void {
+    fakeTempo(tempoHits([
+        ['mail.send', 1, 4.0, ['mail.subject' => 'Invoice', 'mail.recipients' => 2, 'mail.to' => 'ann@example.test, bo@example.test', 'mail.cc' => 'cc@example.test', 'mail.bcc' => 'audit@example.test, legal@example.test', 'status' => 'ok']],
+    ]));
+
+    $this->getJson(panelUrl('mail-log', ['period' => '1h']))
+        ->assertOk()
+        ->assertJsonPath('rows.0.to.v', 'ann@example.test, bo@example.test · cc 1 · bcc 2')
+        ->assertJsonPath('rows.0.to.title', "To: ann@example.test, bo@example.test\nCc: cc@example.test\nBcc: audit@example.test, legal@example.test")
+        ->assertJsonPath('controls.0.param', 'mail_q')
+        ->assertJsonPath('controls.0.label', 'Recipient');
+});
+
+it('finds every send to an address, in To, Cc or Bcc', function (): void {
+    fakeTempo(['traces' => []]);
+
+    $this->getJson(panelUrl('mail-log', ['period' => '1h', 'mail_q' => 'ann@example.test']))
+        ->assertOk()
+        ->assertJsonPath('controls.0.value', 'ann@example.test')
+        ->assertJsonPath('empty', 'Nothing matching "ann@example.test" in this period.');
+
+    Http::assertSent(fn (Request $request): bool => str_contains(
+        (string) (requestQuery($request)['q'] ?? ''),
+        '(span.mail.to =~ "(?i).*ann@example\\\\.test.*" || span.mail.cc =~ "(?i).*ann@example\\\\.test.*" || span.mail.bcc =~ "(?i).*ann@example\\\\.test.*")',
+    ));
 });

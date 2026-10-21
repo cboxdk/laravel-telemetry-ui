@@ -64,7 +64,7 @@ final class CacheLog extends SpanLog
             'operation' => Ui::cell($operation, ['badge' => $operation, 'tone' => $operation === 'miss' ? 'warn' : null]),
             'key' => Ui::cell($this->str($attributes['cache.key'] ?? null) ?? '—', array_filter([
                 'mono' => true,
-                'sub' => implode(' · ', array_filter([
+                'title' => implode(' · ', array_filter([
                     $this->str($attributes['cache.store'] ?? null),
                     $this->str($attributes['cache.key.group'] ?? null),
                 ])),

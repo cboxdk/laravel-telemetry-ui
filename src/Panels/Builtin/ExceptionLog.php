@@ -45,8 +45,9 @@ final class ExceptionLog extends Panel implements ListsRows
                         'mono' => true,
                         'tone' => 'danger',
                         'link' => Ui::error($o['group']),
-                        'sub' => Str::limit($o['message'], 160),
+                        'title' => $o['type'],
                     ]),
+                    'message' => Ui::cell(Str::limit($o['message'], 200), ['title' => $o['message']]),
                     'source' => Ui::cell($o['frontend'] ? 'browser' : 'server', ['badge' => $o['frontend'] ? 'browser' : 'server']),
                     'service' => Ui::cell($o['service'] !== '' ? $o['service'] : '—', ['mono' => true, 'tone' => $o['service'] === '' ? 'dim' : null]),
                     'user' => Ui::cell($o['user'] !== '' ? '#'.$o['user'] : '—', ['mono' => true, 'tone' => $o['user'] === '' ? 'dim' : null]),
@@ -60,6 +61,7 @@ final class ExceptionLog extends Panel implements ListsRows
         return Ui::table('Recent exceptions', [
             Ui::col('when', 'When'),
             Ui::col('exception', 'Exception'),
+            Ui::col('message', 'Message'),
             Ui::col('source', 'Where'),
             Ui::col('service', 'Service'),
             Ui::col('user', 'User'),

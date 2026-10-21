@@ -39,6 +39,10 @@ final class TraceqlCompiler
             ? '"'.addcslashes($condition->value, '"\\').'"'
             : $condition->value;
 
-        return $condition->field.' '.$condition->op->value.' '.$value;
+        $compiled = $condition->field.' '.$condition->op->value.' '.$value;
+
+        return $condition->or === []
+            ? $compiled
+            : '('.implode(' || ', [$compiled, ...array_map($this->condition(...), $condition->or)]).')';
     }
 }

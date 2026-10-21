@@ -70,12 +70,12 @@ it('lists each span of its kind, with the fields that say what it was', function
         ->assertJsonPath('rows.0._link.to', 'trace');
 
     if ($sub !== null) {
-        $response->assertJsonPath("rows.0.{$column}.sub", $sub);
+        $response->assertJsonPath("rows.0.{$column}.title", $sub);
     }
 
     Http::assertSent(fn (Request $request): bool => str_contains((string) (requestQuery($request)['q'] ?? ''), $traceql));
 })->with([
-    'job runs' => ['job-run-log', 'span.messaging.operation.type = "process"', 'App\\Jobs\\SendInvoice process', ['laravel.job.class' => 'App\\Jobs\\SendInvoice', 'messaging.destination.name' => 'billing', 'laravel.job.attempts' => 3], 'job', 'SendInvoice', 'billing · attempt 3'],
+    'job runs' => ['job-run-log', 'span.messaging.operation.type = "process"', 'App\\Jobs\\SendInvoice process', ['laravel.job.class' => 'App\\Jobs\\SendInvoice', 'messaging.destination.name' => 'billing', 'laravel.job.attempts' => 3], 'job', 'SendInvoice', 'App\\Jobs\\SendInvoice'],
     'command runs' => ['command-run-log', 'span.laravel.command != nil', 'artisan reports:send', ['laravel.command' => 'reports:send', 'laravel.command.exit_code' => '1'], 'command', 'reports:send', null],
     'task runs' => ['schedule-run-log', 'span.schedule.task != nil', 'schedule reports:send', ['schedule.task' => 'reports:send', 'schedule.cron' => '0 * * * *'], 'task', 'reports:send', '0 * * * *'],
     'storage' => ['storage-log', 'span.storage.operation != nil', 'storage put', ['storage.disk' => 's3', 'storage.operation' => 'put', 'storage.path' => 'invoices/1.pdf'], 'path', 'invoices/1.pdf', 's3'],
@@ -85,6 +85,18 @@ it('lists each span of its kind, with the fields that say what it was', function
     'stache' => ['stache-log', 'name =~ "statamic\\\\.stache\\\\.(warm|clear)"', 'statamic.stache.warm', [], 'operation', 'warm', null],
     'glide images' => ['glide-request-log', 'span.url.path =~ "/img/.+"', 'GET /img/{path}', ['url.path' => '/img/hero.jpg', 'http.response.status_code' => 200], 'image', '/img/hero.jpg', null],
 ]);
+
+it('keeps a job run to one line: queue and attempt in their own columns', function (): void {
+    fakeBackends(oneSpanHit('App\\Jobs\\SendInvoice process', ['laravel.job.class' => 'App\\Jobs\\SendInvoice', 'messaging.destination.name' => 'billing', 'laravel.job.attempts' => 3, 'status' => 'ok']));
+
+    $this->getJson(panelUrl('job-run-log', ['period' => '1h']))
+        ->assertJsonPath('rows.0.queue.v', 'billing')
+        ->assertJsonPath('rows.0.attempt.v', 3)
+        ->assertJsonPath('rows.0.attempt.tone', 'warn')
+        ->assertJsonPath('rows.0.from.title', 'shop')
+        ->assertJsonPath('rows.0.job.sub', null)
+        ->assertJsonPath('rows.0.from.sub', null);
+});
 
 it('marks a non-zero exit as a failed command', function (): void {
     fakeBackends(oneSpanHit('artisan reports:send', ['laravel.command' => 'reports:send', 'laravel.command.exit_code' => '1', 'status' => 'error']));
@@ -128,7 +140,7 @@ it('lists each event of a family with what it said, not the resource it came fro
     $this->getJson(panelUrl($panel, ['period' => '1h']))
         ->assertOk()
         ->assertJsonPath('rows.0.event.v', $event)
-        ->assertJsonPath('rows.0.event.sub', 'web-1')
+        ->assertJsonPath('rows.0.event.title', 'web-1')
         ->assertJsonPath('rows.0.details.v', $said)
         ->assertJsonPath('rows.0._link.to', 'trace');
 })->with([
@@ -153,7 +165,7 @@ it('lists each exception as it happened, linked to its trace and its group', fun
     $this->getJson(panelUrl('exception-log', ['period' => '1h']))
         ->assertOk()
         ->assertJsonPath('rows.0.exception.v', 'PaymentFailed')
-        ->assertJsonPath('rows.0.exception.sub', 'Card declined')
+        ->assertJsonPath('rows.0.message.v', 'Card declined')
         ->assertJsonPath('rows.0.exception.link.to', 'error')
         ->assertJsonPath('rows.0.user.v', '#25')
         ->assertJsonPath('rows.0._link.to', 'trace');
@@ -169,7 +181,7 @@ it('lists each page view with where the visitor came from', function (): void {
         ->assertOk()
         ->assertJsonPath('rows.0.page.v', '/pricing')
         ->assertJsonPath('rows.0.from.v', 'news.ycombinator.com')
-        ->assertJsonPath('rows.0.from.sub', 'launch')
+        ->assertJsonPath('rows.0.from.title', 'launch')
         ->assertJsonPath('rows.0.visitor.v', 'DK · mobile');
 });
 

@@ -58,7 +58,7 @@ export function CellView({ cell, onParam }: { cell: Cell | null; onParam?: (p: R
 
     return (
         <div className={`t-cell ${cell.sub ? 'has-sub' : ''} ${tone && !cell.badge ? `t-tone-${tone}` : ''} ${cell.mono ? 'mono' : ''}`}>
-            <span className="t-cell-main">
+            <span className="t-cell-main" title={cell.title}>
                 {cell.spark && cell.spark.length > 0 ? <Sparkline points={cell.spark} tone={tone ?? null} /> : content}
                 {cell.bar !== undefined && <span className="t-cellbar"><i style={{ width: `${Math.max(1, Math.min(100, cell.bar * 100))}%` }} /></span>}
                 {cell.actions && cell.actions.length > 0 && <CellActions actions={cell.actions} />}

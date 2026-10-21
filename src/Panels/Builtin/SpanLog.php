@@ -80,6 +80,22 @@ abstract class SpanLog extends Panel implements ListsRows
      */
     abstract protected function cells(array $attributes, MatchedSpan $span, TraceSummary $trace): array;
 
+    /**
+     * Fields a search box matches, any of them, case-insensitively
+     * (`span.mail.to`). None: no search box.
+     *
+     * @return list<string>
+     */
+    protected function searchFields(): array
+    {
+        return [];
+    }
+
+    protected function searchLabel(): string
+    {
+        return 'Search';
+    }
+
     /** Above this, a duration reads as slow. */
     protected function slowMs(): float
     {
@@ -91,12 +107,20 @@ abstract class SpanLog extends Panel implements ListsRows
         [$start, $end] = $this->range();
         $failedOnly = $this->param('status') === 'error';
         $slowest = $this->param('sort') === 'slow';
+        $search = trim($this->param('q'));
+        $fields = $this->searchFields();
+        $matching = [];
+
+        if ($search !== '' && $fields !== []) {
+            $pattern = '(?i).*'.preg_quote($search, null).'.*';
+            $matching[] = TraceCondition::any(...array_map(static fn (string $field): TraceCondition => TraceCondition::re($field, $pattern), $fields));
+        }
 
         $found = [];
         $error = null;
 
         try {
-            $query = $this->traceQuery(...$this->conditions(), ...($failedOnly ? [TraceCondition::token('status', TraceOp::Eq, 'error')] : []))
+            $query = $this->traceQuery(...$this->conditions(), ...$matching, ...($failedOnly ? [TraceCondition::token('status', TraceOp::Eq, 'error')] : []))
                 ->select('status', 'statusMessage', 'span.error.type', ...$this->attributes());
 
             foreach ($this->traces()->search($query, $start, $end, limit: static::LIMIT) as $trace) {
@@ -124,9 +148,14 @@ abstract class SpanLog extends Panel implements ListsRows
             'subtitle' => $this->subtitle(),
             'span' => static::span(),
             'error' => $error,
-            'empty' => $failedOnly ? 'No failures in this period.' : $this->empty(),
+            'empty' => match (true) {
+                $matching !== [] => 'Nothing matching "'.$search.'" in this period.',
+                $failedOnly => 'No failures in this period.',
+                default => $this->empty(),
+            },
             'note' => 'Sampled from the most recent matching traces. Click a row for the trace it was part of.',
             'controls' => [
+                ...($fields !== [] ? [Ui::search($this->paramName('q'), $this->searchLabel(), $search, $this->searchLabel().'…')] : []),
                 Ui::select($this->paramName('status'), 'Show', $failedOnly ? 'error' : '', [
                     ['value' => '', 'label' => 'All'],
                     ['value' => 'error', 'label' => 'Failed only'],
@@ -151,12 +180,13 @@ abstract class SpanLog extends Panel implements ListsRows
         return [
             'when' => Ui::cell(DisplayTime::at($at, 'H:i:s'), ['raw' => $at, 'mono' => true]),
             ...$this->cells($span->attributes, $span, $trace),
-            'from' => Ui::cell($trace->rootTraceName !== '' ? $trace->rootTraceName : '(unnamed)', [
+            // One line per row, like every other list: the detail is on hover.
+            'from' => Ui::cell($trace->rootTraceName !== '' ? $trace->rootTraceName : '(unnamed)', array_filter([
                 'link' => $link,
-                'sub' => $trace->rootServiceName,
-            ]),
+                'title' => $trace->rootServiceName !== '' ? $trace->rootServiceName : null,
+            ])),
             'outcome' => $status === 'error'
-                ? Ui::cell('failed', array_filter(['badge' => 'failed', 'tone' => 'danger', 'sub' => $this->why($span->attributes)]))
+                ? Ui::cell('failed', array_filter(['badge' => 'failed', 'tone' => 'danger', 'title' => $this->why($span->attributes)]))
                 : Ui::cell($status === 'ok' ? 'ok' : '—', ['tone' => $status === 'ok' ? 'ok' : 'dim']),
             'duration' => Ui::cell(Format::ms($span->durationMs), [
                 'raw' => $span->durationMs,

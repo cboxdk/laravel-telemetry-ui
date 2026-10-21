@@ -15,12 +15,26 @@ namespace Cbox\TelemetryUi\Queries\Ir;
  */
 final readonly class TraceCondition
 {
+    /**
+     * @param  list<TraceCondition>  $or  alternatives: this condition or any of these
+     */
     public function __construct(
         public string $field,
         public TraceOp $op,
         public string $value,
         public bool $quoted = true,
+        public array $or = [],
     ) {}
+
+    /**
+     * Any one of the conditions (`(a || b || c)`) — a recipient in To, Cc or
+     * Bcc. Still a single span's conditions: the alternatives are on the
+     * same span.
+     */
+    public static function any(TraceCondition $first, TraceCondition ...$rest): self
+    {
+        return new self($first->field, $first->op, $first->value, $first->quoted, [...$first->or, ...array_values($rest)]);
+    }
 
     /** A quoted string-literal condition (`field = "value"`). */
     public static function eq(string $field, string $value): self

@@ -62,7 +62,7 @@ final class BroadcastLog extends SpanLog
         return [
             'event' => Ui::cell(class_basename($event), array_filter([
                 'mono' => true,
-                'sub' => $this->str($attributes['broadcasting.driver'] ?? null),
+                'title' => $this->str($attributes['broadcasting.driver'] ?? null),
             ])),
             'channels' => Ui::cell($this->str($attributes['broadcasting.channels'] ?? null) ?? '—', array_filter([
                 'raw' => (int) $this->num($attributes['broadcasting.channel.count'] ?? null),

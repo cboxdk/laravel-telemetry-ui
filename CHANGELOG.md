@@ -30,6 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exception's class and message, where the emitter recorded them). Build
   your own with `SpanLog` (one row per span) or `TelemetryEventLog` (one per
   telemetry event); a test holds every page to having one (`ListsRows`).
+- **Find every mail sent to an address.** Mail sent shows who each
+  message went to on one line (To, then how many in Cc and Bcc; the full
+  lists on hover), and a Recipient search finds every send to an address in
+  To, Cc or Bcc, each row naming the request or job that sent it. Needs
+  laravel-telemetry 3.8+ with `instrument.mail_recipients` on; without it
+  the row shows the recipient count. `TraceCondition::any()` joins
+  alternatives with OR for searches like it.
+- **One line per row in the event lists.** Detail that used to stack
+  under a value (the service, the queue and attempt, a failure's reason)
+  moved into its own column or a tooltip (the new `title` cell option), so
+  the lists read like every other table.
 - **Failed sends on the Mail chart.** A `Failed` figure beside `Sent`, from
   laravel-telemetry's `mail.failed` (3.8+, which also makes a refused send a
   failed `mail.send` span with its exception). Unknown feature flags need
@@ -150,6 +161,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The header pushed its last buttons off screen** with the sidebar open
+  on a laptop. It now sheds by its own width (labels, the 30D button, the
+  ⌘K and ? hints go first) and wraps to a second row rather than overflow.
 - **Row panels showed at most three matches per trace.** Tempo returns 3
   matching spans per trace unless asked for more, so a request that ran ten
   slow queries or sent ten mails showed three rows, in AI calls, slow

@@ -85,7 +85,7 @@ abstract class TelemetryEventLog extends Panel implements ListsRows
 
             return [
                 'when' => Ui::cell(DisplayTime::at($at, 'd/m H:i:s'), ['raw' => $at, 'mono' => true]),
-                'event' => Ui::cell($name, array_filter(['mono' => true, 'tone' => $this->tone($name), 'sub' => $labels['host_name'] ?? null])),
+                'event' => Ui::cell($name, array_filter(['mono' => true, 'tone' => $this->tone($name), 'title' => $labels['host_name'] ?? null])),
                 'details' => Ui::cell($said !== '' ? $said : '—', $said === '' ? ['tone' => 'dim'] : []),
                 '_link' => $link,
             ];

@@ -63,7 +63,7 @@ final class StorageLog extends SpanLog
             'operation' => Ui::cell($operation, ['badge' => $operation]),
             'path' => Ui::cell($this->str($attributes['storage.path'] ?? null) ?? '—', array_filter([
                 'mono' => true,
-                'sub' => $this->str($attributes['storage.disk'] ?? null),
+                'title' => $this->str($attributes['storage.disk'] ?? null),
             ])),
         ];
     }
