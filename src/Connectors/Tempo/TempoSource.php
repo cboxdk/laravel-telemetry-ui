@@ -332,10 +332,50 @@ readonly class TempoSource implements LimitsSearchWindow, LocatesTracesInTime, P
             kind: SpanKind::fromOtlp(is_int($kind) || is_string($kind) ? $kind : null),
             startNano: (int) ($span['startTimeUnixNano'] ?? 0),
             endNano: (int) ($span['endTimeUnixNano'] ?? 0),
-            attributes: OtlpAttributes::parse(is_array($span['attributes'] ?? null) ? $span['attributes'] : []),
+            attributes: $this->withFailure(
+                OtlpAttributes::parse(is_array($span['attributes'] ?? null) ? $span['attributes'] : []),
+                is_array($span['events'] ?? null) ? $span['events'] : [],
+                is_string($status['message'] ?? null) ? $status['message'] : '',
+            ),
             hasError: $statusCode === 'STATUS_CODE_ERROR' || $statusCode === 2,
             links: $this->parseLinks(is_array($span['links'] ?? null) ? $span['links'] : []),
         );
+    }
+
+    /**
+     * What a failed span says about why, folded into its attributes: the
+     * `exception` event's type, message and stacktrace (OTel records an
+     * exception as a span event, not as attributes), and the status
+     * description as `otel.status_description`. An attribute the span set
+     * itself wins.
+     *
+     * @param  array<string, mixed>  $attributes
+     * @param  array<array-key, mixed>  $events
+     * @return array<string, mixed>
+     */
+    private function withFailure(array $attributes, array $events, string $statusMessage): array
+    {
+        foreach ($events as $event) {
+            if (! is_array($event) || ($event['name'] ?? null) !== 'exception') {
+                continue;
+            }
+
+            $exception = OtlpAttributes::parse(is_array($event['attributes'] ?? null) ? $event['attributes'] : []);
+
+            foreach (['exception.type', 'exception.message', 'exception.stacktrace'] as $key) {
+                if (! isset($attributes[$key]) && isset($exception[$key])) {
+                    $attributes[$key] = $exception[$key];
+                }
+            }
+
+            break;
+        }
+
+        if ($statusMessage !== '' && ! isset($attributes['otel.status_description'])) {
+            $attributes['otel.status_description'] = $statusMessage;
+        }
+
+        return $attributes;
     }
 
     /**

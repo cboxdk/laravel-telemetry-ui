@@ -25,6 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A failed span shows why, where it failed.** The trace drawer listed a
+  trace's exceptions only in the story, and a failed span in the waterfall
+  showed nothing: Tempo's span events, where OTel records an exception, were
+  not read at all, and an exception record in the log store was matched to
+  the trace but not to its span. A span's `exception` event (type, message,
+  stacktrace) and its status description (`otel.status_description`) are
+  now part of its attributes; each exception record names the spans that
+  threw it (`spans`, from the record's `span_id`) and carries its
+  stacktrace. The span detail shows the exception with its stacktrace and
+  issue, and "Why it failed" opens the span that threw it in the waterfall.
+- **Deploy markers wait for the chart.** A marker request that answered
+  between a chart's init and its first draw asked ECharts for pixels it
+  could not have yet, and the page logged
+  `Cannot read properties of undefined (reading 'queryComponents')`.
 - **Markers that are off ask the log store nothing.** With
   `annotations.enabled` false, the markers route and an entity's story
   still built a scoped log selector first, and since 3.4 building one asks

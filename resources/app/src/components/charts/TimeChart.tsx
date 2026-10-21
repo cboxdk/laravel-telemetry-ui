@@ -56,7 +56,10 @@ export function TimeChart({ series, type = 'line', unit, height = 200, annotatio
     const place = useCallback(() => {
         const chart = chartRef.current;
         const list = annotationsRef.current;
-        if (!chart || chart.isDisposed()) return;
+        // Not before the first setOption: convertToPixel reads the chart's
+        // model, which ECharts only builds then, and a marker fetch that lands
+        // between init and that first render would throw on an undefined one.
+        if (!chart || chart.isDisposed() || !chart.getOption()) return;
         const width = chart.getWidth();
         const points = list.length === 0 ? [] : list
             .map((a) => ({ a, x: Number(chart.convertToPixel({ xAxisIndex: 0 }, a.xAxis)) }))

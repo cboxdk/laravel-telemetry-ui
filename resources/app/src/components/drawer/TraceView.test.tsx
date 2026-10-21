@@ -232,6 +232,68 @@ describe('the trace drawer', () => {
         expect(screen.getByText(/Part of an N\+1/)).toBeInTheDocument();
     });
 
+    describe('why it failed', () => {
+        const job = {
+            ...span, spanId: 'j1', parentSpanId: 'a1', name: 'App\\Jobs\\ChargeCard process', kind: 'consumer', durationMs: 30, error: true,
+            attributes: {
+                'exception.type': 'App\\Payments\\CardDeclined',
+                'exception.message': 'Card declined',
+                'exception.stacktrace': '#0 app/Payments/Charge.php(42)',
+            },
+        };
+        const failed = {
+            ...story, spanCount: 2, error: true,
+            waterfall: [
+                { span, depth: 0, offsetPct: 0, widthPct: 100, ancestors: [], children: 1 },
+                { span: job, depth: 1, offsetPct: 10, widthPct: 3, ancestors: ['a1'], children: 0 },
+            ],
+        } as unknown as TraceStory;
+        const answer = (context: unknown) => vi.fn((input: string) => Promise.resolve(new Response(
+            JSON.stringify(String(input).includes('/context') ? context : failed),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )));
+        const quiet = { context: [], profile: [], logs: [], logsMatch: 'trace' };
+
+        it('opens a failed span from the story, with the exception the span carries', async () => {
+            vi.stubGlobal('fetch', answer({ ...quiet, exceptions: [] }));
+
+            await renderAt(<TraceView traceId={story.traceId} />);
+            await userEvent.click(await screen.findByRole('button', { name: 'Show span →' }));
+
+            expect(screen.getByRole('tab', { name: /Waterfall/ })).toHaveAttribute('aria-selected', 'true');
+            const detail = document.querySelector('.t-spandetail') as HTMLElement;
+            expect(detail).toHaveTextContent('App\\Payments\\CardDeclined Card declined');
+            expect(detail).toHaveTextContent('Stacktrace');
+        });
+
+        it('shows a recorded exception on the span that threw it, with its issue', async () => {
+            vi.stubGlobal('fetch', answer({
+                ...quiet,
+                exceptions: [{ group: '0f3a9c2b1d4e', type: 'App\\Payments\\CardDeclined', message: 'Card declined', file: 'app/Payments/Charge.php', line: 42, source: 'backend', match: 'trace', spans: ['j1'], stacktrace: '#0 app/Payments/Charge.php(42)' }],
+            }));
+
+            await renderAt(<TraceView traceId={story.traceId} />);
+            await userEvent.click(await screen.findByRole('button', { name: 'Show the span that threw it →' }));
+
+            const detail = document.querySelector('.t-spandetail') as HTMLElement;
+            expect(detail).toHaveTextContent('Payments/Charge.php:42');
+            expect(detail.querySelector('a, button[data-go]') ?? detail).toHaveTextContent('Open issue');
+        });
+
+        it('says what a failed span gave as its reason when it carries no exception', async () => {
+            const released = { ...job, attributes: { 'otel.status_description': 'released for retry' } };
+            vi.stubGlobal('fetch', vi.fn((input: string) => Promise.resolve(new Response(
+                JSON.stringify(String(input).includes('/context') ? { ...quiet, exceptions: [] } : { ...failed, waterfall: [failed.waterfall[0], { ...failed.waterfall[1], span: released }] }),
+                { status: 200, headers: { 'Content-Type': 'application/json' } },
+            ))));
+
+            await renderAt(<TraceView traceId={story.traceId} />);
+            await userEvent.click(await screen.findByRole('button', { name: 'Show span →' }));
+
+            expect(document.querySelector('.t-spandetail')).toHaveTextContent('Failed: released for retry');
+        });
+    });
+
     it('offers to monitor the trace\'s user, route and declared dimensions, and says when a monitor kept it', async () => {
         const root = { ...span, attributes: { 'http.route': 'orders.index', 'user.id': '42', 'billing.customer_id': '8655', 'telemetry.directive': '01JDA' } };
         const monitored = { ...story, root, waterfall: [{ span: root, depth: 0, offsetPct: 0, widthPct: 100, ancestors: [], children: 0 }] } as unknown as TraceStory;
