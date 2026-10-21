@@ -18,6 +18,7 @@ use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLock;
+use Cbox\TelemetryUi\Support\StreamLabels;
 use Cbox\TelemetryUi\Support\ViewState;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -48,6 +49,13 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $this->app->singleton(SchemaDetector::class, static fn (Application $app): SchemaDetector => new SchemaDetector(
             $app->make(ConnectionManager::class),
             $app->make('cache'),
+            (int) $app->make('config')->get('telemetry-ui.detection.ttl', 300),
+        ));
+
+        $this->app->scoped(StreamLabels::class, static fn (Application $app): StreamLabels => new StreamLabels(
+            $app->make(ConnectionManager::class),
+            $app->make('cache'),
+            $app->make('config'),
             (int) $app->make('config')->get('telemetry-ui.detection.ttl', 300),
         ));
 

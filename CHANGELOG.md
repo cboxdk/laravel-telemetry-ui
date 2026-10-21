@@ -16,6 +16,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metrics-generator", which sent people to fix the wrong thing. It now
   shows the backend's error, and when only the database search fails it
   keeps the client edges with a note that part of the graph is missing.
+### Changed
+
+- **Log queries read only the scoped environment's streams where Loki
+  indexes it.** The environment was always a pipeline filter
+  (`{service_name=~".+"} | deployment_environment_name="prod"`), so Loki
+  read every stream in the window, every other environment's and every
+  machine's journal, only to drop them. On a production Loki that made
+  Exceptions time out at 25 s even for 15 minutes, and Log viewer,
+  Analytics, N+1 and Duplicate queries time out from a day up. The scope
+  now asks Loki once which labels it indexes (`/loki/api/v1/labels`,
+  cached for `detection.ttl`) and puts the environment in the stream
+  selector when it is one of them. Where it is structured metadata
+  (otel-lgtm), or Loki cannot say, it stays a pipeline filter as before.
+
+### Added
+
+- `Contracts\KnowsStreamLabels`, an optional capability of a logs driver:
+  the labels the store indexes as stream labels. The Loki driver
+  implements it.
 
 ## [3.3.0] - 2026-10-17
 
