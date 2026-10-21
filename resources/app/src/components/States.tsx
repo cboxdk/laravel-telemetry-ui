@@ -80,6 +80,29 @@ export function Busy({ active, label }: { active: boolean; label: string }) {
 }
 
 /**
+ * A panel's first read, past the point where it would have answered if it
+ * were quick: say it is waiting, and for how long, above the placeholder. A
+ * panel on a busy backend can take 25 s; a skeleton alone for that long
+ * reads as a page that hangs, and an embed has no progress line to say
+ * otherwise. Nothing shows for the first `after` seconds, so a fast panel
+ * never flashes text.
+ */
+export function Waiting({ height = 160, after = 3 }: { height?: number; after?: number }) {
+    const seconds = useElapsed(true);
+    return (
+        <div className="t-waiting">
+            {seconds >= after && (
+                <span className="t-busy" role="status">
+                    <span className="t-spinner-dot" />
+                    {`Waiting for the backend · ${seconds}s`}
+                </span>
+            )}
+            <Skeleton height={height} />
+        </div>
+    );
+}
+
+/**
  * The shell's progress line: moves while any read the viewer is waiting on is
  * in flight (prefetches, live tails and name lookups are marked `QUIET`).
  */

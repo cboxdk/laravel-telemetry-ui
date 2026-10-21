@@ -66,6 +66,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `error.backend` on a `backend` API error: the `BackendStatus` of the
   failure.
+- **A slow panel says it is waiting.** A panel's first read showed only a
+  skeleton for as long as it took, which on a busy backend is 25 s and more,
+  and an embedded dashboard has no progress line either. After 3 s the
+  panel now says *Waiting for the backend · 12s* above the skeleton, and
+  counts. A fast panel shows nothing extra.
 
 ## [3.3.0] - 2026-10-17
 

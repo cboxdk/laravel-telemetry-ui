@@ -7,7 +7,7 @@ import { Combobox } from '../Combobox';
 import { ComposeIssue } from '../ComposeIssue';
 import { CopyButton } from '../CopyButton';
 import { Icon } from '../Icon';
-import { ErrorState, Skeleton } from '../States';
+import { ErrorState, Waiting } from '../States';
 import { PanelBody } from './PanelBody';
 
 /** URL keys that are never panel params. */
@@ -93,7 +93,7 @@ export function PanelView({ id, span = 1, params = {} }: { id: string; span?: nu
             )}
             <div className="t-panel-body">
                 {/* Every state renders something: data, else the typed error, else a skeleton (loading or retrying). */}
-                {data ? <PanelBody data={data} onParam={setParam} onTicket={setDraft} /> : error && !isFetching ? <ErrorState error={error} compact /> : <Skeleton height={160} />}
+                {data ? <PanelBody data={data} onParam={setParam} onTicket={setDraft} /> : error && !isFetching ? <ErrorState error={error} compact /> : <Waiting height={160} />}
             </div>
             {data?.note && <footer className="t-panel-foot">{data.note}</footer>}
             {draft && <ComposeIssue draft={draft} onClose={() => setDraft(null)} />}
