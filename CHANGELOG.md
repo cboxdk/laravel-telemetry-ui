@@ -51,6 +51,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Contracts\LimitsSearchWindow`, an optional capability of a traces driver:
   the longest window one search covers. The Tempo driver implements it.
+- **A read that timed out is not sent again.** The embedded provider's
+  query client retried every failed read once, and the standalone app's
+  twice, timeouts included. A query that timed out takes as long again, so
+  the viewer waited two or three timeouts before seeing the error, and the
+  backend that was already too busy got the same heavy query again (Explore
+  on a day of production traces: two 10 s timeouts, then the same two
+  requests a second time). A backend error now says what went wrong
+  (`error.backend`: `timeout`, `dropped`, `unreachable`, …), and the
+  dashboard retries only a network blip, a dropped connection or an
+  unreachable backend.
+
+### Added
+
+- `error.backend` on a `backend` API error: the `BackendStatus` of the
+  failure.
 
 ## [3.3.0] - 2026-10-17
 

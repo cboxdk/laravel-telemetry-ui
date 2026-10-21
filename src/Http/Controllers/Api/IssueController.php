@@ -30,7 +30,7 @@ final class IssueController
         try {
             $issue = $connections->issues()->issue($id);
         } catch (SourceException $exception) {
-            return ApiError::backend($exception->getMessage());
+            return ApiError::fromSource($exception);
         }
 
         return $issue !== null ? Json::ok(Serializer::issue($issue)) : ApiError::notFound("Issue {$id} was not found.");
@@ -59,7 +59,7 @@ final class IssueController
         try {
             $issue = $source->createIssue($title, (string) $request->input('body', ''), $labels);
         } catch (SourceException $exception) {
-            return ApiError::backend($exception->getMessage());
+            return ApiError::fromSource($exception);
         }
 
         return Json::ok(Serializer::issue($issue), 201);

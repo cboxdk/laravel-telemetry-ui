@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { shouldRetry } from '../api/client';
 import { useBootstrap } from '../api/hooks';
 import { setBoot } from '../boot';
 import { BootContext } from '../components/DimensionValue';
@@ -50,7 +51,7 @@ export function TelemetryUiProvider({ config, children, client, search, onSearch
     href?: (target: { pathname: string; search: string }) => string;
     pathname?: string;
 }) {
-    const [own] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 10_000 } } }));
+    const [own] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: shouldRetry, refetchOnWindowFocus: false, staleTime: 10_000 } } }));
 
     // Charts read their colours from this root, so the host's theme class and
     // token overrides on it apply to canvas-drawn charts as well.

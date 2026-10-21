@@ -103,7 +103,7 @@ final class ErrorGroupController
                 ),
             );
         } catch (SourceException $exception) {
-            return ApiError::backend($exception->getMessage());
+            return ApiError::fromSource($exception);
         }
     }
 }

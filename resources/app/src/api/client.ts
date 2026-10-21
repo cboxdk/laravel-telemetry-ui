@@ -11,10 +11,30 @@ export class ApiError extends Error {
         public readonly type: ApiErrorType,
         message: string,
         public readonly status: number = 0,
+        /** For a `backend` error, what went wrong there: `timeout`, `dropped`, `unreachable`, … (BackendStatus). */
+        public readonly backend?: string,
     ) {
         super(message);
         this.name = 'ApiError';
     }
+}
+
+/** Backend failures that can pass on their own: the connection, not the query. */
+const TRANSIENT = new Set(['unreachable', 'dropped']);
+
+/**
+ * Whether a failed read is worth sending again. A blip in the network or a
+ * connection the backend dropped can pass by itself. A timeout cannot: the
+ * same query takes as long again, so a retry only doubles the wait before the
+ * error shows and the load on a backend that is already struggling. Nor can
+ * an answer (forbidden, not found, invalid) or a backend's refusal.
+ */
+export function shouldRetry(failures: number, error: unknown, max = 1): boolean {
+    if (failures >= max) return false;
+    if (!(error instanceof ApiError)) return true;
+    if (error.type === 'network' || error.type === 'unknown') return true;
+    // A server older than this field says nothing: keep retrying it as before.
+    return error.type === 'backend' && (error.backend === undefined || TRANSIENT.has(error.backend));
 }
 
 export type Params = Record<string, string | number | boolean | null | undefined | string[]>;
@@ -77,9 +97,9 @@ export async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string
     const data = await parse(response);
 
     if (!response.ok) {
-        const err = (data as { error?: { type?: ApiErrorType; message?: string } } | null)?.error;
+        const err = (data as { error?: { type?: ApiErrorType; message?: string; backend?: string } } | null)?.error;
         const type: ApiErrorType = err?.type ?? (response.status === 403 ? 'forbidden' : response.status === 404 ? 'not_found' : response.status === 419 ? 'forbidden' : 'unknown');
-        throw new ApiError(type, err?.message ?? `Request failed (${response.status}).`, response.status);
+        throw new ApiError(type, err?.message ?? `Request failed (${response.status}).`, response.status, err?.backend);
     }
 
     return data as T;

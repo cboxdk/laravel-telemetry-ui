@@ -52,7 +52,7 @@ final class ExploreController
                 default => $spans->explore($scope, $signal, $limit, $groupBy),
             };
         } catch (SourceException $exception) {
-            return ApiError::backend($exception->getMessage());
+            return ApiError::fromSource($exception);
         }
 
         return Json::ok([

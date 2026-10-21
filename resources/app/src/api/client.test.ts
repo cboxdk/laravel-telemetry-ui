@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setBoot } from '../boot';
-import { api, ApiError, toQuery } from './client';
+import { api, ApiError, shouldRetry, toQuery } from './client';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -37,5 +37,26 @@ describe('API client', () => {
         vi.stubGlobal('fetch', fetch);
         await api.post('issues', { title: 't' });
         expect((fetch.mock.calls[0]![1] as RequestInit).headers).toMatchObject({ 'X-CSRF-TOKEN': 'tok' });
+    });
+});
+
+describe('shouldRetry', () => {
+    const backend = (status?: string) => new ApiError('backend', 'x', 502, status);
+
+    it.each([
+        ['a timeout', backend('timeout'), false],
+        ['a refused query', backend('error'), false],
+        ['a dropped connection', backend('dropped'), true],
+        ['an unreachable backend', backend('unreachable'), true],
+        ['a server that does not say', backend(), true],
+        ['a network blip', new ApiError('network', 'x'), true],
+        ['forbidden', new ApiError('forbidden', 'x', 403), false],
+    ])('retries %s: %s', (_, error, expected) => {
+        expect(shouldRetry(0, error)).toBe(expected);
+    });
+
+    it('stops at the limit', () => {
+        expect(shouldRetry(1, backend('dropped'))).toBe(false);
+        expect(shouldRetry(1, backend('dropped'), 2)).toBe(true);
     });
 });

@@ -39,7 +39,7 @@ final class EntityController
         try {
             return Json::ok($stories->index(RequestScope::fromRequest($request), $dimension));
         } catch (SourceException $exception) {
-            return ApiError::backend($exception->getMessage());
+            return ApiError::fromSource($exception);
         }
     }
 
@@ -66,7 +66,7 @@ final class EntityController
         try {
             return Json::ok($stories->story(RequestScope::fromRequest($request), $dimension, $value));
         } catch (SourceException $exception) {
-            return ApiError::backend($exception->getMessage());
+            return ApiError::fromSource($exception);
         }
     }
 }
