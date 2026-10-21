@@ -17,11 +17,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names the services in the scope switcher (the ones the metrics store
   reports), so Loki reads only their streams. The machine logs panel still
   reads every stream, since a machine's journal and proxy logs are its point.
-  Elsewhere, logs from a service
-  that sends no metrics no longer show under "All services"; set
-  `telemetry-ui.fleet.scopes_logs` (`TELEMETRY_UI_FLEET_SCOPES_LOGS`) to
-  `false` to read every stream as before. When discovery finds no services,
-  logs are read from any stream, as before.
+  Elsewhere, logs from a service that sends no metrics no longer show under
+  "All services"; set `telemetry-ui.fleet.scopes_logs`
+  (`TELEMETRY_UI_FLEET_SCOPES_LOGS`) to `false` to read every stream as
+  before. When discovery finds no services, logs are read from any stream, as
+  before.
+
+### Fixed
+
+- **Markers that are off ask the log store nothing.** With
+  `annotations.enabled` false, the markers route and an entity's story
+  still built a scoped log selector first, and since 3.4 building one asks
+  Loki which labels it indexes. Every chart's marker request then cost a
+  label lookup, and with Loki down a connect timeout. They now check
+  `Annotations::enabled()` before building anything.
 
 ## [3.4.0] - 2026-10-21
 

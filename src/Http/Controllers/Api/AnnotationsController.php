@@ -21,6 +21,10 @@ final class AnnotationsController
 {
     public function __invoke(Request $request, Annotations $annotations): JsonResponse
     {
+        if (! $annotations->enabled()) {
+            return Json::ok(['annotations' => []]);
+        }
+
         $scope = RequestScope::fromRequest($request);
         [$start, $end] = $scope->range();
 

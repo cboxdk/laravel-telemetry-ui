@@ -301,9 +301,15 @@ abstract class Panel
      */
     protected function annotations(): array
     {
+        $annotations = app(Annotations::class);
+
+        if (! $annotations->enabled()) {
+            return [];
+        }
+
         [$start, $end] = $this->range();
 
-        return app(Annotations::class)->between($start, $end, $this->logSelector());
+        return $annotations->between($start, $end, $this->logSelector());
     }
 
     /**

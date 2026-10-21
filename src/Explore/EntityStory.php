@@ -368,11 +368,16 @@ final class EntityStory
     private function deploys(RequestScope $scope): array
     {
         [$start, $end] = $scope->range();
+        $annotations = app(Annotations::class);
+
+        if (! $annotations->enabled()) {
+            return [];
+        }
 
         try {
             return array_map(
                 static fn (Annotation $a): array => $a->toMarkLine(),
-                app(Annotations::class)->between($start, $end, $scope->logQuery()),
+                $annotations->between($start, $end, $scope->logQuery()),
             );
         } catch (SourceException) {
             return [];
