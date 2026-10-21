@@ -306,3 +306,20 @@ it('lets a programming error through instead of burying it as a transport failur
     expect(fn () => app(AnnotationWriter::class)->write('deploy', 'v9'))
         ->toThrow(Error::class, 'someone renamed a method');
 });
+
+it('asks the log store nothing at all when markers are off', function (string $path): void {
+    config()->set('telemetry-ui.annotations.enabled', false);
+    // A Loki that indexes the environment: building a scoped selector would ask it which labels
+    // it indexes, a request for nothing when no marker is read.
+    Http::fake([
+        'loki.test:3100/loki/api/v1/labels*' => Http::response(['status' => 'success', 'data' => ['deployment_environment_name', 'service_name']]),
+        '*' => Http::response(['status' => 'success', 'data' => ['resultType' => 'matrix', 'result' => []]]),
+    ]);
+
+    $this->getJson($path)->assertOk();
+
+    expect(collect(Http::recorded())->filter(fn (array $pair): bool => str_contains($pair[0]->url(), 'loki.test')))->toBeEmpty();
+})->with([
+    'the markers route' => [apiUrl('annotations', ['env' => 'prod'])],
+    'an entity\'s story' => [apiUrl('entities/route/story', ['env' => 'prod', 'value' => '/orders'])],
+]);

@@ -34,6 +34,16 @@ final readonly class Annotations
     ) {}
 
     /**
+     * Whether markers are read at all (`telemetry-ui.annotations.enabled`). Ask before building a
+     * selector for {@see between()}: building one may itself ask the log store (which labels it
+     * indexes), and with markers off that is a request for nothing.
+     */
+    public function enabled(): bool
+    {
+        return (bool) $this->config->get('telemetry-ui.annotations.enabled', true);
+    }
+
+    /**
      * Markers within [$start, $end] for the given scope, newest first.
      *
      * @param  LogQuery|null  $selector  a log selector already scoped to the
@@ -63,7 +73,7 @@ final readonly class Annotations
     {
         $selector ??= LogQuery::stream(new LabelMatcher(ScopeLabels::logs('service'), MatchOp::Re, '.+'));
 
-        if (! (bool) $this->config->get('telemetry-ui.annotations.enabled', true)) {
+        if (! $this->enabled()) {
             return [];
         }
 
