@@ -7,29 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **Service graph says when its span fallback failed.** Without Tempo's
-  metrics-generator the graph is derived from two Tempo searches. A
-  failure there (a timeout on a busy Tempo, say) was caught and dropped, so
-  the panel said "No service-graph edges in this period. Requires Tempo's
-  metrics-generator", which sent people to fix the wrong thing. It now
-  shows the backend's error, and when only the database search fails it
-  keeps the client edges with a note that part of the graph is missing.
-### Changed
-
-- **Log queries read only the scoped environment's streams where Loki
-  indexes it.** The environment was always a pipeline filter
-  (`{service_name=~".+"} | deployment_environment_name="prod"`), so Loki
-  read every stream in the window, every other environment's and every
-  machine's journal, only to drop them. On a production Loki that made
-  Exceptions time out at 25 s even for 15 minutes, and Log viewer,
-  Analytics, N+1 and Duplicate queries time out from a day up. The scope
-  now asks Loki once which labels it indexes (`/loki/api/v1/labels`,
-  cached for `detection.ttl`) and puts the environment in the stream
-  selector when it is one of them. Where it is structured metadata
-  (otel-lgtm), or Loki cannot say, it stays a pipeline filter as before.
-
 ### Added
 
 - `Contracts\KnowsStreamLabels`, an optional capability of a logs driver:
@@ -47,8 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `max_search` (`TELEMETRY_UI_TEMPO_MAX_SEARCH`, seconds) to your Tempo's
   limit, or 0 for none.
 
-### Added
-
 - `Contracts\LimitsSearchWindow`, an optional capability of a traces driver:
   the longest window one search covers. The Tempo driver implements it.
 - **A read that timed out is not sent again.** The embedded provider's
@@ -61,8 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`error.backend`: `timeout`, `dropped`, `unreachable`, …), and the
   dashboard retries only a network blip, a dropped connection or an
   unreachable backend.
-
-### Added
 
 - `error.backend` on a `backend` API error: the `BackendStatus` of the
   failure.
@@ -101,7 +74,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   When it fails, the list still shows, NEW badges are left off, and the
   note says first seen covers this window only.
 
+- `Panel::later()` and `Panel::settle()` for custom panels, with a typed
+  `Deferred` handle per read.
+
 ### Changed
+
+- **Log queries read only the scoped environment's streams where Loki
+  indexes it.** The environment was always a pipeline filter
+  (`{service_name=~".+"} | deployment_environment_name="prod"`), so Loki
+  read every stream in the window, every other environment's and every
+  machine's journal, only to drop them. On a production Loki that made
+  Exceptions time out at 25 s even for 15 minutes, and Log viewer,
+  Analytics, N+1 and Duplicate queries time out from a day up. The scope
+  now asks Loki once which labels it indexes (`/loki/api/v1/labels`,
+  cached for `detection.ttl`) and puts the environment in the stream
+  selector when it is one of them. Where it is structured metadata
+  (otel-lgtm), or Loki cannot say, it stays a pipeline filter as before.
 
 - **A panel's backend reads go out at the same time.** A panel that needs
   several queries sent them one after the other, so it took the sum of
@@ -128,10 +116,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stay and the note says the change is missing, instead of the whole card
   failing.
 
-### Added
+### Fixed
 
-- `Panel::later()` and `Panel::settle()` for custom panels, with a typed
-  `Deferred` handle per read.
+- **Service graph says when its span fallback failed.** Without Tempo's
+  metrics-generator the graph is derived from two Tempo searches. A
+  failure there (a timeout on a busy Tempo, say) was caught and dropped, so
+  the panel said "No service-graph edges in this period. Requires Tempo's
+  metrics-generator", which sent people to fix the wrong thing. It now
+  shows the backend's error, and when only the database search fails it
+  keeps the client edges with a note that part of the graph is missing.
 
 ## [3.3.0] - 2026-10-17
 
