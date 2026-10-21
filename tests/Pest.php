@@ -223,3 +223,42 @@ function labelledVector(array $series): array
         $series,
     )]];
 }
+
+/**
+ * A Prometheus on localhost that answers each query $ms after it arrived
+ * (tests/Fixtures/slow-backend.php). Returns its base URL and a function
+ * that tells the most queries it ever had waiting at once: one after the
+ * other that is 1, sent together it is all of them. Stopped when the test
+ * ends.
+ *
+ * @return array{string, Closure(): int}
+ */
+function slowPrometheus(int $ms): array
+{
+    $port = 20000 + random_int(0, 9999);
+    $peak = (string) tempnam(sys_get_temp_dir(), 'peak');
+
+    $process = proc_open(
+        [PHP_BINARY, __DIR__.'/Fixtures/slow-backend.php', (string) $port, (string) $ms, $peak],
+        [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']],
+        $pipes,
+    );
+
+    expect($process)->toBeResource();
+
+    for ($i = 0; $i < 100 && ($probe = @fsockopen('127.0.0.1', $port)) === false; $i++) {
+        usleep(20_000);
+    }
+
+    if (isset($probe) && is_resource($probe)) {
+        fclose($probe);
+    }
+
+    test()->beforeApplicationDestroyed(static function () use ($process, $peak): void {
+        proc_terminate($process);
+        proc_close($process);
+        @unlink($peak);
+    });
+
+    return ["http://127.0.0.1:{$port}", static fn (): int => (int) file_get_contents($peak)];
+}

@@ -71,6 +71,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and an embedded dashboard has no progress line either. After 3 s the
   panel now says *Waiting for the backend · 12s* above the skeleton, and
   counts. A fast panel shows nothing extra.
+### Changed
+
+- **A panel's backend reads go out at the same time.** A panel that needs
+  several queries sent them one after the other, so it took the sum of
+  their times and could run well past the connection timeout without any
+  single query timing out (Duration took 11 s on a day of production
+  traffic: six queries, the slowest 4.9 s). Panels now ask for their reads
+  with `later()` and send them with `settle()`, which runs each read in its
+  own Fiber and sends the waiting requests as one `Http::pool`, two at a
+  time by default (`concurrency`, `TELEMETRY_UI_CONCURRENCY`; 1 turns it
+  off). On a single-node Mimir, more than two made heavy queries slow each
+  other down; raise it for a backend that shards queries.
+  Drivers need no change: anything that goes through the shared API client
+  joins in. Converted: Duration, Requests, Routes and Routes needing
+  attention, Jobs, Jobs table, Scheduled tasks and its table (and every
+  other `BreakdownTable`), Horizon incidents, Outgoing requests, Outgoing
+  hosts, Connection pairs and Analytics.
+- **A timeout no longer stops the reads beside it.** Sent together, a read
+  that times out costs no extra wait, so the others are sent and shown
+  with a note. After a timeout, a panel still sends no later round of
+  reads.
+- **Requests keeps its chart when the previous period cannot be read.**
+  The previous-period total behind the change percentage is the read a
+  backend serves from colder storage. When it fails, the chart and totals
+  stay and the note says the change is missing, instead of the whole card
+  failing.
+
+### Added
+
+- `Panel::later()` and `Panel::settle()` for custom panels, with a typed
+  `Deferred` handle per read.
 
 ## [3.3.0] - 2026-10-17
 

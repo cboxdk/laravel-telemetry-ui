@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Support\Format;
 
@@ -28,25 +27,39 @@ final class ScheduleOverview extends Panel
         $series = [];
         $stats = [];
 
-        try {
-            foreach ([
-                'processed' => ['Processed', '#34d399', 'ok'],
-                'skipped' => ['Skipped', '#71717a', 'dim'],
-                'failed' => ['Failed', '#f87171', 'danger'],
-            ] as $outcome => [$label, $color, $tone]) {
-                $metric = $this->metric('schedule_tasks_'.$outcome.'_total');
+        $outcomes = [
+            'processed' => ['Processed', '#34d399', 'ok'],
+            'skipped' => ['Skipped', '#71717a', 'dim'],
+            'failed' => ['Failed', '#f87171', 'danger'],
+        ];
 
-                $total = $this->total($metric->increase($p)->sumBy());
-                $stats[] = $this->stat($label, Format::count($total), $total > 0 ? $tone : 'dim');
+        // A total and a chart per outcome, all sent together.
+        $failure = null;
+        $reads = [];
 
-                $range = $this->metrics()->queryRange($metric->rate($w)->sumBy()->times(60), $start, $end);
+        foreach (array_keys($outcomes) as $outcome) {
+            $metric = $this->metric('schedule_tasks_'.$outcome.'_total');
+            $reads[$outcome] = [
+                $this->later(fn (): float => $this->total($metric->increase($p)->sumBy())),
+                $this->later(fn (): array => $this->metrics()->queryRange($metric->rate($w)->sumBy()->times(60), $start, $end)),
+            ];
+        }
 
-                if (isset($range[0])) {
-                    $series[] = ['name' => $label, 'data' => $range[0]->toChartData(), 'color' => $color];
-                }
+        $this->settle($failure);
+
+        if ($failure !== null) {
+            return $this->chartCard('Scheduled tasks', error: $failure->getMessage());
+        }
+
+        foreach ($outcomes as $outcome => [$label, $color, $tone]) {
+            $total = $reads[$outcome][0]->value() ?? 0.0;
+            $range = $reads[$outcome][1]->value() ?? [];
+
+            $stats[] = $this->stat($label, Format::count($total), $total > 0 ? $tone : 'dim');
+
+            if (isset($range[0])) {
+                $series[] = ['name' => $label, 'data' => $range[0]->toChartData(), 'color' => $color];
             }
-        } catch (SourceException $exception) {
-            return $this->chartCard('Scheduled tasks', error: $exception->getMessage());
         }
 
         return $this->chartCard(

@@ -27,24 +27,30 @@ class RequestDuration extends Panel
         $bucket = $this->metric('http_server_request_duration_seconds_bucket');
 
         // The chart is the panel; the period stats and the p95 line are each
-        // read on their own, most-wanted first, so the one a busy backend
-        // cannot finish in time (a day-wide p95 over every request, last)
-        // leaves a dash, not an error.
+        // read on their own, so the one a busy backend cannot finish in time
+        // (a day-wide p95 over every request) leaves a dash, not an error.
+        // They go out together: the panel takes as long as its slowest read.
         $failure = null;
         // Sum and count as two queries, divided here: one binary PromQL
         // expression holds both sides at once, and a day of per-route
         // series is over what some backends (telemetryd) allow per query.
-        $sumRange = $this->attempt(fn (): array => $this->metrics()->queryRange($sum->rate($w)->sumBy(), $start, $end), $failure);
-        $countRange = $this->attempt(fn (): array => $this->metrics()->queryRange($count->rate($w)->sumBy(), $start, $end), $failure);
-        $avgData = self::ratioSeries($sumRange[0] ?? null, $countRange[0] ?? null, 1000.0);
-        $totalTime = $this->attempt(fn (): float => $this->total($sum->increase($p)->sumBy()), $failure);
-        $totalCount = $this->attempt(fn (): float => $this->total($count->increase($p)->sumBy()), $failure);
-        $p95Range = $this->attempt(fn (): array => $this->metrics()->queryRange(
+        $sumRange = $this->later(fn (): array => $this->metrics()->queryRange($sum->rate($w)->sumBy(), $start, $end));
+        $countRange = $this->later(fn (): array => $this->metrics()->queryRange($count->rate($w)->sumBy(), $start, $end));
+        $totalTime = $this->later(fn (): float => $this->total($sum->increase($p)->sumBy()));
+        $totalCount = $this->later(fn (): float => $this->total($count->increase($p)->sumBy()));
+        $p95Range = $this->later(fn (): array => $this->metrics()->queryRange(
             $bucket->quantile(0.95, $w)->times(1000),
             $start,
             $end,
-        ), $failure);
-        $p95Now = $this->attempt(fn (): float => $this->total($bucket->quantile(0.95, $p)), $failure);
+        ));
+        $p95Now = $this->later(fn (): float => $this->total($bucket->quantile(0.95, $p)));
+        $this->settle($failure);
+
+        $avgData = self::ratioSeries($sumRange->value()[0] ?? null, $countRange->value()[0] ?? null, 1000.0);
+        $totalTime = $totalTime->value();
+        $totalCount = $totalCount->value();
+        $p95Range = $p95Range->value();
+        $p95Now = $p95Now->value();
 
         if ($failure !== null && $avgData === [] && ($p95Range ?? []) === [] && $totalCount === null) {
             return $this->chartCard('Duration', error: $failure->getMessage());
