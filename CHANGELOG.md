@@ -71,6 +71,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and an embedded dashboard has no progress line either. After 3 s the
   panel now says *Waiting for the backend · 12s* above the skeleton, and
   counts. A fast panel shows nothing extra.
+- **Opening a trace no longer discovers the whole fleet.** The exporter
+  context beside a trace (the host's load, PHP-FPM, the database it called)
+  comes from the infrastructure map. On a cold cache, `map()` rebuilt it
+  inside the request that opened the trace: one query per signal per
+  exporter instance in the fleet, one after the other. On a 184-host fleet
+  that was 1,445 backend queries and 150 s for one trace, and with the map
+  cached for 15 minutes it happened again four times an hour, unless
+  `telemetry-ui:discover` ran on a schedule. A trace now asks
+  `Discoverer::targetsFor()` for its own host and dependencies only: a warm
+  map answers as before; a cold one matches and probes just those names,
+  all probes at once, and caches the answer per name for `discovery.ttl`.
+  It also lists each exporter's instances over the last hour instead of
+  the store's whole retention, which took 10.8 s against 0.09 s on a year
+  of Mimir and timed out three times per trace.
+- **A trace's context signals are read at the same time.** The context
+  tiles are some thirty small range queries; they now go out together
+  instead of one after the other. `telemetry-ui:discover` probes together
+  as well.
+
 ### Changed
 
 - **A panel's backend reads go out at the same time.** A panel that needs
