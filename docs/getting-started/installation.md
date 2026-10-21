@@ -86,6 +86,7 @@ Sensible defaults ship for all of these; override via env when needed:
 | `TELEMETRY_UI_THROTTLE` | `600,1` | Rate limit for the dashboard and API routes (`maxAttempts,decayMinutes`). The SPA sends one request per panel, so budget per request. Set empty to disable. |
 | `TELEMETRY_UI_DETECTION_TTL` | `300` | Seconds to cache schema autodetection probes. |
 | `TELEMETRY_UI_FLEET_TTL` | `60` | Seconds to cache the sidebar service/environment discovery. |
+| `TELEMETRY_UI_FLEET_SCOPES_LOGS` | `true` | With "All services" selected, read only the discovered services' logs, not every stream in the log store. |
 | `TELEMETRY_UI_ANNOTATIONS` | `true` | Draw deploy/annotation markers on charts. |
 | `TELEMETRY_UI_ANNOTATIONS_TTL` | `30` | Seconds to cache annotation lookups. |
 

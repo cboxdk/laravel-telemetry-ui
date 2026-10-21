@@ -469,10 +469,17 @@ return [
     | deployment environments discovered from the metrics backend. That
     | label-value lookup is cached for this many seconds.
     |
+    | With "All services" selected, log reads ask only for the logs of those
+    | services, not for every stream the log store holds: a shared Loki also
+    | keeps load balancer, host and container logs, often far more than the
+    | apps write. Set `scopes_logs` to false to read every stream instead.
+    | When discovery finds no services, log reads are not narrowed.
+    |
     */
 
     'fleet' => [
         'ttl' => (int) env('TELEMETRY_UI_FLEET_TTL', 60),
+        'scopes_logs' => (bool) env('TELEMETRY_UI_FLEET_SCOPES_LOGS', true),
     ],
 
     /*

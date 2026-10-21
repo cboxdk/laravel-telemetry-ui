@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
+use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\ScopeLabels;
 use Cbox\TelemetryUi\Support\ScopeLock;
 use Cbox\TelemetryUi\Support\StreamLabels;
@@ -174,16 +175,26 @@ trait ScopesQueries
      * or structured metadata — correct in both cases.
      *
      * Callers append further pipeline stages via the fluent {@see LogQuery}
-     * helpers, which chain onto the env filter. Loki requires at least one
-     * non-empty stream matcher, so an unscoped selector still matches any
-     * service (the compiler falls back to `{service_name=~".+"}`).
+     * helpers, which chain onto the env filter.
+     *
+     * With no service selected and no lock, the selector names the services
+     * the fleet discovered ({@see Fleet}), so the store reads their streams
+     * and not every stream it holds. When discovery finds none, or
+     * `telemetry-ui.fleet.scopes_logs` is off, it matches any service: Loki
+     * requires at least one non-empty stream matcher, so the compiler falls
+     * back to `{service_name=~".+"}`.
      */
     protected function logSelector(): LogQuery
     {
         $lock = app(ScopeLock::class);
+        $services = $this->scopedServices();
+
+        if ($services === [] && ! $lock->servicesLocked() && (bool) config('telemetry-ui.fleet.scopes_logs', true)) {
+            $services = app(Fleet::class)->services();
+        }
 
         $stream = array_values(array_filter([
-            $this->scopeLabelMatcher(ScopeLabels::logs('service'), $this->scopedServices(), $lock->servicesLocked()),
+            $this->scopeLabelMatcher(ScopeLabels::logs('service'), $services, $lock->servicesLocked()),
         ], static fn (?LabelMatcher $m): bool => $m !== null));
 
         $query = LogQuery::stream(...$stream);
