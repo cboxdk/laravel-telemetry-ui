@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -20,7 +21,7 @@ use Illuminate\Support\Carbon;
  * the backend span that produced it (traceparent), so a frontend symptom leads
  * straight to its server-side cause.
  */
-final class FrontendFetches extends Panel
+final class FrontendFetches extends Panel implements ListsRows
 {
     use CoercesAttributes;
 

@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Panels\Concerns\ReadsAiUsage;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
@@ -19,7 +20,7 @@ use DateTimeImmutable;
  * The tools agents call, from a sample of `execute_tool` spans: how often
  * each ran, how long it took, and the slowest run's trace.
  */
-class AiTools extends Panel
+class AiTools extends Panel implements ListsRows
 {
     use CoercesAttributes;
     use ReadsAiUsage;

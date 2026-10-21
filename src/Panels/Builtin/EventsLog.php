@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Annotation;
@@ -17,7 +18,7 @@ use DateTimeImmutable;
  * behind the dashed lines on every chart. Filterable by kind; each row
  * opens the errors around it, and its own trace when it has one.
  */
-final class EventsLog extends Panel
+final class EventsLog extends Panel implements ListsRows
 {
     #[Param('kind')]
     public string $kind = '';

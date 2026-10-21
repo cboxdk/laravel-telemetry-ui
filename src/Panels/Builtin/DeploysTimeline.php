@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Annotation;
@@ -14,7 +15,7 @@ use DateTimeImmutable;
  * Recent deploys within the active range — the list behind the deploy
  * annotation lines. Each links to the marker's own trace.
  */
-final class DeploysTimeline extends Panel
+final class DeploysTimeline extends Panel implements ListsRows
 {
     protected ?string $drillPage = 'events';
 

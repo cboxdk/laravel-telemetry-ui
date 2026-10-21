@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Panels\Concerns\ReadsAiUsage;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -19,7 +20,7 @@ use Cbox\TelemetryUi\Support\Format;
  * cost, outcome and the tools each run called. Metrics can say what a model
  * costs; only a trace says which run and why.
  */
-class AiAgentRuns extends Panel
+class AiAgentRuns extends Panel implements ListsRows
 {
     use CoercesAttributes;
     use ReadsAiUsage;

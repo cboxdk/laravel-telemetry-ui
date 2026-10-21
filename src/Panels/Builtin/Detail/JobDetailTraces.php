@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\DisplayTime;
@@ -13,7 +14,7 @@ use Cbox\TelemetryUi\Support\Format;
 /**
  * The recent runs of a single job — its traces, on the job detail page.
  */
-final class JobDetailTraces extends Panel
+final class JobDetailTraces extends Panel implements ListsRows
 {
     use ScopesToJob;
 

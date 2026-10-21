@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -17,7 +18,7 @@ use Cbox\TelemetryUi\Support\Format;
  * Slowest Livewire phases (render/update/call) as detail spans from Tempo,
  * with the component (and method/property) behind each.
  */
-final class LivewireSlow extends Panel
+final class LivewireSlow extends Panel implements ListsRows
 {
     #[Param('lw_min_ms')]
     public int $minMs = 50;

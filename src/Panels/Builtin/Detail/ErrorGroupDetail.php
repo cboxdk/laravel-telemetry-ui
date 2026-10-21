@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Analysis\ErrorGroupReport;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\CreatesIssues;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Illuminate\Support\Facades\Gate;
@@ -23,7 +24,7 @@ use Illuminate\Support\Str;
  *
  * @phpstan-type KvItem array{label: string, value: string|int|float|null, mono?: bool, link?: Link, tone?: string}
  */
-final class ErrorGroupDetail extends Panel
+final class ErrorGroupDetail extends Panel implements ListsRows
 {
     use ScopesToGroup;
 

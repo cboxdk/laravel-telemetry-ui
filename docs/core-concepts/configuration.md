@@ -77,7 +77,7 @@ env-var surface is:
 | Connection | URL env | Token env | Tenant env | Extras |
 | --- | --- | --- | --- | --- |
 | metrics | `TELEMETRY_UI_METRICS_URL` | `TELEMETRY_UI_METRICS_TOKEN` (falls back to `TELEMETRY_UI_TOKEN`) | `TELEMETRY_UI_METRICS_TENANT` | `TELEMETRY_UI_METRICS_DRIVER`, `TELEMETRY_UI_METRICS_PREFIX`, `TELEMETRY_UI_METRICS_BASIC_AUTH`, `TELEMETRY_UI_METRICS_TIMEOUT` |
-| traces | `TELEMETRY_UI_TEMPO_URL` | `TELEMETRY_UI_TEMPO_TOKEN` (→ `TELEMETRY_UI_TOKEN`) | `TELEMETRY_UI_TEMPO_TENANT` | `TELEMETRY_UI_TEMPO_BASIC_AUTH`, `TELEMETRY_UI_TEMPO_TIMEOUT` |
+| traces | `TELEMETRY_UI_TEMPO_URL` | `TELEMETRY_UI_TEMPO_TOKEN` (→ `TELEMETRY_UI_TOKEN`) | `TELEMETRY_UI_TEMPO_TENANT` | `TELEMETRY_UI_TEMPO_BASIC_AUTH`, `TELEMETRY_UI_TEMPO_TIMEOUT`, `TELEMETRY_UI_TEMPO_MAX_SEARCH`, `TELEMETRY_UI_TEMPO_SPANS_PER_TRACE` |
 | logs | `TELEMETRY_UI_LOKI_URL` | `TELEMETRY_UI_LOKI_TOKEN` (→ `TELEMETRY_UI_TOKEN`) | `TELEMETRY_UI_LOKI_TENANT` | `TELEMETRY_UI_LOKI_BASIC_AUTH`, `TELEMETRY_UI_LOKI_TIMEOUT` |
 
 - **`tenant`** sets the `X-Scope-OrgID` header (multi-tenant Mimir/Tempo/Loki).
@@ -85,6 +85,10 @@ env-var surface is:
   becomes a Basic one. Add arbitrary headers under a connection's `headers`.
 - **`prefix`** (metrics) is the API path prefix — `mimir` is just `prometheus`
   under a prefix (default `/prometheus`).
+- **`spans_per_trace`** (traces, default 100) is how many matching spans a
+  search returns per trace when a panel reads the spans themselves, one row
+  each. Tempo's own default is 3, which cut a request that sent ten mails to
+  three rows.
 - **`verify`** (`TELEMETRY_UI_METRICS_CA_BUNDLE`, `_TEMPO_`, `_LOKI_`) points at
   a CA bundle for a backend behind a private certificate authority. It takes a
   path; leave it unset to use the system trust store.

@@ -6,10 +6,12 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\LabelFilter;
 use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
+use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Results\LogEntry;
 use Cbox\TelemetryUi\Support\DisplayTime;
@@ -20,8 +22,25 @@ use Cbox\TelemetryUi\Support\ScopeLabels;
  * OTLP log bridge stamps trace_id/span_id into the stream metadata, so a
  * line can link straight to its request waterfall.
  */
-final class LogViewer extends Panel
+class LogViewer extends Panel implements ListsRows
 {
+    /** Narrows the lines further (the host page: one machine). */
+    protected function narrow(LogQuery $query): LogQuery
+    {
+        return $query;
+    }
+
+    protected function title(): string
+    {
+        return 'Logs';
+    }
+
+    /** Whether the live tail can follow these lines (it knows only the shared filters). */
+    protected function tails(): bool
+    {
+        return true;
+    }
+
     public static function span(): int
     {
         return 2;
@@ -44,7 +63,7 @@ final class LogViewer extends Panel
         $error = null;
 
         try {
-            $query = $this->logSelector();
+            $query = $this->narrow($this->logSelector());
 
             if ($this->level !== '') {
                 // Loki keeps the severity as either `level` or `detected_level`.
@@ -68,15 +87,15 @@ final class LogViewer extends Panel
 
         return [
             'kind' => 'logs',
-            'title' => 'Logs',
+            'title' => $this->title(),
             'subtitle' => 'Trace-correlated log lines from Loki — click a line for metadata, jump to its trace',
             'span' => 2,
             'entries' => $rows,
             // Live tail: the SPA opens /api/v2/stream/logs with the same filters.
-            'stream' => ['signal' => 'logs', 'params' => array_filter([
+            'stream' => $this->tails() ? ['signal' => 'logs', 'params' => array_filter([
                 'log_search' => $this->search,
                 'log_level' => $this->level,
-            ], static fn (string $v): bool => $v !== '')],
+            ], static fn (string $v): bool => $v !== '')] : null,
             'error' => $error,
             'empty' => 'No log lines in this period. Route the "telemetry" log channel to OTLP to see logs here.',
             'note' => $rows !== [] ? 'Most recent 200 lines, oldest first.' : null,

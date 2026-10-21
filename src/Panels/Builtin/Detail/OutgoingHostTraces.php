@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
@@ -15,7 +16,7 @@ use Cbox\TelemetryUi\Support\Format;
  * Recent outgoing calls to a single upstream host — the client spans, on the
  * host detail page.
  */
-final class OutgoingHostTraces extends Panel
+final class OutgoingHostTraces extends Panel implements ListsRows
 {
     use ScopesToHost;
 

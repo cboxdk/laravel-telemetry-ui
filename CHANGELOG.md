@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   everyone. The SPA sends the zone as an `X-Timezone` header and the API
   formats its own times in it, so a table row and the chart above it always
   agree. The embeddable `TelemetryUiProvider` takes a `timezone` too.
+- **Rows on every page, not only aggregates.** Each page now lists the
+  individual things behind its charts, newest first, each row opening its
+  trace: mail sent and notification deliveries (per channel, failures
+  marked), job runs (on Jobs, Queues, a queue's page and Horizon), command
+  runs with their exit code, scheduled task runs, storage operations, cache
+  misses and writes, broadcasts, exceptions as they happened, page views,
+  Statamic form submissions, image requests and cache purges, autoscaler
+  decisions and Horizon incidents, and a host's own log lines. Span rows
+  filter to failures only or sort by the slowest. Build your own with
+  `SpanLog` (one row per span) or `TelemetryEventLog` (one per telemetry
+  event); a test holds every page to having one (`ListsRows`). Feature flags
+  and the Statamic Stache emit counters only, so they get rows once their
+  emitters record events.
 - **A refresh button in the header**, beside the auto-refresh interval. It
   refetches everything on screen, as `r` does, and turns while the reads are
   in flight.
@@ -132,6 +145,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failing.
 
 ### Fixed
+
+- **Row panels showed at most three matches per trace.** Tempo returns 3
+  matching spans per trace unless asked for more, so a request that ran ten
+  slow queries or sent ten mails showed three rows, in AI calls, slow
+  queries and every other span list. A search that reads the spans now asks
+  for `spans_per_trace` (`TELEMETRY_UI_TEMPO_SPANS_PER_TRACE`, default 100).
 
 - **Service graph says when its span fallback failed.** Without Tempo's
   metrics-generator the graph is derived from two Tempo searches. A

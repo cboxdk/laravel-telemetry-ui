@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Concerns\ReadsQueryRepeats;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
@@ -22,7 +23,7 @@ use Cbox\TelemetryUi\Support\Format;
  * versions still land here, grouped by their statement text. N+1s from newer
  * versions are on {@see NPlusOneQueries}.
  */
-final class DuplicateQueries extends Panel
+final class DuplicateQueries extends Panel implements ListsRows
 {
     use ReadsQueryRepeats;
 

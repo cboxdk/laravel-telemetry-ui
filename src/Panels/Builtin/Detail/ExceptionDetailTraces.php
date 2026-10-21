@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -17,7 +18,7 @@ use Cbox\TelemetryUi\Support\Format;
  * Error traces in scope for an exception detail page — the requests that blew
  * up, drilling from the class down to individual failures.
  */
-final class ExceptionDetailTraces extends Panel
+final class ExceptionDetailTraces extends Panel implements ListsRows
 {
     use ScopesToException;
 

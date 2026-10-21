@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
@@ -25,7 +26,7 @@ use Cbox\TelemetryUi\Support\Format;
  *
  * @phpstan-import-type Control from Ui
  */
-final class TraceSearch extends Panel
+final class TraceSearch extends Panel implements ListsRows
 {
     use CoercesAttributes;
 

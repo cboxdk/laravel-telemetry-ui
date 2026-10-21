@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Builtin\QueryPerformance;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -19,7 +20,7 @@ use Cbox\TelemetryUi\Support\Format;
  * routes/jobs run it. Sampled from the traces carrying this exact (parameterised)
  * `db.query.text`.
  */
-final class QueryDetail extends Panel
+final class QueryDetail extends Panel implements ListsRows
 {
     private const SEARCH_LIMIT = 100;
 

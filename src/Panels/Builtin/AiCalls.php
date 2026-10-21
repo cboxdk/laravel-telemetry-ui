@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Panels\Concerns\ReadsAiUsage;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
@@ -21,7 +22,7 @@ use Cbox\TelemetryUi\Support\Format;
  * one used and cost, and how it ended. The row-level view behind the
  * aggregates: one row is one request to a provider, and opens its trace.
  */
-class AiCalls extends Panel
+class AiCalls extends Panel implements ListsRows
 {
     use CoercesAttributes;
     use ReadsAiUsage;

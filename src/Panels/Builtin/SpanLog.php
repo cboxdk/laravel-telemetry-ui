@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -27,7 +28,7 @@ use Cbox\TelemetryUi\Support\Format;
  * trace's root: the request, job or command), how it ended and how long it
  * took, plus "failed only" and "slowest first" filters.
  */
-abstract class SpanLog extends Panel
+abstract class SpanLog extends Panel implements ListsRows
 {
     use CoercesAttributes;
 

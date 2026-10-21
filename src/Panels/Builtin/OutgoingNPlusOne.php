@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Concerns\ReadsRepeatRecords;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
@@ -18,7 +19,7 @@ use Cbox\TelemetryUi\Support\Format;
  * trace at the repeat threshold, with the app-code line that made the call;
  * this groups those records by shape, the HTTP twin of {@see NPlusOneQueries}.
  */
-final class OutgoingNPlusOne extends Panel
+final class OutgoingNPlusOne extends Panel implements ListsRows
 {
     use ReadsRepeatRecords;
 

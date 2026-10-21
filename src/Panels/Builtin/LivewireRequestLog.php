@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 
 /**
@@ -11,7 +12,7 @@ use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
  * component(s) behind each update; the Components panel is the grouped
  * sibling, shown alongside.
  */
-final class LivewireRequestLog extends RequestLog
+final class LivewireRequestLog extends RequestLog implements ListsRows
 {
     protected function extraTraceConditions(): array
     {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
@@ -17,7 +18,7 @@ use Cbox\TelemetryUi\Support\Format;
  * frontend → backend waterfall. The drill-down that replaces a pre-filtered
  * trace search, embedded on the page's detail page.
  */
-final class PageDetailTraces extends Panel
+final class PageDetailTraces extends Panel implements ListsRows
 {
     use ScopesToPage;
 

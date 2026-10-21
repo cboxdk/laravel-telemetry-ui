@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin\Statamic;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\LineFilter;
@@ -25,7 +26,7 @@ use DateTimeImmutable;
  * (3.1+) writes to the logs backend. The counter panels beside it say how
  * much; this says what.
  */
-final class ContentAuditLog extends Panel
+final class ContentAuditLog extends Panel implements ListsRows
 {
     public const EVENT = 'statamic.content.change';
 

@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -17,7 +18,7 @@ use Cbox\TelemetryUi\Support\Format;
  * Slowest database query spans, straight from Tempo via TraceQL — metrics
  * can't carry unbounded query text, traces can.
  */
-final class SlowQueries extends Panel
+final class SlowQueries extends Panel implements ListsRows
 {
     #[Param('min_ms')]
     public int $minMs = 50;

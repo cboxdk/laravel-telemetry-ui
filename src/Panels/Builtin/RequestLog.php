@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -20,7 +21,7 @@ use Cbox\TelemetryUi\Support\Format;
  * Live, and watch their requests arrive; every row opens the readable
  * request story. The Routes panel is the grouped sibling, shown alongside.
  */
-class RequestLog extends Panel
+class RequestLog extends Panel implements ListsRows
 {
     use CoercesAttributes;
 

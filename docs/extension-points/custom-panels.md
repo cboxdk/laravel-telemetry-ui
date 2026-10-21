@@ -222,6 +222,57 @@ replacing it, subclass it (the overview panels that detail pages reuse are not
 - Boot stays cheap: register class-strings, never instantiate connectors in a
   service provider.
 
+## A row per event
+
+Every built-in page carries at least one panel whose rows are individual
+things that happened, each opening its trace or its log line, beside the
+aggregates. Counts tell you something is wrong; only a row tells you which
+one, when and for whom. Those panels implement the `ListsRows` marker, and a
+test holds every page to it.
+
+For a page of your own, extend `SpanLog` for one row per span of a kind:
+
+```php
+use Cbox\TelemetryUi\Panels\Builtin\SpanLog;
+use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Queries\Results\MatchedSpan;
+use Cbox\TelemetryUi\Queries\Results\TraceSummary;
+
+final class InvoiceLog extends SpanLog
+{
+    protected function prefix(): string { return 'invoices'; }  // its query params
+    protected function title(): string { return 'Invoices sent'; }
+    protected function subtitle(): string { return 'Each invoice, newest first'; }
+    protected function empty(): string { return 'No invoices sent in this period.'; }
+
+    protected function conditions(): array
+    {
+        return [TraceCondition::eq('name', 'invoice.send')];
+    }
+
+    protected function attributes(): array
+    {
+        return ['span.invoice.number'];
+    }
+
+    protected function columns(): array
+    {
+        return [Ui::col('invoice', 'Invoice')];
+    }
+
+    protected function cells(array $attributes, MatchedSpan $span, TraceSummary $trace): array
+    {
+        return ['invoice' => Ui::cell($this->str($attributes['invoice.number'] ?? null) ?? '—', ['mono' => true])];
+    }
+}
+```
+
+The base adds when, what it ran inside (the request, job or command), how it
+ended, how long it took, and "failed only" / "slowest first" controls. For
+telemetry events (`Telemetry::event()`), extend `TelemetryEventLog` and name
+the family with `pattern()`.
+
 ## Offering an action on a row
 
 A panel can put buttons on a row: `Ui::action()` inside a cell's `actions`.

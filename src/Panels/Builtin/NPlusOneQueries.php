@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Concerns\ReadsQueryRepeats;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Format;
@@ -17,7 +18,7 @@ use Cbox\TelemetryUi\Support\Format;
  * threshold, with the app-code line that ran it; this groups those records by
  * shape so the fix (eager loading at that line) is one click from the row.
  */
-final class NPlusOneQueries extends Panel
+final class NPlusOneQueries extends Panel implements ListsRows
 {
     use ReadsQueryRepeats;
 

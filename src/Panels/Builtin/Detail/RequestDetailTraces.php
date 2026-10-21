@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
@@ -15,7 +16,7 @@ use Cbox\TelemetryUi\Support\Format;
  * The recent traces for a single route — the drill-down that replaces a
  * pre-filtered trace search, embedded on the route's detail page.
  */
-final class RequestDetailTraces extends Panel
+final class RequestDetailTraces extends Panel implements ListsRows
 {
     use ScopesToRoute;
 

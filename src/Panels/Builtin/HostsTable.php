@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Connectors\SourceException;
+use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
@@ -16,7 +17,7 @@ use Cbox\TelemetryUi\Support\ScopeLabels;
  * and current CPU/memory — the "which boxes am I running on" view. Each row
  * drills into that host's requests.
  */
-final class HostsTable extends Panel
+final class HostsTable extends Panel implements ListsRows
 {
     public static function span(): int
     {
