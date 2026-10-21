@@ -27,7 +27,7 @@ Every read endpoint accepts:
 | --- | --- | --- |
 | `period` | `1h`, `24h`, `7d` | Preset window. |
 | `from`, `to` | `1735686000`, `now-2h` | Absolute or relative range; wins over `period` when both are valid and `from < to`. |
-| `service` | `checkout` | Service scope. `service=` (empty) means all services. |
+| `service` | `checkout` | Service scope. `service=` (empty) means all services: every service for metrics and traces, and the services in the scope switcher for logs (see `fleet.scopes_logs`). |
 | `env` | `production` | Environment scope. `env=` means all. |
 | `where[]` | `http.route=/checkout` | A filter, `key<op>value`, op one of `= != =~ !~ > >= < <=`. Repeatable, ANDed. |
 | `q` | `timeout` | Free text (Explore). |

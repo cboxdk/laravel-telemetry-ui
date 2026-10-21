@@ -14,13 +14,18 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * Loki whose label names API answers $labels (null: a 500), and an empty
- * stream result for every query.
+ * stream result for every query. The metrics store discovers no services, so
+ * "All services" reads any stream (FleetLogScopeTest covers a discovered fleet).
  *
  * @param  list<string>|null  $labels
  */
 function lokiIndexing(?array $labels): void
 {
     Http::fake(function (Request $request) use ($labels) {
+        if (str_contains($request->url(), 'prometheus.test')) {
+            return Http::response(['status' => 'success', 'data' => []]);
+        }
+
         if (str_contains($request->url(), '/loki/api/v1/labels')) {
             return $labels === null
                 ? Http::response('labels unavailable', 500)

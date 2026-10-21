@@ -12,6 +12,7 @@ use Cbox\TelemetryUi\Http\Api\Filter;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Cbox\TelemetryUi\Http\Api\Serializer;
 use Cbox\TelemetryUi\Panels\Panel;
+use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
@@ -20,6 +21,7 @@ use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Format;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLabels;
+use Cbox\TelemetryUi\Support\ScopeLock;
 use Cbox\TelemetryUi\TelemetryUiManager;
 
 /**
@@ -317,14 +319,16 @@ final class EntityStory
         [$start, $end] = $scope->range();
 
         // Read only the streams of the services these traces ran in. With no
-        // service selected the scope's selector is "any service", which makes
-        // the store scan every stream it has — seconds on a busy one, for
-        // records that can only belong to these services anyway.
+        // service selected the scope's selector is every service the fleet
+        // lists (or any service), which makes the store read streams whose
+        // records cannot belong to these traces.
         $query = $scope->logQuery();
 
-        if ($query->stream === []) {
+        if ($scope->service === '' && ! app(ScopeLock::class)->servicesLocked()) {
+            $label = ScopeLabels::logs('service');
             $services = array_values(array_unique(array_filter(array_map(static fn (array $r): string => (string) $r['service'], $rows))));
-            $query = new LogQuery([ScopeLabels::logServiceMatcher($services)], $query->pipeline, $query->raw);
+            $others = array_values(array_filter($query->stream, static fn (LabelMatcher $m): bool => $m->label !== $label));
+            $query = new LogQuery([ScopeLabels::logServiceMatcher($services), ...$others], $query->pipeline, $query->raw);
         }
 
         try {

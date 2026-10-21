@@ -16,6 +16,12 @@ final class HostLogs extends LogViewer
 {
     use ScopesToMachine;
 
+    /** A machine's logs are mostly not the apps': the journal, the proxy, the containers. */
+    protected function logsFollowFleet(): bool
+    {
+        return false;
+    }
+
     protected function narrow(LogQuery $query): LogQuery
     {
         return $this->host === '' ? $query : $query->whereLabel('host_name', MatchOp::Eq, $this->host);

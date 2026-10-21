@@ -122,6 +122,7 @@ the host API.
 | --- | --- | --- | --- |
 | `detection.ttl` | `TELEMETRY_UI_DETECTION_TTL` | `300` | Seconds to cache the one probe query that decides whether a metric-detected page (e.g. the Statamic page) is visible. |
 | `fleet.ttl` | `TELEMETRY_UI_FLEET_TTL` | `60` | Seconds to cache the service/environment list behind the sidebar scope switcher. |
+| `fleet.scopes_logs` | `TELEMETRY_UI_FLEET_SCOPES_LOGS` | `true` | With "All services" selected, log reads name the services in that list instead of matching any stream. A Loki shared with load balancers, hosts and containers can hold far more than the apps write, and reading all of it for records only the apps emit makes 24-hour log panels time out. When discovery finds no services, logs are read from any stream. The machine logs panel always reads every stream. Set to `false` to always read every stream. |
 
 ## Signal context (correlation)
 

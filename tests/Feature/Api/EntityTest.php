@@ -222,6 +222,21 @@ it('reads the exception records of only the services an entity\'s traces ran in'
         ->each->toContain('{service_name="shop"}');
 });
 
+it('reads the exception records of only the traces\' services when the fleet lists more', function (): void {
+    // Registered first, so it answers the fleet lookup ahead of fakeEntityBackends().
+    Http::fake(['prometheus.test:9090/api/v1/label/service_name/values*' => Http::response(['status' => 'success', 'data' => ['billing', 'shop']])]);
+    fakeEntityBackends();
+
+    $this->getJson(apiUrl('entities/route/story', ['value' => '/orders']))->assertOk();
+
+    $exceptionQueries = collect(Http::recorded())
+        ->map(fn (array $pair): string => rawurldecode((string) $pair[0]->url()))
+        ->filter(fn (string $url): bool => str_contains($url, 'loki.test') && str_contains($url, 'exception_group'));
+
+    expect($exceptionQueries)->not->toBeEmpty()
+        ->each->toContain('{service_name="shop"}');
+});
+
 it('lists only client spans as outgoing hosts', function (): void {
     // `server.address` means two different things by span kind: the remote
     // peer on a CLIENT span, the local host that received the request on a
