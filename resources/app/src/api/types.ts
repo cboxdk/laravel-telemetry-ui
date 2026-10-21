@@ -387,6 +387,8 @@ export interface Sample {
     groupsExact?: boolean;
     /** A filter the backend can't evaluate (e.g. `!~` on telemetryd) was applied after sampling. */
     readSideFiltered?: boolean;
+    /** Where the search really started (ms) when the store cut a long window (Tempo: 168h at once); null otherwise. */
+    searchedFrom?: number | null;
 }
 
 export interface ExploreResult<R = SpanRow | LogEntryRow | ErrorRow> {

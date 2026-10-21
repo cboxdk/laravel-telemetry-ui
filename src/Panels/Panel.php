@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\BackendStatus;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\IssuesSource;
+use Cbox\TelemetryUi\Contracts\LimitsSearchWindow;
 use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
 use Cbox\TelemetryUi\Contracts\TracesSource;
@@ -19,6 +20,7 @@ use Cbox\TelemetryUi\Queries\Results\Sample;
 use Cbox\TelemetryUi\Support\Annotation;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\Concerns\ScopesQueries;
+use Cbox\TelemetryUi\Support\Format;
 use Cbox\TelemetryUi\Support\Period;
 use Cbox\TelemetryUi\Support\TimeExpression;
 use DateTimeImmutable;
@@ -72,6 +74,9 @@ abstract class Panel
      */
     protected ?string $drillPage = null;
 
+    /** Whether data() reached the traces store, for the search-window note. */
+    private bool $searchedTraces = false;
+
     final public function __construct(protected readonly RequestScope $scope)
     {
         $this->period = $scope->period;
@@ -118,8 +123,35 @@ abstract class Panel
     final public function serve(): array
     {
         $links = $this->statLinks();
+        $payload = $links === [] ? $this->data() : self::linkStats($this->data(), $links);
 
-        return $links === [] ? $this->data() : self::linkStats($this->data(), $links);
+        return $this->noteSearchWindow($payload);
+    }
+
+    /**
+     * A panel that searched traces over a window longer than the store
+     * searches at once (Tempo: 168h) saw only its newest part, and says so.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function noteSearchWindow(array $payload): array
+    {
+        if (! $this->searchedTraces) {
+            return $payload;
+        }
+
+        $source = app(ConnectionManager::class)->traces();
+        $max = $source instanceof LimitsSearchWindow ? $source->maxSearchSeconds() : null;
+
+        if ($max === null || $this->rangeSeconds() <= $max) {
+            return $payload;
+        }
+
+        $cut = 'Traces are from the newest '.Format::ms($max * 1000.0).' of this window only: the trace store searches at most that much at once.';
+        $note = is_string($payload['note'] ?? null) && $payload['note'] !== '' ? $payload['note'].' '.$cut : $cut;
+
+        return [...$payload, 'note' => $note];
     }
 
     /**
@@ -240,6 +272,8 @@ abstract class Panel
 
     protected function traces(?string $connection = null): TracesSource
     {
+        $this->searchedTraces = true;
+
         return app(ConnectionManager::class)->traces($connection);
     }
 

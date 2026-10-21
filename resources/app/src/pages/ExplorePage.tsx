@@ -135,7 +135,7 @@ export function ExploreView({ signal }: { signal: Signal }) {
                     {explore.error && !data ? <div className="t-pad"><ErrorState error={explore.error} /></div> : !data ? <div className="t-pad"><Loading label={`Searching ${signal}…`} height={380} /></div> : (
                         <>
                             <div className="t-rtop">
-                                <StatsLine signal={signal} stats={data.stats} sample={data.sample} where={where} onWhere={(w) => set({ where: w })} />
+                                <StatsLine signal={signal} stats={data.stats} sample={data.sample} range={data.range} where={where} onWhere={(w) => set({ where: w })} />
                                 {data.query && <QueryPeek query={data.query} url={apiUrl(`explore/${signal}`, { ...scope, ...params })} />}
                                 {signal !== 'errors' && (
                                     <div className="t-groupby">
@@ -334,10 +334,17 @@ function defaultKeys(boot: ReturnType<typeof useBoot>, signal: Signal): string[]
     return boot.dimensions.filter((d) => !d.builtin || d.signals.includes(signal)).map((d) => d.key);
 }
 
-function StatsLine({ signal, stats, sample, where, onWhere }: {
+/** 604800000 → "7d", 36 h → "36h": how much of a cut window was searched. */
+function searchedSpan(ms: number): string {
+    const hours = Math.round(ms / 3_600_000);
+    return hours % 24 === 0 ? `${hours / 24}d` : `${hours}h`;
+}
+
+export function StatsLine({ signal, stats, sample, range, where, onWhere }: {
     signal: Signal;
     stats: Record<string, unknown>;
-    sample: { size: number; truncated: boolean; exact: boolean; readSideFiltered?: boolean };
+    sample: { size: number; truncated: boolean; exact: boolean; readSideFiltered?: boolean; searchedFrom?: number | null };
+    range?: { start: number; end: number };
     where: string[];
     onWhere: (where: string[]) => void;
 }) {
@@ -394,6 +401,11 @@ function StatsLine({ signal, stats, sample, where, onWhere }: {
             <span className="t-pill" title={sample.exact ? 'Exact' : 'Computed over the newest matching results'}>
                 {sample.exact ? 'exact' : `${sample.truncated ? 'newest ' : ''}${count(sample.size)} ${sample.truncated ? 'sampled' : 'results'}`}
             </span>
+            {sample.searchedFrom != null && range && (
+                <span className="t-pill t-pill-warn" title="The trace store searches at most this much at once, so only the newest part of the window was searched, and rates are over that part.">
+                    newest {searchedSpan(range.end - sample.searchedFrom)} only
+                </span>
+            )}
             {sample.readSideFiltered && (
                 <span className="t-pill t-pill-warn" title="The backend can't evaluate one of the filters (e.g. !~), so it was applied to a wider sample after fetching — counts may be low.">
                     filtered after sampling
