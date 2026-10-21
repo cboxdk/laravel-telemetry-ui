@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 
 use Cbox\TelemetryUi\Panels\Attributes\Param;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 
 /**
  * Scopes a card to a single reporting machine (the `?host=` on the
- * host-detail page) via the `host_name` resource label — the "this box"
+ * host-detail page) via the configured host label
+ * (`telemetry-ui.scope.labels.metrics.host`, `host_name` by default) — the "this box"
  * drill-down. Distinct from {@see ScopesToHost}, which scopes to an
  * *upstream* host (`server_address`) on the outgoing page.
  */
@@ -31,6 +33,6 @@ trait ScopesToMachine
 
         $escaped = strtr($this->host, ['\\' => '\\\\', '.' => '\\.', '+' => '\\+', '*' => '\\*', '?' => '\\?', '(' => '\\(', ')' => '\\)', '[' => '\\[', ']' => '\\]', '{' => '\\{', '}' => '\\}', '^' => '\\^', '$' => '\\$', '|' => '\\|']);
 
-        return 'host_name=~"'.addcslashes($escaped, '"\\').'|"';
+        return ScopeLabels::metrics('host').'=~"'.addcslashes($escaped, '"\\').'|"';
     }
 }

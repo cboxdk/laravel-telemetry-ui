@@ -9,6 +9,7 @@ use Cbox\TelemetryUi\Panels\ListsRows;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\DisplayTime;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 
 /**
  * A row per telemetry event of a family — an autoscaler decision, a Horizon
@@ -85,7 +86,7 @@ abstract class TelemetryEventLog extends Panel implements ListsRows
 
             return [
                 'when' => Ui::cell(DisplayTime::at($at, 'd/m H:i:s'), ['raw' => $at, 'mono' => true]),
-                'event' => Ui::cell($name, array_filter(['mono' => true, 'tone' => $this->tone($name), 'title' => $labels['host_name'] ?? null])),
+                'event' => Ui::cell($name, array_filter(['mono' => true, 'tone' => $this->tone($name), 'title' => $labels[ScopeLabels::logs('host')] ?? null])),
                 'details' => Ui::cell($said !== '' ? $said : '—', $said === '' ? ['tone' => 'dim'] : []),
                 '_link' => $link,
             ];

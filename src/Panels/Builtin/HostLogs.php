@@ -7,9 +7,11 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 use Cbox\TelemetryUi\Panels\Builtin\Detail\ScopesToMachine;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 
 /**
- * The log lines one machine wrote (the `host_name` every record carries),
+ * The log lines one machine wrote (the host label every record carries,
+ * `telemetry-ui.scope.labels.logs.host`),
  * on the host page; every machine's on the System page.
  */
 final class HostLogs extends LogViewer
@@ -24,7 +26,7 @@ final class HostLogs extends LogViewer
 
     protected function narrow(LogQuery $query): LogQuery
     {
-        return $this->host === '' ? $query : $query->whereLabel('host_name', MatchOp::Eq, $this->host);
+        return $this->host === '' ? $query : $query->whereLabel(ScopeLabels::logs('host'), MatchOp::Eq, $this->host);
     }
 
     protected function title(): string
