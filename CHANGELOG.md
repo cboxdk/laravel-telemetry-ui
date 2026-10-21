@@ -89,6 +89,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tiles are some thirty small range queries; they now go out together
   instead of one after the other. `telemetry-ui:discover` probes together
   as well.
+- **Exceptions lists the window's errors even when the week before it is
+  too much to read.** The list read seven days of exception records (and
+  browser exception spans) for every window, 15 minutes included, so that
+  "first seen" reaches back far enough. On a production Loki that is the
+  read that never finishes, and the whole panel failed with the timeout.
+  The window and the days before it are now two reads: the window first,
+  which makes the list, then the days before it, which only move "first
+  seen" back. (Sent side by side, the week's read held the window's up in
+  Loki's queue until both timed out.)
+  When it fails, the list still shows, NEW badges are left off, and the
+  note says first seen covers this window only.
 
 ### Changed
 

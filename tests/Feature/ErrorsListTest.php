@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Events\ResponseReceived;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
@@ -235,4 +239,67 @@ it('renders the full issue page: header, trend, tags and deep-dive', function ()
     $panel('error-group-detail')
         ->assertJsonPath('title', 'Latest occurrence')        // deep-dive card
         ->assertSee('#0 app/Checkout.php(42): charge()');     // stacktrace
+});
+
+it('lists the window\'s errors when the days before it cannot be read in time', function (): void {
+    $now = time();
+    $windowStart = $now - 3600;
+
+    Http::fake(function (Request $request) use ($now, $windowStart) {
+        $query = requestQuery($request);
+
+        if (str_contains($request->url(), 'tempo.test')) {
+            return Http::response(['traces' => []]);
+        }
+
+        // A week of logs is what the store cannot read in time.
+        if ((int) substr((string) ($query['start'] ?? '0'), 0, 10) < $windowStart - 60) {
+            throw new ConnectionException('cURL error 28: Operation timed out after 25001 milliseconds with 0 bytes received');
+        }
+
+        return Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => [[
+            'stream' => ['service_name' => 'demo', 'exception_group' => 'cccc55556666', 'exception_type' => 'QueryException', 'exception_message' => 'deadlock'],
+            'values' => [[(string) (($now - 600) * 1_000_000_000), 'exception']],
+        ]]]]);
+    });
+
+    $response = errorsPanel();
+
+    expect($response->json('error'))->toBeNull()
+        ->and(errorRow($response, 'QueryException'))->not->toBeNull()
+        ->and(errorRow($response, 'QueryException')['error']['badge'] ?? null)->toBeNull()
+        ->and($response->json('note'))->toContain('First seen covers this window only');
+});
+
+it('reads the window before the days before it, so the lookback cannot hold the list up', function (): void {
+    $events = [];
+    $windowStart = time() - 3600;
+    $part = static function (Request $request) use ($windowStart): ?string {
+        if (! str_contains($request->url(), 'query_range') && ! str_contains($request->url(), '/api/search')) {
+            return null;
+        }
+
+        return (int) substr((string) (requestQuery($request)['start'] ?? '0'), 0, 10) < $windowStart - 60 ? 'earlier' : 'window';
+    };
+
+    Http::fake(function (Request $request) use (&$events, $part) {
+        if (($p = $part($request)) !== null) {
+            $events[] = "sent {$p}";
+        }
+
+        return str_contains($request->url(), 'tempo.test')
+            ? Http::response(['traces' => []])
+            : Http::response(['status' => 'success', 'data' => ['resultType' => 'streams', 'result' => []]]);
+    });
+    Event::listen(ResponseReceived::class, function ($event) use (&$events, $part): void {
+        if (($p = $part($event->request)) !== null) {
+            $events[] = "got {$p}";
+        }
+    });
+
+    errorsPanel();
+
+    // Both of the window's answers are in before the lookback is asked.
+    expect(array_slice($events, 0, 4))->toBe(['sent window', 'sent window', 'got window', 'got window'])
+        ->and(array_slice($events, 4, 2))->toBe(['sent earlier', 'sent earlier']);
 });

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Panels\Builtin;
 
-use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Concerns\CoercesAttributes;
 use Cbox\TelemetryUi\Panels\Panel;
@@ -79,119 +78,143 @@ final class UnifiedErrors extends Panel
         $toNano = $end->getTimestamp() * 1_000_000_000;
 
         $rows = [];
-        $error = null;
-        $truncated = false;
 
-        try {
-            /** @var array<string, array{group: string, type: string, message: string, count: int, frontend: bool, backend: bool, firstNano: int, lastNano: int, buckets: array<int, int>, users: array<string, true>}> $groups */
-            $groups = [];
+        /** @var array<string, array{group: string, type: string, message: string, count: int, frontend: bool, backend: bool, firstNano: int, lastNano: int, buckets: array<int, int>, users: array<string, true>}> $groups */
+        $groups = [];
 
-            // Backend: structured exception records in Loki. The fingerprint
-            // lives in structured metadata, so filter on the label — a
-            // missing label reads as "", which also skips ordinary log lines.
-            $entries = $this->logs()->query(
-                $this->logSelector()->whereLabel('exception_group', MatchOp::Neq, ''),
-                $searchStart,
-                $end,
-                limit: self::SEARCH_LIMIT,
-            );
+        // Backend: structured exception records in Loki. The fingerprint
+        // lives in structured metadata, so filter on the label — a
+        // missing label reads as "", which also skips ordinary log lines.
+        $records = $this->logSelector()->whereLabel('exception_group', MatchOp::Neq, '');
+        // Frontend: browser exception spans, grouped by the computed
+        // fingerprint (the ingest doesn't stamp one).
+        $browser = $this->traceQuery(
+            TraceCondition::token('span.browser', TraceOp::Eq, 'true'),
+            TraceCondition::nil('span.exception.type'),
+        )->select('span.exception.type', 'span.exception.message', 'span.exception.file', 'span.exception.line');
 
-            $truncated = count($entries) >= self::SEARCH_LIMIT;
+        // The window is the list. The days before it are read on their own,
+        // after it, and only for "first seen": a week of logs is what a busy
+        // store cannot read in time, and sent beside the window's own reads
+        // it held those up in the store's queue until they timed out too.
+        $before = $lookbackStart < $start->getTimestamp() ? $searchStart : null;
+        $failure = null;
+        $windowRecords = $this->later(fn (): array => $this->logs()->query($records, $start, $end, limit: self::SEARCH_LIMIT));
+        $windowSpans = $this->later(fn (): array => $this->traces()->search($browser, $start, $end, limit: self::TRACE_SEARCH_LIMIT));
+        $this->settle($failure);
 
-            foreach ($entries as $entry) {
-                $group = $entry->labels['exception_group'] ?? '';
+        $entries = $windowRecords->value();
+        $results = $windowSpans->value();
 
-                if ($group === '') {
+        if ($entries === null || $results === null) {
+            return $this->payload([], $failure?->getMessage(), false);
+        }
+
+        $earlierRecords = $before === null ? null : $this->later(fn (): array => $this->logs()->query($records, $before, $start, limit: self::SEARCH_LIMIT));
+        $earlierSpans = $before === null ? null : $this->later(fn (): array => $this->traces()->search($browser, $before, $start, limit: self::TRACE_SEARCH_LIMIT));
+        $this->settle($failure);
+
+        $truncated = count($entries) >= self::SEARCH_LIMIT || count($results) >= self::TRACE_SEARCH_LIMIT;
+        $earlier = [$earlierRecords?->value(), $earlierSpans?->value()];
+        // Whether first-seen saw everything back to the lookback: the read
+        // before the window answered, and was not cut at its limit.
+        $firstSeenComplete = $before === null || (
+            $earlier[0] !== null && $earlier[1] !== null
+            && count($earlier[0]) < self::SEARCH_LIMIT && count($earlier[1]) < self::TRACE_SEARCH_LIMIT
+        );
+        $firstSeenNote = $before !== null && ($earlier[0] === null || $earlier[1] === null) && $failure !== null
+            ? 'First seen covers this window only: '.lcfirst($failure->getMessage())
+            : null;
+
+        // What the read before the window found, before the window only: a
+        // record on the boundary is the window's, and counted once.
+        $earlier = [
+            array_values(array_filter($earlier[0] ?? [], static fn ($entry): bool => $entry->timestampNano < $fromNano)),
+            array_values(array_filter($earlier[1] ?? [], static fn ($summary): bool => $summary->startedAt->getTimestamp() * 1_000_000_000 < $fromNano)),
+            $earlier[0] !== null && $earlier[1] !== null,
+        ];
+
+        foreach ([...$entries, ...$earlier[0]] as $entry) {
+            $group = $entry->labels['exception_group'] ?? '';
+
+            if ($group === '') {
+                continue;
+            }
+
+            $this->fold($groups, $group, $entry->timestampNano, $fromNano, $toNano, frontend: false, attributes: [
+                'type' => $entry->labels['exception_type'] ?? '',
+                'message' => $entry->labels['exception_message'] ?? '',
+            ], user: $entry->labels['user_id'] ?? '');
+        }
+
+        foreach ([...$results, ...$earlier[1]] as $summary) {
+            foreach ($summary->matchedSpans as $span) {
+                $type = $this->str($span->attributes['exception.type'] ?? null);
+
+                if ($type === null) {
                     continue;
                 }
 
-                $this->fold($groups, $group, $entry->timestampNano, $fromNano, $toNano, frontend: false, attributes: [
-                    'type' => $entry->labels['exception_type'] ?? '',
-                    'message' => $entry->labels['exception_message'] ?? '',
-                ], user: $entry->labels['user_id'] ?? '');
+                $group = ExceptionFingerprint::compute(
+                    $type,
+                    $this->str($span->attributes['exception.file'] ?? null) ?? '',
+                    (int) ($span->attributes['exception.line'] ?? 0),
+                );
+
+                $this->fold($groups, $group, $span->startNano, $fromNano, $toNano, frontend: true, attributes: [
+                    'type' => $type,
+                    'message' => $this->str($span->attributes['exception.message'] ?? null) ?? '',
+                ]);
             }
-
-            // Frontend: browser exception spans, grouped by the computed
-            // fingerprint (the ingest doesn't stamp one).
-            $query = $this->traceQuery(
-                TraceCondition::token('span.browser', TraceOp::Eq, 'true'),
-                TraceCondition::nil('span.exception.type'),
-            )->select('span.exception.type', 'span.exception.message', 'span.exception.file', 'span.exception.line');
-
-            $results = $this->traces()->search($query, $searchStart, $end, limit: self::TRACE_SEARCH_LIMIT);
-
-            $truncated = $truncated || count($results) >= self::TRACE_SEARCH_LIMIT;
-
-            foreach ($results as $summary) {
-                foreach ($summary->matchedSpans as $span) {
-                    $type = $this->str($span->attributes['exception.type'] ?? null);
-
-                    if ($type === null) {
-                        continue;
-                    }
-
-                    $group = ExceptionFingerprint::compute(
-                        $type,
-                        $this->str($span->attributes['exception.file'] ?? null) ?? '',
-                        (int) ($span->attributes['exception.line'] ?? 0),
-                    );
-
-                    $this->fold($groups, $group, $span->startNano, $fromNano, $toNano, frontend: true, attributes: [
-                        'type' => $type,
-                        'message' => $this->str($span->attributes['exception.message'] ?? null) ?? '',
-                    ]);
-                }
-            }
-
-            // Only groups active in the page period make the list; the wider
-            // window exists purely so first-seen isn't clipped.
-            $rows = array_values(array_filter($groups, static fn (array $row): bool => $row['count'] > 0));
-
-            if ($this->search !== '') {
-                $needle = mb_strtolower($this->search);
-                $rows = array_values(array_filter(
-                    $rows,
-                    static fn (array $row): bool => str_contains(mb_strtolower($row['type'].' '.$row['message']), $needle),
-                ));
-            }
-
-            $newCutoffNano = (time() - 86_400) * 1_000_000_000;
-
-            $rows = array_map(fn (array $row): array => [
-                ...$row,
-                'source' => $this->source($row['frontend'], $row['backend']),
-                'users' => count($row['users']),
-                'firstSeen' => Carbon::createFromTimestamp(intdiv($row['firstNano'], 1_000_000_000))->diffForHumans(),
-                'lastSeen' => Carbon::createFromTimestamp(intdiv($row['lastNano'], 1_000_000_000))->diffForHumans(),
-                // NEW = born within 24h — suppressed when the sample was
-                // truncated (the real first occurrence may be older).
-                'isNew' => ! $truncated && $row['firstNano'] >= $newCutoffNano,
-            ], $rows);
-
-            if ($this->sourceFilter !== '') {
-                $rows = array_values(array_filter(
-                    $rows,
-                    fn (array $row): bool => $row['source'] === $this->sourceFilter,
-                ));
-            }
-
-            usort($rows, match ($this->sort) {
-                'last' => static fn (array $a, array $b): int => $b['lastNano'] <=> $a['lastNano'],
-                'new' => static fn (array $a, array $b): int => $b['firstNano'] <=> $a['firstNano'],
-                default => static fn (array $a, array $b): int => $b['count'] <=> $a['count'] ?: $b['lastNano'] <=> $a['lastNano'],
-            });
-        } catch (SourceException $exception) {
-            $error = $exception->getMessage();
         }
 
-        return $this->payload(array_slice($rows, 0, 100), $error, $truncated);
+        // Only groups active in the page period make the list; the wider
+        // window exists purely so first-seen isn't clipped.
+        $rows = array_values(array_filter($groups, static fn (array $row): bool => $row['count'] > 0));
+
+        if ($this->search !== '') {
+            $needle = mb_strtolower($this->search);
+            $rows = array_values(array_filter(
+                $rows,
+                static fn (array $row): bool => str_contains(mb_strtolower($row['type'].' '.$row['message']), $needle),
+            ));
+        }
+
+        $newCutoffNano = (time() - 86_400) * 1_000_000_000;
+
+        $rows = array_map(fn (array $row): array => [
+            ...$row,
+            'source' => $this->source($row['frontend'], $row['backend']),
+            'users' => count($row['users']),
+            'firstSeen' => Carbon::createFromTimestamp(intdiv($row['firstNano'], 1_000_000_000))->diffForHumans(),
+            'lastSeen' => Carbon::createFromTimestamp(intdiv($row['lastNano'], 1_000_000_000))->diffForHumans(),
+            // NEW = born within 24h — suppressed when the sample was
+            // truncated, or the days before the window could not be read
+            // (the real first occurrence may be older).
+            'isNew' => ! $truncated && $firstSeenComplete && $row['firstNano'] >= $newCutoffNano,
+        ], $rows);
+
+        if ($this->sourceFilter !== '') {
+            $rows = array_values(array_filter(
+                $rows,
+                fn (array $row): bool => $row['source'] === $this->sourceFilter,
+            ));
+        }
+
+        usort($rows, match ($this->sort) {
+            'last' => static fn (array $a, array $b): int => $b['lastNano'] <=> $a['lastNano'],
+            'new' => static fn (array $a, array $b): int => $b['firstNano'] <=> $a['firstNano'],
+            default => static fn (array $a, array $b): int => $b['count'] <=> $a['count'] ?: $b['lastNano'] <=> $a['lastNano'],
+        });
+
+        return $this->payload(array_slice($rows, 0, 100), null, $truncated, $firstSeenNote);
     }
 
     /**
      * @param  list<array<string, mixed>>  $rows
      * @return array<string, mixed>
      */
-    private function payload(array $rows, ?string $error, bool $sampled): array
+    private function payload(array $rows, ?string $error, bool $sampled, ?string $note = null): array
     {
         $table = [];
 
@@ -236,7 +259,7 @@ final class UnifiedErrors extends Panel
             'span' => 2,
             'error' => $error,
             'empty' => $filtered ? 'No errors match the filter.' : 'No errors in this period.',
-            'note' => $sampled ? 'Sampled — counts are lower bounds.' : null,
+            'note' => trim(($sampled ? 'Sampled — counts are lower bounds. ' : '').($note ?? '')) ?: null,
             'controls' => [
                 Ui::search('err_q', 'Filter', $this->search, 'Filter by type or message…'),
                 Ui::select('err_source', 'Source', $this->sourceFilter, [
