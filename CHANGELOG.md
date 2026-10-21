@@ -31,6 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Loki which labels it indexes. Every chart's marker request then cost a
   label lookup, and with Loki down a connect timeout. They now check
   `Annotations::enabled()` before building anything.
+- **The host label is read from config everywhere.** Five places named
+  `host_name` outright instead of `telemetry-ui.scope.labels.*.host`. Where
+  the backends call it something else (a Prometheus scrape that stamps
+  `hostname`), a host page's CPU, memory and filesystem cards showed every
+  machine's series instead of that host's, the System page's memory and
+  filesystem charts averaged every machine into one instead of adding them up,
+  a host's log panel found no lines, and event rows lost their host on hover.
 
 ## [3.4.0] - 2026-10-21
 

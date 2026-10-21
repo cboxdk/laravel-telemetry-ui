@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 
 use Cbox\TelemetryUi\Queries\Compilers\PromqlCompiler;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
+use Cbox\TelemetryUi\Support\ScopeLabels;
 
 final class SystemMemory extends SystemCharts
 {
@@ -15,7 +16,7 @@ final class SystemMemory extends SystemCharts
 
         return [
             'title' => 'Memory',
-            'query' => MetricQuery::raw('sum by (system_memory_state) (avg by (host_name, system_memory_state) ('.$selector.'))'),
+            'query' => MetricQuery::raw('sum by (system_memory_state) (avg by ('.ScopeLabels::metrics('host').', system_memory_state) ('.$selector.'))'),
             'label' => 'system_memory_state',
             'unit' => 'bytes',
             'type' => 'area',
