@@ -335,7 +335,7 @@ class ConnectionManager
         return match ($driver) {
             'prometheus' => new PrometheusSource($this->client($config), $this->prefix($config), $this->splitter($config, 0)),
             'mimir' => new MimirSource($this->client($config), $this->prefix($config, 'prometheus'), $this->splitter($config, MimirSource::SPLIT_AFTER)),
-            'tempo' => new TempoSource($this->client($config), max(0, (int) ($config['max_search'] ?? 604_800))),
+            'tempo' => new TempoSource($this->client($config), max(0, (int) ($config['max_search'] ?? 604_800)), max(1, (int) ($config['spans_per_trace'] ?? 100))),
             'loki' => new LokiSource($this->client($config)),
             'github' => $this->github($config),
             'sentry' => $this->sentry($config),

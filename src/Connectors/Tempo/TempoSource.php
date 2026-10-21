@@ -30,8 +30,10 @@ readonly class TempoSource implements LimitsSearchWindow, LocatesTracesInTime, P
     /**
      * @param  int  $maxSearchSeconds  the longest window Tempo searches at once
      *                                 (its `search.max_duration`); 0 for no limit
+     * @param  int  $spansPerTrace  matching spans returned per trace when a
+     *                              search selects fields (Tempo's `spss`)
      */
-    public function __construct(private ApiClient $client, private int $maxSearchSeconds = 0) {}
+    public function __construct(private ApiClient $client, private int $maxSearchSeconds = 0, private int $spansPerTrace = 100) {}
 
     public function maxSearchSeconds(): ?int
     {
@@ -87,6 +89,10 @@ readonly class TempoSource implements LimitsSearchWindow, LocatesTracesInTime, P
             'start' => $start->getTimestamp(),
             'end' => $end->getTimestamp(),
             'limit' => $limit,
+            // A search that selects fields reads the matching spans
+            // themselves, row by row. Tempo returns only 3 per trace unless
+            // told otherwise, so a request with ten sends showed three.
+            ...($query->hasSelect() ? ['spss' => $this->spansPerTrace] : []),
         ]);
 
         $traces = is_array($response['traces'] ?? null) ? $response['traces'] : [];

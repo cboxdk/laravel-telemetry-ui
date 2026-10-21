@@ -407,6 +407,10 @@ return [
             // query_frontend.search.max_duration (168h unless changed). A
             // longer window searches its newest part and says so. 0: no limit.
             'max_search' => (int) env('TELEMETRY_UI_TEMPO_MAX_SEARCH', 604_800),
+            // How many matching spans a search returns per trace when it reads
+            // the spans themselves (a row per mail, per query). Tempo's own
+            // default is 3, which cut a trace with ten sends to three rows.
+            'spans_per_trace' => (int) env('TELEMETRY_UI_TEMPO_SPANS_PER_TRACE', 100),
         ],
 
         'logs' => [

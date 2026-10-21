@@ -125,7 +125,7 @@ final class TelemetryUiManager
         'reverb' => [Builtin\ReverbConnections::class, Builtin\ReverbMessages::class],
         'outgoing' => [Builtin\OutgoingActivity::class, Builtin\OutgoingTable::class, Builtin\OutgoingNPlusOne::class, Builtin\OutgoingConnectionPairs::class],
         'outgoing-detail' => [Builtin\Detail\OutgoingHostHeader::class, Builtin\Detail\OutgoingHostActivity::class, Builtin\Detail\OutgoingHostTraces::class],
-        'mail' => [Builtin\MailOverview::class, Builtin\NotificationsOverview::class],
+        'mail' => [Builtin\MailOverview::class, Builtin\NotificationsOverview::class, Builtin\MailLog::class, Builtin\NotificationLog::class],
         'ai' => [Builtin\AiOverview::class, Builtin\AiModels::class, Builtin\AiLatency::class, Builtin\AiErrors::class, Builtin\AiUsageByDimension::class, Builtin\AiCalls::class, Builtin\AiAgentRuns::class, Builtin\AiTools::class],
         'ai-model-detail' => [Builtin\Detail\AiModelHeader::class, Builtin\Detail\AiModelActivity::class, Builtin\Detail\AiModelTokens::class, Builtin\Detail\AiModelLatency::class, Builtin\Detail\AiModelCalls::class],
         'ai-agent-detail' => [Builtin\Detail\AiAgentHeader::class, Builtin\Detail\AiAgentActivity::class, Builtin\Detail\AiAgentTools::class, Builtin\Detail\AiAgentRunLog::class],
