@@ -19,11 +19,18 @@ use DateTimeImmutable;
  * browser ones on exception spans; both come back as one list, deduplicated
  * by fingerprint, each linking to its error group.
  *
- * @phpstan-type TraceException array{group: string, type: string, message: string, file: string, line: int, source: string, match: string}
- * @phpstan-type DetailedTraceException array{group: string, type: string, message: string, file: string, line: int, source: string, match: string, stacktrace: string, code: string}
+ * Each names the spans that threw it (`spans`, in the trace's own span id
+ * form), so the waterfall can show the exception on the span: a job retried
+ * thirty times throws the same group thirty times, once per attempt.
+ *
+ * @phpstan-type TraceException array{group: string, type: string, message: string, file: string, line: int, source: string, match: string, spans: list<string>, stacktrace: string}
+ * @phpstan-type DetailedTraceException array{group: string, type: string, message: string, file: string, line: int, source: string, match: string, spans: list<string>, stacktrace: string, code: string}
  */
 final readonly class TraceExceptions
 {
+    /** Characters of stacktrace the trace drawer gets; the Markdown snapshot gets it whole. */
+    private const STACK_LIMIT = 8000;
+
     public function __construct(private ConnectionManager $connections) {}
 
     /**
@@ -32,18 +39,18 @@ final readonly class TraceExceptions
     public function forTrace(Trace $trace): array
     {
         return array_map(static function (array $exception): array {
-            unset($exception['stacktrace'], $exception['code']);
+            unset($exception['code']);
+            $exception['stacktrace'] = mb_substr($exception['stacktrace'], 0, self::STACK_LIMIT);
 
             return $exception;
         }, $this->detailed($trace));
     }
 
     /**
-     * {@see forTrace()} plus what the record carries beyond its labels'
-     * headline: the stacktrace and the source excerpt around the throw
-     * (`exception_source`), each exactly as stored — empty when the emitter
-     * sent none. For the Markdown snapshot; the trace drawer doesn't need the
-     * extra weight.
+     * {@see forTrace()} plus the source excerpt around the throw
+     * (`exception_source`) and the whole stacktrace, each exactly as stored —
+     * empty when the emitter sent none. For the Markdown snapshot; the trace
+     * drawer doesn't need the extra weight.
      *
      * @return list<DetailedTraceException>
      */
@@ -65,6 +72,7 @@ final readonly class TraceExceptions
                     'line' => (int) ($span->attributes['exception.line'] ?? 0),
                     'source' => 'frontend',
                     'match' => 'span',
+                    'spans' => [$span->spanId],
                     'stacktrace' => is_scalar($stack = $span->attributes['exception.stacktrace'] ?? null) ? (string) $stack : '',
                     'code' => '',
                 ];
@@ -89,13 +97,14 @@ final readonly class TraceExceptions
                     ->whereLabel('exception_group', MatchOp::Neq, ''),
                 $start,
                 $end,
-                limit: 20,
+                limit: 100,
             );
         } catch (SourceException) {
             return array_values($out);
         }
 
         $matched = 'trace';
+        $hexIds = $trace->spans !== [] && preg_match('/^[0-9a-f]{16}$/i', $trace->spans[0]->spanId) === 1;
 
         // Records without trace context (sampled-away traces, a backend that
         // drops OTLP trace ids): fall back to the same service throwing
@@ -126,7 +135,17 @@ final readonly class TraceExceptions
         foreach ($entries as $entry) {
             $group = $entry->labels['exception_group'] ?? '';
 
-            if ($group === '' || isset($out[$group])) {
+            if ($group === '') {
+                continue;
+            }
+
+            $spanId = $matched === 'trace' ? self::spanId($entry->labels['span_id'] ?? '', $hexIds) : null;
+
+            if (isset($out[$group])) {
+                if ($spanId !== null && ! in_array($spanId, $out[$group]['spans'], true)) {
+                    $out[$group]['spans'][] = $spanId;
+                }
+
                 continue;
             }
 
@@ -138,6 +157,7 @@ final readonly class TraceExceptions
                 'line' => (int) ($entry->labels['exception_line'] ?? 0),
                 'source' => 'backend',
                 'match' => $matched,
+                'spans' => $spanId !== null ? [$spanId] : [],
                 'stacktrace' => $entry->labels['exception_stacktrace'] ?? '',
                 'code' => $entry->labels['exception_source'] ?? '',
             ];
@@ -185,6 +205,20 @@ final readonly class TraceExceptions
         usort($logs, static fn (array $a, array $b): int => strcmp($a['nano'], $b['nano']));
 
         return array_map(static fn (array $l): array => ['time' => $l['time'], 'level' => $l['level'], 'tone' => $l['tone'], 'message' => $l['message']], array_slice($logs, 0, 20));
+    }
+
+    /**
+     * A record's span id in the form the trace gives its spans. OTLP log
+     * records carry it as hex (Loki stores `span_id` so); Tempo's trace API
+     * answers base64. Null when it is not a span id at all.
+     */
+    private static function spanId(string $hex, bool $traceUsesHex): ?string
+    {
+        if (preg_match('/^[0-9a-f]{16}$/i', $hex) !== 1) {
+            return null;
+        }
+
+        return $traceUsesHex ? strtolower($hex) : base64_encode((string) hex2bin($hex));
     }
 
     /** The trace's own services as one stream selector (see {@see ScopeLabels::logServiceMatcher()}). */

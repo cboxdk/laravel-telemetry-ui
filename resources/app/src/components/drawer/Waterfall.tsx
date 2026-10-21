@@ -1,6 +1,6 @@
 import { defaultRangeExtractor, useVirtualizer, type Range } from '@tanstack/react-virtual';
 import { useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from 'react';
-import type { SpanData, TraceData, WaterfallRow } from '../../api/types';
+import type { SpanData, TraceData, TraceException, WaterfallRow } from '../../api/types';
 import { condense, DEFAULT_GROUP_THRESHOLD, timelineBuckets, type CondensedItem, type SpanGroup } from '../../lib/condense';
 import { ms, shortId } from '../../lib/format';
 import { Go } from '../../lib/links';
@@ -8,6 +8,7 @@ import { useScrollParent } from '../../lib/scrollParent';
 import { load, save } from '../../lib/storage';
 import { BootContext, DimensionValue } from '../DimensionValue';
 import { Icon } from '../Icon';
+import { CodeBody } from '../panels/PanelBody';
 
 /** What a span does, for the bar colour: the waterfall reads by category at a glance. */
 const CATEGORIES: { key: string; label: string; test: (a: Record<string, string>, s: SpanData) => boolean }[] = [
@@ -62,9 +63,10 @@ interface Open { index: number; all: boolean }
  * their parent, and the emitter's N+1 / duplicate marker with the line that
  * ran them. A group pages through its occurrences one at a time or shows
  * them all; failed occurrences are counted on the row and one click away.
- * The full layout is the flat waterfall, one row per span.
+ * The full layout is the flat waterfall, one row per span. `focus` opens it
+ * on one span (the story's "show span"), inside its group if it is folded.
  */
-export function Waterfall({ data, threshold: thresholdProp }: { data: TraceData; threshold?: number }) {
+export function Waterfall({ data, threshold: thresholdProp, focus = null }: { data: TraceData; threshold?: number; focus?: string | null }) {
     const boot = useContext(BootContext);
     const threshold = thresholdProp ?? boot?.traces?.groupThreshold ?? DEFAULT_GROUP_THRESHOLD;
     const [layout, setLayoutState] = useState<Layout>(() => (load<string>(LAYOUT_KEY, 'condensed') === 'full' ? 'full' : 'condensed'));
@@ -184,6 +186,17 @@ export function Waterfall({ data, threshold: thresholdProp }: { data: TraceData;
         if (selected !== null && group.rows.some((r) => r.span.spanId === selected)) setSelected(null);
         if (refocus) setFocusGroup(group.id);
     };
+
+    useEffect(() => {
+        if (focus === null) return;
+        const holder = layout === 'condensed' ? groups.find((g) => g.group.rows.some((r) => r.span.spanId === focus))?.group : undefined;
+        if (holder) {
+            openGroup(holder, holder.rows.findIndex((r) => r.span.spanId === focus));
+            return;
+        }
+        setSelected(focus);
+        setRevealId(focus);
+    }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const nextError = (group: SpanGroup, from: number) => group.errors.find((e) => e > from) ?? group.errors[0] ?? from;
 
@@ -308,6 +321,7 @@ export function Waterfall({ data, threshold: thresholdProp }: { data: TraceData;
             {selectedSpan && (
                 <SpanDetail
                     span={selectedSpan}
+                    exceptions={data.exceptions.filter((e) => e.spans.includes(selectedSpan.spanId))}
                     links={data.dimensionLinks}
                     occurrence={selectedOccurrence ? `Occurrence ${selectedOccurrence.index + 1} of ${selectedOccurrence.group.rows.length}` : null}
                     onClose={() => setSelected(null)}
@@ -539,7 +553,43 @@ function TransferPhases({ attrs, durationMs }: { attrs: Record<string, string>; 
     );
 }
 
-function SpanDetail({ span, links, occurrence, onClose }: { span: SpanData; links: Record<string, string>; occurrence: string | null; onClose: () => void }) {
+/**
+ * Why a failed span failed: the exceptions the log store recorded against
+ * it, or what the span carries itself (its `exception` event, folded into
+ * its attributes by the trace store, or its status description).
+ */
+function SpanFailure({ span, exceptions }: { span: SpanData; exceptions: TraceException[] }) {
+    const a = span.attributes;
+    const shown: Pick<TraceException, 'group' | 'type' | 'message' | 'file' | 'line' | 'stacktrace'>[] = exceptions.length > 0
+        ? exceptions
+        : a['exception.type'] ? [{ group: '', type: a['exception.type'], message: a['exception.message'] ?? '', file: '', line: 0, stacktrace: a['exception.stacktrace'] ?? '' }] : [];
+
+    if (shown.length === 0) {
+        return span.error && a['otel.status_description'] ? <p className="t-note">Failed: {a['otel.status_description']}</p> : null;
+    }
+
+    return (
+        <div className="t-why">
+            {shown.map((e) => (
+                <div key={e.group || e.type} className="t-why-exc">
+                    <p>
+                        <code>{e.type}</code> {e.message}
+                        {e.file && <span className="t-dim mono"> · {e.file.split('/').slice(-2).join('/')}{e.line ? `:${e.line}` : ''}</span>}
+                    </p>
+                    {e.stacktrace && (
+                        <details>
+                            <summary className="t-linkbtn">Stacktrace</summary>
+                            <CodeBody data={{ text: e.stacktrace, language: 'stacktrace' }} />
+                        </details>
+                    )}
+                    {e.group && <Go link={{ to: 'error', group: e.group }} className="t-linkbtn">Open issue →</Go>}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function SpanDetail({ span, exceptions, links, occurrence, onClose }: { span: SpanData; exceptions: TraceException[]; links: Record<string, string>; occurrence: string | null; onClose: () => void }) {
     return (
         <div className="t-spandetail">
             <div className="t-spandetail-head">
@@ -548,6 +598,7 @@ function SpanDetail({ span, links, occurrence, onClose }: { span: SpanData; link
                 {occurrence && <span className="t-pill">{occurrence}</span>}
                 <button type="button" className="t-iconbtn" aria-label="Close span details" onClick={onClose}><Icon name="x" size={13} /></button>
             </div>
+            <SpanFailure span={span} exceptions={exceptions} />
             {span.links.length > 0 && (
                 <div className="t-chips">{span.links.map((l) => <Go key={l.spanId} link={{ to: 'trace', id: l.traceId }} className="t-minchip">linked {shortId(l.traceId)}</Go>)}</div>
             )}

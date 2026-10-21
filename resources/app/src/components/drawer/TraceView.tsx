@@ -32,6 +32,12 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
     const pending = story !== undefined && correlation.isPending;
     const data: TraceData | undefined = story === undefined ? undefined : { ...story, ...(correlation.data ?? NO_CORRELATION) };
     const [tab, setTab] = useState<Tab>('story');
+    // A span the story pointed at ("show span"): the waterfall opens on it.
+    const [focus, setFocus] = useState<string | null>(null);
+    const showSpan = (spanId: string) => {
+        setFocus(spanId);
+        setTab('waterfall');
+    };
     const [monitoring, setMonitoring] = useState(false);
     const boot = useContext(BootContext);
     const monitorTargets = useMemo(
@@ -106,8 +112,8 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
                 </div>
             </div>
             <div className="t-dbody">
-                {tab === 'story' && <Story data={data} pending={pending} />}
-                {tab === 'waterfall' && <Waterfall data={data} />}
+                {tab === 'story' && <Story data={data} pending={pending} onShowSpan={showSpan} />}
+                {tab === 'waterfall' && <Waterfall data={data} focus={focus} />}
                 {tab === 'logs' && (correlationState ?? <Logs data={data} />)}
                 {tab === 'context' && <>{correlationState ?? <Context data={data} />}<Around data={data} attrs={Object.assign({}, ...[...data.waterfall].reverse().map((r) => r.span.attributes), data.root?.attributes ?? {}) as Record<string, string>} /></>}
                 {tab === 'profile' && <Profile data={data} />}
@@ -116,7 +122,7 @@ export function TraceView({ traceId, full }: { traceId: string; full?: boolean }
     );
 }
 
-function Story({ data, pending = false }: { data: TraceData; pending?: boolean }) {
+function Story({ data, pending = false, onShowSpan }: { data: TraceData; pending?: boolean; onShowSpan?: (spanId: string) => void }) {
     const boot = useBoot();
     const root = data.root;
     // Declared dimensions can be stamped on any span; the root wins on conflict.
@@ -139,14 +145,25 @@ function Story({ data, pending = false }: { data: TraceData; pending?: boolean }
                                 {e.file && <span className="t-dim mono"> · {e.file.split('/').slice(-2).join('/')}{e.line ? `:${e.line}` : ''}</span>}
                             </p>
                             <div className="t-row-gap">
+                                {e.spans.length > 0 && onShowSpan && (
+                                    <button type="button" className="t-linkbtn" onClick={() => onShowSpan(e.spans[0]!)}>
+                                        {e.spans.length > 1 ? `Show the ${e.spans.length} spans that threw it →` : 'Show the span that threw it →'}
+                                    </button>
+                                )}
                                 {e.group && <Go link={{ to: 'error', group: e.group }} className="t-linkbtn">Open issue →</Go>}
                                 {e.match === 'time' && <span className="t-pill" title="The exception record carries no trace id; matched by service and time window">likely match</span>}
                             </div>
                         </div>
                     ))}
                     {data.exceptions.length === 0 && errorSpans.slice(0, 3).map((s) => (
-                        <p key={s.spanId}><code>{s.name}</code> failed{s.attributes['exception.type'] ? <> with <code>{s.attributes['exception.type']}</code></> : null}{s.attributes['exception.message'] ? `: ${s.attributes['exception.message']}` : ''} <span className="t-dim">({ms(s.durationMs)})</span></p>
+                        <p key={s.spanId}>
+                            <code>{s.name}</code> failed{s.attributes['exception.type'] ? <> with <code>{s.attributes['exception.type']}</code></> : null}{s.attributes['exception.message'] ? `: ${s.attributes['exception.message']}` : s.attributes['otel.status_description'] ? `: ${s.attributes['otel.status_description']}` : ''} <span className="t-dim">({ms(s.durationMs)})</span>
+                            {onShowSpan && <> <button type="button" className="t-linkbtn" onClick={() => onShowSpan(s.spanId)}>Show span →</button></>}
+                        </p>
                     ))}
+                    {data.exceptions.length === 0 && errorSpans.length > 3 && (
+                        <p className="t-dim">and {errorSpans.length - 3} more failed span{errorSpans.length - 3 === 1 ? '' : 's'} in the waterfall</p>
+                    )}
                 </div>
             )}
 

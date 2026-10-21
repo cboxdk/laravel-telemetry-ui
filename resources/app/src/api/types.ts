@@ -552,6 +552,18 @@ export interface ReportRepeat {
     origin: string;
 }
 
+export interface TraceException {
+    group: string;
+    type: string;
+    message: string;
+    file: string;
+    line: number;
+    source: string;
+    match: 'trace' | 'time' | 'span';
+    spans: string[];
+    stacktrace: string;
+}
+
 export interface TraceData {
     traceId: string;
     root: SpanData | null;
@@ -581,7 +593,8 @@ export interface TraceData {
     };
     logs: { time: string; level: string; tone: string; message: string }[];
     logsMatch?: 'trace' | 'time' | null;
-    exceptions: { group: string; type: string; message: string; file: string; line: number; source: string; match: 'trace' | 'time' | 'span' }[];
+    /** `spans`: the spans that threw it, so the waterfall can show it where it happened. */
+    exceptions: TraceException[];
     dimensionLinks: Record<string, string>;
 }
 
