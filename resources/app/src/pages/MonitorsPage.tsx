@@ -4,6 +4,7 @@ import type { MonitorData } from '../api/types';
 import { useBoot } from '../components/DimensionValue';
 import { Icon } from '../components/Icon';
 import { Empty, ErrorState, Skeleton } from '../components/States';
+import { dateTime } from '../lib/format';
 import { Go } from '../lib/links';
 import { expiresIn, MONITOR_ATTRIBUTE, RECORDED_BY_MONITOR } from '../lib/monitors';
 import { useTitle } from '../lib/title';
@@ -109,7 +110,7 @@ function MonitorRow({ monitor: m, now, canManage, removing, onRemove }: { monito
                 {m.profile && <span className="t-badge t-badge-info" title="Also captures a CPU profile">profile</span>}
             </span>
             <span role="cell" className="mono">{m.service}</span>
-            <span role="cell" className={`mono ${left < 300 ? 't-tone-warn' : ''}`} title={new Date(m.expiresAt * 1000).toLocaleString()}>{expiresIn(left)}</span>
+            <span role="cell" className={`mono ${left < 300 ? 't-tone-warn' : ''}`} title={dateTime(m.expiresAt * 1000)}>{expiresIn(left)}</span>
             <span role="cell" className="t-ellipsis" title={m.reason ?? undefined}>{m.reason ?? <span className="t-dim">—</span>}</span>
             <span role="cell" className="t-ellipsis t-dim" title={m.createdBy ?? undefined}>{m.createdBy ?? '—'}</span>
             <span role="cell" className="t-row-gap t-monitor-actions">

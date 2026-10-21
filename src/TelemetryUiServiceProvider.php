@@ -15,6 +15,7 @@ use Cbox\TelemetryUi\Explore\SpanExplorer;
 use Cbox\TelemetryUi\Http\Middleware\Authorize;
 use Cbox\TelemetryUi\Http\Middleware\RemembersViewState;
 use Cbox\TelemetryUi\Support\Annotations;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLock;
@@ -96,6 +97,14 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $this->app->scoped(ViewState::class, static fn (Application $app): ViewState => new ViewState(
             $app->make(ScopeLock::class),
             $app->make('config'),
+        ));
+
+        // The viewer's timezone, from this request's X-Timezone header.
+        // Request-scoped for the same reason as the view state above.
+        $this->app->scoped(DisplayTime::class, static fn (Application $app): DisplayTime => DisplayTime::fromRequest(
+            $app->bound('request') ? $app->make('request') : null,
+            $app->make('config')->get('telemetry-ui.timezone'),
+            $app->make('config')->get('app.timezone'),
         ));
 
         // Explore services read the dimension registry off the manager.

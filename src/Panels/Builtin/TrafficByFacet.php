@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\TelemetryUiManager;
 
 /**
@@ -120,7 +121,7 @@ final class TrafficByFacet extends Panel
                 'lastAction' => $row['lastAction'] !== '' ? Ui::cell($row['lastAction'], ['link' => Ui::rootOperation($row['lastAction'])]) : Ui::cell('—'),
                 // A time alone is ambiguous across a multi-day period.
                 'lastSeen' => Ui::cell(
-                    $row['lastSeen']->format($row['lastSeen']->format('Y-m-d') === date('Y-m-d') ? 'H:i:s' : 'M j H:i'),
+                    DisplayTime::short($row['lastSeen']),
                     ['raw' => $row['lastSeen']->getTimestamp() * 1000, 'mono' => true],
                 ),
                 '_link' => $link,

@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Panels\Concerns\ReadsAiUsage;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -107,8 +108,8 @@ class AiAgentRuns extends Panel
                 // When it ran and the tools it called ride under the agent:
                 // two columns fewer keep the run list a table on a laptop.
                 'agent' => $agent === ''
-                    ? Ui::cell($row['agent'], ['mono' => true, 'link' => Ui::entity('ai-agent', $row['agent']), 'sub' => implode(' · ', array_filter([$row['startedAt']->format('H:i:s'), $toolsLine]))])
-                    : Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true, 'link' => $trace, ...($toolsLine !== '' ? ['sub' => $toolsLine] : [])]),
+                    ? Ui::cell($row['agent'], ['mono' => true, 'link' => Ui::entity('ai-agent', $row['agent']), 'sub' => implode(' · ', array_filter([DisplayTime::at($row['startedAt'], 'H:i:s'), $toolsLine]))])
+                    : Ui::cell(DisplayTime::at($row['startedAt'], 'H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true, 'link' => $trace, ...($toolsLine !== '' ? ['sub' => $toolsLine] : [])]),
                 'model' => $row['model'] !== ''
                     ? Ui::cell($row['model'], ['mono' => true, 'link' => Ui::entity('ai-model', $row['model'])])
                     : Ui::cell('—', ['tone' => 'dim']),

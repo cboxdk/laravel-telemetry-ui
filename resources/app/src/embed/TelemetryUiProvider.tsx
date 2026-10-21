@@ -17,6 +17,8 @@ export interface TelemetryUiConfig {
     csrf?: string;
     /** The API root; defaults to `{base}/api/v2`. */
     api?: string;
+    /** Default timezone (IANA) until the viewer picks one; defaults to the browser's. */
+    timezone?: string;
 }
 
 /**
@@ -64,8 +66,8 @@ export function TelemetryUiProvider({ config, children, client, search, onSearch
     // Before anything fetches: the API path and the token come from the host.
     useMemo(() => {
         const base = config.base.replace(/\/$/, '');
-        setBoot({ base, api: config.api ?? `${base}/api/v2`, assets: `${base}/build`, csrf: config.csrf ?? '' });
-    }, [config.base, config.api, config.csrf]);
+        setBoot({ base, api: config.api ?? `${base}/api/v2`, assets: `${base}/build`, csrf: config.csrf ?? '', timezone: config.timezone ?? null });
+    }, [config.base, config.api, config.csrf, config.timezone]);
 
     return (
         <QueryClientProvider client={client ?? own}>

@@ -288,7 +288,7 @@ export interface EntityDef {
 }
 
 export interface Bootstrap {
-    app: { name: string; logo: string | null; accent: string | null; copyLink: boolean; version: string };
+    app: { name: string; logo: string | null; accent: string | null; copyLink: boolean; credit?: boolean; version: string };
     nav: { group: string; pages: { slug: string; label: string }[] }[];
     pages: Record<string, { label: string; group: string | null; hidden: boolean }>;
     explore: { signal: Signal; label: string }[];

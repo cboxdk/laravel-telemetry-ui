@@ -1,4 +1,5 @@
 import { boot } from '../boot';
+import { timeZone } from '../lib/time';
 
 export type ApiErrorType = 'backend' | 'forbidden' | 'invalid' | 'not_found' | 'network' | 'unknown';
 
@@ -84,6 +85,8 @@ export async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string
             headers: {
                 Accept: 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
+                // The server formats its clocks in the zone the viewer reads.
+                'X-Timezone': timeZone(),
                 ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
                 ...(method !== 'GET' ? { 'X-CSRF-TOKEN': boot().csrf } : {}),
             },

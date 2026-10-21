@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Support\Annotations;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\ExceptionFingerprint;
 use Cbox\TelemetryUi\Support\ScopeLabels;
 use DateTimeImmutable;
@@ -113,7 +114,7 @@ final class ErrorGroupReport
 
             $occurrences[] = [
                 'nano' => $entry->timestampNano,
-                'at' => Carbon::createFromTimestamp(intdiv($entry->timestampNano, 1_000_000_000))->format('d/m H:i:s'),
+                'at' => DisplayTime::at(intdiv($entry->timestampNano, 1_000_000_000), 'd/m H:i:s'),
                 'traceId' => $label('trace_id'),
                 'service' => $label(ScopeLabels::logs('service')),
                 'message' => $label('exception_message'),
@@ -172,7 +173,7 @@ final class ErrorGroupReport
 
                 $occurrences[] = [
                     'nano' => $span->startNano,
-                    'at' => Carbon::createFromTimestamp(intdiv($span->startNano, 1_000_000_000))->format('d/m H:i:s'),
+                    'at' => DisplayTime::at(intdiv($span->startNano, 1_000_000_000), 'd/m H:i:s'),
                     'traceId' => $summary->traceId,
                     'service' => $summary->rootServiceName,
                     'message' => $attr('exception.message'),
@@ -279,7 +280,7 @@ final class ErrorGroupReport
             return [
                 'label' => $annotation->label,
                 'kind' => $annotation->kind,
-                'time' => date('d/m H:i', (int) ($annotation->timestampMs / 1000)),
+                'time' => DisplayTime::at((int) ($annotation->timestampMs / 1000), 'd/m H:i'),
                 'gap' => Carbon::createFromTimestampMs((int) $annotation->timestampMs)
                     ->diffForHumans(Carbon::createFromTimestampMs($firstSeenMs), ['syntax' => Carbon::DIFF_ABSOLUTE, 'parts' => 1]),
                 'notes' => $annotation->notes,

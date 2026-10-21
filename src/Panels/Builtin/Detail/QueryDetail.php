@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Panels\Builtin\QueryPerformance;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -80,7 +81,7 @@ final class QueryDetail extends Panel
         ], array_map(static fn (array $ex): array => [
             'origin' => Ui::cell($ex['origin'], ['link' => Ui::trace($ex['traceId'])]),
             'duration' => Ui::cell(Format::ms($ex['durationMs']), ['raw' => $ex['durationMs'], 'tone' => $ex['durationMs'] >= 500 ? 'warn' : null]),
-            'when' => Ui::cell($ex['at']->format('H:i:s'), ['raw' => $ex['at']->getTimestamp(), 'mono' => true]),
+            'when' => Ui::cell(DisplayTime::at($ex['at'], 'H:i:s'), ['raw' => $ex['at']->getTimestamp(), 'mono' => true]),
             '_link' => Ui::trace($ex['traceId']),
         ], $examples), ['empty' => 'No traces.']);
 

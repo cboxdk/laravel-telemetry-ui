@@ -99,3 +99,10 @@ it('cannot break out of the boot json script tag, whatever the brand name holds'
         ->and($html)->not->toContain('<script>alert(1)</script>')
         ->and(shellBoot($html)['brand']['name'])->toBe($name);
 });
+
+it('credits Cbox at the foot of the main navigation unless the host white-labels it away', function (): void {
+    $this->getJson(apiUrl('bootstrap'))->assertJsonPath('app.credit', true);
+
+    config()->set('telemetry-ui.brand.credit', false);
+    $this->getJson(apiUrl('bootstrap'))->assertJsonPath('app.credit', false);
+});

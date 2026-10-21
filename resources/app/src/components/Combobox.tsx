@@ -11,7 +11,7 @@ export interface Option {
  * A searchable single-select (the design system forbids native <select>).
  * Keyboard: ↑/↓ to move, Enter to pick, Esc to close; typing filters.
  */
-export function Combobox({ value, options, onChange, placeholder = 'Select…', label, disabled, className, mono, width }: {
+export function Combobox({ value, options, onChange, placeholder = 'Select…', label, disabled, className, mono, width, display }: {
     value: string;
     options: Option[];
     onChange: (value: string) => void;
@@ -21,6 +21,8 @@ export function Combobox({ value, options, onChange, placeholder = 'Select…', 
     className?: string;
     mono?: boolean;
     width?: number;
+    /** What the closed button shows, when the picked option's label is too long for it. */
+    display?: string;
 }) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
@@ -77,7 +79,7 @@ export function Combobox({ value, options, onChange, placeholder = 'Select…', 
                 onClick={() => setOpen((o) => !o)}
             >
                 {label && <span className="t-combo-label">{label}</span>}
-                <span className={`t-combo-value ${mono ? 'mono' : ''} ${selected ? '' : 'is-placeholder'}`}>{selected?.label ?? placeholder}</span>
+                <span className={`t-combo-value ${mono ? 'mono' : ''} ${selected || display ? '' : 'is-placeholder'}`}>{display ?? selected?.label ?? placeholder}</span>
                 <Icon name="chevronDown" size={14} />
             </button>
             {open && (

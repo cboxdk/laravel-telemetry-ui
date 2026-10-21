@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -60,7 +61,7 @@ final class OutgoingHostTraces extends Panel
     private function tracesTable(string $title, array $results, array $extra): array
     {
         $rows = array_map(static fn (TraceSummary $summary): array => [
-            'time' => Ui::cell($summary->startedAt->format('H:i:s'), ['raw' => $summary->startedAt->getTimestamp(), 'mono' => true]),
+            'time' => Ui::cell(DisplayTime::at($summary->startedAt, 'H:i:s'), ['raw' => $summary->startedAt->getTimestamp(), 'mono' => true]),
             'service' => Ui::cell($summary->rootServiceName, ['badge' => $summary->rootServiceName, 'tone' => 'info']),
             'trace' => Ui::cell($summary->rootTraceName !== '' ? $summary->rootTraceName : '(unnamed)', ['link' => Ui::trace($summary->traceId, $summary->startedAt)]),
             'duration' => Ui::cell(Format::ms($summary->durationMs), ['raw' => $summary->durationMs, 'tone' => $summary->durationMs > 1000 ? 'warn' : null]),

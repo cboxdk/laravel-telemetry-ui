@@ -13,8 +13,8 @@ use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Compilers\TraceqlCompiler;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Format;
-use DateTimeImmutable;
 
 /**
  * Individual model calls — the `chat` and `embeddings` spans — with what each
@@ -117,7 +117,7 @@ class AiCalls extends Panel
             $context = implode(' · ', array_filter([$row['operation'] !== 'chat' ? $row['operation'] : '', $row['origin']]));
 
             return [
-                'when' => Ui::cell((new DateTimeImmutable('@'.$at))->format('H:i:s'), ['raw' => $at, 'mono' => true]),
+                'when' => Ui::cell(DisplayTime::at($at, 'H:i:s'), ['raw' => $at, 'mono' => true]),
                 // On a model's own page the model is the page; say where the
                 // call came from instead.
                 'call' => $model === ''

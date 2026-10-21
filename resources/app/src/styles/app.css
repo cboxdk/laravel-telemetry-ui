@@ -143,6 +143,8 @@
     border-radius: var(--radius); box-shadow: var(--shadow-popover); animation: t-pop var(--dur-menu) var(--ease);
 }
 .t-combo-pop { left: 0; width: max-content; max-width: 360px; }
+/* Near the right edge of the topbar: open leftwards, inside the window. */
+.t-timezone .t-combo-pop { left: auto; right: 0; }
 @keyframes t-pop { from { opacity: 0; transform: translateY(-3px); } }
 .t-combo-search { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--border-subtle); color: var(--muted-foreground); }
 .t-combo-search input { border: 0; outline: none; background: none; width: 100%; font-size: 12.5px; color: var(--foreground); }
@@ -213,6 +215,11 @@
     background: var(--card); border: 1px solid var(--border-strong); font-family: var(--font-mono); font-size: 9.5px; color: var(--muted-foreground);
 }
 .t-rail-account { cursor: default; }
+/* "Powered by Cbox": the quietest item in the rail, the last one. */
+.t-rail-credit { height: 30px; }
+.t-rail-credit svg { margin-left: 2px; opacity: 0.7; transition: opacity var(--dur-hover) var(--ease); }
+.t-rail-credit:hover svg { opacity: 1; }
+.t-rail-credit .t-rail-label { font-size: 12px; font-weight: 400; }
 
 .t-subnav { width: 216px; flex: none; display: flex; flex-direction: column; background: var(--sidebar); border-right: 1px solid var(--border); }
 .t-subnav-head { display: flex; align-items: center; justify-content: space-between; height: var(--topbar-h); padding: 0 10px 0 16px; flex: none; }
@@ -285,8 +292,12 @@
     .t-topbar-spacer, .t-topbar .t-kbd-btn, .t-topbar .t-kbd-hint, .t-topbar > .t-iconbtn { display: none; }
     .t-topbar-scope { flex: 1 1 100%; min-width: 0; }
     .t-topbar .t-period { order: 1; }
-    .t-topbar .t-refresh { order: 2; }
+    .t-topbar .t-refresh, .t-topbar .t-timezone { order: 2; }
+    .t-topbar > .t-iconbtn.t-refresh-now { display: inline-grid; order: 2; }
 }
+/* Refresh-now turns while anything on screen is being read. */
+.t-refresh-now.is-busy svg { animation: t-spin 0.9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .t-refresh-now.is-busy svg { animation: none; opacity: 0.55; } }
 
 /* ── Pages & panels ───────────────────────────────────────────────────── */
 .t-page { padding: 22px 24px 48px; max-width: 1680px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }

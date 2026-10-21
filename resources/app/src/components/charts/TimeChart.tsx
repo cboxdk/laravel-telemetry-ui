@@ -2,10 +2,17 @@ import type { ECharts } from 'echarts/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Annotation, ChartSeries } from '../../api/types';
 import { mapLegacyColor, tokenColor } from '../../lib/colors';
-import { bytes, count, ms, percent } from '../../lib/format';
+import { bytes, clock, count, dateTime, ms, percent } from '../../lib/format';
 import { useSetSearch } from '../../lib/state';
+import { useTimeZone, wallClock } from '../../lib/time';
 import { AnnotationMarks, groupMarks, type MarkGroup } from './AnnotationMarks';
 import { EChart } from './EChart';
+
+/** A time-axis tick in the viewer's zone: the date at midnight, else the clock. */
+export function axisTime(v: number): string {
+    const w = wallClock(v);
+    return w.hour === 0 && w.minute === 0 ? `${String(w.day).padStart(2, '0')}/${String(w.month).padStart(2, '0')}` : clock(v, false);
+}
 
 export function formatUnit(v: number | null | undefined, unit?: string | null): string {
     if (v === null || v === undefined) return '—';
@@ -36,6 +43,8 @@ export function TimeChart({ series, type = 'line', unit, height = 200, annotatio
     brush?: boolean;
 }) {
     const set = useSetSearch();
+    // ECharts draws in the browser's zone; the labels say the viewer's.
+    const zone = useTimeZone();
     const chartRef = useRef<ECharts | null>(null);
     const annotationsRef = useRef(annotations);
     annotationsRef.current = annotations;
@@ -104,7 +113,9 @@ export function TimeChart({ series, type = 'line', unit, height = 200, annotatio
                 min, max,
                 axisLine: { lineStyle: { color: border } },
                 axisTick: { show: false },
-                axisLabel: { color: muted, fontSize: 10.5, hideOverlap: true },
+                axisLabel: { color: muted, fontSize: 10.5, hideOverlap: true, formatter: axisTime },
+                // The tooltip's heading is this label.
+                axisPointer: { label: { formatter: ({ value }: { value: number }) => dateTime(value) } },
                 splitLine: { show: false },
             },
             yAxis: {
@@ -141,7 +152,7 @@ export function TimeChart({ series, type = 'line', unit, height = 200, annotatio
 
     return (
         <div className="t-chart-wrap">
-            <EChart build={build} height={height} onReady={onReady} onOption={onOption} deps={[series, type, unit, annotations, min, max]} />
+            <EChart build={build} height={height} onReady={onReady} onOption={onOption} deps={[series, type, unit, annotations, min, max, zone]} />
             <AnnotationMarks groups={marks.groups} width={marks.width} />
         </div>
     );

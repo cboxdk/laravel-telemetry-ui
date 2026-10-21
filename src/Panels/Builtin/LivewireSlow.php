@@ -10,6 +10,7 @@ use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -75,7 +76,7 @@ final class LivewireSlow extends Panel
             'phase' => Ui::cell($row['phase'], ['badge' => $row['phase']]),
             'detail' => Ui::cell($row['detail'] !== '' ? $row['detail'] : '—', ['mono' => $row['detail'] !== '']),
             'duration' => Ui::cell(Format::ms($row['durationMs']), ['raw' => $row['durationMs'], 'tone' => 'warn']),
-            'when' => Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true]),
+            'when' => Ui::cell(DisplayTime::at($row['startedAt'], 'H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true]),
             '_link' => Ui::trace($row['traceId'], $row['startedAt']),
         ], array_slice($rows, 0, 50));
 

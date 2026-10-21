@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Annotation;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use DateTimeImmutable;
 
 /**
@@ -27,11 +28,11 @@ final class DeploysTimeline extends Panel
         $rows = array_map(static function (Annotation $deploy): array {
             $at = (new DateTimeImmutable)->setTimestamp((int) ($deploy->timestampMs / 1000));
             $row = [
-                'when' => Ui::cell($at->format('d/m H:i:s'), array_filter([
+                'when' => Ui::cell(DisplayTime::at($at, 'd/m H:i:s'), array_filter([
                     'raw' => (int) $deploy->timestampMs,
                     'mono' => true,
                     'sub' => $deploy->endMs !== null
-                        ? '→ '.(new DateTimeImmutable)->setTimestamp((int) ($deploy->endMs / 1000))->format('H:i:s')
+                        ? '→ '.DisplayTime::at((int) ($deploy->endMs / 1000), 'H:i:s')
                         : null,
                 ], static fn (mixed $v): bool => $v !== null)),
                 'marker' => Ui::cell($deploy->label, array_filter([

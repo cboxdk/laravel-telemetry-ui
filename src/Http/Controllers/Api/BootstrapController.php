@@ -88,6 +88,7 @@ final class BootstrapController
             'app' => [
                 ...Brand::toArray(),
                 'copyLink' => (bool) config('telemetry-ui.copy_link', true),
+                'credit' => (bool) config('telemetry-ui.brand.credit', true),
                 'version' => '2.0',
             ],
             'nav' => array_map(

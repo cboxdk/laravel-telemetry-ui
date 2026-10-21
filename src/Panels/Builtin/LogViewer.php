@@ -12,6 +12,7 @@ use Cbox\TelemetryUi\Queries\Ir\LabelFilter;
 use Cbox\TelemetryUi\Queries\Ir\LabelMatcher;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Results\LogEntry;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\ScopeLabels;
 
 /**
@@ -117,7 +118,7 @@ final class LogViewer extends Panel
         }
 
         $row = [
-            'time' => $entry->timestamp()->format('H:i:s.v'),
+            'time' => DisplayTime::at($entry->timestamp(), 'H:i:s.v'),
             'ms' => intdiv($entry->timestampNano, 1_000_000),
             'level' => strtoupper($entry->labels['level'] ?? $entry->labels['detected_level'] ?? $this->inferLevel($entry->line)),
             'tone' => $this->tone($entry),

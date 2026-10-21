@@ -211,6 +211,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Timezone
+    |--------------------------------------------------------------------------
+    |
+    | The zone the dashboard shows times in until a viewer picks their own in
+    | the header. Null (the default) is each viewer's browser zone, so times
+    | read as local time. Set an IANA name ('UTC', 'Europe/Copenhagen') to
+    | give everyone the same clock, for a team spread across zones.
+    |
+    */
+
+    'timezone' => env('TELEMETRY_UI_TIMEZONE'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Ignore the dashboard's own requests
     |--------------------------------------------------------------------------
     |
@@ -248,12 +262,16 @@ return [
     | colour and overrides the accent. There are no views to override in v2:
     | for deeper changes, read the JSON API and build your own surface.
     |
+    | `credit` is the small "Powered by Cbox" link at the foot of the main nav.
+    | Turn it off for a fully white-labelled dashboard.
+    |
     */
 
     'brand' => [
         'name' => env('TELEMETRY_UI_BRAND_NAME'),
         'logo' => env('TELEMETRY_UI_BRAND_LOGO'),
         'accent' => env('TELEMETRY_UI_BRAND_ACCENT'),
+        'credit' => (bool) env('TELEMETRY_UI_BRAND_CREDIT', true),
     ],
 
     /*

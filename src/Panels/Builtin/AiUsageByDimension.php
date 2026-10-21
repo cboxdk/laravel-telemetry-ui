@@ -11,9 +11,9 @@ use Cbox\TelemetryUi\Panels\Concerns\ReadsAiCalls;
 use Cbox\TelemetryUi\Panels\Concerns\ReadsAiUsage;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Format;
 use Cbox\TelemetryUi\TelemetryUiManager;
-use DateTimeImmutable;
 
 /**
  * Who uses the models, and what it costs: model calls grouped by a context
@@ -90,8 +90,6 @@ final class AiUsageByDimension extends Panel
         $cells = array_map(function (array $row) use ($attribute, $dimension, $currency): array {
             $link = $this->valueLink((string) $attribute, $row['value'], $dimension);
             $errorRate = $row['calls'] > 0 ? $row['errors'] / $row['calls'] : 0.0;
-            $today = date('Y-m-d');
-            $last = new DateTimeImmutable('@'.intdiv($row['last'], 1000));
 
             return [
                 'value' => Ui::cell($row['value'], [
@@ -112,7 +110,7 @@ final class AiUsageByDimension extends Panel
                 },
                 'errors' => Ui::cell(Format::percent($errorRate), ['raw' => $errorRate, 'tone' => $row['errors'] > 0 ? 'danger' : null]),
                 'last' => Ui::cell(
-                    $last->format($last->format('Y-m-d') === $today ? 'H:i:s' : 'M j H:i'),
+                    DisplayTime::short(intdiv($row['last'], 1000)),
                     ['raw' => $row['last'], 'mono' => true],
                 ),
                 '_link' => $link,

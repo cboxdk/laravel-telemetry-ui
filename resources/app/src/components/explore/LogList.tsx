@@ -1,6 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useContext, useMemo, useRef, useState } from 'react';
 import type { LogEntryRow } from '../../api/types';
+import { clockMs } from '../../lib/format';
 import { Go } from '../../lib/links';
 import { useScrollParent } from '../../lib/scrollParent';
 import { BootContext, DimensionValue } from '../DimensionValue';
@@ -24,8 +25,8 @@ function useLabelKeys(): Map<string, string> {
 }
 
 function time(iso: string): string {
-    const t = iso.indexOf('T');
-    return t >= 0 ? iso.slice(t + 1, t + 13) : iso;
+    const at = Date.parse(iso);
+    return Number.isNaN(at) ? iso : clockMs(at);
 }
 
 /** Virtualised log lines; click a line to expand its attributes. */

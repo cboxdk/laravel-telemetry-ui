@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Support\Annotation;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use DateTimeImmutable;
 
 /**
@@ -52,11 +53,11 @@ final class EventsLog extends Panel
             $seconds = (int) ($event->timestampMs / 1000);
 
             $row = [
-                'when' => Ui::cell($at->format('d/m H:i:s'), array_filter([
+                'when' => Ui::cell(DisplayTime::at($at, 'd/m H:i:s'), array_filter([
                     'raw' => (int) $event->timestampMs,
                     'mono' => true,
                     'sub' => $event->endMs !== null
-                        ? '→ '.(new DateTimeImmutable)->setTimestamp((int) ($event->endMs / 1000))->format('H:i:s')
+                        ? '→ '.DisplayTime::at((int) ($event->endMs / 1000), 'H:i:s')
                         : null,
                 ], static fn (mixed $v): bool => $v !== null)),
                 'kind' => Ui::cell($labels[$event->kind] ?? $event->kind, ['badge' => 'info']),

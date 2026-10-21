@@ -6,6 +6,7 @@ namespace Cbox\TelemetryUi\Http\Controllers;
 
 use Cbox\TelemetryUi\Events\DashboardViewed;
 use Cbox\TelemetryUi\Http\Api\Brand;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\ViewState;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -37,6 +38,8 @@ final class SpaController
             'assets' => $base.'/build',
             'csrf' => $request->hasSession() ? $request->session()->token() : csrf_token(),
             'brand' => Brand::toArray(),
+            // The host's default zone; null = the viewer's browser.
+            'timezone' => DisplayTime::zone((string) config('telemetry-ui.timezone'))?->getName(),
         ];
 
         $title = e($boot['brand']['name']);

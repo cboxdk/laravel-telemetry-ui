@@ -9,9 +9,9 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Queries\Ir\LogQuery;
 use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Results\Trace;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\ScopeLabels;
 use DateTimeImmutable;
-use Illuminate\Support\Carbon;
 
 /**
  * The log lines written DURING a request — correlated by trace id, so the
@@ -61,7 +61,7 @@ final readonly class TraceLogs
             $level = strtolower($entry->labels['detected_level'] ?? $entry->labels['severity_text'] ?? 'info');
 
             $logs[] = [
-                'time' => Carbon::createFromTimestamp(intdiv($entry->timestampNano, 1_000_000_000))->format('H:i:s'),
+                'time' => DisplayTime::at(intdiv($entry->timestampNano, 1_000_000_000), 'H:i:s'),
                 'level' => $level,
                 'tone' => match ($level) {
                     'error', 'fatal', 'critical' => 'danger',

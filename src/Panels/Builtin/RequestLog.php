@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceOp;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -156,7 +157,7 @@ class RequestLog extends Panel
         $status = $row['status'];
 
         return [
-            'time' => Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true]),
+            'time' => Ui::cell(DisplayTime::at($row['startedAt'], 'H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true]),
             'request' => Ui::cell(trim($row['method'].' '.$row['path']), ['mono' => true]),
             'status' => $status === ''
                 ? Ui::cell(null)

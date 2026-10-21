@@ -63,6 +63,6 @@ final class TimeExpression
      */
     public static function label(string $value): string
     {
-        return ctype_digit($value = trim($value)) ? date('d/m H:i', (int) $value) : $value;
+        return ctype_digit($value = trim($value)) ? DisplayTime::at((int) $value, 'd/m H:i') : $value;
     }
 }

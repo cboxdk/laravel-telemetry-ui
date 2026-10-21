@@ -45,9 +45,9 @@ final readonly class Annotation
             'notes' => $this->notes,
             'kind' => $this->kind,
             'traceId' => $this->traceId,
-            'time' => date('d/m H:i:s', (int) ($this->timestampMs / 1000)),
+            'time' => DisplayTime::at((int) ($this->timestampMs / 1000), 'd/m H:i:s'),
             'timeEnd' => $this->endMs !== null && $this->endMs > $this->timestampMs
-                ? date('d/m H:i:s', (int) ($this->endMs / 1000))
+                ? DisplayTime::at((int) ($this->endMs / 1000), 'd/m H:i:s')
                 : null,
             'count' => $this->count,
             'hosts' => array_slice($this->hosts, 0, 5),

@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Times in the viewer's own timezone.** Every time on screen, in the
+  tables, the charts and the log lines, was the server's zone (UTC on most
+  hosts). It is now the browser's by default, so times read as local time.
+  A picker in the header changes it per viewer (remembered in the browser),
+  and `telemetry-ui.timezone` (`TELEMETRY_UI_TIMEZONE`) sets the default for
+  everyone. The SPA sends the zone as an `X-Timezone` header and the API
+  formats its own times in it, so a table row and the chart above it always
+  agree. The embeddable `TelemetryUiProvider` takes a `timezone` too.
+- **A refresh button in the header**, beside the auto-refresh interval. It
+  refetches everything on screen, as `r` does, and turns while the reads are
+  in flight.
+- **"Powered by Cbox" at the foot of the main navigation.** `telemetry-ui.brand.credit`
+  (`TELEMETRY_UI_BRAND_CREDIT=false`) turns it off for a white-labelled
+  dashboard.
+
 - `Contracts\KnowsStreamLabels`, an optional capability of a logs driver:
   the labels the store indexes as stream labels. The Loki driver
   implements it.

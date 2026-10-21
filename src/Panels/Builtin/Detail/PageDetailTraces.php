@@ -8,6 +8,7 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -54,7 +55,7 @@ final class PageDetailTraces extends Panel
         ];
 
         $rows = array_map(static fn (TraceSummary $summary): array => [
-            'time' => Ui::cell($summary->startedAt->format('H:i:s'), ['raw' => $summary->startedAt->getTimestamp() * 1000]),
+            'time' => Ui::cell(DisplayTime::at($summary->startedAt, 'H:i:s'), ['raw' => $summary->startedAt->getTimestamp() * 1000]),
             'service' => Ui::cell($summary->rootServiceName, [
                 'badge' => $summary->rootServiceName,
                 'tone' => 'info',

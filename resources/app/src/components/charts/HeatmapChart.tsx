@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 import type { ECharts } from 'echarts/core';
 import { tokenColor } from '../../lib/colors';
 import { clock, count } from '../../lib/format';
+import { useTimeZone } from '../../lib/time';
 import { EChart } from './EChart';
 
 /** Time × latency (or any band) heatmap. */
@@ -14,6 +15,7 @@ export function HeatmapChart({ xs, ys, cells, height = 170, unit = 'requests', o
     /** Click a cell: column index, row index. */
     onCell?: (x: number, y: number) => void;
 }) {
+    const zone = useTimeZone();
     const cell = useRef(onCell);
     cell.current = onCell;
     const onReady = useCallback((chart: ECharts) => {
@@ -60,5 +62,5 @@ export function HeatmapChart({ xs, ys, cells, height = 170, unit = 'requests', o
         };
     };
 
-    return <EChart build={build} height={height} deps={[xs, ys, cells]} onReady={onReady} />;
+    return <EChart build={build} height={height} deps={[xs, ys, cells, zone]} onReady={onReady} />;
 }

@@ -9,6 +9,7 @@ use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Attributes\Param;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Support\DisplayTime;
 
 /**
  * Open issues/PRs from the configured tracker (GitHub, Sentry, Linear),
@@ -119,7 +120,7 @@ final class IssuesList extends Panel
                 ]);
             $cells['author'] = Ui::cell($issue->author ?? '—');
             $cells['comments'] = Ui::cell($issue->count !== null ? (string) $issue->count : '—', ['raw' => $issue->count, 'mono' => true]);
-            $cells['updated'] = Ui::cell($issue->updatedAt?->format('d/m H:i') ?? '—', ['raw' => $issue->updatedAt?->getTimestamp(), 'mono' => true]);
+            $cells['updated'] = Ui::cell(($issue->updatedAt !== null ? DisplayTime::at($issue->updatedAt, 'd/m H:i') : '—'), ['raw' => $issue->updatedAt?->getTimestamp(), 'mono' => true]);
 
             $table[] = $cells;
         }

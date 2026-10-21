@@ -6,6 +6,8 @@ export interface Boot {
     assets: string;
     csrf: string;
     brand: { name: string; logo: string | null; accent: string | null };
+    /** The host's default timezone (IANA); null = each viewer's browser zone. */
+    timezone: string | null;
 }
 
 const fallback: Boot = {
@@ -14,6 +16,7 @@ const fallback: Boot = {
     assets: '/build',
     csrf: '',
     brand: { name: 'Telemetry', logo: null, accent: null },
+    timezone: null,
 };
 
 let cached: Boot | null = null;

@@ -1,6 +1,8 @@
 // Number/time formatting, matching src/Support/Format.php so values read the
 // same whether the server or the client formatted them.
 
+import { wallClock } from './time';
+
 export function count(n: number | null | undefined): string {
     if (n === null || n === undefined || Number.isNaN(n)) return '—';
     const abs = Math.abs(n);
@@ -44,16 +46,29 @@ function trim(n: number): string {
     return (Math.round(n * 10) / 10).toString();
 }
 
+const pad = (x: number) => String(x).padStart(2, '0');
+
+/** HH:mm(:ss) in the viewer's timezone (lib/time). */
 export function clock(msEpoch: number, withSeconds = true): string {
-    const d = new Date(msEpoch);
-    const pad = (x: number) => String(x).padStart(2, '0');
-    return `${pad(d.getHours())}:${pad(d.getMinutes())}${withSeconds ? ':' + pad(d.getSeconds()) : ''}`;
+    const w = wallClock(msEpoch);
+    return `${pad(w.hour)}:${pad(w.minute)}${withSeconds ? ':' + pad(w.second) : ''}`;
+}
+
+/** HH:mm:ss.mmm in the viewer's timezone — log lines, where order within a second matters. */
+export function clockMs(msEpoch: number): string {
+    return `${clock(msEpoch)}.${String(Math.floor(((msEpoch % 1000) + 1000) % 1000)).padStart(3, '0')}`;
 }
 
 export function dateTime(msEpoch: number): string {
-    const d = new Date(msEpoch);
-    const pad = (x: number) => String(x).padStart(2, '0');
-    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${clock(msEpoch)}`;
+    const w = wallClock(msEpoch);
+    return `${pad(w.day)}/${pad(w.month)} ${clock(msEpoch)}`;
+}
+
+/** Whether two instants fall on the same calendar day in the viewer's timezone. */
+export function sameDay(a: number, b: number): boolean {
+    const x = wallClock(a);
+    const y = wallClock(b);
+    return x.year === y.year && x.month === y.month && x.day === y.day;
 }
 
 export function ago(msEpoch: number, now = Date.now()): string {

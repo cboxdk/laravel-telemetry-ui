@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import type { Bootstrap } from '../../api/types';
+import { boot } from '../../boot';
 import { useScope, useSetSearch, useRefreshInterval } from '../../lib/state';
-import { clock, dateTime } from '../../lib/format';
+import { clock, dateTime, sameDay } from '../../lib/format';
+import { BROWSER, browserTimeZone, fromInputValue, setTimeZone, timeZonePick, timeZones, toInputValue, useTimeZone, zoneLabel } from '../../lib/time';
 import { Combobox } from '../Combobox';
 import { Icon } from '../Icon';
 import { Popover } from '../Popover';
@@ -69,6 +72,8 @@ export function TopBar({ boot, onPalette, embedded = false }: {
             </div>
             <div className="t-topbar-spacer" />
             <PeriodPicker boot={boot} />
+            <TimeZonePicker />
+            <RefreshButton />
             <Combobox
                 label=""
                 value={String(refresh)}
@@ -110,12 +115,69 @@ export function TopBar({ boot, onPalette, embedded = false }: {
     );
 }
 
+/**
+ * Refetch everything on screen now — what `r` does. Spins while any read is
+ * in flight, so a click that found the data already fresh still shows it ran.
+ */
+function RefreshButton() {
+    const client = useQueryClient();
+    const busy = useIsFetching({ predicate: (query) => query.meta?.quiet !== true }) > 0;
+
+    return (
+        <button
+            type="button"
+            className={`t-iconbtn t-refresh-now ${busy ? 'is-busy' : ''}`}
+            onClick={() => void client.invalidateQueries()}
+            title="Refresh now (r)"
+            aria-label="Refresh now"
+            aria-busy={busy}
+        >
+            <Icon name="refresh" size={15} />
+        </button>
+    );
+}
+
+/**
+ * The zone times are shown in: the browser's by default, so they read as
+ * local time. The server formats its own clocks in it too, so a pick
+ * refetches what is on screen.
+ */
+function TimeZonePicker() {
+    const client = useQueryClient();
+    const zone = useTimeZone();
+    const pick = timeZonePick();
+    const browser = browserTimeZone();
+    const host = boot().timezone;
+
+    const options = useMemo(() => [
+        // With no host default, the default is the browser's zone: one entry.
+        ...(host ? [{ value: '', label: `Default · ${host}`, hint: zoneLabel(host) }] : []),
+        { value: host ? BROWSER : '', label: `Browser · ${browser}`, hint: zoneLabel(browser) },
+        ...timeZones().map((z) => ({ value: z, label: z.replace(/_/g, ' '), hint: zoneLabel(z) })),
+    ], [host, browser]);
+
+    return (
+        <span className="t-timezone" title={`Times are shown in ${zone}`}>
+            <Combobox
+                label=""
+                value={pick === BROWSER && !host ? '' : (pick ?? '')}
+                width={84}
+                mono
+                display={zoneLabel(zone)}
+                options={options}
+                onChange={(v) => {
+                    setTimeZone(v === '' ? null : v);
+                    void client.resetQueries();
+                }}
+            />
+        </span>
+    );
+}
+
 function toLocal(sec: string): string {
     const n = Number(sec);
     if (!Number.isFinite(n) || n <= 0) return '';
-    const d = new Date(n * 1000);
-    const pad = (x: number) => String(x).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    return toInputValue(n * 1000);
 }
 
 function PeriodPicker({ boot }: { boot: Bootstrap }) {
@@ -152,8 +214,8 @@ function PeriodPicker({ boot }: { boot: Bootstrap }) {
                         className="t-range-form"
                         onSubmit={(e) => {
                             e.preventDefault();
-                            const f = Math.floor(new Date(from).getTime() / 1000);
-                            const t = Math.floor(new Date(to).getTime() / 1000);
+                            const f = Math.floor(fromInputValue(from) / 1000);
+                            const t = Math.floor(fromInputValue(to) / 1000);
                             if (Number.isFinite(f) && Number.isFinite(t) && f < t) {
                                 set({ from: String(f), to: String(t) });
                                 close();
@@ -175,6 +237,5 @@ function PeriodPicker({ boot }: { boot: Bootstrap }) {
 
 /** Compact custom-range label: times only when both ends fall on the same day. */
 function rangeLabel(from: number, to: number): string {
-    const sameDay = new Date(from).toDateString() === new Date(to).toDateString();
-    return sameDay ? `${clock(from, false)} → ${clock(to, false)}` : `${dateTime(from).slice(0, -3)} → ${dateTime(to).slice(0, -3)}`;
+    return sameDay(from, to) ? `${clock(from, false)} → ${clock(to, false)}` : `${dateTime(from).slice(0, -3)} → ${dateTime(to).slice(0, -3)}`;
 }

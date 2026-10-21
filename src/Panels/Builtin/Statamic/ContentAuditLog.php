@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Panels\Ui;
 use Cbox\TelemetryUi\Queries\Ir\LineFilter;
 use Cbox\TelemetryUi\Queries\Ir\LineOp;
 use Cbox\TelemetryUi\Queries\Results\LogEntry;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use DateTimeImmutable;
 
 /**
@@ -154,7 +155,7 @@ final class ContentAuditLog extends Panel
         $context = implode(' · ', array_filter([$row['type'], $row['scope'], $row['site']], static fn (?string $v): bool => $v !== null && $v !== ''));
 
         $cells = [
-            'when' => Ui::cell($at->format('d/m H:i:s'), ['raw' => $row['ts'], 'mono' => true]),
+            'when' => Ui::cell(DisplayTime::at($at, 'd/m H:i:s'), ['raw' => $row['ts'], 'mono' => true]),
             'action' => Ui::cell($row['action'], ['badge' => self::TONES[$row['action']] ?? 'info']),
             'item' => Ui::cell($row['title'] ?? $row['handle'] ?? $row['id'] ?? '—', array_filter([
                 'sub' => $context.($row['message'] !== null ? ' — “'.$row['message'].'”' : ''),

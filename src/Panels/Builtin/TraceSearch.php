@@ -15,6 +15,7 @@ use Cbox\TelemetryUi\Queries\Ir\TraceOp;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Queries\Results\Span;
 use Cbox\TelemetryUi\Queries\Results\TraceSummary;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -112,7 +113,7 @@ final class TraceSearch extends Panel
 
             $table[] = [
                 '_link' => $link,
-                'time' => Ui::cell($row['startedAt']->format('H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true]),
+                'time' => Ui::cell(DisplayTime::at($row['startedAt'], 'H:i:s'), ['raw' => $row['startedAt']->getTimestamp(), 'mono' => true]),
                 'service' => Ui::cell($row['service'], array_filter([
                     'badge' => $row['service'],
                     'tone' => 'info',

@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Panels\Builtin\Detail;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
+use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Format;
 
 /**
@@ -49,7 +50,7 @@ final class JobDetailTraces extends Panel
         foreach ($results as $summary) {
             $rows[] = [
                 '_link' => Ui::trace($summary->traceId, $summary->startedAt),
-                'time' => Ui::cell($summary->startedAt->format('H:i:s'), [
+                'time' => Ui::cell(DisplayTime::at($summary->startedAt, 'H:i:s'), [
                     'raw' => $summary->startedAt->getTimestamp(),
                     'mono' => true,
                 ]),

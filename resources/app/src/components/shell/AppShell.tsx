@@ -178,6 +178,16 @@ function Rail({ boot, areas, active, pinned, expanded, onPin, onHover, scope }: 
                         <span className="t-avatar">{initials}</span>
                         <span className="t-rail-label">{boot.user?.name ?? 'Guest'}</span>
                     </div>
+                    {boot.app.credit !== false && (
+                        <a href="https://cbox.dk" target="_blank" rel="noopener" className="t-rail-item t-rail-credit" title="Powered by Cbox">
+                            {/* The Cbox mark (cbox-design favicon). */}
+                            <svg viewBox="0 0 32 32" width={16} height={16} aria-hidden="true">
+                                <rect width="32" height="32" rx="7" fill="oklch(0.45 0.16 258)" />
+                                <circle cx="16" cy="16" r="6" fill="oklch(0.992 0.003 247)" />
+                            </svg>
+                            <span className="t-rail-label">Powered by Cbox</span>
+                        </a>
+                    )}
                 </div>
             </nav>
         </>
