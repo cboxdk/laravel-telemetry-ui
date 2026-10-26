@@ -128,12 +128,66 @@ $this->metrics('metrics-eu')->queryRange(...);
 
 - **Lazy** — connections resolve on first use, never at boot.
 - **Tenancy** — `tenant` sets `X-Scope-OrgID`, honoured by Mimir, Tempo and
-  Loki alike.
+  Loki alike. For a connection per viewer, see
+  [Per-tenant connections](#per-tenant-connections).
 - **Mimir = Prometheus + prefix** — the `mimir` driver is the Prometheus
   driver with a default `/prometheus` path prefix and tenancy.
 - **Errors** — all drivers throw `SourceException` with the failing URL and
   upstream message; a panel returns it as an inline error state and an API
   endpoint as a typed `backend` error (502).
+
+## Per-tenant connections
+
+On a host that serves many tenants, resolve the connections per viewer with
+`TelemetryUi::resolveConnectionsUsing()` (see
+[Authorization](authorization.md#per-tenant-backends) for the resolver itself).
+Three things keep tenants apart.
+
+**Strict resolution.** By default a connection the resolver omits falls back
+to the static config above. Register the resolver with `strict: true` and it
+is refused instead: so is every connection for a request without a signed-in
+viewer. Reads then fail with a `SourceException` (status `unauthorized`),
+which a panel renders as its error state and the API as a typed `backend`
+error. The static config is never read on a viewer's behalf.
+
+```php
+TelemetryUi::resolveConnectionsUsing(fn ($user) => $user->tenant->telemetryConnections(), strict: true);
+```
+
+**Caches are namespaced per tenant.** Everything cached from a backend's
+answer (the service list, deploy markers, page detection, stream labels, the
+infrastructure map, signal baselines, dimension display names and the HTTP
+query cache) is keyed under `ConnectionManager::fingerprint()`. The
+fingerprint is a hash of the connections in force: driver, url, tenant and the
+other settings, with the token, basic auth and headers reduced to a hash. Two
+viewers share cached answers only when they read the same backends with the
+same credentials. The cache store is shared by every worker, so this holds
+across requests and processes, not only within one. A custom driver or panel
+that caches a backend's answer should key it the same way:
+
+```php
+$key = app(ConnectionManager::class)->cacheKey('my-panel:'.$query); // telemetry-ui:<fingerprint>:my-panel:…
+```
+
+**Headless runs.** A scheduled command or a queued job has no viewer to
+resolve connections from. Run it inside `ConnectionManager::using()`, with
+the same map a resolver returns:
+
+```php
+use Cbox\TelemetryUi\Connectors\ConnectionManager;
+use Cbox\TelemetryUi\Discovery\Discoverer;
+
+$connections = app(ConnectionManager::class);
+
+foreach (Tenant::all() as $tenant) {
+    $connections->using($tenant->telemetryConnections(), fn () => app(Discoverer::class)->discover());
+}
+```
+
+Inside the callback the map is the resolver's answer (the resolver itself is
+not called): a connection it omits falls back to static config, or is refused
+under a strict resolver. Calls nest, and the previous connections are back
+when the callback returns or throws.
 
 ## Verifying a connection
 

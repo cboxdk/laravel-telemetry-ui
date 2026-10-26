@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Strict connection resolvers.** `TelemetryUi::resolveConnectionsUsing($resolver, strict: true)`
+  makes the resolver the only source of connections: a connection it omits,
+  and every connection for a request without a signed-in viewer, is refused
+  instead of read from the static config. A refused read is a
+  `SourceException` (status `unauthorized`), shown as the panel's error state.
+  The default stays non-strict.
+- **Headless connections.** `ConnectionManager::using($connections, fn () => …)`
+  runs a callback with a given connection map in force, so a scheduled command
+  or a queued job can read one tenant's backends with no viewer. Calls nest and
+  restore on return or throw.
+- **`ConnectionManager::fingerprint()` and `cacheKey()`.** An opaque id for the
+  connections in force (credentials only as a hash), and a cache key
+  namespaced under it, for custom drivers and panels that cache a backend's
+  answer.
+- **A per-request connection switcher.** `TelemetryUi::connectionsUsing($options, current: …)`
+  builds the header's switcher for each request's viewer instead of once per
+  process, and `TelemetryUi::clearConnections()` forgets the registered
+  entries.
+
+### Fixed
+
+- **Cached answers no longer cross tenants.** The service list (which also
+  feeds the log selector), deploy markers, page detection, stream labels, the
+  infrastructure map, signal baselines and dimension display names were
+  cached under keys that did not name the connection, so with per-viewer
+  connections one tenant's cached result was served to the next tenant
+  through the shared cache store. They are now keyed under the connection
+  fingerprint. The HTTP query cache now keys on every header, not only
+  `Authorization`. Existing cache entries are not read after upgrading; they
+  expire on their own.
+- **A locked raw TraceQL query is scoped in every spanset.** Only the first
+  `{ … }` got the scope lock, so `{ mine } || { anything }` matched spans
+  outside the lock. Every spanset now gets it; braces inside string values
+  are no longer taken for syntax, and a query whose parentheses do not pair
+  inside a spanset, or that cannot be read with certainty, matches nothing.
+- **The raw MCP query tools respect the scope lock.** `query_metrics`,
+  `query_range` and `query_logs` ran PromQL and LogQL as given, outside the
+  lock. While a lock is active they are now refused with an error that names
+  the tools that stay inside it. The MCP server instructions, the agent skill
+  and the docs now say what is enforced, instead of "everything stays inside
+  your scope lock".
+
 ## [3.5.0] - 2026-10-23
 
 ### Changed

@@ -165,6 +165,13 @@ With a lock in place:
   deep-linked TraceQL `?q=` are all coerced back to the allowed set, across
   metrics, traces and logs. A single allowed service scopes to
   `service_name="x"`; several scope to a `service_name=~"a|b"` alternation.
+- **A raw TraceQL query is scoped in every spanset.** `{ a } || { b }` and
+  `{ a } >> { b }` get the lock in both spansets, so the second one cannot
+  match outside it. The query is read rather than pattern-matched: braces
+  inside a string value are not syntax, and a spanset whose parentheses do
+  not pair (an attempt to close the scope's group with `) || (`) is not run.
+  A query that cannot be read with certainty is replaced by one that matches
+  nothing.
 
 It's enforced server-side in the query scope, not just the UI, so it can't be
 bypassed from the URL. That includes a trace opened by id (`/traces/{id}`): a
@@ -206,8 +213,9 @@ A name left out keeps its default.
 
 > Note: chart **deploy-marker annotations** are scoped when the effective scope
 > is a single service; a multi-service lock leaves the markers unscoped (they
-> reveal only deploy *timestamps*, not telemetry). The MCP transport is a
-> separate surface and is not covered by the scope lock.
+> reveal only deploy *timestamps*, not telemetry). Over MCP, the trace tools
+> honour the lock and the raw PromQL and LogQL tools are refused while one is
+> active; see the [MCP cookbook](../cookbook/mcp.md#security).
 
 ### Per-tenant backends
 
@@ -228,11 +236,35 @@ to the static `telemetry-ui.connections` config. It runs per request, and built
 drivers are cached by config (not just name), so under a persistent runtime like
 Octane one tenant never gets another's connection.
 
+When every connection belongs to a tenant, register it strict, so nothing is
+ever read from the static config on a viewer's behalf:
+
+```php
+TelemetryUi::resolveConnectionsUsing(fn ($user) => [/* … */], strict: true);
+```
+
+A strict resolver refuses a connection it omits, and every connection for a
+request without a signed-in viewer. The default stays non-strict.
+
+Cached answers (the service list, deploy markers, page detection, dimension
+display names and the rest) are namespaced per tenant by a fingerprint of the
+resolved connections, so one tenant's cached result is never served to
+another, even through a cache store every worker shares. For a scheduled
+command or a queued job with no viewer, run the work inside
+`ConnectionManager::using($connections, fn () => …)`. See
+[Per-tenant connections](connections.md#per-tenant-connections).
+
+The header's [connection switcher](../extension-points/connection-switcher.md)
+can be built per request too, with `TelemetryUi::connectionsUsing()`.
+
 ## MCP
 
 The HTTP MCP transport is a separate surface with its own auth (`auth:api` +
 throttle, optionally OAuth) — see the [MCP cookbook](../cookbook/mcp.md). It is
-not covered by `viewTelemetryUi`.
+not covered by `viewTelemetryUi`. It is covered by the scope lock: the trace
+tools search inside it, and `query_metrics`, `query_range` and `query_logs`
+are refused while a lock is active, since raw PromQL and LogQL cannot be
+confined to it.
 
 ## What the gate does *not* do
 

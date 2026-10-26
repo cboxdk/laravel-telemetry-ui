@@ -46,6 +46,13 @@ Run it on a schedule. Infrastructure changes at deploy speed, not request
 speed, so the map is cached — 15 minutes by default
 (`telemetry-ui.discovery.ttl`).
 
+The map is cached per set of connections. With connections resolved per
+viewer, the scheduled command (which has no viewer) discovers what the static
+config points at. To keep a map for each tenant, discover inside
+`ConnectionManager::using()` for each one (see
+[Per-tenant connections](connections.md#per-tenant-connections)). Without a
+map, a trace view still probes the few hosts and dependencies it names.
+
 ## What your traces must carry
 
 The host side needs `host.name` on the resource of your spans. Without it
