@@ -13,6 +13,7 @@ use Cbox\TelemetryUi\Panels\Builtin;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Support\ConnectionOption;
 use Cbox\TelemetryUi\Support\NavLink;
+use Cbox\TelemetryUi\Support\ResolvedConnectionOptions;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ViewState;
 use Closure;
@@ -212,6 +213,16 @@ final class TelemetryUiManager
      * instead of read from static config.
      */
     private bool $connectionResolverIsStrict = false;
+
+    /**
+     * Per-request connection-switcher entries (see {@see connectionsUsing()}).
+     *
+     * @var (Closure(mixed): iterable<ConnectionOption>)|null
+     */
+    private ?Closure $connectionOptionsResolver = null;
+
+    /** @var (Closure(mixed): ?string)|null */
+    private ?Closure $currentConnectionResolver = null;
 
     public function __construct(private readonly Config $config) {}
 
@@ -429,11 +440,48 @@ final class TelemetryUiManager
     }
 
     /**
+     * Build the connection switcher per request instead of once per process.
+     *
+     * {@see connection()} and {@see currentConnection()} write to this
+     * manager, which lives as long as the worker: under a persistent runtime
+     * (Octane, a queue worker) what one request registered is still there for
+     * the next one. When the entries depend on who is looking — each tenant
+     * has their own profiles, and their own current one — register resolvers
+     * here. They receive the signed-in user (or null), run once per request,
+     * and replace the registered entries for that request.
+     *
+     * @param  Closure(mixed): iterable<ConnectionOption>  $options
+     * @param  (Closure(mixed): ?string)|null  $current  the selected value; null leaves {@see currentConnection()} in force
+     */
+    public function connectionsUsing(Closure $options, ?Closure $current = null): self
+    {
+        $this->connectionOptionsResolver = $options;
+        $this->currentConnectionResolver = $current;
+
+        return $this;
+    }
+
+    /**
+     * Forget every switcher entry, the current selection and any
+     * {@see connectionsUsing()} resolvers — for a host that rebuilds the list
+     * itself at the start of each request.
+     */
+    public function clearConnections(): self
+    {
+        $this->connections = [];
+        $this->currentConnection = null;
+        $this->connectionOptionsResolver = null;
+        $this->currentConnectionResolver = null;
+
+        return $this;
+    }
+
+    /**
      * @return list<ConnectionOption>
      */
     public function connections(): array
     {
-        return array_values($this->connections);
+        return array_values($this->connectionOptions());
     }
 
     /**
@@ -442,9 +490,21 @@ final class TelemetryUiManager
      */
     public function selectedConnection(): string
     {
-        return $this->currentConnection !== null && isset($this->connections[$this->currentConnection])
-            ? $this->currentConnection
-            : '';
+        $current = $this->currentConnectionResolver !== null
+            ? app(ResolvedConnectionOptions::class)->current($this->currentConnectionResolver)
+            : $this->currentConnection;
+
+        return $current !== null && isset($this->connectionOptions()[$current]) ? $current : '';
+    }
+
+    /**
+     * @return array<string, ConnectionOption>
+     */
+    private function connectionOptions(): array
+    {
+        return $this->connectionOptionsResolver !== null
+            ? app(ResolvedConnectionOptions::class)->options($this->connectionOptionsResolver)
+            : $this->connections;
     }
 
     /**

@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Cbox\TelemetryUi\TelemetryUiManager connection(string $value, string $label, string $url)
  * @method static \Cbox\TelemetryUi\TelemetryUiManager currentConnection(?string $value)
  * @method static \Cbox\TelemetryUi\TelemetryUiManager removeConnection(string $value)
+ * @method static \Cbox\TelemetryUi\TelemetryUiManager connectionsUsing(\Closure $options, ?\Closure $current = null)
+ * @method static \Cbox\TelemetryUi\TelemetryUiManager clearConnections()
  * @method static list<\Cbox\TelemetryUi\Support\ConnectionOption> connections()
  * @method static string selectedConnection()
  * @method static \Cbox\TelemetryUi\Support\ViewState viewState()

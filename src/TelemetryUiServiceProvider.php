@@ -17,6 +17,7 @@ use Cbox\TelemetryUi\Http\Middleware\RemembersViewState;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Fleet;
+use Cbox\TelemetryUi\Support\ResolvedConnectionOptions;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLock;
 use Cbox\TelemetryUi\Support\StreamLabels;
@@ -89,6 +90,9 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $this->app->scoped(ResolvedConnections::class, static fn (Application $app): ResolvedConnections => new ResolvedConnections(
             $app->make(TelemetryUiManager::class),
         ));
+
+        // And for the per-request connection switcher's memo.
+        $this->app->scoped(ResolvedConnectionOptions::class, static fn (): ResolvedConnectionOptions => new ResolvedConnectionOptions);
 
         // The reader's remembered window/scope/refresh. Request-scoped: it is
         // resolved from THIS request's query string and cookie, so it must
