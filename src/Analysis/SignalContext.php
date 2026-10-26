@@ -274,7 +274,7 @@ final readonly class SignalContext
     {
         $ttl = max(30, (int) $this->config->get('telemetry-ui.context.baseline_ttl', 120));
         $bucket = intdiv($end->getTimestamp(), 300) * 300;
-        $key = 'telemetry-ui:baseline:'.hash('xxh128', $query.'|'.$bucket);
+        $key = $this->connections->cacheKey('baseline:'.hash('xxh128', $query.'|'.$bucket));
 
         // Redis (and Memcached) keep a number as the bare number and hand it
         // back as a string, so what comes out of the cache is read, not trusted.

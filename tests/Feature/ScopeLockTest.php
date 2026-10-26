@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\TelemetryUiManager;
 use Illuminate\Support\Facades\Gate;
@@ -158,7 +159,7 @@ it('does not constrain a raw ?q= when no lock is active', function (): void {
 
 it('falls back to the allowed set when discovery is empty for a locked viewer', function (): void {
     // Simulate a discovery blip: the fleet label lookup came back empty.
-    cache()->store()->put('telemetry-ui:fleet:service_name', [], 60);
+    cache()->store()->put(app(ConnectionManager::class)->cacheKey('fleet:service_name'), [], 60);
     lockScope(['services' => ['cbox-web', 'billing']]);
 
     // Switcher offers the lock's own set rather than rendering empty.

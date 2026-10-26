@@ -73,7 +73,9 @@ final readonly class Fleet
     {
         /** @var list<string> $values */
         $values = $this->cache->store()->remember(
-            'telemetry-ui:fleet:'.$label,
+            // Keyed under the connections in force: the discovered fleet is one
+            // tenant's answer, and the cache store is shared by every tenant.
+            $this->connections->cacheKey('fleet:'.$label),
             $this->ttl,
             function () use ($label): array {
                 try {

@@ -41,11 +41,55 @@ class ConnectionManager
     private array $customCreators = [];
 
     /**
+     * Config keys whose values are credentials. They feed {@see fingerprint()}
+     * only as a hash, never as the value itself.
+     */
+    private const SECRET_KEYS = ['token', 'basic_auth', 'headers', 'password', 'secret', 'api_key'];
+
+    /**
      * @var array<string, object>
      */
     private array $resolved = [];
 
     public function __construct(private readonly Config $config) {}
+
+    /**
+     * A stable, opaque id for the connections in force right now: the driver,
+     * url, tenant and other settings of every connection, with credentials
+     * reduced to a hash. Two viewers get the same fingerprint only when they
+     * read the same backends with the same credentials.
+     *
+     * Every cache that holds what a backend answered is keyed under it (see
+     * {@see cacheKey()}), so one tenant's cached answer is never served to
+     * another — the cache store is shared by every worker and every request,
+     * not just by one Octane process. It is a hash, so it is safe in a cache
+     * key; it never contains a token, a password or a header value.
+     */
+    public function fingerprint(): string
+    {
+        $names = array_keys((array) $this->config->get('telemetry-ui.connections', []));
+        $names = [...$names, ...array_keys(app(ResolvedConnections::class)->all())];
+        $names = array_values(array_unique(array_map(strval(...), $names)));
+        sort($names);
+
+        $material = [];
+
+        foreach ($names as $name) {
+            $material[$name] = $this->identity($this->connectionConfig($name));
+        }
+
+        return substr(hash('sha256', (string) json_encode($material, JSON_PARTIAL_OUTPUT_ON_ERROR)), 0, 32);
+    }
+
+    /**
+     * A cache key namespaced to the connections in force ({@see fingerprint()}):
+     * `telemetry-ui:<fingerprint>:<key>`. Use it for anything cached from a
+     * backend's answer, including in custom drivers and panels.
+     */
+    public function cacheKey(string $key): string
+    {
+        return 'telemetry-ui:'.$this->fingerprint().':'.$key;
+    }
 
     public function metrics(?string $name = null): MetricsSource
     {
@@ -281,7 +325,54 @@ class ConnectionManager
 
         $config = $this->config->get("telemetry-ui.connections.{$name}");
 
-        return is_array($config) ? $config : null;
+        return is_array($config) ? $this->stringKeyed($config) : null;
+    }
+
+    /**
+     * What {@see fingerprint()} hashes for one connection: its settings, with
+     * every credential replaced by a hash of it.
+     *
+     * @param  array<string, mixed>|null  $config
+     * @return array<string, mixed>|null
+     */
+    private function identity(?array $config): ?array
+    {
+        if ($config === null) {
+            return null;
+        }
+
+        // A set of connections (multi-repo issues) is hashed entry by entry.
+        if (! isset($config['driver']) && $config !== [] && array_filter($config, is_array(...)) === $config) {
+            return array_map(
+                fn (array $entry): ?array => $this->identity($this->stringKeyed($entry)),
+                $config,
+            );
+        }
+
+        foreach (self::SECRET_KEYS as $key) {
+            if (array_key_exists($key, $config)) {
+                $config[$key] = hash('sha256', (string) json_encode($config[$key], JSON_PARTIAL_OUTPUT_ON_ERROR));
+            }
+        }
+
+        ksort($config);
+
+        return $config;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $config
+     * @return array<string, mixed>
+     */
+    private function stringKeyed(array $config): array
+    {
+        $keyed = [];
+
+        foreach ($config as $key => $value) {
+            $keyed[(string) $key] = $value;
+        }
+
+        return $keyed;
     }
 
     /**

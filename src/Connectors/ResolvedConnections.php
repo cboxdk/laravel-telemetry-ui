@@ -38,6 +38,16 @@ class ResolvedConnections
     }
 
     /**
+     * Every connection the resolver handed out for this viewer, by name.
+     *
+     * @return array<string, mixed>
+     */
+    public function all(): array
+    {
+        return $this->map();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function map(): array

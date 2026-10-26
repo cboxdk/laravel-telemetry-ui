@@ -8,7 +8,6 @@ use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\KnowsStreamLabels;
 use Illuminate\Contracts\Cache\Factory as CacheFactory;
-use Illuminate\Contracts\Config\Repository as Config;
 
 /**
  * Whether the log store indexes a label as a stream label, asked once per
@@ -29,16 +28,19 @@ final class StreamLabels
     public function __construct(
         private readonly ConnectionManager $connections,
         private readonly CacheFactory $cache,
-        private readonly Config $config,
         private readonly int $ttl = 300,
     ) {}
 
     public function indexes(string $label, ?string $connection = null): bool
     {
+        // Memoised per connection AND the connections in force, so a scope
+        // that sees more than one set of connections never carries one
+        // tenant's answer into the next.
         $name = $connection ?? 'logs';
-        $labels = array_key_exists($name, $this->known)
-            ? $this->known[$name]
-            : $this->known[$name] = $this->labels($connection);
+        $key = $this->connections->cacheKey('stream-labels:'.$name);
+        $labels = array_key_exists($key, $this->known)
+            ? $this->known[$key]
+            : $this->known[$key] = $this->labels($connection, $key);
 
         return $labels !== null && in_array($label, $labels, true);
     }
@@ -46,15 +48,8 @@ final class StreamLabels
     /**
      * @return list<string>|null null when the store cannot say
      */
-    private function labels(?string $connection): ?array
+    private function labels(?string $connection, string $key): ?array
     {
-        $name = $connection ?? 'logs';
-        $settings = $this->config->get("telemetry-ui.connections.{$name}");
-        $key = 'telemetry-ui:stream-labels:'.$name.':'.hash('xxh128', (string) json_encode([
-            is_array($settings) ? ($settings['url'] ?? null) : null,
-            is_array($settings) ? ($settings['tenant'] ?? null) : null,
-        ]));
-
         $store = $this->cache->store();
         $cached = $store->get($key);
 

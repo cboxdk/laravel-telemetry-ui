@@ -56,7 +56,6 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $this->app->scoped(StreamLabels::class, static fn (Application $app): StreamLabels => new StreamLabels(
             $app->make(ConnectionManager::class),
             $app->make('cache'),
-            $app->make('config'),
             (int) $app->make('config')->get('telemetry-ui.detection.ttl', 300),
         ));
 
