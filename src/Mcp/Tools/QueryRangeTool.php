@@ -16,7 +16,7 @@ final class QueryRangeTool extends TelemetryTool
 {
     protected string $name = 'query_range';
 
-    protected string $description = 'Run a range PromQL query; returns each series summarized (last/min/max).';
+    protected string $description = 'Run a range PromQL query; returns each series summarized (last/min/max). Refused while a scope lock is active.';
 
     public function __construct(private readonly ConnectionManager $connections) {}
 
@@ -33,6 +33,10 @@ final class QueryRangeTool extends TelemetryTool
 
     public function handle(Request $request): Response
     {
+        if (($refused = $this->refuseRawQueryUnderLock('PromQL')) !== null) {
+            return $refused;
+        }
+
         [$start, $end] = $this->window($request);
 
         try {

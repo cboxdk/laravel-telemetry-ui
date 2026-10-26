@@ -91,10 +91,13 @@ query them with `search_traces` and `{ span.telemetry.directive = "<id>" }`.
 
 ## Limits to respect
 
-- Every tool runs inside the viewer's scope lock (`telemetry-ui.scope.lock`
+- The trace tools run inside the viewer's scope lock (`telemetry-ui.scope.lock`
   config or `TelemetryUi::restrictScopeUsing()`). A trace from a service
   outside the lock answers "not found"; that is the lock, not a missing
   trace. Do not try to query around it.
+- Under a scope lock, `query_metrics`, `query_range` and `query_logs` are
+  refused: raw PromQL and LogQL cannot be confined to the lock. Use the
+  trace tools and `list_services` instead.
 - `trace_markdown` includes stack traces and source only when the viewer may
   open the exceptions page.
 - The tools only read, except `monitor`. Never claim to have changed

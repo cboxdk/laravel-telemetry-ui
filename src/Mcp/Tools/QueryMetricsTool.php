@@ -16,7 +16,7 @@ final class QueryMetricsTool extends TelemetryTool
 {
     protected string $name = 'query_metrics';
 
-    protected string $description = 'Run an instant PromQL query and return the resulting samples.';
+    protected string $description = 'Run an instant PromQL query and return the resulting samples. Refused while a scope lock is active.';
 
     public function __construct(private readonly ConnectionManager $connections) {}
 
@@ -32,6 +32,10 @@ final class QueryMetricsTool extends TelemetryTool
 
     public function handle(Request $request): Response
     {
+        if (($refused = $this->refuseRawQueryUnderLock('PromQL')) !== null) {
+            return $refused;
+        }
+
         try {
             $rows = [];
             foreach ($this->connections->metrics()->query(MetricQuery::raw((string) $request->get('query', ''))) as $sample) {

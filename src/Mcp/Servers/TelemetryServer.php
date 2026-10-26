@@ -68,7 +68,13 @@ class TelemetryServer extends Server
 
         Responses omit empty keys; lists are paged (pass next_offset back as
         offset; list_traces pages by next_cursor → cursor), and verbose=true
-        adds full SQL and span ids. Everything stays inside your scope lock.
+        adds full SQL and span ids.
+
+        When a scope lock is active, list_services offers only the locked
+        services and environments, the trace tools search inside them and
+        answer "not found" for a trace outside them, and query_metrics,
+        query_range and query_logs are refused: raw PromQL and LogQL cannot
+        be confined to the lock. Use the trace tools instead.
 
         Everything is read-only except `monitor`, which is only offered when
         write tools are switched on.

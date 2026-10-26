@@ -16,7 +16,7 @@ final class QueryLogsTool extends TelemetryTool
 {
     protected string $name = 'query_logs';
 
-    protected string $description = 'Query logs with LogQL; returns matching log lines.';
+    protected string $description = 'Query logs with LogQL; returns matching log lines. Refused while a scope lock is active.';
 
     public function __construct(private readonly ConnectionManager $connections) {}
 
@@ -34,6 +34,10 @@ final class QueryLogsTool extends TelemetryTool
 
     public function handle(Request $request): Response
     {
+        if (($refused = $this->refuseRawQueryUnderLock('LogQL')) !== null) {
+            return $refused;
+        }
+
         [$start, $end] = $this->window($request);
         $limit = $this->limit($request);
 
