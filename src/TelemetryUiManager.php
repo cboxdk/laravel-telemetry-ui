@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi;
 
+use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Dimensions\Derivation;
 use Cbox\TelemetryUi\Dimensions\Dimension;
 use Cbox\TelemetryUi\Dimensions\Dimensions;
@@ -205,6 +206,13 @@ final class TelemetryUiManager
      */
     private bool $connectionResolverNeedsViewer = true;
 
+    /**
+     * Whether the connection resolver is the only source of connections: a
+     * connection it omits, or a request it is not consulted for, is refused
+     * instead of read from static config.
+     */
+    private bool $connectionResolverIsStrict = false;
+
     public function __construct(private readonly Config $config) {}
 
     /**
@@ -244,12 +252,20 @@ final class TelemetryUiManager
      * desktop client bound to one connection profile); the resolver is then
      * consulted always and receives null as its viewer.
      *
+     * Pass `strict: true` when the static config must never be read on a
+     * viewer's behalf — a host where every connection belongs to a tenant. A
+     * connection the resolver omits, and every connection for a request it is
+     * not consulted for (no signed-in viewer), is then refused: reads fail with
+     * a {@see SourceException} that panels and tools render as their error
+     * state. The default stays non-strict, falling back as described above.
+     *
      * @param  Closure(mixed): array<string, array<string, mixed>>  $resolver
      */
-    public function resolveConnectionsUsing(Closure $resolver, bool $needsViewer = true): self
+    public function resolveConnectionsUsing(Closure $resolver, bool $needsViewer = true, bool $strict = false): self
     {
         $this->connectionResolver = $resolver;
         $this->connectionResolverNeedsViewer = $needsViewer;
+        $this->connectionResolverIsStrict = $strict;
 
         return $this;
     }
@@ -269,6 +285,15 @@ final class TelemetryUiManager
     public function connectionResolverNeedsViewer(): bool
     {
         return $this->connectionResolverNeedsViewer;
+    }
+
+    /**
+     * Whether {@see resolveConnectionsUsing()} was registered strict: what it
+     * omits is refused, not read from static config.
+     */
+    public function connectionResolverIsStrict(): bool
+    {
+        return $this->connectionResolverIsStrict;
     }
 
     /**

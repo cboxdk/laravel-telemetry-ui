@@ -18,6 +18,7 @@ use Cbox\TelemetryUi\Contracts\LogsSource;
 use Cbox\TelemetryUi\Contracts\MetricsSource;
 use Cbox\TelemetryUi\Contracts\ProbesConnection;
 use Cbox\TelemetryUi\Contracts\TracesSource;
+use Cbox\TelemetryUi\TelemetryUiManager;
 use Closure;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Support\Facades\Auth;
@@ -51,7 +52,43 @@ class ConnectionManager
      */
     private array $resolved = [];
 
+    /**
+     * Connection maps pushed by {@see using()}, innermost last.
+     *
+     * @var list<array<string, mixed>>
+     */
+    private array $overrides = [];
+
     public function __construct(private readonly Config $config) {}
+
+    /**
+     * Run $callback with these connections in force, whoever is (or is not)
+     * signed in — for a scheduled command or a queued job that reads one
+     * tenant's backends with no viewer to resolve them from.
+     *
+     * The map has the same shape a {@see TelemetryUiManager::resolveConnectionsUsing()}
+     * resolver returns, and it is treated as that resolver's answer for the
+     * duration of the callback: the resolver itself is not consulted, a
+     * connection the map omits falls back to static config, and under a strict
+     * resolver it fails closed instead. Calls nest; the previous map is back in
+     * force when the callback returns or throws.
+     *
+     * @template TResult
+     *
+     * @param  array<string, array<string, mixed>>  $connections
+     * @param  Closure(): TResult  $callback
+     * @return TResult
+     */
+    public function using(array $connections, Closure $callback): mixed
+    {
+        $this->overrides[] = $connections;
+
+        try {
+            return $callback();
+        } finally {
+            array_pop($this->overrides);
+        }
+    }
 
     /**
      * A stable, opaque id for the connections in force right now: the driver,
@@ -68,7 +105,9 @@ class ConnectionManager
     public function fingerprint(): string
     {
         $names = array_keys((array) $this->config->get('telemetry-ui.connections', []));
-        $names = [...$names, ...array_keys(app(ResolvedConnections::class)->all())];
+        $override = $this->override();
+
+        $names = [...$names, ...array_keys($override ?? app(ResolvedConnections::class)->all())];
         $names = array_values(array_unique(array_map(strval(...), $names)));
         sort($names);
 
@@ -89,6 +128,18 @@ class ConnectionManager
     public function cacheKey(string $key): string
     {
         return 'telemetry-ui:'.$this->fingerprint().':'.$key;
+    }
+
+    /**
+     * Whether a connection the resolver does not hand out is refused, rather
+     * than read from static config: a strict resolver is registered (see
+     * {@see TelemetryUiManager::resolveConnectionsUsing()}).
+     */
+    public function failsClosed(): bool
+    {
+        $manager = app(TelemetryUiManager::class);
+
+        return $manager->connectionResolver() !== null && $manager->connectionResolverIsStrict();
     }
 
     public function metrics(?string $name = null): MetricsSource
@@ -292,6 +343,13 @@ class ConnectionManager
     {
         $config = $this->connectionConfig($name);
 
+        if ($config === null && $this->failsClosed()) {
+            // A SourceException, not a config error: panels and tools already
+            // render one as their error state, so a refused viewer sees "no
+            // access" in place, never a 500 and never the static backend.
+            throw SourceException::because("No telemetry connection [{$name}] is available to this viewer.", BackendStatus::Unauthorized);
+        }
+
         if ($config === null) {
             throw new InvalidArgumentException("Telemetry UI connection [{$name}] is not configured.");
         }
@@ -308,24 +366,50 @@ class ConnectionManager
     }
 
     /**
-     * The effective config for a connection: the per-viewer resolver's value
-     * (multi-tenant hosting) if it supplies one, otherwise the static config.
+     * The effective config for a connection: a {@see using()} override, else
+     * the per-viewer resolver's value (multi-tenant hosting), else the static
+     * config — unless the resolver is strict, in which case a connection it
+     * does not hand out is null (refused), never the static one.
      *
      * @return array<string, mixed>|null
      */
     private function connectionConfig(string $name): ?array
     {
-        // The per-viewer resolver (multi-tenant hosting) is memoised for the
-        // request, so a page of cards resolves the tenant once, not per backend.
-        $resolved = app(ResolvedConnections::class)->config($name);
+        $override = $this->override();
 
-        if ($resolved !== null) {
-            return $resolved;
+        if ($override !== null) {
+            $config = $override[$name] ?? null;
+
+            if (is_array($config)) {
+                return $this->stringKeyed($config);
+            }
+        } else {
+            // The per-viewer resolver (multi-tenant hosting) is memoised for the
+            // request, so a page of cards resolves the tenant once, not per backend.
+            $resolved = app(ResolvedConnections::class)->config($name);
+
+            if ($resolved !== null) {
+                return $resolved;
+            }
+        }
+
+        if ($this->failsClosed()) {
+            return null;
         }
 
         $config = $this->config->get("telemetry-ui.connections.{$name}");
 
         return is_array($config) ? $this->stringKeyed($config) : null;
+    }
+
+    /**
+     * The innermost {@see using()} map, or null outside one.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function override(): ?array
+    {
+        return $this->overrides === [] ? null : $this->overrides[count($this->overrides) - 1];
     }
 
     /**

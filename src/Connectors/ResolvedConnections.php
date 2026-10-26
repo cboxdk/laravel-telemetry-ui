@@ -26,7 +26,8 @@ class ResolvedConnections
     /**
      * The resolved config for a named connection, or null when there is no
      * resolver, no authenticated viewer, or the resolver omits it (the caller
-     * then falls back to static config).
+     * then falls back to static config — or, under a strict resolver, refuses
+     * the connection).
      *
      * @return array<string, mixed>|null
      */

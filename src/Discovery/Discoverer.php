@@ -387,7 +387,8 @@ final readonly class Discoverer
 
     /**
      * The map is one tenant's infrastructure, so it is cached under the
-     * connections in force: one tenant's discovery never answers for another.
+     * connections in force — a scheduled discovery for one tenant (see
+     * {@see ConnectionManager::using()}) never answers for another.
      */
     private function mapKey(): string
     {

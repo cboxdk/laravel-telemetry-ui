@@ -33,9 +33,9 @@ final class StreamLabels
 
     public function indexes(string $label, ?string $connection = null): bool
     {
-        // Memoised per connection AND the connections in force, so a scope
-        // that sees more than one set of connections never carries one
-        // tenant's answer into the next.
+        // Memoised per connection AND the connections in force: a command that
+        // walks tenants one {@see ConnectionManager::using()} block at a time
+        // runs in one scope, and must not carry one tenant's answer into the next.
         $name = $connection ?? 'logs';
         $key = $this->connections->cacheKey('stream-labels:'.$name);
         $labels = array_key_exists($key, $this->known)
