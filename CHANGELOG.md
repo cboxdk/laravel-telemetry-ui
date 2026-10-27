@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Route parameters in the mount path.** `telemetry-ui.path` may name route
+  parameters, e.g. `projects/{project}/telemetry`, so a host that keeps its
+  tenant in the URL gets one dashboard per tenant and two tabs never share
+  state. The client boots at the mount it was opened at, links stay inside it,
+  and the dashboard's own controllers never see the host's parameters.
 - **Strict connection resolvers.** `TelemetryUi::resolveConnectionsUsing($resolver, strict: true)`
   makes the resolver the only source of connections: a connection it omits,
   and every connection for a request without a signed-in viewer, is refused

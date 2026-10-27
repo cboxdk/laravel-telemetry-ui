@@ -13,10 +13,12 @@ use Cbox\TelemetryUi\Explore\ErrorExplorer;
 use Cbox\TelemetryUi\Explore\LogExplorer;
 use Cbox\TelemetryUi\Explore\SpanExplorer;
 use Cbox\TelemetryUi\Http\Middleware\Authorize;
+use Cbox\TelemetryUi\Http\Middleware\BindsMountParameters;
 use Cbox\TelemetryUi\Http\Middleware\RemembersViewState;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Fleet;
+use Cbox\TelemetryUi\Support\MountPath;
 use Cbox\TelemetryUi\Support\ResolvedConnectionOptions;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLock;
@@ -219,7 +221,9 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             return;
         }
 
-        $path = trim((string) config('telemetry-ui.path', 'telemetry-ui'), '/');
+        // A mount path with parameters (`projects/{project}/telemetry`) is ignored under
+        // every value of them.
+        $path = MountPath::pattern();
 
         if ($path === '') {
             return; // mounted at the site root: ignoring it would ignore the whole app
@@ -266,7 +270,7 @@ final class TelemetryUiServiceProvider extends ServiceProvider
 
     private function registerRoutes(): void
     {
-        $middleware = [...(array) config('telemetry-ui.middleware', ['web']), Authorize::class, RemembersViewState::class];
+        $middleware = [...(array) config('telemetry-ui.middleware', ['web']), BindsMountParameters::class, Authorize::class, RemembersViewState::class];
 
         $throttle = config('telemetry-ui.throttle');
         if (is_string($throttle) && $throttle !== '') {

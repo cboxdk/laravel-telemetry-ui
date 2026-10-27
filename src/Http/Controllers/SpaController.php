@@ -7,6 +7,7 @@ namespace Cbox\TelemetryUi\Http\Controllers;
 use Cbox\TelemetryUi\Events\DashboardViewed;
 use Cbox\TelemetryUi\Http\Api\Brand;
 use Cbox\TelemetryUi\Support\DisplayTime;
+use Cbox\TelemetryUi\Support\MountPath;
 use Cbox\TelemetryUi\Support\ViewState;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -22,8 +23,9 @@ final class SpaController
 {
     public function __invoke(Request $request): Response
     {
-        $base = '/'.trim((string) config('telemetry-ui.path', 'telemetry-ui'), '/');
-        $base = $base === '/' ? '' : $base;
+        // Parameters in the mount path (`projects/{project}/telemetry`) filled in from
+        // this request, so the client stays inside the mount it was opened at.
+        $base = MountPath::base($request);
 
         $manifest = self::manifest();
         $entry = $manifest['index.html'] ?? $manifest['src/main.tsx'] ?? null;

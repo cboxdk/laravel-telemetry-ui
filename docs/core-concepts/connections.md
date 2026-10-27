@@ -189,6 +189,25 @@ not called): a connection it omits falls back to static config, or is refused
 under a strict resolver. Calls nest, and the previous connections are back
 when the callback returns or throws.
 
+**The tenant in the URL.** A resolver that reads the tenant from the session
+shows one tenant per browser: open a second tenant in another tab and the
+first tab follows it. Put the tenant in the mount path instead, and every tab
+is its own dashboard:
+
+```php
+// config/telemetry-ui.php
+'path' => 'projects/{project}/telemetry',
+'middleware' => ['web', 'auth', \App\Http\Middleware\ResolveProject::class],
+```
+
+The parameters are the host's. A host middleware listed in
+`telemetry-ui.middleware` still sees them on the route, so it can authorize the
+tenant and keep it for the resolver. Then the dashboard takes them off the
+route before its own controllers run (Laravel passes route parameters by
+position), keeps them in `originalParameters()`, and makes them URL defaults,
+so the client boots at `/projects/prj_1/telemetry` and every link it builds,
+in the page and in MCP or notification output, stays inside that mount.
+
 ## Verifying a connection
 
 Before trusting the dashboard, confirm the config actually reaches every
