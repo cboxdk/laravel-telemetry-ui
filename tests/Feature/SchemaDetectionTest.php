@@ -256,7 +256,7 @@ it('fails open without caching when the metrics backend is down', function (): v
     $detector = app(SchemaDetector::class);
 
     expect($detector->hasMetricsMatching('statamic_.*'))->toBeTrue()
-        ->and(cache()->get('telemetry-ui:detect:metrics:statamic_.*'))->toBeNull();
+        ->and(cache()->get(app(ConnectionManager::class)->cacheKey('detect:metrics:statamic_.*')))->toBeNull();
 });
 
 it('fails open for every pattern when the one batched call fails', function (): void {
@@ -265,7 +265,7 @@ it('fails open for every pattern when the one batched call fails', function (): 
     $detected = app(SchemaDetector::class)->detect(['statamic_.*', 'horizon_.*', 'reverb_.*']);
 
     expect($detected)->toBe(['statamic_.*' => true, 'horizon_.*' => true, 'reverb_.*' => true])
-        ->and(cache()->get('telemetry-ui:detect:metrics:horizon_.*'))->toBeNull();
+        ->and(cache()->get(app(ConnectionManager::class)->cacheKey('detect:metrics:horizon_.*')))->toBeNull();
 
     // And the pages stay visible, which is the whole point of failing open.
     expect(array_keys(TelemetryUi::visiblePages(app(SchemaDetector::class))))
@@ -280,8 +280,8 @@ it('fails open on a pattern that is not a usable regex', function (): void {
     $detected = app(SchemaDetector::class)->detect(['statamic_(', 'horizon_.*']);
 
     expect($detected)->toBe(['statamic_(' => true, 'horizon_.*' => true])
-        ->and(cache()->get('telemetry-ui:detect:metrics:statamic_('))->toBeNull()
-        ->and(cache()->get('telemetry-ui:detect:metrics:horizon_.*'))->toBeTrue();
+        ->and(cache()->get(app(ConnectionManager::class)->cacheKey('detect:metrics:statamic_(')))->toBeNull()
+        ->and(cache()->get(app(ConnectionManager::class)->cacheKey('detect:metrics:horizon_.*')))->toBeTrue();
 });
 
 it('applies detection to third-party pages', function (): void {

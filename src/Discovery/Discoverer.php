@@ -32,7 +32,7 @@ use Illuminate\Contracts\Config\Repository as Config;
  */
 final readonly class Discoverer
 {
-    private const CACHE_KEY = 'telemetry-ui:discovery:map';
+    private const CACHE_KEY = 'discovery:map';
 
     public function __construct(
         private ConnectionManager $connections,
@@ -46,7 +46,7 @@ final readonly class Discoverer
      */
     public function map(): InfrastructureMap
     {
-        $cached = $this->cache->store()->get(self::CACHE_KEY);
+        $cached = $this->cache->store()->get($this->mapKey());
 
         if (is_array($cached)) {
             return InfrastructureMap::fromArray($cached);
@@ -72,7 +72,7 @@ final readonly class Discoverer
     public function targetsFor(array $names): array
     {
         $store = $this->cache->store();
-        $cached = $store->get(self::CACHE_KEY);
+        $cached = $store->get($this->mapKey());
 
         if (is_array($cached)) {
             $map = InfrastructureMap::fromArray($cached);
@@ -84,7 +84,7 @@ final readonly class Discoverer
         $missing = [];
 
         foreach ($names as $name) {
-            $hit = $store->get(self::nameKey($name));
+            $hit = $store->get($this->nameKey($name));
 
             if (! is_array($hit)) {
                 $missing[] = $name;
@@ -110,7 +110,7 @@ final readonly class Discoverer
                 $found,
                 static fn (DiscoveredTarget $t): bool => InfrastructureMap::normalise($t->name) === InfrastructureMap::normalise($name),
             ));
-            $store->put(self::nameKey($name), array_map(static fn (DiscoveredTarget $t): array => $t->toArray(), $mine), $this->ttl());
+            $store->put($this->nameKey($name), array_map(static fn (DiscoveredTarget $t): array => $t->toArray(), $mine), $this->ttl());
             $targets = [...$targets, ...$mine];
         }
 
@@ -161,14 +161,14 @@ final readonly class Discoverer
             discoveredAt: time(),
         );
 
-        $this->cache->store()->put(self::CACHE_KEY, $map->toArray(), $this->ttl());
+        $this->cache->store()->put($this->mapKey(), $map->toArray(), $this->ttl());
 
         return $map;
     }
 
     public function forget(): void
     {
-        $this->cache->store()->forget(self::CACHE_KEY);
+        $this->cache->store()->forget($this->mapKey());
     }
 
     /**
@@ -385,9 +385,19 @@ final readonly class Discoverer
         return $targets;
     }
 
-    private static function nameKey(string $name): string
+    /**
+     * The map is one tenant's infrastructure, so it is cached under the
+     * connections in force — a scheduled discovery for one tenant (see
+     * {@see ConnectionManager::using()}) never answers for another.
+     */
+    private function mapKey(): string
     {
-        return self::CACHE_KEY.':'.hash('xxh128', InfrastructureMap::normalise($name));
+        return $this->connections->cacheKey(self::CACHE_KEY);
+    }
+
+    private function nameKey(string $name): string
+    {
+        return $this->mapKey().':'.hash('xxh128', InfrastructureMap::normalise($name));
     }
 
     private function ttl(): int

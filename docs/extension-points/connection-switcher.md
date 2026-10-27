@@ -39,6 +39,31 @@ SPA gets the list from `GET /api/v2/bootstrap` (`connections`,
 `connection()` sees no foreign chrome, as with
 [`navLink()`](navigation.md).
 
+## Per request
+
+`connection()` and `currentConnection()` write to a manager that lives as long
+as the worker. Called from a service provider's `boot()`, they run once per
+process; under Octane or a queue worker, entries registered while handling one
+request are still there for the next. When the list depends on who is looking,
+register resolvers instead. They receive the signed-in user (or null), run
+once per request, and replace the registered entries for that request:
+
+```php
+use Cbox\TelemetryUi\Support\ConnectionOption;
+
+TelemetryUi::connectionsUsing(
+    fn ($user) => $user?->profiles->map(fn ($profile) => new ConnectionOption(
+        value: (string) $profile->id,
+        label: $profile->name,
+        url: route('profiles.activate', $profile),
+    )) ?? [],
+    current: fn ($user) => $user?->active_profile_id !== null ? (string) $user->active_profile_id : null,
+);
+```
+
+`TelemetryUi::clearConnections()` forgets every entry, the selection and both
+resolvers, for a host that rebuilds the list itself.
+
 ## Marking the current one
 
 `currentConnection()` is what the control shows as selected. If you don't call

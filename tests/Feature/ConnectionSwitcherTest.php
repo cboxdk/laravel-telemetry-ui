@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Cbox\TelemetryUi\Facades\TelemetryUi;
+use Cbox\TelemetryUi\Support\ConnectionOption;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
@@ -93,4 +94,46 @@ it('keeps the registration order the host chose', function (): void {
 
     expect(array_map(fn ($connection): string => $connection->value, TelemetryUi::connections()))
         ->toBe(['c', 'a', 'b']);
+});
+
+it('builds the switcher per request from connectionsUsing()', function (): void {
+    $tenant = 'a';
+    $calls = 0;
+
+    TelemetryUi::connectionsUsing(
+        function ($user) use (&$tenant, &$calls): array {
+            $calls++;
+
+            return [new ConnectionOption("{$tenant}-prod", "Production {$tenant}", "/switch/{$tenant}-prod")];
+        },
+        current: function ($user) use (&$tenant): string {
+            return "{$tenant}-prod";
+        },
+    );
+
+    $this->getJson(apiUrl('bootstrap'))
+        ->assertJsonPath('connections', [['value' => 'a-prod', 'label' => 'Production a', 'url' => '/switch/a-prod']])
+        ->assertJsonPath('currentConnection', 'a-prod');
+
+    // Resolved once for the request, however often it is read.
+    expect($calls)->toBe(1);
+
+    // The next request, for another viewer, sees only its own entries.
+    app()->forgetScopedInstances();
+    $tenant = 'b';
+
+    $this->getJson(apiUrl('bootstrap'))
+        ->assertJsonPath('connections', [['value' => 'b-prod', 'label' => 'Production b', 'url' => '/switch/b-prod']])
+        ->assertJsonPath('currentConnection', 'b-prod');
+});
+
+it('forgets every entry and the selection on clearConnections()', function (): void {
+    TelemetryUi::connection('prod', 'Production', '/desktop/connect/prod');
+    TelemetryUi::currentConnection('prod');
+    TelemetryUi::connectionsUsing(fn ($user): array => [new ConnectionOption('x', 'X', '/x')]);
+
+    TelemetryUi::clearConnections();
+
+    expect(TelemetryUi::connections())->toBe([])
+        ->and(TelemetryUi::selectedConnection())->toBe('');
 });

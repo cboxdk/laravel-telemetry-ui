@@ -15,8 +15,10 @@ renders, made available for incident RCA in a chat:
 
 > "Why did checkout error at 14:05? Look at the traces and the host metrics."
 
-Everything goes through the same **read-only** drivers the dashboard uses,
-inside the viewer's scope lock. The exception is `monitor`. It places a
+Everything goes through the same **read-only** drivers the dashboard uses.
+Under a scope lock the trace tools stay inside it and the raw PromQL and
+LogQL tools are refused (see [Security](#security)). The exception to
+read-only is `monitor`. It places a
 monitor, so it is off until you set `TELEMETRY_UI_MCP_WRITE=true` (see
 [Security](#security)).
 
@@ -233,11 +235,17 @@ can run `php artisan` in your app can already read the same backends. The
 HTTP transport is off by default. When on, it sits behind Passport-issued
 tokens (`auth:api`).
 
-**Scope lock.** Every trace tool honours the viewer's scope lock, as the
-dashboard does:
+**Scope lock.** What each tool does while a scope lock is active:
+- `list_services` lists only the locked services and environments.
 - `list_traces`, `search_traces` and a label lookup in `compare_traces`
   search inside the locked services and environments, whatever `service`
-  or query is passed.
+  or query is passed. A raw TraceQL query gets the lock in every spanset,
+  so `{ a } || { b }` cannot reach past it; one that cannot be read with
+  certainty matches nothing.
+- `query_metrics`, `query_range` and `query_logs` are refused with an
+  error. A raw PromQL or LogQL query names its own selectors, and it cannot
+  be confined to the lock with certainty, so it is not run at all. Use the
+  trace tools instead, or run without a lock.
 - `trace_summary`, `trace_markdown`, `trace_context` and `compare_traces`
   answer "not found" for a trace with a service outside the lock.
 - `trace_markdown` includes stacktraces and source only when the viewer may

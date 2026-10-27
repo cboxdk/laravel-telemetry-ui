@@ -78,7 +78,9 @@ final readonly class Annotations
         }
 
         // v2: cluster fields (count/end/hosts) joined the row shape.
-        $key = 'telemetry-ui:annotations:v2:'.md5($selector->key());
+        // Namespaced to the connections in force, so one tenant's markers are
+        // never served to another reading the same selector.
+        $key = $this->connections->cacheKey('annotations:v2:'.md5($selector->key()));
 
         // Cache primitive rows, not Annotation objects — file/database/redis
         // cache stores serialize, and cross-request unserialize of a package

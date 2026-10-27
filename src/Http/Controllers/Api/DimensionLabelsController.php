@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Http\Controllers\Api;
 
+use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Http\Api\ApiError;
 use Cbox\TelemetryUi\Http\Api\Json;
 use Cbox\TelemetryUi\TelemetryUiManager;
@@ -18,13 +19,14 @@ use Illuminate\Http\Request;
  * `{"labels": {"17": "Jane Doe"}}`. The SPA batches every id on screen into
  * one call per dimension. Names are cached per value; values the resolver
  * doesn't know are cached as misses too, so a page of unknown ids doesn't hit
- * the host's database on every render.
+ * the host's database on every render. The cache is namespaced to the
+ * viewer's connections, so tenants never share a name.
  */
 final class DimensionLabelsController
 {
     private const MAX_VALUES = 200;
 
-    public function __invoke(Request $request, TelemetryUiManager $manager, Cache $cache, Config $config): JsonResponse
+    public function __invoke(Request $request, TelemetryUiManager $manager, ConnectionManager $connections, Cache $cache, Config $config): JsonResponse
     {
         $key = $request->query('key');
         $values = $request->query('values', []);
@@ -53,7 +55,10 @@ final class DimensionLabelsController
         }
 
         $ttl = (int) $config->get('telemetry-ui.dimensions.label_ttl', 300);
-        $cacheKey = static fn (string $value): string => 'telemetry-ui:label:'.sha1($key."\0".$value);
+        // Under the connections in force: a resolver that looks names up in
+        // the tenant's own records answers differently per tenant.
+        $namespace = $connections->cacheKey('label:');
+        $cacheKey = static fn (string $value): string => $namespace.sha1($key."\0".$value);
 
         $labels = [];
         $missing = [];

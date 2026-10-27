@@ -105,7 +105,7 @@ final readonly class SchemaDetector
 
     private function key(string $pattern, string $scope, ?string $connection): string
     {
-        return 'telemetry-ui:detect:'.($connection ?? 'metrics').':'.($scope !== '' ? $scope.':' : '').$pattern;
+        return $this->connections->cacheKey('detect:'.($connection ?? 'metrics').':'.($scope !== '' ? $scope.':' : '').$pattern);
     }
 
     /**

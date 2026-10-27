@@ -189,11 +189,16 @@ readonly class ApiClient
     {
         ksort($query);
 
+        $headers = $this->headers;
+        ksort($headers);
+
+        // Every header, not only Authorization: a host may tell tenants apart
+        // by a header of its own, and two tenants must never share an answer.
         return 'telemetry-ui:http:'.hash('xxh128', implode('|', [
             $url,
             json_encode($query),
             $this->tenant ?? '',
-            $this->headers['Authorization'] ?? '',
+            hash('sha256', (string) json_encode($headers)),
         ]));
     }
 

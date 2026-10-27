@@ -26,7 +26,8 @@ class ResolvedConnections
     /**
      * The resolved config for a named connection, or null when there is no
      * resolver, no authenticated viewer, or the resolver omits it (the caller
-     * then falls back to static config).
+     * then falls back to static config — or, under a strict resolver, refuses
+     * the connection).
      *
      * @return array<string, mixed>|null
      */
@@ -35,6 +36,16 @@ class ResolvedConnections
         $config = $this->map()[$name] ?? null;
 
         return is_array($config) ? $config : null;
+    }
+
+    /**
+     * Every connection the resolver handed out for this viewer, by name.
+     *
+     * @return array<string, mixed>
+     */
+    public function all(): array
+    {
+        return $this->map();
     }
 
     /**

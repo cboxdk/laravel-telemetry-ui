@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryUi\Mcp\Tools;
 
+use Cbox\TelemetryUi\Support\ScopeLock;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\Gate;
 use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 
 /**
@@ -59,6 +61,28 @@ abstract class TelemetryTool extends Tool
     protected function local(): bool
     {
         return app()->runningInConsole();
+    }
+
+    /**
+     * The refusal for a raw PromQL or LogQL query while a scope lock is
+     * active, or null when there is no lock.
+     *
+     * A raw query names its own selectors, and nothing here rewrites PromQL or
+     * LogQL with certainty (functions, binary operators, subqueries and
+     * `on()`/`ignoring()` all reach series a naive matcher injection would
+     * miss). So under a lock the query is not run at all, rather than run
+     * "mostly scoped". The scoped tools still answer.
+     */
+    protected function refuseRawQueryUnderLock(string $language): ?Response
+    {
+        if (! app(ScopeLock::class)->restricted()) {
+            return null;
+        }
+
+        return Response::error(
+            "Raw {$language} is not available while a scope lock is active: the query cannot be confined to the services and environments you may see. "
+            .'Use list_services, list_traces, search_traces, trace_summary or trace_context, which stay inside the lock.',
+        );
     }
 
     /** The HTTP rule for exception detail (stacktraces, source), applied to MCP. */

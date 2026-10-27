@@ -11,6 +11,7 @@ use Cbox\TelemetryUi\Queries\Ir\MatchOp;
 use Cbox\TelemetryUi\Queries\Ir\MetricQuery;
 use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
+use Cbox\TelemetryUi\Queries\TraceqlSpansets;
 use Cbox\TelemetryUi\Support\Fleet;
 use Cbox\TelemetryUi\Support\ScopeLabels;
 use Cbox\TelemetryUi\Support\ScopeLock;
@@ -133,9 +134,12 @@ trait ScopesQueries
     /**
      * Force the current scope into an already-built, hand-supplied TraceQL
      * query — the traces page runs `?q=` verbatim, so a locked viewer's raw or
-     * deep-linked query must still be constrained to their services. Injects the
-     * scope into the primary `{ … }` spanset; a no-op when no lock is active
-     * (a plain selection stays a convenience filter, not a boundary).
+     * deep-linked query must still be constrained to their services. The scope
+     * goes into EVERY `{ … }` spanset, so `{ a } || { b }` cannot reach past it
+     * through the second one; a query that cannot be read with certainty (see
+     * {@see TraceqlSpansets}) is replaced by one that matches nothing. A no-op
+     * when no lock is active (a plain selection stays a convenience filter,
+     * not a boundary).
      */
     protected function enforceScope(string $traceql): string
     {
@@ -149,14 +153,8 @@ trait ScopesQueries
             return $traceql;
         }
 
-        $scoped = preg_replace_callback(
-            '/\{\s*(.*?)\s*\}/s',
-            static fn (array $m): string => $m[1] === '' ? '{ '.$scope.' }' : '{ '.$scope.' && ('.$m[1].') }',
-            $traceql,
-            limit: 1,
-        );
-
-        return $scoped ?? $traceql;
+        return TraceqlSpansets::constrain($traceql, $scope)
+            ?? '{ '.ScopeLabels::traces('service').' = "'.self::NO_SCOPE.'" }';
     }
 
     /**

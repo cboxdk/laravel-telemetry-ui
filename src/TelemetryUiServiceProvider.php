@@ -13,10 +13,13 @@ use Cbox\TelemetryUi\Explore\ErrorExplorer;
 use Cbox\TelemetryUi\Explore\LogExplorer;
 use Cbox\TelemetryUi\Explore\SpanExplorer;
 use Cbox\TelemetryUi\Http\Middleware\Authorize;
+use Cbox\TelemetryUi\Http\Middleware\BindsMountParameters;
 use Cbox\TelemetryUi\Http\Middleware\RemembersViewState;
 use Cbox\TelemetryUi\Support\Annotations;
 use Cbox\TelemetryUi\Support\DisplayTime;
 use Cbox\TelemetryUi\Support\Fleet;
+use Cbox\TelemetryUi\Support\MountPath;
+use Cbox\TelemetryUi\Support\ResolvedConnectionOptions;
 use Cbox\TelemetryUi\Support\SchemaDetector;
 use Cbox\TelemetryUi\Support\ScopeLock;
 use Cbox\TelemetryUi\Support\StreamLabels;
@@ -56,7 +59,6 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $this->app->scoped(StreamLabels::class, static fn (Application $app): StreamLabels => new StreamLabels(
             $app->make(ConnectionManager::class),
             $app->make('cache'),
-            $app->make('config'),
             (int) $app->make('config')->get('telemetry-ui.detection.ttl', 300),
         ));
 
@@ -90,6 +92,9 @@ final class TelemetryUiServiceProvider extends ServiceProvider
         $this->app->scoped(ResolvedConnections::class, static fn (Application $app): ResolvedConnections => new ResolvedConnections(
             $app->make(TelemetryUiManager::class),
         ));
+
+        // And for the per-request connection switcher's memo.
+        $this->app->scoped(ResolvedConnectionOptions::class, static fn (): ResolvedConnectionOptions => new ResolvedConnectionOptions);
 
         // The reader's remembered window/scope/refresh. Request-scoped: it is
         // resolved from THIS request's query string and cookie, so it must
@@ -216,7 +221,9 @@ final class TelemetryUiServiceProvider extends ServiceProvider
             return;
         }
 
-        $path = trim((string) config('telemetry-ui.path', 'telemetry-ui'), '/');
+        // A mount path with parameters (`projects/{project}/telemetry`) is ignored under
+        // every value of them.
+        $path = MountPath::pattern();
 
         if ($path === '') {
             return; // mounted at the site root: ignoring it would ignore the whole app
@@ -263,7 +270,7 @@ final class TelemetryUiServiceProvider extends ServiceProvider
 
     private function registerRoutes(): void
     {
-        $middleware = [...(array) config('telemetry-ui.middleware', ['web']), Authorize::class, RemembersViewState::class];
+        $middleware = [...(array) config('telemetry-ui.middleware', ['web']), BindsMountParameters::class, Authorize::class, RemembersViewState::class];
 
         $throttle = config('telemetry-ui.throttle');
         if (is_string($throttle) && $throttle !== '') {
